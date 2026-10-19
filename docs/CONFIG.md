@@ -1882,8 +1882,9 @@ UseOffchainRegistry = false # Default
 UseOffchainRegistry gates the offchain capabilities registry cutover. When false (default),
 capability config is sourced from the on-chain registry and the offchain registry is used for
 cross-validation telemetry only. When true, spec_config is sourced exclusively from the offchain
-payload, and Don2Don method_configs replace on-chain entries per method (methods the payload omits
-keep their on-chain config). Binary paths, the launch allowlist and OCR3 config are unaffected.
+payload. Don2Don method_configs use the complete offchain map when the capability is present;
+missing DONs or capabilities retain the on-chain map. Binary paths, the launch allowlist and OCR3
+config are unaffected.
 The gate is per-node and reversible.
 
 ## AutoPprof

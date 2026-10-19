@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 	"sync"
 
@@ -284,67 +283,6 @@ func (w *launcher) loadOffchainRegistry() *capabilitiespb.OffchainCapabilitiesRe
 	return w.offchainRegistry.LoadParsed()
 }
 
-// offchainMethodConfigs is a per-pass snapshot of the offchain registry's method_configs,
-// keyed by on-chain DON name. Nil when the cutover gate is off or no payload is applied, in
-// which case every overlay call is a no-op and behavior is byte-for-byte the legacy one.
-type offchainMethodConfigs struct {
-	reg      *capabilitiespb.OffchainCapabilitiesRegistry
-	donNames map[uint32]string // on-chain DON ID -> offchain DON name
-}
-
-// newOffchainMethodConfigs builds the snapshot from the already-loaded offchain registry and
-// the DON set. DON names are resolved the same way the LocalCapabilityManager does (unnamed or
-// name-colliding DONs are left out, so they keep their on-chain method configs).
-func newOffchainMethodConfigs(reg *capabilitiespb.OffchainCapabilitiesRegistry, dons []registry.DON) *offchainMethodConfigs {
-	if reg == nil {
-		return nil
-	}
-	byName := make(map[string][]uint32, len(dons))
-	for _, don := range dons {
-		if don.Name == "" {
-			continue
-		}
-		byName[don.Name] = append(byName[don.Name], don.ID)
-	}
-	donNames := make(map[uint32]string, len(dons))
-	for name, ids := range byName {
-		if len(ids) == 1 {
-			donNames[ids[0]] = name
-		}
-	}
-	return &offchainMethodConfigs{reg: reg, donNames: donNames}
-}
-
-// overlay returns the method configs to wire for (capID, don): the on-chain map with the
-// offchain entries applied on top (offchain-wins per method). Methods the offchain payload
-// omits keep their on-chain config; a capability or DON absent offchain keeps its full
-// on-chain map. A nil snapshot returns onchain unchanged.
-func (o *offchainMethodConfigs) overlay(capID string, don registry.DON, onchain map[string]capabilities.CapabilityMethodConfig) map[string]capabilities.CapabilityMethodConfig {
-	if o == nil || o.reg == nil || onchain == nil {
-		return onchain
-	}
-	donName, ok := o.donNames[don.ID]
-	if !ok {
-		return onchain
-	}
-	offCap := o.reg.GetDons()[donName].GetCapabilities()[capID]
-	if offCap == nil {
-		return onchain
-	}
-	offMethodConfigs, err := globalconfig.MethodConfigsFromProto(offCap.GetMethodConfigs())
-	if err != nil {
-		// Rejected at ingestion (globalconfig.Validate); unreachable from an applied payload.
-		return onchain
-	}
-	if len(offMethodConfigs) == 0 {
-		return onchain
-	}
-	out := make(map[string]capabilities.CapabilityMethodConfig, len(onchain)+len(offMethodConfigs))
-	maps.Copy(out, onchain)
-	maps.Copy(out, offMethodConfigs)
-	return out
-}
-
 func (w *launcher) HealthReport() map[string]error {
 	return map[string]error{w.Name(): w.Healthy()}
 }
@@ -602,7 +540,7 @@ func donFamiliesOverlap(donA, donB []string) bool {
 // it is best effort to ensure that valid capabilities are added even if some fail
 func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON registry.DON, localRegistry *registry.RegistryMetadata, offchainMC *offchainMethodConfigs) {
 	for cid, c := range remoteDON.CapabilityConfigurations {
-		capabilityConfig, err := c.Unmarshal()
+		capabilityConfig, err := offchainMC.configuration(cid, remoteDON, c)
 		if err != nil {
 			w.lggr.Errorw("could not unmarshal capability config", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid, "error", err)
 			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultFailure)
@@ -613,7 +551,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON r
 			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultSkipped)
 			continue
 		}
-		methodConfig := offchainMC.overlay(cid, remoteDON, capabilityConfig.CapabilityMethodConfig)
+		methodConfig := capabilityConfig.CapabilityMethodConfig
 		if methodConfig == nil {
 			w.lggr.Errorw("capability method config is nil", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid)
 			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultFailure)
@@ -645,7 +583,7 @@ func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.Peer
 	}
 
 	for cid, c := range don.CapabilityConfigurations {
-		capabilityConfig, err := c.Unmarshal()
+		capabilityConfig, err := offchainMC.configuration(cid, don, c)
 		if err != nil {
 			w.lggr.Errorw("could not unmarshal capability config", "localDON", don, "capabilityID", cid, "error", err)
 			w.metrics.recordLocalCapabilityExposed(ctx, cid, resultFailure)
@@ -656,7 +594,7 @@ func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.Peer
 			w.metrics.recordLocalCapabilityExposed(ctx, cid, resultSkipped)
 			continue
 		}
-		methodConfig := offchainMC.overlay(cid, don, capabilityConfig.CapabilityMethodConfig)
+		methodConfig := capabilityConfig.CapabilityMethodConfig
 		if methodConfig == nil {
 			w.lggr.Errorw("capability method config is nil", "localDON", don, "capabilityID", cid, "error", err)
 			w.metrics.recordLocalCapabilityExposed(ctx, cid, resultFailure)
@@ -803,8 +741,7 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 	}
 	for method, config := range methodConfig {
 		if config.RemoteTriggerConfig == nil && config.RemoteExecutableConfig == nil {
-			// An offchain entry with no remote config explicitly disables this method.
-			// computeWantedShimKeys has already removed any existing shim.
+			// Invalid entries are rejected at ingestion; skip defensively.
 			continue
 		}
 		if config.RemoteTriggerConfig != nil { // trigger
@@ -935,11 +872,10 @@ func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON
 	}
 	for _, remoteDON := range remoteCapabilityDONs {
 		for cid, c := range remoteDON.CapabilityConfigurations {
-			methodConfig, ok := unmarshalWantedMethodConfig(c)
+			methodConfig, ok := unmarshalWantedMethodConfig(c, cid, remoteDON, offchainMC)
 			if !ok {
 				continue
 			}
-			methodConfig = offchainMC.overlay(cid, remoteDON, methodConfig)
 			wanted.combinedClients[shimID{capID: cid, donID: remoteDON.ID}] = struct{}{}
 			for method, cfg := range methodConfig {
 				key := shimID{capID: cid, donID: remoteDON.ID, method: method}
@@ -954,11 +890,10 @@ func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON
 	}
 	for _, myDON := range myCapabilityDONs {
 		for cid, c := range myDON.CapabilityConfigurations {
-			methodConfig, ok := unmarshalWantedMethodConfig(c)
+			methodConfig, ok := unmarshalWantedMethodConfig(c, cid, myDON, offchainMC)
 			if !ok {
 				continue
 			}
-			methodConfig = offchainMC.overlay(cid, myDON, methodConfig)
 			for method, cfg := range methodConfig {
 				key := shimID{capID: cid, donID: myDON.ID, method: method}
 				switch {
@@ -973,8 +908,8 @@ func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON
 	return wanted
 }
 
-func unmarshalWantedMethodConfig(c registry.CapabilityConfiguration) (map[string]capabilities.CapabilityMethodConfig, bool) {
-	capabilityConfig, err := c.Unmarshal()
+func unmarshalWantedMethodConfig(c registry.CapabilityConfiguration, cid string, don registry.DON, offchainMC *offchainMethodConfigs) (map[string]capabilities.CapabilityMethodConfig, bool) {
+	capabilityConfig, err := offchainMC.configuration(cid, don, c)
 	if err != nil || capabilityConfig.LocalOnly || capabilityConfig.CapabilityMethodConfig == nil {
 		return nil, false
 	}
@@ -1000,12 +935,18 @@ func (w *launcher) pruneStaleShims(ctx context.Context, wanted wantedShimKeys) {
 		if _, ok := wanted.triggerSubscribers[key]; ok {
 			continue
 		}
+		if cc := w.cachedShims.combinedClients[shimID{capID: key.capID, donID: key.donID}]; cc != nil {
+			cc.SetTriggerSubscriber(key.method, nil)
+		}
 		w.closeStaleShim(key, sub)
 		delete(w.cachedShims.triggerSubscribers, key)
 	}
 	for key, client := range w.cachedShims.executableClients {
 		if _, ok := wanted.executableClients[key]; ok {
 			continue
+		}
+		if cc := w.cachedShims.combinedClients[shimID{capID: key.capID, donID: key.donID}]; cc != nil {
+			cc.SetExecutableClient(key.method, nil)
 		}
 		w.closeStaleShim(key, client)
 		delete(w.cachedShims.executableClients, key)

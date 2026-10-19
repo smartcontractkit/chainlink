@@ -230,8 +230,7 @@ func validate(reg *capabilitiespb.OffchainCapabilitiesRegistry) error {
 			if capID == "" {
 				return fmt.Errorf("dons[%q]: empty capability ID", donName)
 			}
-			// Only spec_config and method_configs are sourced offchain in this slice;
-			// ocr3_configs and oracle_factory_configs remain on-chain.
+			// Only spec_config and method_configs are sourced offchain for now; ocr3_configs remain on-chain.
 			allowed := &capabilitiespb.CapabilityConfig{SpecConfig: capCfg.GetSpecConfig(), MethodConfigs: capCfg.GetMethodConfigs()}
 			if !proto.Equal(capCfg, allowed) {
 				return fmt.Errorf("dons[%q].capabilities[%q]: only spec_config and method_configs are supported", donName, capID)
@@ -247,23 +246,8 @@ func validate(reg *capabilitiespb.OffchainCapabilitiesRegistry) error {
 	return nil
 }
 
-// MethodConfigsFromProto converts an offchain method_configs map (pb) into the
-// capabilities.CapabilityMethodConfig map the launcher's don2don shims consume. For every set
-// remote_config oneof it mirrors the conversion in registry.CapabilityConfiguration.Unmarshal in
-// chainlink-common field-for-field, so a trigger/executable method converts identically to the
-// on-chain path. A nil map yields nil. Invalid durations, unknown enum values and executable
-// configs that cannot be applied by the shims are rejected before conversion.
-//
-// An unset remote_config oneof has a deliberately different meaning offchain. On-chain,
-// Unmarshal rejects that entry (its switch has no such case) and the whole
-// capability config fails to load. Here it converts to a zero CapabilityMethodConfig (both
-// RemoteTriggerConfig and RemoteExecutableConfig nil) and is accepted at ingestion. The launcher
-// then treats a zero config as "no remote config found" for that method, so it is neither added to
-// the wanted shim set nor created — the effect is to DISABLE that method's shim (any existing one is
-// pruned and not recreated). This is an intentional offchain-only lever (disable a method without an
-// on-chain change); the cross-check reports it as mismatch. If strict on-chain parity is ever
-// required instead, make the nil case below return an error so such entries are rejected at
-// ingestion like the on-chain path.
+// MethodConfigsFromProto converts validated offchain method configs using the same field
+// mapping as the on-chain registry converter. An unset remote_config is rejected in both paths.
 func MethodConfigsFromProto(in map[string]*capabilitiespb.CapabilityMethodConfig) (map[string]capabilities.CapabilityMethodConfig, error) {
 	if in == nil {
 		return nil, nil
@@ -278,8 +262,6 @@ func MethodConfigsFromProto(in map[string]*capabilitiespb.CapabilityMethodConfig
 		}
 		var config capabilities.CapabilityMethodConfig
 		switch remoteCfg := mc.GetRemoteConfig().(type) {
-		case nil:
-			// unset oneof: zero config, handled by the launcher as no remote config
 		case *capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig:
 			rt := remoteCfg.RemoteTriggerConfig
 			config = capabilities.CapabilityMethodConfig{
@@ -328,7 +310,7 @@ func validateMethodConfig(mc *capabilitiespb.CapabilityMethodConfig) error {
 	}
 	switch remote := mc.GetRemoteConfig().(type) {
 	case nil:
-		return nil // explicitly disabled
+		return errors.New("remote_config must be set")
 	case *capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig:
 		rt := remote.RemoteTriggerConfig
 		for _, field := range []struct {

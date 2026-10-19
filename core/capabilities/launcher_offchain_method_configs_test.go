@@ -81,129 +81,18 @@ func onchainMethodCfg(t *testing.T, methodConfigs map[string]*capabilitiespb.Cap
 	return b
 }
 
-func TestOffchainMethodConfigs_Overlay(t *testing.T) {
+func TestOffchainMethodConfigs_WantedWithoutOnchainMethods(t *testing.T) {
 	t.Parallel()
-
-	onchain := map[string]capabilities.CapabilityMethodConfig{
-		"Write": {
-			RemoteExecutableConfig: &capabilities.RemoteExecutableConfig{RequestTimeout: 30 * time.Second},
-		},
-		"View": {
-			RemoteExecutableConfig: &capabilities.RemoteExecutableConfig{RequestTimeout: 10 * time.Second},
-		},
-	}
+	const capID = "cap@1.0.0"
 	don := regpkg.DON{ID: 1, Name: "don-1"}
-
-	t.Run("nil snapshot is a no-op", func(t *testing.T) {
-		t.Parallel()
-		var snap *offchainMethodConfigs
-		assert.Equal(t, onchain, snap.overlay("cap@1.0.0", don, onchain))
-	})
-
-	t.Run("empty registry snapshot is a no-op", func(t *testing.T) {
-		t.Parallel()
-		snap := &offchainMethodConfigs{reg: nil, donNames: map[uint32]string{1: "don-1"}}
-		assert.Equal(t, onchain, snap.overlay("cap@1.0.0", don, onchain))
-	})
-
-	t.Run("offchain wins per method, omitted methods keep on-chain config", func(t *testing.T) {
-		t.Parallel()
-		snap := &offchainMethodConfigs{
-			reg: &capabilitiespb.OffchainCapabilitiesRegistry{
-				Dons: map[string]*capabilitiespb.DONConfig{
-					"don-1": {
-						Capabilities: map[string]*capabilitiespb.CapabilityConfig{
-							"cap@1.0.0": {
-								MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
-									// overrides Write's timeout
-									"Write": {
-										RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
-											RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-												RequestTimeout:            durationpb.New(time.Minute),
-												ServerMaxParallelRequests: 10,
-											},
-										},
-									},
-									// View omitted offchain
-								},
-							},
-						},
-					},
-				},
-			},
-			donNames: map[uint32]string{1: "don-1"},
-		}
-		got := snap.overlay("cap@1.0.0", don, onchain)
-		assert.Equal(t, time.Minute, got["Write"].RemoteExecutableConfig.RequestTimeout, "offchain entry replaces on-chain entry for the same method")
-		assert.Equal(t, 10*time.Second, got["View"].RemoteExecutableConfig.RequestTimeout, "method omitted offchain keeps its on-chain config")
-		assert.Len(t, got, 2)
-	})
-
-	t.Run("capability absent offchain keeps full on-chain map", func(t *testing.T) {
-		t.Parallel()
-		snap := &offchainMethodConfigs{
-			reg: &capabilitiespb.OffchainCapabilitiesRegistry{
-				Dons: map[string]*capabilitiespb.DONConfig{
-					"don-1": {
-						Capabilities: map[string]*capabilitiespb.CapabilityConfig{
-							"other-cap@1.0.0": {MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
-								"Write": {},
-							}},
-						},
-					},
-				},
-			},
-			donNames: map[uint32]string{1: "don-1"},
-		}
-		assert.Equal(t, onchain, snap.overlay("cap@1.0.0", don, onchain))
-	})
-
-	t.Run("DON without a usable name keeps on-chain config", func(t *testing.T) {
-		t.Parallel()
-		snap := &offchainMethodConfigs{
-			reg: &capabilitiespb.OffchainCapabilitiesRegistry{
-				Dons: map[string]*capabilitiespb.DONConfig{
-					"don-1": {
-						Capabilities: map[string]*capabilitiespb.CapabilityConfig{
-							"cap@1.0.0": {MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
-								"Write": {},
-							}},
-						},
-					},
-				},
-			},
-			donNames: map[uint32]string{}, // don 1 not resolvable
-		}
-		assert.Equal(t, onchain, snap.overlay("cap@1.0.0", don, onchain))
-	})
-
-	t.Run("offchain-only method is added", func(t *testing.T) {
-		t.Parallel()
-		snap := &offchainMethodConfigs{
-			reg: &capabilitiespb.OffchainCapabilitiesRegistry{
-				Dons: map[string]*capabilitiespb.DONConfig{
-					"don-1": {
-						Capabilities: map[string]*capabilitiespb.CapabilityConfig{
-							"cap@1.0.0": {MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
-								"NewMethod": {
-									RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
-										RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-											MinResponsesToAggregate: 2,
-										},
-									},
-								},
-							}},
-						},
-					},
-				},
-			},
-			donNames: map[uint32]string{1: "don-1"},
-		}
-		got := snap.overlay("cap@1.0.0", don, onchain)
-		require.Len(t, got, 3)
-		require.NotNil(t, got["NewMethod"].RemoteTriggerConfig)
-		assert.Equal(t, uint32(2), got["NewMethod"].RemoteTriggerConfig.MinResponsesToAggregate)
-	})
+	method := &capabilitiespb.CapabilityMethodConfig{RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{}}}
+	gc := offchainMethodCfg(t, 1, don.Name, capID, map[string]*capabilitiespb.CapabilityMethodConfig{"New": method})
+	snap := newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{don})
+	noMethods := regpkg.DON{ID: don.ID, Name: don.Name, CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{capID: {}}}
+	wanted := computeWantedShimKeys([]regpkg.DON{noMethods}, []regpkg.DON{noMethods}, snap)
+	key := shimID{capID: capID, donID: don.ID, method: "New"}
+	assert.Contains(t, wanted.triggerSubscribers, key)
+	assert.Contains(t, wanted.triggerPublishers, key)
 }
 
 // TestOffchainMethodConfigs_GateOff_Unchanged asserts that with the cutover gate off, the
@@ -314,7 +203,7 @@ func TestOffchainMethodConfigs_GateOn_Overrides(t *testing.T) {
 	capDON.Name = "don-2"
 	localRegistry.IDsToDONs[regpkg.DonID(capDONID)] = capDON
 
-	// Offchain overrides Write's timeout; View omitted offchain keeps its on-chain config.
+	// Offchain replaces the method map; omitted View must not be wired.
 	gc := offchainMethodCfg(t, 1, "don-2", fullCapID, map[string]*capabilitiespb.CapabilityMethodConfig{
 		"Write": {
 			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
@@ -333,13 +222,23 @@ func TestOffchainMethodConfigs_GateOn_Overrides(t *testing.T) {
 	defer launcher.Close()
 
 	dispatcher.On("SetReceiverForMethod", fullCapID, capDONID, "Write", mock.AnythingOfType("*executable.client")).Return(nil)
-	dispatcher.On("SetReceiverForMethod", fullCapID, capDONID, "View", mock.AnythingOfType("*executable.client")).Return(nil)
 	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
 
 	assert.Equal(t, time.Minute, requestTimeoutFor(t, logs, fullCapID, "Write"),
 		"gate on: offchain Write config must win")
-	assert.Equal(t, 10*time.Second, requestTimeoutFor(t, logs, fullCapID, "View"),
-		"gate on: method omitted offchain keeps its on-chain config")
+	dispatcher.AssertNotCalled(t, "SetReceiverForMethod", fullCapID, capDONID, "View", mock.Anything)
+
+	// Selecting an empty capability removes the shim and the workflow-facing method.
+	empty := offchainMethodCfg(t, 2, "don-2", fullCapID, nil)
+	snapshot := newOffchainMethodConfigs(empty.LoadParsed(), []regpkg.DON{capDON})
+	dispatcher.On("RemoveReceiverForMethod", fullCapID, capDONID, "Write").Return().Once()
+	launcher.pruneStaleShims(t.Context(), computeWantedShimKeys([]regpkg.DON{capDON}, nil, snapshot))
+	launcher.addRemoteCapabilities(t.Context(), localRegistry.IDsToDONs[regpkg.DonID(wfDONID)], capDON, localRegistry, snapshot)
+	assert.Empty(t, launcher.cachedShims.executableClients)
+	cc := launcher.cachedShims.combinedClients[shimID{capID: fullCapID, donID: capDONID}]
+	require.NotNil(t, cc)
+	_, err = cc.Execute(t.Context(), capabilities.CapabilityRequest{Method: "Write"})
+	require.ErrorContains(t, err, "method Write not defined")
 }
 
 // TestOffchainMethodConfigs_NoThrashAcrossPasses locks the central invariant of the method_configs
@@ -409,12 +308,11 @@ func TestOffchainMethodConfigs_NoThrashAcrossPasses(t *testing.T) {
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 
-	// Both the on-chain "Write" and the offchain-only "Extra" client shims are created on the first
-	// pass. SetReceiverForMethod fires only on shim creation, so it is called twice total (pass 1),
+	// Only the offchain-only "Extra" shim is created on the first pass.
+	// SetReceiverForMethod fires only on shim creation, once total (pass 1),
 	// not again on pass 2. RemoveReceiverForMethod is intentionally NOT registered: if the overlay
 	// is missing from the wanted-set computation, pass 2 prunes "Extra" and the unexpected call fails
 	// the mock.
-	dispatcher.On("SetReceiverForMethod", fullCapID, capDONID, "Write", mock.AnythingOfType("*executable.client")).Return(nil)
 	dispatcher.On("SetReceiverForMethod", fullCapID, capDONID, "Extra", mock.AnythingOfType("*executable.client")).Return(nil)
 
 	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
@@ -425,10 +323,9 @@ func TestOffchainMethodConfigs_NoThrashAcrossPasses(t *testing.T) {
 	dispatcher.AssertNotCalled(t, "RemoveReceiverForMethod", fullCapID, capDONID, "Write")
 }
 
-// A disabled method must be pruned on the serving side and stay disabled on later passes,
-// without affecting methods omitted from the offchain payload. Restoring its remote config
-// must create a working shim again. Cover both publisher and executable-server paths.
-func TestOffchainMethodConfigs_ServedMethodDisableAndRestore(t *testing.T) {
+// Selecting a smaller offchain method map prunes omitted servers without affecting retained
+// methods. Selecting the full map again restores them. Cover trigger and executable paths.
+func TestOffchainMethodConfigs_ServedMethodsReplaceAndRestore(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []string{"trigger", "executable"} {
 		t.Run(kind, func(t *testing.T) {
@@ -491,16 +388,16 @@ func TestOffchainMethodConfigs_ServedMethodDisableAndRestore(t *testing.T) {
 			}
 			pass(nil)
 			require.Equal(t, 2, serverCount())
-			gc := offchainMethodCfg(t, 1, "don-2", capID, map[string]*capabilitiespb.CapabilityMethodConfig{"Disable": {}})
-			disabled := newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{capDON, wfDON})
-			pass(disabled)
-			require.Equal(t, 1, serverCount(), "only the disabled method's shim must be removed")
-			pass(disabled)
-			require.Equal(t, 1, serverCount(), "the disabled method must not be recreated on the next pass")
-			gc = offchainMethodCfg(t, 2, "don-2", capID, map[string]*capabilitiespb.CapabilityMethodConfig{"Disable": config})
+			gc := offchainMethodCfg(t, 1, "don-2", capID, map[string]*capabilitiespb.CapabilityMethodConfig{"Keep": config})
+			reduced := newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{capDON, wfDON})
+			pass(reduced)
+			require.Equal(t, 1, serverCount(), "only the omitted method's shim must be removed")
+			pass(reduced)
+			require.Equal(t, 1, serverCount(), "the omitted method must not be recreated on the next pass")
+			gc = offchainMethodCfg(t, 2, "don-2", capID, map[string]*capabilitiespb.CapabilityMethodConfig{"Disable": config, "Keep": config})
 			pass(newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{capDON, wfDON}))
 			require.Equal(t, 2, serverCount(), "restoring config must recreate the shim")
-			assert.Empty(t, logs.All(), "disabled methods must be skipped without a serving error")
+			assert.Empty(t, logs.All(), "method removal must not cause a serving error")
 		})
 	}
 }

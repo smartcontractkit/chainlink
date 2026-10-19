@@ -36,11 +36,16 @@ func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*ca
 			info := &capabilityInfo{capID: capID, donID: don.ID, config: onchain}
 			legacy, err := m.buildConfigJSON(info)
 			if err != nil {
+				m.lggr.Warnw("Failed to build on-chain spec config for cross-validation", "donID", don.ID, "capID", capID, "error", err)
 				continue
 			}
 			info.useOffchain = true
 			info.offchainSpecConfig = m.offchainSpecConfig(offDON, capID, don.ID)
-			cutover, _ := m.buildConfigJSON(info)
+			cutover, err := m.buildConfigJSON(info)
+			if err != nil {
+				m.lggr.Warnw("Failed to build offchain spec config for cross-validation", "donID", don.ID, "capID", capID, "error", err)
+				continue
+			}
 			// A mismatch means turning the gate on changes this capability: either the launch
 			// config (spec_config) or the don2don method configs would differ.
 			methodsDiffer := offchainMethodConfigsDiffer(onchain, offCap)
@@ -50,54 +55,6 @@ func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*ca
 			}
 		}
 	}
-	return out
-}
-
-// offchainMethodConfigsDiffer reports whether the offchain method_configs would change the
-// don2don method configs the launcher wires for this capability, relative to the on-chain
-// method configs. A method present in both differs only when its converted config differs;
-// methods the offchain payload omits keep their on-chain config (not a difference); methods
-// only present offchain are additions (a difference).
-func offchainMethodConfigsDiffer(onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
-	offMethodConfigs, err := globalconfig.MethodConfigsFromProto(offCap.GetMethodConfigs())
-	if err != nil || len(offMethodConfigs) == 0 {
-		return false
-	}
-	onchainCfg, err := onchain.Unmarshal()
-	if err != nil {
-		return false
-	}
-	onMethodConfigs := onchainCfg.CapabilityMethodConfig
-	for method, offCfg := range offMethodConfigs {
-		if onCfg, ok := onMethodConfigs[method]; !ok || !methodConfigEqual(onCfg, offCfg) {
-			return true
-		}
-	}
-	return false
-}
-
-// methodConfigEqual compares two method configs for equality on the fields the launcher
-// consumes (remote trigger/executable config and aggregator config).
-func methodConfigEqual(a, b capabilities.CapabilityMethodConfig) bool {
-	if !reflect.DeepEqual(a.RemoteTriggerConfig, b.RemoteTriggerConfig) {
-		return false
-	}
-	if !reflect.DeepEqual(a.RemoteExecutableConfig, b.RemoteExecutableConfig) {
-		return false
-	}
-	return reflect.DeepEqual(a.AggregatorConfig, b.AggregatorConfig)
-}
-
-// offchainSpecConfig returns the offchain spec_config of capID on don, or nil when there is none.
-// A spec_config that cannot be converted is rejected at ingestion (globalconfig.Validate); if one
-// gets here anyway, it is treated as empty.
-func (m *localCapabilityManager) offchainSpecConfig(don *capabilitiespb.DONConfig, capID string, donID uint32) map[string]any {
-	out, err := globalconfig.SpecConfigMap(don.GetCapabilities()[capID].GetSpecConfig())
-	if err != nil {
-		m.lggr.Warnw("Invalid offchain spec_config, ignoring offchain override", "capID", capID, "donID", donID, "error", err)
-		return nil
-	}
-
 	return out
 }
 
@@ -113,6 +70,19 @@ func (m *localCapabilityManager) offchainDONsByID(reg *capabilitiespb.OffchainCa
 			out[id] = d
 		}
 	}
+	return out
+}
+
+// offchainSpecConfig returns the offchain spec_config of capID on don, or nil when there is none.
+// A spec_config that cannot be converted is rejected at ingestion (globalconfig.Validate); if one
+// gets here anyway, it is treated as empty.
+func (m *localCapabilityManager) offchainSpecConfig(don *capabilitiespb.DONConfig, capID string, donID uint32) map[string]any {
+	out, err := globalconfig.SpecConfigMap(don.GetCapabilities()[capID].GetSpecConfig())
+	if err != nil {
+		m.lggr.Warnw("Invalid offchain spec_config, ignoring offchain override", "capID", capID, "donID", donID, "error", err)
+		return nil
+	}
+
 	return out
 }
 
@@ -140,4 +110,38 @@ func (m *localCapabilityManager) offchainDONNames(dons []registry.DON) map[uint3
 		out[ids[0]] = name
 	}
 	return out
+}
+
+// offchainMethodConfigsDiffer compares the complete selected method maps.
+func offchainMethodConfigsDiffer(onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
+	offMethodConfigs, err := globalconfig.MethodConfigsFromProto(offCap.GetMethodConfigs())
+	if err != nil {
+		return false
+	}
+	onchainCfg, err := onchain.Unmarshal()
+	if err != nil {
+		return false
+	}
+	onMethodConfigs := onchainCfg.CapabilityMethodConfig
+	if len(onMethodConfigs) != len(offMethodConfigs) {
+		return true
+	}
+	for method, offCfg := range offMethodConfigs {
+		if onCfg, ok := onMethodConfigs[method]; !ok || !methodConfigEqual(onCfg, offCfg) {
+			return true
+		}
+	}
+	return false
+}
+
+// methodConfigEqual compares two method configs for equality on the fields the launcher
+// consumes (remote trigger/executable config and aggregator config).
+func methodConfigEqual(a, b capabilities.CapabilityMethodConfig) bool {
+	if !reflect.DeepEqual(a.RemoteTriggerConfig, b.RemoteTriggerConfig) {
+		return false
+	}
+	if !reflect.DeepEqual(a.RemoteExecutableConfig, b.RemoteExecutableConfig) {
+		return false
+	}
+	return reflect.DeepEqual(a.AggregatorConfig, b.AggregatorConfig)
 }
