@@ -55,13 +55,12 @@ type ShardFailoverCommunicator struct {
 	mu       sync.RWMutex
 	handlers map[string]*workflowHandler
 
-	quorumMu             sync.Mutex
-	seenByExecID         map[string]map[p2ptypes.PeerID]bool
-	seenAt               map[string]time.Time
-	deliveredExecIDs     map[string]time.Time
-	statusCountsByExecID map[string]map[ringpb.ExecutionStatus]int
-	expiryDuration       time.Duration
-	wg                   sync.WaitGroup
+	quorumMu         sync.Mutex
+	seenByExecID     map[string]map[p2ptypes.PeerID]bool
+	seenAt           map[string]time.Time
+	deliveredExecIDs map[string]time.Time
+	expiryDuration   time.Duration
+	wg               sync.WaitGroup
 }
 
 // NewShardFailoverCommunicator creates a communicator that handles
@@ -69,16 +68,15 @@ type ShardFailoverCommunicator struct {
 // The local DON ID is used for receiver registration with the dispatcher.
 func NewShardFailoverCommunicator(dispatcher remotetypes.Dispatcher, localDonID uint32, lggr logger.Logger) *ShardFailoverCommunicator {
 	return &ShardFailoverCommunicator{
-		stopCh:               make(services.StopChan),
-		dispatcher:           dispatcher,
-		localDonID:           localDonID,
-		lggr:                 logger.Sugared(logger.With(lggr, "component", "ShardFailoverCommunicator")),
-		handlers:             make(map[string]*workflowHandler),
-		seenByExecID:         make(map[string]map[p2ptypes.PeerID]bool),
-		seenAt:               make(map[string]time.Time),
-		deliveredExecIDs:     make(map[string]time.Time),
-		statusCountsByExecID: make(map[string]map[ringpb.ExecutionStatus]int),
-		expiryDuration:       10 * time.Minute,
+		stopCh:           make(services.StopChan),
+		dispatcher:       dispatcher,
+		localDonID:       localDonID,
+		lggr:             logger.Sugared(logger.With(lggr, "component", "ShardFailoverCommunicator")),
+		handlers:         make(map[string]*workflowHandler),
+		seenByExecID:     make(map[string]map[p2ptypes.PeerID]bool),
+		seenAt:           make(map[string]time.Time),
+		deliveredExecIDs: make(map[string]time.Time),
+		expiryDuration:   10 * time.Minute,
 	}
 }
 
@@ -181,9 +179,9 @@ func (c *ShardFailoverCommunicator) Send(ctx context.Context, msg *ringpb.Execut
 // agree on every field (workflow ID, execution ID, trigger event ID,
 // trigger index, status). This ensures F faulty nodes cannot force a wrong
 // outcome or alter fields of the delivered update, such as the trigger event
-// ID the handler acts on. If SYSTEM_ERROR reaches 2F+1, the handler triggers failover
-// replay; if SUCCESS or USER_ERROR reaches 2F+1 first, the cached event
-// is drained.
+// ID the handler acts on. Reports with different statuses land in separate
+// buckets. On a delivered SYSTEM_ERROR the handler triggers failover replay;
+// on SUCCESS or USER_ERROR the cached event is drained.
 func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetypes.MessageBody) {
 	if msg.Method != remotetypes.MethodExecutionStatusUpdate {
 		return
@@ -240,38 +238,26 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 		peers = make(map[p2ptypes.PeerID]bool)
 		c.seenByExecID[dedupKey] = peers
 		c.seenAt[dedupKey] = time.Now()
-		c.statusCountsByExecID[dedupKey] = make(map[ringpb.ExecutionStatus]int)
 	}
 	if peers[sender] {
 		c.quorumMu.Unlock()
 		return
 	}
 	peers[sender] = true
-	c.statusCountsByExecID[dedupKey][execUpdate.Status]++
 
-	// Check if any status has reached 2F+1 quorum.
-	statusCounts := c.statusCountsByExecID[dedupKey]
-	var quorumStatus ringpb.ExecutionStatus
-	var reached bool
-	for status, count := range statusCounts {
-		if count >= quorum {
-			quorumStatus = status
-			reached = true
-			break
-		}
-	}
-
+	// The key covers the full payload (including status), so every vote in
+	// this bucket is for the same update and the peer count is the vote count.
+	reached := len(peers) >= quorum
 	if reached {
 		c.deliveredExecIDs[dedupKey] = time.Now()
 		delete(c.seenByExecID, dedupKey)
 		delete(c.seenAt, dedupKey)
-		delete(c.statusCountsByExecID, dedupKey)
 	}
 	c.quorumMu.Unlock()
 
 	if !reached {
 		c.lggr.Debugw("ExecutionStatusUpdate quorum not yet reached",
-			"dedupKey", dedupKey, "statusCounts", len(statusCounts), "peers", len(peers), "required", quorum)
+			"dedupKey", dedupKey, "status", execUpdate.Status, "peers", len(peers), "required", quorum)
 		return
 	}
 
@@ -279,10 +265,9 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 		"workflowID", execUpdate.WorkflowId,
 		"triggerEventID", execUpdate.TriggerEventId,
 		"executionID", execUpdate.ExecutionId,
-		"status", quorumStatus,
+		"status", execUpdate.Status,
 		"peers", len(peers))
 
-	execUpdate.Status = quorumStatus
 	wh.handler(&execUpdate)
 }
 
@@ -310,7 +295,6 @@ func (c *ShardFailoverCommunicator) pruneLoop() {
 				if now.Sub(seenTime) >= c.expiryDuration {
 					delete(c.seenByExecID, key)
 					delete(c.seenAt, key)
-					delete(c.statusCountsByExecID, key)
 				}
 			}
 			c.quorumMu.Unlock()

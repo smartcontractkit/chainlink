@@ -474,13 +474,13 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 	}
 }
 
-func TestShardFailoverCommunicator_AggregatesMixedStatuses(t *testing.T) {
+func TestShardFailoverCommunicator_MixedStatusesCountedSeparately(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 
 	disp := newInMemDispatcher()
 	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22), makeTestPeerID(23))
-	// N=5, F=1, quorum = 2F+1 = 3 per status
+	// N=5, F=1, quorum = 2F+1 = 3. Different statuses have different payloads, so votes are counted separately.
 	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12), makeTestPeerID(13), makeTestPeerID(14))
 
 	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
