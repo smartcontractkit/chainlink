@@ -2,6 +2,7 @@ package sharding
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"slices"
 	"sync"
@@ -173,13 +174,15 @@ func (c *ShardFailoverCommunicator) Send(ctx context.Context, msg *ringpb.Execut
 
 // Receive implements remotetypes.Receiver. It unmarshals the payload to
 // extract the workflow ID and execution ID, validates the sender against the
-// per-workflow primary DON, and collects F+1 matching reports by execution
-// ID before routing to the registered handler.
+// per-workflow primary DON, and collects 2F+1 identical reports before
+// routing to the registered handler.
 //
-// Quorum is per-status (like OCR): a status is delivered only when F+1
-// peers agree on it. This ensures F faulty nodes cannot force a wrong
-// outcome. If SYSTEM_ERROR reaches F+1, the handler triggers failover
-// replay; if SUCCESS or USER_ERROR reaches F+1 first, the cached event
+// Reports are keyed by the hash of the full payload, so 2F+1 peers must
+// agree on every field (workflow ID, execution ID, trigger event ID,
+// trigger index, status). This ensures F faulty nodes cannot force a wrong
+// outcome or alter fields of the delivered update, such as the trigger event
+// ID the handler acts on. If SYSTEM_ERROR reaches 2F+1, the handler triggers failover
+// replay; if SUCCESS or USER_ERROR reaches 2F+1 first, the cached event
 // is drained.
 func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetypes.MessageBody) {
 	if msg.Method != remotetypes.MethodExecutionStatusUpdate {
@@ -223,7 +226,7 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 		return
 	}
 
-	dedupKey := fmt.Sprintf("%s:%s", execUpdate.WorkflowId, execUpdate.ExecutionId)
+	dedupKey := fmt.Sprintf("%x", sha256.Sum256(msg.Payload))
 	quorum := 2*int(primary.F) + 1
 
 	c.quorumMu.Lock()
@@ -246,7 +249,7 @@ func (c *ShardFailoverCommunicator) Receive(ctx context.Context, msg *remotetype
 	peers[sender] = true
 	c.statusCountsByExecID[dedupKey][execUpdate.Status]++
 
-	// Check if any status has reached F+1 quorum.
+	// Check if any status has reached 2F+1 quorum.
 	statusCounts := c.statusCountsByExecID[dedupKey]
 	var quorumStatus ringpb.ExecutionStatus
 	var reached bool
