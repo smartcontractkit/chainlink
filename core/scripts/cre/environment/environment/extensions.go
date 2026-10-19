@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	storage "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/cre_storage_service"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -21,17 +22,17 @@ import (
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-// Role aliases the extension stacks answer to on ctf. They are a contract with those stacks' compose files; keep them in
-// step with configs/extensions/README.md and cre-storage-service local-stack/README.md.
+// Role addresses the extension stacks answer to on ctf, as defined by their CTF components; configs/extensions/README.md
+// lists them.
 const (
-	extensionsStackName = "cre-extensions"
+	extensionsSourceName = "cre-extensions"
 
-	workflowSourceRole = "cre-workflow-source:50052"
-	artifactAPIRole    = "cre-artifact-api:50052"
-	artifactStorePort  = 4566
+	workflowSourceRole = storage.WorkflowSourceRole + ":" + storage.NodeServicePort
+	artifactAPIRole    = storage.ArtifactAPIRole + ":" + storage.NodeServicePort
+	artifactStoreRole  = storage.ArtifactStoreRole + ":" + storage.ArtifactStorePort
 )
 
-var artifactStoreRole = "cre-artifact-store:" + strconv.Itoa(artifactStorePort)
+var artifactStorePort = mustPort(storage.ArtifactStorePort)
 
 // extensionsNodeConfig points workflow DON nodes at the extension roles: workflows come from cre-workflow-source and
 // artifacts from cre-artifact-api / cre-artifact-store.
@@ -56,7 +57,7 @@ func extensionsNodeConfig(input cre.GenerateConfigsInput, configs cre.NodeIndexT
 		c.Capabilities.WorkflowRegistry.AdditionalSourcesConfig = append(c.Capabilities.WorkflowRegistry.AdditionalSourcesConfig, coretoml.AdditionalWorkflowSource{
 			URL:        new(workflowSourceRole),
 			TLSEnabled: new(false),
-			Name:       new(extensionsStackName),
+			Name:       new(extensionsSourceName),
 		})
 
 		marshalled, err := toml.Marshal(c)
@@ -96,7 +97,13 @@ func validateExtensions(ctx context.Context, in *envconfig.Config) (string, erro
 // built from the stack's repo) instead of failing later in docker compose up.
 func ensureExtensionsImages(ctx context.Context, ext *envconfig.Extensions) error {
 	cmd := docker(ctx, "compose", "-f", ext.StorageCompose, "config", "--images")
-	cmd.Env = append(os.Environ(), extensionsEnv("http://placeholder:8545", 0, "0x0000000000000000000000000000000000000000", "placeholder")...)
+	// the stack's required inputs; their values don't affect the images
+	cmd.Env = append(os.Environ(),
+		"CRE_LOCAL_REGISTRY_RPC_URL=placeholder",
+		"CRE_LOCAL_REGISTRY_CHAIN_SELECTOR=0",
+		"CRE_LOCAL_REGISTRY_ADDRESS=placeholder",
+		"CRE_LOCAL_DON_FAMILY=placeholder",
+	)
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
@@ -120,24 +127,30 @@ func ensureExtensionsImages(ctx context.Context, ext *envconfig.Extensions) erro
 // startExtensions starts the extension stacks on the environment's network, with the registry chain, its
 // CapabilitiesRegistry and the workflow DON family as inputs.
 func startExtensions(ctx context.Context, ext *envconfig.Extensions, donFamily string, output *creenv.SetupOutput) error {
-	inputs, err := extensionsInputs(output, donFamily)
+	in, err := storageInput(ext, output, donFamily)
 	if err != nil {
 		return err
 	}
 
-	_ = framework.RemoveTestStack(extensionsStackName)
+	_ = storage.Stop()
 
-	cmd := docker(ctx, "compose", "-p", extensionsStackName, "-f", ext.StorageCompose, "up", "-d", "--wait")
-	cmd.Env = append(os.Environ(), inputs...)
-	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-	return errors.Wrapf(cmd.Run(), "failed to start %s", ext.StorageCompose)
+	out, err := storage.NewWithContext(ctx, in)
+	if err != nil {
+		return errors.Wrapf(err, "failed to start %s", ext.StorageCompose)
+	}
+	framework.L.Info().
+		Str("cre-deploy-api", out.UserService.ExternalURL).
+		Str("cre-workflow-source", out.NodeService.ExternalURL).
+		Str("cre-artifact-store", out.ArtifactStore.ExternalURL).
+		Msg("Extensions started; reachable from the host at")
+	return nil
 }
 
 func stopExtensions() error {
-	return framework.RemoveTestStack(extensionsStackName)
+	return storage.Stop()
 }
 
-func extensionsInputs(output *creenv.SetupOutput, donFamily string) ([]string, error) {
+func storageInput(ext *envconfig.Extensions, output *creenv.SetupOutput, donFamily string) (*storage.Input, error) {
 	creEnv := output.CreEnvironment
 	selector := creEnv.RegistryChainSelector
 
@@ -157,18 +170,22 @@ func extensionsInputs(output *creenv.SetupOutput, donFamily string) ([]string, e
 		return nil, errors.Errorf("no CapabilitiesRegistry on registry chain %d", selector)
 	}
 
-	return extensionsEnv(rpcURL, selector, capReg.Hex(), donFamily), nil
+	return &storage.Input{
+		ComposeFile:           ext.StorageCompose,
+		Network:               framework.DefaultNetworkName,
+		RegistryRPCURL:        rpcURL,
+		RegistryChainSelector: selector,
+		RegistryAddress:       capReg.Hex(),
+		DonFamily:             donFamily,
+	}, nil
 }
 
-func extensionsEnv(rpcURL string, selector uint64, registry, donFamily string) []string {
-	return []string{
-		"CRE_NETWORK=" + framework.DefaultNetworkName,
-		"CRE_NETWORK_EXTERNAL=true",
-		"CRE_LOCAL_REGISTRY_RPC_URL=" + rpcURL,
-		"CRE_LOCAL_REGISTRY_CHAIN_SELECTOR=" + strconv.FormatUint(selector, 10),
-		"CRE_LOCAL_REGISTRY_ADDRESS=" + registry,
-		"CRE_LOCAL_DON_FAMILY=" + donFamily,
+func mustPort(port string) int {
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		panic(errors.Wrapf(err, "invalid port %q", port))
 	}
+	return p
 }
 
 func docker(ctx context.Context, args ...string) *exec.Cmd {

@@ -706,3 +706,6 @@ exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000
 // otel/opentelemetry-collector-contrib:0.123.0 rejects (expects int ms), so the collector
 // crash-loops and `obs up` produces no Beholder logs in Loki. Pin to v0.16.7 until CTF fixes it.
 replace github.com/smartcontractkit/chainlink-testing-framework/framework => github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.7
+
+// TODO: drop once chainlink-testing-framework#2869 is released, and bump dockercompose here and in system-tests/lib.
+replace github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose => github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.24-0.20261013162928-08054c38e73e
