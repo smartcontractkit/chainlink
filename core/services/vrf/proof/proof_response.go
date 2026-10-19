@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -105,38 +104,6 @@ func GenerateProofResponseFromProof(proof vrfkey.Proof, s PreSeedData) (Marshale
 	return rv, nil
 }
 
-func GenerateProofResponseFromProofV2(p vrfkey.Proof, s PreSeedDataV2) (vrf_coordinator_v2.VRFProof, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, error) {
-	var proof vrf_coordinator_v2.VRFProof
-	var rc vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment
-	solidityProof, err := SolidityPrecalculations(&p)
-	if err != nil {
-		return proof, rc, errors.Wrap(err,
-			"while marshaling proof for VRFCoordinatorV2")
-	}
-	solidityProof.P.Seed = common.BytesToHash(s.PreSeed[:]).Big()
-	x, y := secp256k1.Coordinates(solidityProof.P.PublicKey)
-	gx, gy := secp256k1.Coordinates(solidityProof.P.Gamma)
-	cgx, cgy := secp256k1.Coordinates(solidityProof.CGammaWitness)
-	shx, shy := secp256k1.Coordinates(solidityProof.SHashWitness)
-	return vrf_coordinator_v2.VRFProof{
-		Pk:            [2]*big.Int{x, y},
-		Gamma:         [2]*big.Int{gx, gy},
-		C:             solidityProof.P.C,
-		S:             solidityProof.P.S,
-		Seed:          common.BytesToHash(s.PreSeed[:]).Big(),
-		UWitness:      solidityProof.UWitness,
-		CGammaWitness: [2]*big.Int{cgx, cgy},
-		SHashWitness:  [2]*big.Int{shx, shy},
-		ZInv:          solidityProof.ZInv,
-	}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{
-		BlockNum:         s.BlockNum,
-		SubId:            s.SubID,
-		CallbackGasLimit: s.CallbackGasLimit,
-		NumWords:         s.NumWords,
-		Sender:           s.Sender,
-	}, nil
-}
-
 func GenerateProofResponseFromProofV2Plus(
 	p vrfkey.Proof,
 	s PreSeedDataV2Plus) (
@@ -156,7 +123,7 @@ func GenerateProofResponseFromProofV2Plus(
 	gx, gy := secp256k1.Coordinates(solidityProof.P.Gamma)
 	cgx, cgy := secp256k1.Coordinates(solidityProof.CGammaWitness)
 	shx, shy := secp256k1.Coordinates(solidityProof.SHashWitness)
-	return vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof{
+	proof = vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof{
 		Pk:            [2]*big.Int{x, y},
 		Gamma:         [2]*big.Int{gx, gy},
 		C:             solidityProof.P.C,
@@ -166,14 +133,16 @@ func GenerateProofResponseFromProofV2Plus(
 		CGammaWitness: [2]*big.Int{cgx, cgy},
 		SHashWitness:  [2]*big.Int{shx, shy},
 		ZInv:          solidityProof.ZInv,
-	}, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment{
+	}
+	rc = vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment{
 		BlockNum:         s.BlockNum,
 		SubId:            s.SubID,
 		CallbackGasLimit: s.CallbackGasLimit,
 		NumWords:         s.NumWords,
 		Sender:           s.Sender,
 		ExtraArgs:        s.ExtraArgs,
-	}, nil
+	}
+	return proof, rc, nil
 }
 
 func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (
@@ -185,19 +154,6 @@ func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (
 		return MarshaledOnChainResponse{}, err
 	}
 	return GenerateProofResponseFromProof(proof, s)
-}
-
-func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) (
-	vrf_coordinator_v2.VRFProof, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, error,
-) {
-	seedHashMsg := append([]byte{}, s.PreSeed[:]...)
-	seedHashMsg = append(seedHashMsg, s.BlockHash.Bytes()...)
-	seed := utils.MustHash(string(seedHashMsg)).Big()
-	proof, err := keystore.GenerateProof(id, seed)
-	if err != nil {
-		return vrf_coordinator_v2.VRFProof{}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{}, err
-	}
-	return GenerateProofResponseFromProofV2(proof, s)
 }
 
 func GenerateProofResponseV2Plus(keystore keystore.VRF, id string, s PreSeedDataV2Plus) (

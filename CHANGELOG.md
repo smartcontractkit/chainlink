@@ -1,5 +1,19 @@
 # Changelog Chainlink Core
 
+## 2.69.0
+
+### Minor Changes
+
+- [#23931](https://github.com/smartcontractkit/chainlink/pull/23931) [`29695ba`](https://github.com/smartcontractkit/chainlink/commit/29695ba94b9b1274eff068767d6a436fff5e1def) - Remove VRF v2 support including the v2 coordinator, VRFOwner force-fulfillment and custom reverted-txns pipeline, the legacy `vrfv2` pipeline task, and the v2 blockhash store / block header feeder coordinators. Migrate to VRF v2 Plus. #removed #breaking_change
+
+- [#23918](https://github.com/smartcontractkit/chainlink/pull/23918) [`10ffbd7`](https://github.com/smartcontractkit/chainlink/commit/10ffbd7327faa00d194e09779a3ccb23d9a623b7) - Minor bump to start next version
+
+- [#23927](https://github.com/smartcontractkit/chainlink/pull/23927) [`81a8d1b`](https://github.com/smartcontractkit/chainlink/commit/81a8d1b3ef12b4fdb0304baa64db05d622fd71ca) - #added `[Capabilities.Local] UseOffchainRegistry` config flag (default `false`), gating the offchain capabilities registry cutover. #removed the `[Capabilities.Local.Capabilities.<id>]` per-capability TOML table entirely, including the `Config` key/value overrides and `BinaryPathOverride`; capability config now comes from the on-chain registry (and, with the gate, the offchain registry), and the capability binary is always resolved from the capability ID.
+
+### Patch Changes
+
+- [#23956](https://github.com/smartcontractkit/chainlink/pull/23956) [`2bb6b97`](https://github.com/smartcontractkit/chainlink/commit/2bb6b975360ef69f71fe6af822c64acd345ba656) - #bugfix Registry-launched OCR instances now take their default bootstrappers from `[P2P.V2].DefaultBootstrappers` instead of `[Capabilities.Peering.V2].DefaultBootstrappers`. The confidential relay now signs responses with the key for `[P2P].PeerID` and no longer reads `[Capabilities.Peering].PeerID`.
+
 ## 2.68.0
 
 ### Minor Changes

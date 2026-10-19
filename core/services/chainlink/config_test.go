@@ -412,25 +412,6 @@ func TestConfig_Marshal(t *testing.T) {
 			PerSenderRPS:   new(200.0),
 			PerSenderBurst: new(200),
 		},
-
-		Peering: toml.P2P{
-			IncomingMessageBufferSize: new(int64(13)),
-			OutgoingMessageBufferSize: new(int64(17)),
-			PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
-			TraceLogging:              new(true),
-			EnableExperimentalRageP2P: new(true),
-			V2: toml.P2PV2{
-				Enabled:           new(false),
-				AnnounceAddresses: &[]string{"a", "b", "c"},
-				DefaultBootstrappers: &[]ocrcommontypes.BootstrapperLocator{
-					{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
-					{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"test:99"}},
-				},
-				DeltaDial:       commonconfig.MustNewDuration(time.Minute),
-				DeltaReconcile:  commonconfig.MustNewDuration(2 * time.Second),
-				ListenAddresses: &[]string{"foo", "bar"},
-			},
-		},
 		SharedPeering: toml.SharedPeering{
 			Enabled: new(false),
 			Bootstrappers: &[]ocrcommontypes.BootstrapperLocator{
@@ -750,7 +731,8 @@ func TestConfig_Marshal(t *testing.T) {
 						ReadRequestsToMultipleNodes: new(false),
 						Bundles:                     new(false),
 					},
-					ConfirmationTimeout: &minute,
+					ConfirmationTimeout:      &minute,
+					UnknownErrorRetryTimeout: &minute,
 				},
 
 				HeadTracker: evmcfg.HeadTracker{
@@ -1139,6 +1121,7 @@ ReaperInterval = '1m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '1m0s'
 
 [EVM.Transactions.AutoPurge]
 Enabled = false
@@ -1360,6 +1343,9 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.FeeBoost == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.FeeBoost = new(false)
+		}
+		if got.EVM[c].Transactions.UnknownErrorRetryTimeout == nil {
+			got.EVM[c].Transactions.UnknownErrorRetryTimeout = new(commonconfig.Duration)
 		}
 		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
 			got.EVM[c].Transactions.AutoPurge.Threshold = new(uint32(0))

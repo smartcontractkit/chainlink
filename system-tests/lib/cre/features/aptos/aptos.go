@@ -204,7 +204,7 @@ func bootstrapPeersForDons(dons *cre.Dons) ([]string, error) {
 	}
 
 	return []string{
-		fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_"), bootstrapNode.Host, cre.OCRPeeringPort),
+		fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_"), bootstrapNode.Host, cre.PeeringPort),
 	}, nil
 }
 

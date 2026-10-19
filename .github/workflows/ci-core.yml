@@ -32,7 +32,7 @@ jobs:
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
         }}
-      spot_flag: ${{ steps.spot.outputs.spot_flag }}
+      one-per-weekday-frequency: ${{ steps.check-time.outputs.one-per-weekday-frequency || 'false' }}
       spot_param: ${{ steps.spot.outputs.spot_param }}
     runs-on: ubuntu-latest
     steps:
@@ -164,13 +164,37 @@ jobs:
         id: spot
         uses: $/.github/actions/setup-runner-spot
 
+      - name: Check time and set frequencies
+        id: check-time
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
+            # Not a scheduled event - no frequencies to set. They default to false.
+            exit 0
+          fi
+
+          current_day=$(date +%u)
+          if [ "$current_day" -ge 6 ]; then
+            # Weekend
+            exit 0
+          fi
+
+          # Scheduled event, check current time for frequencies
+          current_hour=$(date +"%H")
+
+          # Check if the current hour is 00 (one per day)
+          if [ "$current_hour" -eq "00" ]; then
+            echo "one-per-weekday-frequency=true" | tee -a "$GITHUB_OUTPUT"
+          fi
+
   golangci:
     name: GolangCI Lint
-    needs: [filter, run-frequency]
+    needs: [filter]
     # We don't directly merge dependabot PRs to not waste the resources.
     if:
       ${{ needs.filter.outputs.affected-modules != '[]' && github.event_name !=
       'merge_group' && github.actor != 'dependabot[bot]' }}
+    timeout-minutes: 30
     permissions:
       # To annotate code in the PR.
       checks: write
@@ -193,14 +217,11 @@ jobs:
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0
 
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
+      # No checkout needed here: the golangci-lint action checks out the repo itself,
+      # and `$` self-repository syntax resolves the action without a checkout.
       - name: Golang Lint (${{ matrix.modules }})
         id: golang-lint
-        uses: ./.github/actions/golangci-lint
+        uses: $/.github/actions/golangci-lint
         timeout-minutes: 20
         with:
           go-directory: ${{ matrix.modules }}
@@ -219,7 +240,7 @@ jobs:
           echo "text=${SLACK_TEXT}"
 
       - name: Notify Slack
-        if: ${{ failure() && steps.golang-lint.outputs.golang-report-critical-issue-count > 0 && needs.run-frequency.outputs.one-per-weekday-frequency == 'true' }}
+        if: ${{ failure() && steps.golang-lint.outputs.golang-report-critical-issue-count > 0 && needs.filter.outputs.one-per-weekday-frequency == 'true' }}
         uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           method: chat.postMessage
@@ -239,15 +260,26 @@ jobs:
     steps:
       - name: Check Golangci-lint Matrix Results
         env:
+          FILTER_RESULT: ${{ needs.filter.result }}
           GOLANGCI_RESULT: ${{ needs.golangci.result }}
           ALLOW_FAILURE:
             ${{ contains(join(github.event.pull_request.labels.*.name, ' '),
             'allow-lint-issues') }}
           SKIPPED: ${{ needs.filter.outputs.affected-modules == '[]' }}
         run: |
+          if [[ "${FILTER_RESULT}" == "failure" || "${FILTER_RESULT}" == "cancelled" ]]; then
+            echo "::error::'Detect Changes' job did not succeed - lint results cannot be trusted."
+            exit 1
+          fi
+
           if [[ "${GOLANGCI_RESULT}" == "success" ]]; then
             echo "All 'GolangCI Lint' matrix jobs succeeded."
             exit 0
+          fi
+
+          if [[ "${GOLANGCI_RESULT}" == "cancelled" ]]; then
+            echo "'GolangCI Lint' jobs were cancelled."
+            exit 1
           fi
 
           if [[ "${GOLANGCI_RESULT}" == "skipped" || "${SKIPPED}" == "true" ]]; then
@@ -258,11 +290,6 @@ jobs:
           if [[ "${ALLOW_FAILURE}" == "true" ]]; then
             echo "Some 'GolangCI Lint' matrix jobs failed, but failures are allowed due to 'allow-lint-issues' label."
             exit 0
-          fi
-
-          if [[ "${GOLANGCI_RESULT}" == "cancelled" ]]; then
-            echo "'GolangCI Lint' jobs were cancelled."
-            exit 1
           fi
 
           if [[ "${GOLANGCI_RESULT}" == "failure" ]]; then
@@ -356,7 +383,7 @@ jobs:
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
-    needs: [filter, run-frequency]
+    needs: [filter]
     timeout-minutes: 60
     # Use ubuntu-latest for jobs that will be skipped
     runs-on: ${{ matrix.type.should-run == 'true' && matrix.type.os ||
@@ -636,35 +663,6 @@ jobs:
             echo "::error::Tree is dirty after 'make gomodtidy'. Full diff below:"
             git diff --cached
             exit 1
-          fi
-
-  run-frequency:
-    name: Run frequency
-    outputs:
-      one-per-weekday-frequency: ${{ steps.check-time.outputs.one-per-weekday-frequency || 'false' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check time and set frequencies
-        id: check-time
-        shell: bash
-        run: |
-          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
-            # Not a scheduled event - no frequencies to set. They default to false.
-            exit 0
-          fi
-
-          current_day=$(date +%u)
-          if [ "$current_day" -ge 6 ]; then
-            # Weekend
-            exit 0
-          fi
-
-          # Scheduled event, check current time for frequencies
-          current_hour=$(date +"%H")
-
-          # Check if the current hour is 00 (one per day)
-          if [ "$current_hour" -eq "00" ]; then
-            echo "one-per-weekday-frequency=true" | tee -a "$GITHUB_OUTPUT"
           fi
 
   misc:
