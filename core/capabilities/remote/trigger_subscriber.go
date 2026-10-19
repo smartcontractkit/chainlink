@@ -5,10 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -48,11 +53,16 @@ type triggerSubscriber struct {
 	// re-aggregating or delivering to the engine again.
 	ackReplayCache     map[ackReplayKey]int64
 	propagateOrgIDGate limits.GateLimiter
+	metrics            triggerSubscriberMetrics
 	mu                 sync.RWMutex // protects registeredWorkflows, registrationBuckets, messageCache, and ackReplayCache
 	stopCh             services.StopChan
 	wg                 sync.WaitGroup
 	closeOnce          sync.Once
 	lggr               logger.Logger
+}
+
+type triggerSubscriberMetrics struct {
+	registrationOrgIDCounter metric.Int64Counter
 }
 
 type dynamicConfig struct {
@@ -181,6 +191,9 @@ func (s *triggerSubscriber) Start(ctx context.Context) error {
 	if s.propagateOrgIDGate == nil {
 		return errors.New("propagateOrgIDGate set to nil, cannot start triggerSubscriber")
 	}
+	if err := s.initMetrics(); err != nil {
+		return fmt.Errorf("failed to initialize metrics: %w", err)
+	}
 
 	s.wg.Add(2)
 	go s.registrationLoop()
@@ -269,6 +282,9 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 }
 
 func (s *triggerSubscriber) registrationLoop() {
+	ctx, cancel := s.stopCh.NewCtx()
+	defer cancel()
+
 	defer s.wg.Done()
 	ticker := time.NewTicker(registrationBucketDuration)
 	defer ticker.Stop()
@@ -278,7 +294,7 @@ func (s *triggerSubscriber) registrationLoop() {
 		case <-s.stopCh:
 			return
 		case now := <-ticker.C:
-			lastSentSec = s.sendDueBuckets(lastSentSec, now.Unix())
+			lastSentSec = s.sendDueBuckets(ctx, lastSentSec, now.Unix())
 		}
 	}
 }
@@ -288,7 +304,7 @@ func (s *triggerSubscriber) registrationLoop() {
 // due "now", ensures no bucket is skipped when ticks are dropped (time.Ticker drops ticks while
 // a slow send is in progress) or land on both sides of a second boundary. The catch-up is
 // capped at one full refresh window so each registration is sent at most once per call.
-func (s *triggerSubscriber) sendDueBuckets(lastSentSec, nowSec int64) int64 {
+func (s *triggerSubscriber) sendDueBuckets(ctx context.Context, lastSentSec, nowSec int64) int64 {
 	if nowSec == lastSentSec {
 		return lastSentSec // already sent this second's bucket
 	}
@@ -314,10 +330,13 @@ func (s *triggerSubscriber) sendDueBuckets(lastSentSec, nowSec int64) int64 {
 		return nowSec
 	}
 
-	propagateOrgID := s.propagateOrgID()
+	propagateOrgID := s.propagateOrgID(ctx)
 
-	var totalP2PSends, totalSendErrors int
+	var totalP2PSends, totalSendErrors, withOrgID int
 	for _, request := range due {
+		if request.Metadata.OrgID != "" {
+			withOrgID++
+		}
 		rawRequest, err := marshalRegistration(request, propagateOrgID)
 		if err != nil {
 			s.lggr.Errorw("failed to marshal trigger registration", "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID, "err", err)
@@ -340,6 +359,8 @@ func (s *triggerSubscriber) sendDueBuckets(lastSentSec, nowSec int64) int64 {
 			}
 		}
 	}
+	s.addRegistrationOrgIDCount(ctx, withOrgID, true, propagateOrgID)
+	s.addRegistrationOrgIDCount(ctx, len(due)-withOrgID, false, propagateOrgID)
 	s.lggr.Infow("registrationLoop tick: sent due buckets",
 		"donId", cfg.capDonInfo.ID,
 		"nCapDonMembers", len(cfg.capDonInfo.Members),
@@ -350,9 +371,28 @@ func (s *triggerSubscriber) sendDueBuckets(lastSentSec, nowSec int64) int64 {
 	return nowSec
 }
 
-func (s *triggerSubscriber) propagateOrgID() bool {
-	ctx, cancel := s.stopCh.NewCtx()
-	defer cancel()
+func (s *triggerSubscriber) initMetrics() error {
+	var err error
+	s.metrics.registrationOrgIDCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_subscriber_registration_org_id_total")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_trigger_subscriber_registration_org_id_total: %w", err)
+	}
+	return nil
+}
+
+func (s *triggerSubscriber) addRegistrationOrgIDCount(ctx context.Context, n int, hasOrgID, propagated bool) {
+	if n == 0 {
+		return
+	}
+	s.metrics.registrationOrgIDCounter.Add(ctx, int64(n), metric.WithAttributes(
+		attribute.String("capabilityID", s.capabilityID),
+		attribute.String("capMethodName", s.capMethodName),
+		attribute.String("hasOrgID", strconv.FormatBool(hasOrgID)),
+		attribute.String("orgIDPropagateEnabled", strconv.FormatBool(propagated)),
+	))
+}
+
+func (s *triggerSubscriber) propagateOrgID(ctx context.Context) bool {
 	open, err := s.propagateOrgIDGate.IsOpen(ctx)
 	if err != nil {
 		s.lggr.Warnw("failed to evaluate PropagateOrgIDInRequestMetadata; omitting OrgID from trigger registrations", "err", err)
