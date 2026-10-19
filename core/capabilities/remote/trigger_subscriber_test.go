@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -791,7 +790,8 @@ func TestTriggerSubscriber_PropagateOrgIDEvaluatedEachTick(t *testing.T) {
 	})).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(*remotetypes.MessageBody)
 		req, err := pb.UnmarshalTriggerRegistrationRequest(msg.Payload)
-		if !assert.NoError(t, err) {
+		if err != nil {
+			t.Errorf("failed to unmarshal trigger registration: %v", err)
 			return
 		}
 		lastOrgID.Store(&req.Metadata.OrgID)

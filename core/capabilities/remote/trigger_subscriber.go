@@ -87,10 +87,40 @@ type ackReplayKey struct {
 
 type subRegState struct {
 	callback chan commoncap.TriggerResponse
-	request  commoncap.TriggerRegistrationRequest
+	payloads registrationPayloads
 	// bucket is the index into triggerSubscriber.registrationBuckets
 	// assigned randomly so resends spread across the refresh window
 	bucket int
+}
+
+type registrationPayloads struct {
+	withOrgID    []byte
+	withoutOrgID []byte
+	hasOrgID     bool
+}
+
+func (p registrationPayloads) forFlag(propagateOrgID bool) []byte {
+	if propagateOrgID {
+		return p.withOrgID
+	}
+	return p.withoutOrgID
+}
+
+func newRegistrationPayloads(request commoncap.TriggerRegistrationRequest) (registrationPayloads, error) {
+	p := registrationPayloads{}
+	withOrgID, err := pb.MarshalTriggerRegistrationRequest(request)
+	if err != nil {
+		return registrationPayloads{}, err
+	}
+	p.withOrgID = withOrgID
+	p.hasOrgID = request.Metadata.OrgID != ""
+	request.Metadata.OrgID = ""
+	p.withoutOrgID, err = pb.MarshalTriggerRegistrationRequest(request)
+	if err != nil {
+		return registrationPayloads{}, err
+	}
+
+	return p, nil
 }
 
 type TriggerSubscriber interface {
@@ -240,8 +270,7 @@ func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, even
 }
 
 func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
-	// Return an error back to the caller if we can't marshal the request.
-	_, err := pb.MarshalTriggerRegistrationRequest(request)
+	payloads, err := newRegistrationPayloads(request)
 	if err != nil {
 		return nil, err
 	}
@@ -268,13 +297,13 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 		bucket := rand.IntN(len(s.registrationBuckets)) //nolint:gosec // G404: weak random is fine for send-time jitter
 		regState = &subRegState{
 			callback: make(chan commoncap.TriggerResponse, sendChannelBufferSize),
-			request:  request,
+			payloads: payloads,
 			bucket:   bucket,
 		}
 		triggerMap[request.TriggerID] = regState
 		s.registrationBuckets[bucket][regState] = struct{}{}
 	} else {
-		regState.request = request
+		regState.payloads = payloads
 		s.lggr.Warnw("RegisterTrigger re-registering trigger", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID)
 	}
 
@@ -318,10 +347,10 @@ func (s *triggerSubscriber) sendDueBuckets(ctx context.Context, lastSentSec, now
 	s.mu.Lock()
 	nBuckets := int64(len(s.registrationBuckets))
 	fromSec := max(lastSentSec+1, nowSec-nBuckets+1)
-	var due []commoncap.TriggerRegistrationRequest
+	var due []registrationPayloads
 	for sec := fromSec; sec <= nowSec; sec++ {
 		for regState := range s.registrationBuckets[sec%nBuckets] {
-			due = append(due, regState.request)
+			due = append(due, regState.payloads)
 		}
 	}
 	s.mu.Unlock()
@@ -333,15 +362,11 @@ func (s *triggerSubscriber) sendDueBuckets(ctx context.Context, lastSentSec, now
 	propagateOrgID := s.propagateOrgID(ctx)
 
 	var totalP2PSends, totalSendErrors, withOrgID int
-	for _, request := range due {
-		if request.Metadata.OrgID != "" {
+	for _, payloads := range due {
+		if payloads.hasOrgID {
 			withOrgID++
 		}
-		rawRequest, err := marshalRegistration(request, propagateOrgID)
-		if err != nil {
-			s.lggr.Errorw("failed to marshal trigger registration", "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID, "err", err)
-			continue
-		}
+		rawRequest := payloads.forFlag(propagateOrgID)
 		for _, peerID := range cfg.capDonInfo.Members {
 			m := &types.MessageBody{
 				CapabilityId:     cfg.capInfo.ID,
@@ -399,13 +424,6 @@ func (s *triggerSubscriber) propagateOrgID(ctx context.Context) bool {
 		return false
 	}
 	return open
-}
-
-func marshalRegistration(request commoncap.TriggerRegistrationRequest, propagateOrgID bool) ([]byte, error) {
-	if !propagateOrgID {
-		request.Metadata.OrgID = ""
-	}
-	return pb.MarshalTriggerRegistrationRequest(request)
 }
 
 func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) error {

@@ -2,6 +2,7 @@ package remote
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -141,8 +142,8 @@ func TestTriggerSubscriber_RegistrationOrgIDMetric(t *testing.T) {
 				got[[2]string{hasOrgID.AsString(), propagated.AsString()}] = dp.Value
 			}
 			require.Equal(t, map[[2]string]int64{
-				{"true", fmt.Sprint(gateOpen)}:  withOrgID,
-				{"false", fmt.Sprint(gateOpen)}: withoutOrgID,
+				{"true", strconv.FormatBool(gateOpen)}:  withOrgID,
+				{"false", strconv.FormatBool(gateOpen)}: withoutOrgID,
 			}, got)
 		})
 	}
