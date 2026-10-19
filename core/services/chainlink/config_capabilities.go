@@ -19,10 +19,6 @@ type capabilitiesConfig struct {
 	c toml.Capabilities
 }
 
-func (c *capabilitiesConfig) Peering() config.P2P {
-	return &p2p{c: c.c.Peering}
-}
-
 func (c *capabilitiesConfig) SharedPeering() config.SharedPeering {
 	return &sharedPeering{s: c.c.SharedPeering}
 }

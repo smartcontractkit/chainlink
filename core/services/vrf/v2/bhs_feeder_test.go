@@ -23,7 +23,7 @@ import (
 func TestStartHeartbeats(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2Universe(t, ownerKey, 2)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, false)
 
 	vrfKey := cltest.MustGenerateRandomKey(t)
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
@@ -71,7 +71,7 @@ func TestStartHeartbeats(t *testing.T) {
 
 		_ = vrftesthelpers.CreateAndStartBHSJob(
 			t, bhsKeyAddresses, app, uni.bhsContractAddress.String(),
-			uni.rootContractAddress.String(), "", "", 0, 200, heartbeatPeriod, 100,
+			"", uni.rootContractAddress.String(), "", 0, 200, heartbeatPeriod, 100,
 		)
 
 		// Ensure log poller is ready and has all logs.

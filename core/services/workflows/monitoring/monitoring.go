@@ -89,6 +89,14 @@ type EngineMetrics struct {
 
 	limitReadFallbackTotal    metric.Int64Counter
 	limitCheckUnenforcedTotal metric.Int64Counter
+
+	// Trigger coordinator instruments.
+	triggerCoordinatorWorkflowsGauge     metric.Int64Gauge
+	triggerCoordinatorReadersGauge       metric.Int64Gauge
+	triggerCoordinatorUnregisterFailures metric.Int64Counter
+
+	// activeExecutionsGauge tracks in-flight workflow executions, by workflowID.
+	activeExecutionsGauge metric.Int64Gauge
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -491,6 +499,38 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register limit check unenforced counter: %w", err)
+	}
+
+	em.triggerCoordinatorWorkflowsGauge, err = beholder.GetMeter().Int64Gauge(
+		"platform_trigger_coordinator_workflows",
+		metric.WithDescription("Number of workflows currently registered with the trigger coordinator"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger coordinator workflows gauge: %w", err)
+	}
+
+	em.triggerCoordinatorReadersGauge, err = beholder.GetMeter().Int64Gauge(
+		"platform_trigger_coordinator_readers",
+		metric.WithDescription("Number of trigger reader goroutines running across all coordinated workflows"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger coordinator readers gauge: %w", err)
+	}
+
+	em.triggerCoordinatorUnregisterFailures, err = beholder.GetMeter().Int64Counter(
+		"platform_trigger_coordinator_unregister_failures_total",
+		metric.WithDescription("Trigger unregistration failures in the coordinator, by workflowID"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger coordinator unregister failures counter: %w", err)
+	}
+
+	em.activeExecutionsGauge, err = beholder.GetMeter().Int64Gauge(
+		"platform_engine_active_executions",
+		metric.WithDescription("In-flight workflow executions, by workflowID"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register active executions gauge: %w", err)
 	}
 
 	return em, nil
@@ -911,4 +951,33 @@ func (c WorkflowsMetricLabeler) IncrementLimitCheckUnenforcedCounter(ctx context
 	lc := c.With(platform.KeyLimitKey, limitKey)
 	otelLabels := beholder.OtelAttributes(lc.Labels).AsStringAttributes()
 	lc.em.limitCheckUnenforcedTotal.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// UpdateTriggerCoordinatorWorkflowsGauge records the number of workflows
+// currently registered with the trigger coordinator. Node-level (no workflow labels).
+func (c WorkflowsMetricLabeler) UpdateTriggerCoordinatorWorkflowsGauge(ctx context.Context, val int64) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerCoordinatorWorkflowsGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
+}
+
+// UpdateTriggerCoordinatorReadersGauge records the number of trigger reader
+// goroutines running across all coordinated workflows. Node-level (no workflow labels).
+func (c WorkflowsMetricLabeler) UpdateTriggerCoordinatorReadersGauge(ctx context.Context, val int64) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerCoordinatorReadersGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementTriggerCoordinatorUnregisterFailuresCounter records trigger
+// unregistration failures in the coordinator. count is the number of triggers
+// that failed to unregister in one call.
+func (c WorkflowsMetricLabeler) IncrementTriggerCoordinatorUnregisterFailuresCounter(ctx context.Context, count int64) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerCoordinatorUnregisterFailures.Add(ctx, count, metric.WithAttributes(otelLabels...))
+}
+
+// UpdateActiveExecutionsGauge records the current number of in-flight workflow
+// executions. Labeled by workflowID via the labeler.
+func (c WorkflowsMetricLabeler) UpdateActiveExecutionsGauge(ctx context.Context, val int64) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.activeExecutionsGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }

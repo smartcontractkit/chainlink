@@ -55,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	configtoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -214,12 +215,12 @@ type ApplicationOpts struct {
 }
 
 // safeDefaultBootstrappers returns the configured default bootstrappers from
-// Capabilities.Peering.V2, or nil when the config or sub-configs are not set.
+// P2P.V2, or nil when the config or sub-configs are not set.
 func safeDefaultBootstrappers(cfg GeneralConfig) []ocrcommontypes.BootstrapperLocator {
-	if cfg == nil || cfg.Capabilities() == nil || cfg.Capabilities().Peering() == nil || cfg.Capabilities().Peering().V2() == nil {
+	if cfg == nil || cfg.P2P() == nil || cfg.P2P().V2() == nil {
 		return nil
 	}
-	return cfg.Capabilities().Peering().V2().DefaultBootstrappers()
+	return cfg.P2P().V2().DefaultBootstrappers()
 }
 
 // safeExternalRegistryAddress returns the Capabilities ExternalRegistry address,
@@ -313,6 +314,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	atomicSettings := &loop.AtomicSettings{}
 	atomicSettings.SetGetter(commoncresettings.DefaultGetter)
 	shardAssignmentSettings := &loop.AtomicSettings{}
+	offchainCapRegistry := globalconfig.New()
 	limitsFactory := limits.Factory{
 		Meter:    meter,
 		Logger:   globalLogger.Named("Limits"),
@@ -479,22 +481,23 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		relayChainInterops,
 		peerWrapper,
 		cre.Opts{
-			CapabilitiesRegistry:    opts.CapabilitiesRegistry,
-			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
-			CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
-			CapabilitiesSharedPeer:  opts.CapabilitiesSharedPeer,
-			FetcherFunc:             opts.FetcherFunc,
-			BillingClient:           opts.BillingClient,
-			LinkingClient:           opts.LinkingClient,
-			Meter:                   meter,
-			StorageClient:           opts.StorageClient,
-			DonTimeStore:            opts.DonTimeStore,
-			LimitsFactory:           limitsFactory,
-			UseLocalTimeProvider:    opts.UseLocalTimeProvider,
-			WorkflowKey:             workflowKey,
-			JWTGenerator:            jwtGenerator,
-			ShardOrchestratorClient: shardOrchestratorClient,
-			ShardAssignmentSettings: shardAssignmentSettings,
+			CapabilitiesRegistry:         opts.CapabilitiesRegistry,
+			ExecutionHandlers:            &confidentialrelay.ExecutionHandlers{},
+			CapabilitiesDispatcher:       opts.CapabilitiesDispatcher,
+			CapabilitiesSharedPeer:       opts.CapabilitiesSharedPeer,
+			FetcherFunc:                  opts.FetcherFunc,
+			BillingClient:                opts.BillingClient,
+			LinkingClient:                opts.LinkingClient,
+			Meter:                        meter,
+			StorageClient:                opts.StorageClient,
+			DonTimeStore:                 opts.DonTimeStore,
+			LimitsFactory:                limitsFactory,
+			UseLocalTimeProvider:         opts.UseLocalTimeProvider,
+			WorkflowKey:                  workflowKey,
+			JWTGenerator:                 jwtGenerator,
+			ShardOrchestratorClient:      shardOrchestratorClient,
+			ShardAssignmentSettings:      shardAssignmentSettings,
+			OffchainCapabilitiesRegistry: offchainCapRegistry,
 		},
 	)
 	if err != nil {
@@ -728,15 +731,13 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// surface a visible error in the UI rather than silently doing nothing.
 	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
-	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings)
+	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings, offchainCapRegistry)
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	stdcapDelegate := standardcapabilities.NewDelegate(
 		globalLogger,
 		opts.DS, jobORM,
 		opts.CapabilitiesRegistry,
 		loopRegistrarConfig,
-		telemetryManager,
-		pipelineRunner,
 		relayChainInterops,
 		creServices.GatewayConnectorWrapper,
 		keyStore,

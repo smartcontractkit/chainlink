@@ -214,7 +214,7 @@ func createJobs(
 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
-	bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"), bootstrap.Host, cre.OCRPeeringPort)}
+	bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"), bootstrap.Host, cre.PeeringPort)}
 	capRegVersion, ok := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
 	if !ok {
 		return errors.New("CapabilitiesRegistry version not found in contract versions")

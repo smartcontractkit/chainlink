@@ -66,7 +66,7 @@ func TestETHTxTask(t *testing.T) {
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
 			testutils.FixtureChainID.String(),
-			`{"CheckerType": "vrf_v2", "VRFCoordinatorAddress": "0x2E396ecbc8223Ebc16EC45136228AE5EDB649943"}`,
+			`{"CheckerType": "vrf_v2plus", "VRFCoordinatorAddress": "0x2E396ecbc8223Ebc16EC45136228AE5EDB649943"}`,
 			nil,
 			false,
 			pipeline.NewVarsFrom(nil),
@@ -91,7 +91,7 @@ func TestETHTxTask(t *testing.T) {
 					Meta:           txMeta,
 					Strategy:       txmgrcommon.NewSendEveryStrategy(),
 					Checker: txmgr.TransmitCheckerSpec{
-						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
+						CheckerType:           txmgr.TransmitCheckerTypeVRFV2Plus,
 						VRFCoordinatorAddress: &addr,
 					},
 					SignalCallback: true,

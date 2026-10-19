@@ -131,6 +131,7 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 	t.Run("returns nil error if gasLanePrice not set in job spec", func(tt *testing.T) {
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
+				VRFVersion:       vrfcommon.V2Plus,
 				PublicKey:        "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800",
 				FromAddresses:    []string{"0x1111111111111111111111111111111111111111"},
 				OmitGasLanePrice: true,
@@ -156,6 +157,7 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
+				VRFVersion:          vrfcommon.V2Plus,
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
 				ChunkSize:           25,
@@ -184,6 +186,7 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
+				VRFVersion:          vrfcommon.V2Plus,
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
 				ChunkSize:           25,
@@ -215,6 +218,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		}
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
+				VRFVersion:          vrfcommon.V2Plus,
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
 				ChunkSize:           25,
@@ -245,6 +249,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
+				VRFVersion:          vrfcommon.V2Plus,
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
 				ChunkSize:           25,
