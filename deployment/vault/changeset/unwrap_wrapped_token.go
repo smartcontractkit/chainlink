@@ -190,6 +190,12 @@ type UnwrapWrappedTokenAndTransferSequenceOutput struct {
 	MCMSTimelockProposals mcms.TimelockProposal `json:"mcms_timelock_proposals"`
 }
 
+const (
+	unwrapProposalDescription = "Vault Unwrap Wrapped Token"
+	unwrapLabelTest           = "TEST"
+	unwrapLabelFull           = "FULL"
+)
+
 // Main Sequence
 // Must return the generated proposals
 // Operation 1. Unwrap
@@ -256,8 +262,14 @@ var UnwrapWrappedTokeAndTransferSequence = operations.NewSequence(
 			mcmAddressByChain[chainSelector] = unwrapOpReport.Output.MCMSAddr
 		}
 
+		label := unwrapLabelFull
+		if input.IsTestSequence {
+			label = unwrapLabelTest
+		}
+
 		proposal, err := proposeutils.BuildProposalFromBatchesV2(deps.Environment,
-			timelockAddresses, mcmAddressByChain, nil, batches, "TODO", *input.MCMSConfig,
+			timelockAddresses, mcmAddressByChain, nil, batches,
+			fmt.Sprintf("%s [%s]", unwrapProposalDescription, label), *input.MCMSConfig,
 		)
 		if err != nil {
 			return UnwrapWrappedTokenAndTransferSequenceOutput{}, fmt.Errorf("failed to build timelock proposal: %w", err)
@@ -289,9 +301,9 @@ type UnwrapWrappedTokenOutput struct {
 }
 
 var UnwrapWrappedTokenOperation = operations.NewOperation(
-	"TODO",
+	"unwrap-wrapped-token",
 	semver.MustParse("1.0.0"),
-	"TODO",
+	"Unwraps wrapped native token held by the chain Timelock (WETH withdraw)",
 	func(b operations.Bundle, deps VaultDeps, input UnwrapWrappedTokenInput) (UnwrapWrappedTokenOutput, error) {
 		b.Logger.Infow("Starting Unwrapping native token operation",
 			"chain", input.ChainSelector)
@@ -299,7 +311,7 @@ var UnwrapWrappedTokenOperation = operations.NewOperation(
 		evmChains := deps.Environment.BlockChains.EVMChains()
 
 		// Get the address from datastore based on the chain
-		_, exists := evmChains[input.ChainSelector]
+		chain, exists := evmChains[input.ChainSelector]
 		if !exists {
 			return UnwrapWrappedTokenOutput{}, fmt.Errorf("chain %d not found in environmnent, please check on chain config yaml", input.ChainSelector)
 		}
@@ -328,9 +340,10 @@ var UnwrapWrappedTokenOperation = operations.NewOperation(
 			wrappedAmount = TEST_AMOUNT_WEI
 		} else {
 			var err error
-			wrappedAmount, err = getAddressTokenBalance(timelockAddr, wrappedTokenAddress)
+			wrappedAmount, err = readWETHBalance(b.GetContext(), chain.Client,
+				common.HexToAddress(wrappedTokenAddress), common.HexToAddress(timelockAddr))
 			if err != nil {
-				return UnwrapWrappedTokenOutput{}, fmt.Errorf("chain %d failed to get Timelock balances: %w", input.ChainSelector, err)
+				return UnwrapWrappedTokenOutput{}, fmt.Errorf("chain %d failed to read Timelock wrapped token balance: %w", input.ChainSelector, err)
 			}
 
 			if input.IsTestEnabled {
@@ -405,9 +418,4 @@ var TransferUnwrappedTokenOperation = operations.NewOperation(
 // Utils.
 func encodeErc20WithdrawCallData(amount *big.Int) ([]byte, error) {
 	return erc20ABI.Pack("withdraw", amount)
-}
-
-// TODO: fetch real balances on the timelock
-func getAddressTokenBalance(address string, tokenAddress string) (*big.Int, error) {
-	return big.NewInt(1), nil
 }
