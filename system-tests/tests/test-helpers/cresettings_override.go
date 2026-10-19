@@ -44,6 +44,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	job_pkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -414,12 +415,12 @@ func renderSettings(t *testing.T, baselineJSON string, overrideDoc map[string]an
 	}
 	if len(base) == 0 {
 		// Empty document => node resets to compiled defaults.
-		return "", hashString("")
+		return "", hashString(job_pkg.SettingsWithConfigType(""))
 	}
 	b, err := toml.Marshal(base)
 	require.NoError(t, err, "failed to marshal settings toml")
 	s := string(b)
-	return s, hashString(s)
+	return s, hashString(job_pkg.SettingsWithConfigType(s))
 }
 
 // deepMergeInto recursively merges src into dst (src wins on leaves). Both are nested

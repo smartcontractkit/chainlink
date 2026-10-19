@@ -26,8 +26,13 @@ type CRESettingsJob struct {
 	Settings string `yaml:"settings"` // toml
 }
 
+// SettingsWithConfigType returns settings prefixed with the explicit settings config_type.
+func SettingsWithConfigType(settings string) string {
+	return "config_type = \"settings\"\n" + settings
+}
+
 func (j CRESettingsJob) ResolveJob() (string, error) {
-	settings := "config_type = \"settings\"\n" + j.Settings
+	settings := SettingsWithConfigType(j.Settings)
 	t, err := template.New("s").ParseFS(templates.FS, templateName)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse %s: %w", templateName, err)
