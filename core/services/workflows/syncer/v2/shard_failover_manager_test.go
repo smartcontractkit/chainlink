@@ -13,6 +13,7 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -387,4 +388,46 @@ func TestShardFailoverManager_CoordinatorMethodsUnsupported(t *testing.T) {
 	_, err := m.Subscribe(t.Context())
 	require.ErrorIs(t, err, ErrCoordinatedShardingUnsupported)
 	require.ErrorIs(t, m.ExecuteTrigger(t.Context(), triggers.CoordinatedEvent{}), ErrCoordinatedShardingUnsupported)
+}
+
+// tenantCapturingEngine records the CRE tenant on the context passed to ExecuteTrigger.
+type tenantCapturingEngine struct {
+	mockEngine
+	tenant   contexts.CRE
+	executed chan contexts.CRE
+}
+
+func (e *tenantCapturingEngine) Tenant() contexts.CRE { return e.tenant }
+
+func (e *tenantCapturingEngine) ExecuteTrigger(ctx context.Context, _ triggers.CoordinatedEvent) error {
+	e.executed <- contexts.CREValue(ctx)
+	return nil
+}
+
+// TestShardFailoverManager_ReplayCarriesTenant covers the replay of a cached
+// event after a primary system error, which must run with the workflow's
+// tenant on the context so scoped settings (e.g. ExecutionTimeout) resolve.
+func TestShardFailoverManager_ReplayCarriesTenant(t *testing.T) {
+	t.Parallel()
+	tenant := contexts.CRE{Org: "org-1", Owner: "0xowner", Workflow: "wf-1"}
+	engine := &tenantCapturingEngine{tenant: tenant, executed: make(chan contexts.CRE, 1)}
+	m := newTestShardFailoverManager(t, engine)
+
+	m.cacheEvent(triggers.CoordinatedEvent{
+		WorkflowID: "wf-1",
+		Event:      commoncap.TriggerResponse{Event: commoncap.TriggerEvent{ID: "event-1"}},
+	})
+	m.HandleExecutionStatusUpdate(&ringpb.ExecutionStatusUpdate{
+		WorkflowId:     "wf-1",
+		ExecutionId:    "exec-1",
+		TriggerEventId: "event-1",
+		Status:         ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR,
+	})
+
+	select {
+	case got := <-engine.executed:
+		assert.Equal(t, tenant.Normalized(), got)
+	default:
+		t.Fatal("cached event was not replayed")
+	}
 }
