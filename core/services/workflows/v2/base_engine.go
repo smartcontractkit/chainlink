@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	workflowhost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -201,17 +202,13 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 	}.NewServiceEngine(lggr)
 }
 
-// ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
+// ExecuteTrigger is the engine's public execution entry point. It performs no admission control, the caller is responsible for those.
 // It rejects events with ErrEngineClosed unless the engine is started and with ErrEngineDraining once Drain has been called.
 //
 // An admitted execution runs on the service engine's WaitGroup, so Close cancels it and waits for it. The lock is released before
 // the execution runs, since holding it would block Close, and therefore the cancellation, until the execution
 // finished on its own.
 func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	// engineMode labels only this gauge, so the migration can compare legacy and
-	// coordinated in-flight load without changing every other engine metric.
-	gaugeMetrics := e.metrics.With(keyEngineMode, e.engineMode)
-
 	done := make(chan error, 1)
 
 	// only admit if engine is started and not draining
@@ -223,16 +220,11 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 		// execute in a goroutine tied to the service engine's context
 		// launch async to release the lock held by IfStarted to prevent deadlock
 		// with Close
-		gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(1)))
 		e.srvcEng.GoCtx(ctx, func(ctx context.Context) {
 			// Always send a result, even if executeTrigger panics or calls
 			// runtime.Goexit, so the caller never blocks on done.
 			err := errors.New("execution exited without a result")
-			defer func() {
-				// ctx may already be canceled by Close, so the decrement is recorded without its cancellation.
-				gaugeMetrics.UpdateActiveExecutionsGauge(context.WithoutCancel(ctx), int64(e.activeExecutions.Add(-1)))
-				done <- err
-			}()
+			defer func() { done <- err }()
 
 			err = e.executeTrigger(ctx, event)
 		})
@@ -247,8 +239,21 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 	return <-done
 }
 
-// executeTrigger runs an admitted event. ctx is canceled when the engine is closed.
+// executeTrigger runs an admitted event, counting it as an active execution while it runs. It runs
+// until the execution finishes or ctx is done.
+//
+// Must be run on the service engine's WaitGroup through GoCtx.
 func (e *baseEngine) executeTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	// engineMode labels only this gauge, so the migration can compare legacy and
+	// coordinated in-flight load without changing every other engine metric.
+	gaugeMetrics := e.metrics.With(keyEngineMode, e.engineMode)
+
+	gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(1)))
+	defer func() {
+		// ctx may already be canceled by Close, so the decrement is recorded without its cancellation.
+		gaugeMetrics.UpdateActiveExecutionsGauge(context.WithoutCancel(ctx), int64(e.activeExecutions.Add(-1)))
+	}()
+
 	eventID := event.Event.Event.ID
 	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 	creCtx := contexts.CREValue(ctx)
@@ -282,6 +287,13 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 	if e.cfg.CachedTriggerSubscriptions != nil && e.cfg.CachedTriggerSubscriptionsEnabled {
 		if err := e.cfg.LocalLimiters.TriggerSubscription.Check(ctx, len(e.cfg.CachedTriggerSubscriptions)); err != nil {
 			return nil, err
+		}
+		// The cache path skips Execute(Subscribe), so modules that derive their trigger
+		// routing from that call (e.g. requirementSelectingModule) must be primed explicitly.
+		if primer, ok := e.cfg.Module.(workflowhost.TriggerCachePrimer); ok {
+			if err := primer.PrimeTriggerCache(ctx, e.cfg.CachedTriggerSubscriptions); err != nil {
+				return nil, fmt.Errorf("failed to prime trigger cache: %w", err)
+			}
 		}
 		e.metrics.IncrementTriggerSubscriptionSourceCounter(ctx, triggerSubscriptionSourceCache)
 		if err := e.cfg.Hooks.OnSubscriptionsReady(e.cfg.CachedTriggerSubscriptions, e.Tenant(), true); err != nil {
