@@ -133,71 +133,42 @@ func (c ccipFeeCollectorChangeset) Apply(e cldf.Environment, cfg CCIPUnwrapToken
 		DataStore:   e.DataStore,
 	}
 
-	var proposals []mcms.TimelockProposal
-	var reports []operations.Report[any, any]
-
-	if cfg.TestEnabled {
-		testSeqReport, err := operations.ExecuteSequence(
-			e.OperationsBundle,
-			UnwrapWrappedTokeAndTransferSequence,
-			vaultDeps,
-			UnwrapWrappedTokenAndTransferSequenceInput{
-				Chains:         cfg.Chains,
-				MCMSConfig:     cfg.MCMSConfig,
-				IsTestSequence: true,
-			})
-
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute CCIP bridge sequence: %w", err)
-		}
-
-		testProposal := testSeqReport.Output.MCMSTimelockProposals
-		testReport := testSeqReport.ExecutionReports
-
-		proposals = append(proposals, testProposal)
-		reports = append(reports, testReport...)
-	}
-
 	seqReport, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		UnwrapWrappedTokeAndTransferSequence,
 		vaultDeps,
 		UnwrapWrappedTokenAndTransferSequenceInput{
-			Chains:         cfg.Chains,
-			MCMSConfig:     cfg.MCMSConfig,
-			IsTestEnabled:  cfg.TestEnabled,
-			IsTestSequence: false,
+			Chains:     cfg.Chains,
+			MCMSConfig: cfg.MCMSConfig,
+			TestNeeded: cfg.TestEnabled,
 		})
-
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute CCIP bridge sequence: %w", err)
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute unwrap sequence: %w", err)
 	}
-	proposals = append(proposals, seqReport.Output.MCMSTimelockProposals)
-	reports = append(reports, seqReport.ExecutionReports...)
 
-	logger.Infow("Token wrapping proposal generation succeed",
-		"proposals", len(proposals))
+	logger.Infow("Unwrap wrapped token proposal generation succeeded",
+		"proposals", len(seqReport.Output.MCMSTimelockProposals))
 
 	return cldf.ChangesetOutput{
-		MCMSTimelockProposals: proposals,
-		Reports:               reports,
+		MCMSTimelockProposals: seqReport.Output.MCMSTimelockProposals,
+		Reports:               seqReport.ExecutionReports,
 	}, nil
 }
 
 type UnwrapWrappedTokenAndTransferSequenceInput struct {
-	Chains         map[uint64]CCIPUnwrapTokenChainConfig `json:"chains"`
-	MCMSConfig     *cldfproposalutils.TimelockConfig     `json:"mcms_config"`
-	IsTestEnabled  bool                                  `json:"is_test_enabled"`
-	IsTestSequence bool                                  `json:"is_test_sequence"`
+	Chains     map[uint64]CCIPUnwrapTokenChainConfig `json:"chains"`
+	MCMSConfig *cldfproposalutils.TimelockConfig     `json:"mcms_config"`
+	TestNeeded bool                                  `json:"test_needed"`
 }
 
 type UnwrapWrappedTokenAndTransferSequenceOutput struct {
-	MCMSTimelockProposals mcms.TimelockProposal `json:"mcms_timelock_proposals"`
+	MCMSTimelockProposals []mcms.TimelockProposal `json:"mcms_timelock_proposals"`
 }
 
 const (
 	unwrapProposalDescription = "Vault Unwrap Wrapped Token"
 	unwrapLabelTest           = "TEST"
+	unwrapLabelRemainder      = "REMAINDER"
 	unwrapLabelFull           = "FULL"
 )
 
@@ -211,90 +182,160 @@ var UnwrapWrappedTokeAndTransferSequence = operations.NewSequence(
 	"Unwrap the Timelock wrapped tokens and transfer to a designated address",
 	func(b operations.Bundle, deps VaultDeps, input UnwrapWrappedTokenAndTransferSequenceInput) (UnwrapWrappedTokenAndTransferSequenceOutput, error) {
 		out := UnwrapWrappedTokenAndTransferSequenceOutput{}
-		evmChains := deps.Environment.BlockChains.EVMChains()
 
-		var batches []mcmstypes.BatchOperation
-
-		timelockAddresses := make(map[uint64]string)
-		mcmAddressByChain := make(map[uint64]string)
-
-		for chainSelector, chainCfg := range input.Chains {
-			var mcmsTransactions []mcmstypes.Transaction
-			_, ok := evmChains[chainSelector]
-			if !ok {
-				return UnwrapWrappedTokenAndTransferSequenceOutput{}, fmt.Errorf("chain not found in environment: %d", chainSelector)
-			}
-
-			unwrapOpReport, err := operations.ExecuteOperation(
-				b,
-				UnwrapWrappedTokenOperation,
-				deps,
-				UnwrapWrappedTokenInput{
-					ChainSelector:   chainSelector,
-					MCMSConfig:      input.MCMSConfig,
-					ExternalAddress: chainCfg.ExternalAddressTransfer,
-					IsTestEnabled:   input.IsTestEnabled,
-					IsTestOperation: input.IsTestSequence,
-				})
+		// Read every chain's wrapped balance once, up front, so the test and remainder
+		// proposals are built from the same snapshot and always sum to the total balance.
+		balances := make(map[uint64]*big.Int, len(input.Chains))
+		for chainSelector := range input.Chains {
+			balance, err := readTimelockWrappedBalance(b, deps, chainSelector)
 			if err != nil {
-				return UnwrapWrappedTokenAndTransferSequenceOutput{}, fmt.Errorf("chain %d: unwrap operation failed: %w", chainSelector, err)
+				return UnwrapWrappedTokenAndTransferSequenceOutput{}, fmt.Errorf("chain %d: failed to read wrapped balance: %w", chainSelector, err)
 			}
-			mcmsTransactions = append(mcmsTransactions, unwrapOpReport.Output.MCMSTransaction)
+			balances[chainSelector] = balance
+		}
 
-			if chainCfg.ExternalAddressTransfer != "" {
-				nativeTxOpReport, err := operations.ExecuteOperation(
-					b,
-					TransferUnwrappedTokenOperation,
-					deps,
-					TransferUnwrappedTokenInput{
-						ChainSelector:   chainSelector,
-						ExternalAddress: chainCfg.ExternalAddressTransfer,
-						Amount:          unwrapOpReport.Output.Amount,
-					},
-				)
+		if input.TestNeeded {
+			testAmounts := make(map[uint64]*big.Int, len(balances))
+			remainderAmounts := make(map[uint64]*big.Int, len(balances))
+			for chainSelector, balance := range balances {
+				test, remainder, err := splitUnwrapAmount(balance)
 				if err != nil {
-					return UnwrapWrappedTokenAndTransferSequenceOutput{}, fmt.Errorf("chain %d: transfer operation failed: %w", chainSelector, err)
+					return UnwrapWrappedTokenAndTransferSequenceOutput{}, fmt.Errorf("chain %d: %w", chainSelector, err)
 				}
-				mcmsTransactions = append(mcmsTransactions, nativeTxOpReport.Output.MCMSTransaction)
+				testAmounts[chainSelector] = test
+				remainderAmounts[chainSelector] = remainder
 			}
 
-			batches = append(batches, mcmstypes.BatchOperation{
-				ChainSelector: mcmstypes.ChainSelector(chainSelector),
-				Transactions:  mcmsTransactions,
-			})
-			timelockAddresses[chainSelector] = unwrapOpReport.Output.TimelockAddr
-			mcmAddressByChain[chainSelector] = unwrapOpReport.Output.MCMSAddr
+			testProposal, err := buildUnwrapProposal(b, deps, input, testAmounts, unwrapLabelTest)
+			if err != nil {
+				return UnwrapWrappedTokenAndTransferSequenceOutput{}, fmt.Errorf("test proposal: %w", err)
+			}
+			remainderProposal, err := buildUnwrapProposal(b, deps, input, remainderAmounts, unwrapLabelRemainder)
+			if err != nil {
+				return UnwrapWrappedTokenAndTransferSequenceOutput{}, fmt.Errorf("remainder proposal: %w", err)
+			}
+			out.MCMSTimelockProposals = []mcms.TimelockProposal{*testProposal, *remainderProposal}
+			return out, nil
 		}
 
-		label := unwrapLabelFull
-		if input.IsTestSequence {
-			label = unwrapLabelTest
-		}
-
-		proposal, err := proposeutils.BuildProposalFromBatchesV2(deps.Environment,
-			timelockAddresses, mcmAddressByChain, nil, batches,
-			fmt.Sprintf("%s [%s]", unwrapProposalDescription, label), *input.MCMSConfig,
-		)
+		fullProposal, err := buildUnwrapProposal(b, deps, input, balances, unwrapLabelFull)
 		if err != nil {
-			return UnwrapWrappedTokenAndTransferSequenceOutput{}, fmt.Errorf("failed to build timelock proposal: %w", err)
+			return UnwrapWrappedTokenAndTransferSequenceOutput{}, err
 		}
-
-		out.MCMSTimelockProposals = *proposal
-
+		out.MCMSTimelockProposals = []mcms.TimelockProposal{*fullProposal}
 		return out, nil
 	},
 )
 
+// splitUnwrapAmount splits a wrapped-token balance into the test amount and the remainder,
+// mirroring splitTransfersForTest in bridge_operations.go. Requires balance > TEST_AMOUNT_WEI
+// so the remainder is strictly positive.
+func splitUnwrapAmount(balance *big.Int) (test, remainder *big.Int, err error) {
+	if balance == nil || balance.Cmp(TEST_AMOUNT_WEI) <= 0 {
+		return nil, nil, fmt.Errorf("wrapped balance %s must be greater than test amount %s", balance, TEST_AMOUNT_WEI)
+	}
+	return new(big.Int).Set(TEST_AMOUNT_WEI), new(big.Int).Sub(balance, TEST_AMOUNT_WEI), nil
+}
+
+// readTimelockWrappedBalance resolves the chain's Timelock and wrapped-native token from the
+// datastore and reads the Timelock's wrapped balance on-chain.
+func readTimelockWrappedBalance(b operations.Bundle, deps VaultDeps, chainSelector uint64) (*big.Int, error) {
+	evmChains := deps.Environment.BlockChains.EVMChains()
+	chain, ok := evmChains[chainSelector]
+	if !ok {
+		return nil, fmt.Errorf("chain not found in environment: %d", chainSelector)
+	}
+
+	timelockAddr, err := getRequiredContractAddress(deps.DataStore, chainSelector, commontypes.RBACTimelock)
+	if err != nil {
+		return nil, fmt.Errorf("timelock not found: %w", err)
+	}
+	wrappedTokenAddr, err := getRequiredContractAddress(deps.DataStore, chainSelector, "WETH")
+	if err != nil {
+		return nil, fmt.Errorf("wrapped token address not found in datastore: %w", err)
+	}
+
+	return readWETHBalance(b.GetContext(), chain.Client,
+		common.HexToAddress(wrappedTokenAddr), common.HexToAddress(timelockAddr))
+}
+
+// buildUnwrapProposal assembles the per-chain (withdraw + optional native transfer) batches for
+// the given amounts and builds a labeled timelock proposal.
+func buildUnwrapProposal(
+	b operations.Bundle,
+	deps VaultDeps,
+	input UnwrapWrappedTokenAndTransferSequenceInput,
+	amounts map[uint64]*big.Int,
+	label string,
+) (*mcms.TimelockProposal, error) {
+	var batches []mcmstypes.BatchOperation
+	timelockAddresses := make(map[uint64]string)
+	mcmAddressByChain := make(map[uint64]string)
+
+	for chainSelector, chainCfg := range input.Chains {
+		amount, ok := amounts[chainSelector]
+		if !ok {
+			return nil, fmt.Errorf("chain %d: no unwrap amount resolved", chainSelector)
+		}
+
+		var mcmsTransactions []mcmstypes.Transaction
+
+		unwrapOpReport, err := operations.ExecuteOperation(
+			b,
+			UnwrapWrappedTokenOperation,
+			deps,
+			UnwrapWrappedTokenInput{
+				ChainSelector: chainSelector,
+				MCMSConfig:     input.MCMSConfig,
+				Amount:         amount,
+			})
+		if err != nil {
+			return nil, fmt.Errorf("chain %d: unwrap operation failed: %w", chainSelector, err)
+		}
+		mcmsTransactions = append(mcmsTransactions, unwrapOpReport.Output.MCMSTransaction)
+
+		if chainCfg.ExternalAddressTransfer != "" {
+			nativeTxOpReport, err := operations.ExecuteOperation(
+				b,
+				TransferUnwrappedTokenOperation,
+				deps,
+				TransferUnwrappedTokenInput{
+					ChainSelector:   chainSelector,
+					ExternalAddress: chainCfg.ExternalAddressTransfer,
+					Amount:          amount,
+				},
+			)
+			if err != nil {
+				return nil, fmt.Errorf("chain %d: transfer operation failed: %w", chainSelector, err)
+			}
+			mcmsTransactions = append(mcmsTransactions, nativeTxOpReport.Output.MCMSTransaction)
+		}
+
+		batches = append(batches, mcmstypes.BatchOperation{
+			ChainSelector: mcmstypes.ChainSelector(chainSelector),
+			Transactions:  mcmsTransactions,
+		})
+		timelockAddresses[chainSelector] = unwrapOpReport.Output.TimelockAddr
+		mcmAddressByChain[chainSelector] = unwrapOpReport.Output.MCMSAddr
+	}
+
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(deps.Environment,
+		timelockAddresses, mcmAddressByChain, nil, batches,
+		fmt.Sprintf("%s [%s]", unwrapProposalDescription, label), *input.MCMSConfig,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build timelock proposal: %w", err)
+	}
+	return proposal, nil
+}
+
 // Operation 1. Unwrap
-// Map the input config
-// Create batches
-// Create proposal
+// Builds the wrapped-token withdraw transaction for an explicit amount (resolved upstream
+// from the on-chain balance).
 type UnwrapWrappedTokenInput struct {
-	ChainSelector   uint64                            `json:"chain_selector"`
-	ExternalAddress string                            `json:"external_address"`
-	MCMSConfig      *cldfproposalutils.TimelockConfig `json:"mcms_config"`
-	IsTestEnabled   bool                              `json:"is_test_enabled"`
-	IsTestOperation bool                              `json:"is_test_operation"`
+	ChainSelector uint64                            `json:"chain_selector"`
+	MCMSConfig    *cldfproposalutils.TimelockConfig `json:"mcms_config"`
+	Amount        *big.Int                          `json:"amount"`
 }
 
 type UnwrapWrappedTokenOutput struct {
@@ -309,16 +350,10 @@ var UnwrapWrappedTokenOperation = operations.NewOperation(
 	semver.MustParse("1.0.0"),
 	"Unwraps wrapped native token held by the chain Timelock (WETH withdraw)",
 	func(b operations.Bundle, deps VaultDeps, input UnwrapWrappedTokenInput) (UnwrapWrappedTokenOutput, error) {
-		b.Logger.Infow("Starting Unwrapping native token operation",
-			"chain", input.ChainSelector)
+		b.Logger.Infow("Starting unwrapping wrapped token operation",
+			"chain", input.ChainSelector,
+			"amount", input.Amount)
 		out := UnwrapWrappedTokenOutput{}
-		evmChains := deps.Environment.BlockChains.EVMChains()
-
-		// Get the address from datastore based on the chain
-		chain, exists := evmChains[input.ChainSelector]
-		if !exists {
-			return UnwrapWrappedTokenOutput{}, fmt.Errorf("chain %d not found in environmnent, please check on chain config yaml", input.ChainSelector)
-		}
 
 		timelockAddr, err := getRequiredContractAddress(deps.DataStore, input.ChainSelector, commontypes.RBACTimelock)
 		if err != nil {
@@ -339,27 +374,7 @@ var UnwrapWrappedTokenOperation = operations.NewOperation(
 			return UnwrapWrappedTokenOutput{}, fmt.Errorf("wrapped token address not found for chain %d in datastore: %w", input.ChainSelector, err)
 		}
 
-		var wrappedAmount *big.Int
-		if input.IsTestOperation {
-			wrappedAmount = TEST_AMOUNT_WEI
-		} else {
-			var err error
-			wrappedAmount, err = readWETHBalance(b.GetContext(), chain.Client,
-				common.HexToAddress(wrappedTokenAddress), common.HexToAddress(timelockAddr))
-			if err != nil {
-				return UnwrapWrappedTokenOutput{}, fmt.Errorf("chain %d failed to read Timelock wrapped token balance: %w", input.ChainSelector, err)
-			}
-
-			if input.IsTestEnabled {
-				if wrappedAmount.Cmp(TEST_AMOUNT_WEI) < 0 || wrappedAmount.Cmp(TEST_AMOUNT_WEI) == 0 {
-					return UnwrapWrappedTokenOutput{}, fmt.Errorf("chain %d: balance is lower than TEST_AMOUNT_WEI", input.ChainSelector)
-				}
-
-				wrappedAmount = new(big.Int).Sub(wrappedAmount, TEST_AMOUNT_WEI)
-			}
-		}
-
-		data, err := encodeErc20WithdrawCallData(wrappedAmount)
+		data, err := encodeErc20WithdrawCallData(input.Amount)
 		if err != nil {
 			return UnwrapWrappedTokenOutput{}, fmt.Errorf("chain %d failed to encode withdraw calldata: %w", input.ChainSelector, err)
 		}
@@ -379,7 +394,7 @@ var UnwrapWrappedTokenOperation = operations.NewOperation(
 		out.TimelockAddr = timelockAddr
 		out.MCMSAddr = mcmAddr
 		out.MCMSTransaction = unwrapTx
-		out.Amount = wrappedAmount
+		out.Amount = input.Amount
 
 		return out, nil
 	},
