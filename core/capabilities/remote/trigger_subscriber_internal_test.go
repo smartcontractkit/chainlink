@@ -9,6 +9,7 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
@@ -33,7 +34,7 @@ func TestTriggerSubscriber_SendDueBuckets(t *testing.T) {
 
 	dispatcher := mocks.NewDispatcher(t)
 	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
-	s := NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, logger.Test(t))
+	s := NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(false), logger.Test(t))
 	require.NoError(t, s.SetConfig(cfg, capInfo, 2, commoncap.DON{ID: 1, Members: []p2ptypes.PeerID{peer}}, aggregation.NewDefaultModeAggregator(1)))
 	for i := range nRegistrations {
 		_, err := s.RegisterTrigger(t.Context(), commoncap.TriggerRegistrationRequest{

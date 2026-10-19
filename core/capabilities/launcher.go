@@ -71,6 +71,8 @@ type launcher struct {
 	// deactivated after rollout to exclude WorkflowTag from the requestID.
 	workflowTagHashFlag limits.RangeLimiter[commonconfig.Timestamp]
 
+	propagateOrgIDGate limits.GateLimiter
+
 	muSubServices sync.Mutex
 	subServices   []services.Service
 
@@ -149,6 +151,10 @@ func NewLauncher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow tag hash flag limiter: %w", err)
 	}
+	propagateOrgIDGate, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.PropagateOrgIDInRequestMetadata)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create propagate org ID gate limiter: %w", err)
+	}
 	return &launcher{
 		lggr:       logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		dispatcher: dispatcher,
@@ -166,6 +172,7 @@ func NewLauncher(
 		metrics:                metrics,
 		workflowDONBindingGate: workflowDONBindingGate,
 		workflowTagHashFlag:    workflowTagHashFlag,
+		propagateOrgIDGate:     propagateOrgIDGate,
 		shardingEnabled:        shardingEnabled,
 		shardIndex:             shardIndex,
 		stopCh:                 make(services.StopChan),
@@ -257,6 +264,11 @@ func (w *launcher) Close() error {
 		if w.workflowTagHashFlag != nil {
 			if err := w.workflowTagHashFlag.Close(); err != nil {
 				w.lggr.Errorw("failed to close workflow tag hash flag limiter", "error", err)
+			}
+		}
+		if w.propagateOrgIDGate != nil {
+			if err := w.propagateOrgIDGate.Close(); err != nil {
+				w.lggr.Errorw("failed to close propagate org ID gate limiter", "error", err)
 			}
 		}
 		return nil
@@ -641,7 +653,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		if config.RemoteTriggerConfig != nil { // trigger
 			sub, alreadyExists := w.cachedShims.triggerSubscribers[key]
 			if !alreadyExists {
-				sub = remote.NewTriggerSubscriber(capID, method, w.dispatcher, w.lggr)
+				sub = remote.NewTriggerSubscriber(capID, method, w.dispatcher, w.propagateOrgIDGate, w.lggr)
 				cc.SetTriggerSubscriber(method, sub)
 				// add to cachedShims later, only after startNewShim succeeds
 			}

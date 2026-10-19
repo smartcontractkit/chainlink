@@ -936,7 +936,6 @@ func newWorkflowRegistrySyncerV2(
 			CapRegistry:  opts.CapabilitiesRegistry,
 			RegTimeout:   engineLimiters.TriggerRegistrationsTime,
 			ChainAllowed: engineLimiters.ChainAllowed,
-			Settings:     engineLimiters.Settings,
 			Logger:       lggr,
 			Metrics:      wfmonitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), coordinatorMetrics),
 		},
