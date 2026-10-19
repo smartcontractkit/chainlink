@@ -35,11 +35,13 @@ const (
 	bridgeLabelFull      = "FULL"
 )
 
-// wethABI covers the WETH9 functions the bridge needs: deposit(), approve(), and the read calls used
-// for balance preconditions. The proposal-decode ABI (WETH9) lives in the treasury ABI registry.
+// wethABI covers the WETH9 functions the bridge and unwrap flows need: deposit(), withdraw(),
+// approve(), and the read calls used for balance preconditions. The proposal-decode ABI (WETH9)
+// lives in the treasury ABI registry.
 var wethABI = func() abi.ABI {
 	const abiJSON = `[
 		{"name":"deposit","type":"function","stateMutability":"payable","inputs":[],"outputs":[]},
+		{"name":"withdraw","type":"function","stateMutability":"nonpayable","inputs":[{"name":"wad","type":"uint256"}],"outputs":[]},
 		{"name":"approve","type":"function","stateMutability":"nonpayable","inputs":[{"name":"guy","type":"address"},{"name":"wad","type":"uint256"}],"outputs":[{"name":"","type":"bool"}]},
 		{"name":"balanceOf","type":"function","stateMutability":"view","inputs":[{"name":"","type":"address"}],"outputs":[{"name":"","type":"uint256"}]}
 	]`

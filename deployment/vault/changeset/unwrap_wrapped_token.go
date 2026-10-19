@@ -192,6 +192,12 @@ var UnwrapWrappedTokeAndTransferSequence = operations.NewSequence(
 				return UnwrapWrappedTokenAndTransferSequenceOutput{}, fmt.Errorf("chain %d: failed to read wrapped balance: %w", chainSelector, err)
 			}
 			balances[chainSelector] = balance
+
+			// Without a test split there is no other balance check; avoid generating a no-op
+			// proposal that withdraws and transfers zero.
+			if !input.TestNeeded && balance.Sign() == 0 {
+				return UnwrapWrappedTokenAndTransferSequenceOutput{}, fmt.Errorf("chain %d: wrapped balance is zero, nothing to unwrap", chainSelector)
+			}
 		}
 
 		if input.TestNeeded {
@@ -286,8 +292,8 @@ func buildUnwrapProposal(
 			deps,
 			UnwrapWrappedTokenInput{
 				ChainSelector: chainSelector,
-				MCMSConfig:     input.MCMSConfig,
-				Amount:         amount,
+				MCMSConfig:    input.MCMSConfig,
+				Amount:        amount,
 			})
 		if err != nil {
 			return nil, fmt.Errorf("chain %d: unwrap operation failed: %w", chainSelector, err)
@@ -436,5 +442,5 @@ var TransferUnwrappedTokenOperation = operations.NewOperation(
 
 // Utils.
 func encodeErc20WithdrawCallData(amount *big.Int) ([]byte, error) {
-	return erc20ABI.Pack("withdraw", amount)
+	return wethABI.Pack("withdraw", amount)
 }
