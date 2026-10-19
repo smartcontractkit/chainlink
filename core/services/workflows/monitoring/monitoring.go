@@ -40,11 +40,11 @@ type EngineMetrics struct {
 	engineHeartbeatCounter metric.Int64Counter
 	engineHeartbeatGauge   metric.Int64Gauge
 
-	workflowCompletedDurationSeconds   metric.Int64Histogram
-	workflowErrorDurationSeconds       metric.Int64Histogram
-	workflowTimeoutDurationSeconds     metric.Int64Histogram
-	workflowStepDurationSeconds        metric.Int64Histogram
-	capabilityExecutionDurationSeconds metric.Int64Histogram
+	workflowCompletedDurationSeconds   metric.Float64Histogram
+	workflowErrorDurationSeconds       metric.Float64Histogram
+	workflowTimeoutDurationSeconds     metric.Float64Histogram
+	workflowStepDurationSeconds        metric.Float64Histogram
+	capabilityExecutionDurationSeconds metric.Float64Histogram
 	workflowMissingMeteringReport      metric.Int64Counter
 	workflowMeteringMode               metric.Int64Gauge
 
@@ -238,7 +238,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register engine heartbeat gauge: %w", err)
 	}
 
-	em.workflowCompletedDurationSeconds, err = beholder.GetMeter().Int64Histogram(
+	em.workflowCompletedDurationSeconds, err = beholder.GetMeter().Float64Histogram(
 		"platform_engine_workflow_completed_time_seconds",
 		metric.WithDescription("Distribution of completed execution latencies"),
 		metric.WithUnit("seconds"),
@@ -247,7 +247,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register completed duration histogram: %w", err)
 	}
 
-	em.workflowErrorDurationSeconds, err = beholder.GetMeter().Int64Histogram(
+	em.workflowErrorDurationSeconds, err = beholder.GetMeter().Float64Histogram(
 		"platform_engine_workflow_error_time_seconds",
 		metric.WithDescription("Distribution of error execution latencies"),
 		metric.WithUnit("seconds"),
@@ -256,7 +256,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register error duration histogram: %w", err)
 	}
 
-	em.workflowTimeoutDurationSeconds, err = beholder.GetMeter().Int64Histogram(
+	em.workflowTimeoutDurationSeconds, err = beholder.GetMeter().Float64Histogram(
 		"platform_engine_workflow_timeout_time_seconds",
 		metric.WithDescription("Distribution of timeout execution latencies"),
 		metric.WithUnit("seconds"),
@@ -265,7 +265,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register timeout duration histogram: %w", err)
 	}
 
-	em.workflowStepDurationSeconds, err = beholder.GetMeter().Int64Histogram(
+	em.workflowStepDurationSeconds, err = beholder.GetMeter().Float64Histogram(
 		"platform_engine_workflow_step_time_seconds",
 		metric.WithDescription("Distribution of step execution times"),
 		metric.WithUnit("seconds"),
@@ -274,7 +274,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register step execution time histogram: %w", err)
 	}
 
-	em.capabilityExecutionDurationSeconds, err = beholder.GetMeter().Int64Histogram(
+	em.capabilityExecutionDurationSeconds, err = beholder.GetMeter().Float64Histogram(
 		"platform_engine_capability_execution_time_seconds",
 		metric.WithDescription("Distribution of capability execution times"),
 		metric.WithUnit("seconds"),
@@ -533,13 +533,13 @@ func MetricViews() []sdkmetric.View {
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_workflow_completed_time_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 1, 2, 5, 10, 20, 40, 90, 150, 300, 600},
+				Boundaries: []float64{0.25, 0.5, 1, 2, 5, 10, 20, 60, 120, 300, 600},
 			}},
 		),
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_workflow_error_time_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 30, 60, 120, 240, 600},
+				Boundaries: []float64{0, 30, 60, 120, 600},
 			}},
 		),
 		sdkmetric.NewView(
@@ -551,7 +551,7 @@ func MetricViews() []sdkmetric.View {
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_capability_execution_time_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 5, 10, 20, 60, 120, 240},
+				Boundaries: []float64{0.25, 0.5, 1, 5, 10, 30, 60, 120, 600},
 			}},
 		),
 		sdkmetric.NewView(
@@ -715,27 +715,27 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowTriggerEventQueueFullCounter(ct
 	c.em.workflowTriggerEventQueueFullCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c WorkflowsMetricLabeler) UpdateWorkflowCompletedDurationHistogram(ctx context.Context, duration int64) {
+func (c WorkflowsMetricLabeler) UpdateWorkflowCompletedDurationHistogram(ctx context.Context, duration float64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowCompletedDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
-func (c WorkflowsMetricLabeler) UpdateWorkflowErrorDurationHistogram(ctx context.Context, duration int64) {
+func (c WorkflowsMetricLabeler) UpdateWorkflowErrorDurationHistogram(ctx context.Context, duration float64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowErrorDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
-func (c WorkflowsMetricLabeler) UpdateWorkflowTimeoutDurationHistogram(ctx context.Context, duration int64) {
+func (c WorkflowsMetricLabeler) UpdateWorkflowTimeoutDurationHistogram(ctx context.Context, duration float64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowTimeoutDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
-func (c WorkflowsMetricLabeler) UpdateWorkflowStepDurationHistogram(ctx context.Context, duration int64) {
+func (c WorkflowsMetricLabeler) UpdateWorkflowStepDurationHistogram(ctx context.Context, duration float64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowStepDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
-func (c WorkflowsMetricLabeler) UpdateCapabilityExecutionDurationHistogram(ctx context.Context, duration int64) {
+func (c WorkflowsMetricLabeler) UpdateCapabilityExecutionDurationHistogram(ctx context.Context, duration float64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.capabilityExecutionDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
