@@ -16,11 +16,6 @@ import (
 	df_cache "github.com/smartcontractkit/chainlink-solana/contracts/generated/data_feeds_cache"
 )
 
-type Sender struct {
-	ProgramID solana.PublicKey
-	StateID   solana.PublicKey
-}
-
 type ConfigureCacheDecimalReportRequest struct {
 	MCMS *cldfproposalutils.TimelockConfig // if set, assumes current ownership is the timelock
 
@@ -40,6 +35,7 @@ type ConfigureCacheDecimalReportRequest struct {
 
 var _ cldf.ChangeSetV2[*ConfigureCacheDecimalReportRequest] = ConfigureCacheDecimalReport{}
 
+// Deprecated: the data feeds cache was never deployed and is replaced by the data feeds store, use SetStoreSpecificWorkflowMetadata and SetStoreDescriptions.
 type ConfigureCacheDecimalReport struct{}
 
 func (cs ConfigureCacheDecimalReport) VerifyPreconditions(env cldf.Environment, req *ConfigureCacheDecimalReportRequest) error {
@@ -156,14 +152,4 @@ func (cs ConfigureCacheDecimalReport) Apply(env cldf.Environment, req *Configure
 	out.MCMSTimelockProposals = execSetAuthOut.Output.Proposals
 
 	return out, nil
-}
-
-func deriveForwarderAuthority(forwarderState solana.PublicKey, receiverProgram solana.PublicKey, forwarderProgram solana.PublicKey) (solana.PublicKey, error) {
-	seeds := [][]byte{
-		[]byte("forwarder"),
-		forwarderState[:],
-		receiverProgram[:],
-	}
-	ret, _, err := solana.FindProgramAddress(seeds, forwarderProgram)
-	return ret, err
 }

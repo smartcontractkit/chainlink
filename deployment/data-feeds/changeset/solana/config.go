@@ -15,7 +15,7 @@ const (
 	replaceKeysCmd = "docker_update_contracts"
 )
 
-var cacheBuildParams = helpers.DomainParams{
+var buildParams = helpers.DomainParams{
 	RepoURL:          repoURL,
 	CloneDir:         cloneDir,
 	AnchorDir:        anchorDir,
@@ -26,6 +26,8 @@ var cacheBuildParams = helpers.DomainParams{
 }
 
 var dataFeedsCache = cldf.ContractType("data_feeds_cache")
+var dataFeedsStore = cldf.ContractType("data_feeds_store")
 var programToFileMap = map[cldf.ContractType]string{
 	dataFeedsCache: "programs/data_feeds_cache/src/lib.rs",
+	dataFeedsStore: "programs/data-feeds-store/src/lib.rs",
 }

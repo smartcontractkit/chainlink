@@ -36,6 +36,7 @@ type DeployCacheRequest struct {
 
 var _ cldf.ChangeSetV2[*DeployCacheRequest] = DeployCache{}
 
+// Deprecated: the data feeds cache was never deployed and is replaced by the data feeds store, use DeployStore.
 type DeployCache struct{}
 
 func (cs DeployCache) VerifyPreconditions(env cldf.Environment, req *DeployCacheRequest) error {
@@ -53,7 +54,7 @@ func (cs DeployCache) Apply(env cldf.Environment, req *DeployCacheRequest) (cldf
 
 	if req.BuildConfig != nil {
 		// You may want to define a specific build params for the cache if needed
-		err := helpers.BuildSolana(env, *req.BuildConfig, cacheBuildParams)
+		err := helpers.BuildSolana(env, *req.BuildConfig, buildParams)
 		if err != nil {
 			return out, fmt.Errorf("failed build solana artifacts: %w", err)
 		}
@@ -129,6 +130,7 @@ type SetCacheUpgradeAuthorityRequest struct {
 
 var _ cldf.ChangeSetV2[*SetCacheUpgradeAuthorityRequest] = SetCacheUpgradeAuthority{}
 
+// Deprecated: the data feeds cache was never deployed and is replaced by the data feeds store, use SetStoreUpgradeAuthority.
 type SetCacheUpgradeAuthority struct{}
 
 func (cs SetCacheUpgradeAuthority) VerifyPreconditions(env cldf.Environment, req *SetCacheUpgradeAuthorityRequest) error {
@@ -207,6 +209,7 @@ type InitCacheDecimalReportRequest struct {
 
 var _ cldf.ChangeSetV2[*InitCacheDecimalReportRequest] = InitCacheDecimalReport{}
 
+// Deprecated: the data feeds cache was never deployed and is replaced by the data feeds store, use InitStoreFeeds.
 type InitCacheDecimalReport struct{}
 
 func (cs InitCacheDecimalReport) VerifyPreconditions(env cldf.Environment, req *InitCacheDecimalReportRequest) error {

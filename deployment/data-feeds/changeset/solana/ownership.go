@@ -18,9 +18,9 @@ type TransferOwnershipCacheRequest struct {
 	MCMSCfg                     cldfproposalutils.TimelockConfig
 }
 
-// TransferOwnershipCache implementation
 var _ cldf.ChangeSetV2[*TransferOwnershipCacheRequest] = TransferOwnershipCache{}
 
+// Deprecated: the data feeds cache was never deployed and is replaced by the data feeds store, use TransferOwnershipStore.
 type TransferOwnershipCache struct{}
 
 func (cs TransferOwnershipCache) VerifyPreconditions(env cldf.Environment, req *TransferOwnershipCacheRequest) error {
