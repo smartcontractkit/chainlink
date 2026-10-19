@@ -7,10 +7,13 @@ import (
 	"slices"
 	"sync"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -394,7 +397,7 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 
 	if belongsToACapabilityDON {
 		for _, myDON := range myCapabilityDONs {
-			w.serveCapabilities(ctx, w.myPeerID, myDON, remoteWorkflowDONs)
+			w.serveCapabilities(ctx, w.myPeerID, myDON, remoteWorkflowDONs, metadataRegistry)
 		}
 	}
 
@@ -493,10 +496,17 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON r
 
 // serveCapabilities exposes capabilities that are available on this node, as part of the given DON.
 // It is best effort, ensuring that valid capabilities are exposed even if some fail
-func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registry.DON, remoteWorkflowDONs []registry.DON) {
+func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registry.DON, remoteWorkflowDONs []registry.DON, metadataRegistry *registry.RegistryMetadata) {
 	idsToDONs := map[uint32]capabilities.DON{}
+	workflowDONSigners := map[uint32][]ocrtypes.OnchainPublicKey{}
 	for _, d := range remoteWorkflowDONs {
 		idsToDONs[d.ID] = d.DON
+		signers, err := consensusSignersFor(d, metadataRegistry)
+		if err != nil {
+			w.lggr.Warnw("failed to get consensus signers for workflow DON, its report signatures will not be verified", "workflowDON", d.ID, "error", err)
+			continue
+		}
+		workflowDONSigners[d.ID] = signers
 	}
 
 	for cid, c := range don.CapabilityConfigurations {
@@ -518,7 +528,7 @@ func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.Peer
 			continue
 		}
 
-		err = w.serveCapabilityV2(ctx, cid, methodConfig, myPeerID, don, idsToDONs)
+		err = w.serveCapabilityV2(ctx, cid, methodConfig, myPeerID, don, idsToDONs, workflowDONSigners)
 		if err != nil {
 			w.lggr.Errorw("failed to serve capability", "myPeerID", myPeerID, "localDON", don, "capabilityID", cid, "err", err)
 			w.metrics.recordLocalCapabilityExposed(ctx, cid, resultFailure)
@@ -542,6 +552,43 @@ func signersFor(don registry.DON, localRegistry *registry.RegistryMetadata) ([][
 	}
 
 	return s, nil
+}
+
+// consensusSignersFor returns the signers of the OCR3 config of the consensus capability running
+// on the given workflow DON, ordered by oracle index. A workflow DON is expected to run a single
+// consensus capability.
+func consensusSignersFor(don registry.DON, localRegistry *registry.RegistryMetadata) ([]ocrtypes.OnchainPublicKey, error) {
+	var signers []ocrtypes.OnchainPublicKey
+	var found []string
+	for capID, capConfig := range don.CapabilityConfigurations {
+		c, ok := localRegistry.IDsToCapabilities[capID]
+		if !ok || c.CapabilityType != capabilities.CapabilityTypeConsensus {
+			continue
+		}
+		cfg := &capabilitiespb.CapabilityConfig{}
+		if err := proto.Unmarshal(capConfig.Config, cfg); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal config of capability %s: %w", capID, err)
+		}
+		ocrConfig, ok := cfg.Ocr3Configs[capabilitiespb.OCR3ConfigDefaultKey]
+		if !ok || ocrConfig == nil {
+			continue
+		}
+		found = append(found, capID)
+		signers = make([]ocrtypes.OnchainPublicKey, len(ocrConfig.Signers))
+		for i, s := range ocrConfig.Signers {
+			signers[i] = s
+		}
+	}
+
+	switch len(found) {
+	case 0:
+		return nil, errors.New("no consensus capability with an OCR3 config found")
+	case 1:
+		return signers, nil
+	default:
+		slices.Sort(found)
+		return nil, fmt.Errorf("multiple consensus capabilities with an OCR3 config found: %v", found)
+	}
 }
 
 // Add a V2 capability with multiple methods, using CombinedClient.
@@ -642,7 +689,7 @@ func (w *launcher) startNewShim(ctx context.Context, receiver remotetypes.Receiv
 	return nil
 }
 
-func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myPeerID p2ptypes.PeerID, myDON registry.DON, idsToDONs map[uint32]capabilities.DON) error {
+func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myPeerID p2ptypes.PeerID, myDON registry.DON, idsToDONs map[uint32]capabilities.DON, workflowDONSigners map[uint32][]ocrtypes.OnchainPublicKey) error {
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capabilities.CapabilityTypeCombined,
@@ -707,12 +754,18 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 			}
 
 			var requestHasher remotetypes.MessageHasher
+			var accumulatorFactory remotetypes.RequestAccumulatorFactory
 			optInCfg := executable.OptInHasherConfig{IncludeWorkflowTag: w.workflowTagHashFlag}
 			switch config.RemoteExecutableConfig.RequestHasherType {
 			case capabilities.RequestHasherType_Simple:
 				requestHasher = executable.NewSimpleHasher(optInCfg)
 			case capabilities.RequestHasherType_WriteReportExcludeSignatures:
 				requestHasher = executable.NewWriteReportExcludeSignaturesHasher(optInCfg)
+				var aggErr error
+				accumulatorFactory, aggErr = executable.NewWriteReportSignatureAggregator(workflowDONSigners, w.lggr)
+				if aggErr != nil {
+					return fmt.Errorf("failed to create write report signature aggregator: %w", aggErr)
+				}
 			default:
 				requestHasher = executable.NewSimpleHasher(optInCfg)
 			}
@@ -724,6 +777,7 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 				myDON.DON,
 				idsToDONs,
 				requestHasher,
+				accumulatorFactory,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to set server config: %w", err)

@@ -135,7 +135,9 @@ type ServerRequest struct {
 	// Metadata.WorkflowDonID to match the authenticated calling DON.
 	workflowDONBindingGate limits.GateLimiter
 
-	// stateMux guards requesters, responseSentToRequester, response, and executionCancel.
+	accumulator types.RequestAccumulator
+
+	// stateMux guards requesters, responseSentToRequester, response, accumulator, and executionCancel.
 	// It is held only for short map/field operations, never during capability execution.
 	stateMux sync.Mutex
 
@@ -157,12 +159,15 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method, capa
 	capabilityPeerID p2ptypes.PeerID,
 	callingDon capabilities.DON, requestID string,
 	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string,
-	workflowDONBindingGate limits.GateLimiter, lggr logger.Logger,
+	workflowDONBindingGate limits.GateLimiter, accumulator types.RequestAccumulator, lggr logger.Logger,
 ) (*ServerRequest, error) {
 	lggr = logger.With(logger.Named(lggr, "ServerRequest"), "requestID", requestID) // cap ID and method name included in the parent logger
 
 	if workflowDONBindingGate == nil {
 		return nil, errors.New("workflowDONBindingGate must not be nil")
+	}
+	if accumulator == nil {
+		accumulator = NewLatestPayloadAccumulator()
 	}
 
 	m, err := newSrMetrics(capabilityID, callingDon.ID)
@@ -185,9 +190,30 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method, capa
 		requestTimeout:          requestTimeout,
 		capMethodName:           capMethodName,
 		workflowDONBindingGate:  workflowDONBindingGate,
+		accumulator:             accumulator,
 		lggr:                    lggr,
 		metrics:                 m,
 	}, nil
+}
+
+type latestPayloadAccumulator struct {
+	payload  []byte
+	received bool
+}
+
+// NewLatestPayloadAccumulator returns an accumulator that executes with the most recently received payload.
+func NewLatestPayloadAccumulator() types.RequestAccumulator {
+	return &latestPayloadAccumulator{}
+}
+
+func (a *latestPayloadAccumulator) Add(_ p2ptypes.PeerID, payload []byte) error {
+	a.payload = payload
+	a.received = true
+	return nil
+}
+
+func (a *latestPayloadAccumulator) Payload() ([]byte, bool, error) {
+	return a.payload, a.received, nil
 }
 
 func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) error {
@@ -207,19 +233,34 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 		e.stateMux.Unlock()
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}
+	if err := e.accumulator.Add(requester, msg.Payload); err != nil {
+		e.lggr.Warnw("failed to accumulate request payload", "requester", requester.String(), "err", err)
+	}
 
 	quorumReached := e.minimumRequiredRequestsReceived()
+	var payload []byte
+	payloadReady := false
+	if quorumReached && !e.hasResponse() {
+		var accErr error
+		payload, payloadReady, accErr = e.accumulator.Payload()
+		if accErr != nil {
+			e.lggr.Errorw("request cannot be executed", "err", accErr)
+			e.setError(types.Error_INTERNAL_ERROR, accErr.Error())
+		} else if !payloadReady {
+			e.lggr.Warnw("quorum of requests reached but no executable payload yet, waiting for more requests", "calls", len(e.requesters))
+		}
+	}
 	calls := len(e.requesters)
 	hasResponse := e.hasResponse()
 	e.stateMux.Unlock()
 
 	e.lggr.Debugw("OnMessage called for request", "requester", requester.String(),
-		"quorumReached", quorumReached, "hasResponse", hasResponse, "minRequesters", e.callingDon.F+1, "calls", calls)
+		"quorumReached", quorumReached, "payloadReady", payloadReady, "hasResponse", hasResponse, "minRequesters", e.callingDon.F+1, "calls", calls)
 
 	// Only one message wins the right to execute. All others skip execution
 	// and either wait for the executor's fan-out or self-send if the response
 	// is already available.
-	if quorumReached && !hasResponse && e.executionClaimed.CompareAndSwap(false, true) {
+	if quorumReached && payloadReady && !hasResponse && e.executionClaimed.CompareAndSwap(false, true) {
 		switch e.method {
 		case types.MethodExecute:
 			ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
@@ -231,7 +272,7 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 			e.stateMux.Unlock()
 			success := false
 			start := time.Now()
-			responsePayload, responseErr := executeCapabilityRequest(ctxWithTimeout, e.lggr, e.capability, msg.Payload, e.callingDon.ID, e.workflowDONBindingGate)
+			responsePayload, responseErr := executeCapabilityRequest(ctxWithTimeout, e.lggr, e.capability, payload, e.callingDon.ID, e.workflowDONBindingGate)
 
 			e.stateMux.Lock()
 			// Cancel may have already set a timeout error response; never overwrite an
