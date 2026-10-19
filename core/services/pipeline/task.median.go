@@ -32,6 +32,11 @@ type MedianTask struct {
 	// inputs when those exclusions would fail the allowedFaults check). An
 	// explicit zero admits only the freshest input. The gate is off when the
 	// parameter is absent.
+	//
+	// The gate can only tell inputs apart by their source timestamps, so it has
+	// no effect when values="$(x)" references a single slice (every element
+	// gets x's timestamp), or when every input derives from one shared
+	// slow-moving dependency (every input inherits its timestamp).
 	StalenessGateSeconds string `json:"stalenessGateSeconds"`
 }
 
@@ -41,7 +46,7 @@ func (t *MedianTask) Type() TaskType {
 	return TaskTypeMedian
 }
 
-func (t *MedianTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *MedianTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		maybeAllowedFaults    MaybeUint64Param
 		valuesAndErrs         SliceParam
@@ -101,7 +106,11 @@ func (t *MedianTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	// it off; an explicit zero means zero tolerance (only the freshest input
 	// survives).
 	stalenessGateSec, gateEnabled := maybeStalenessGateSec.Uint64()
-	values, faults = applyStalenessGate(lggr, values, timestamps, faults, allowedFaults, stalenessGateSec, gateEnabled)
+	values, timestamps, faults = applyStalenessGate(lggr, values, timestamps, faults, allowedFaults, stalenessGateSec, gateEnabled)
+
+	// The median is only as fresh as the inputs that went into it. Zero
+	// (unknown) lets the scheduler fall back to the dependencies' timestamps.
+	timestamp := oldestKnownTimestamp(timestamps)
 
 	switch {
 	case faults > allowedFaults:
@@ -122,10 +131,10 @@ func (t *MedianTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	})
 	k := len(decimalValues) / 2
 	if len(decimalValues)%2 == 1 {
-		return Result{Value: decimalValues[k]}, runInfo
+		return Result{Value: decimalValues[k], Timestamp: timestamp}, runInfo
 	}
 	median := decimalValues[k].Add(decimalValues[k-1]).Div(decimal.NewFromInt(2))
-	return Result{Value: median}, runInfo
+	return Result{Value: median, Timestamp: timestamp}, runInfo
 }
 
 // resolveTimestamps returns, for each element of the resolved values, the
@@ -136,12 +145,12 @@ func (t *MedianTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 // The values expression is a comma-separated list of var expressions, each
 // resolving to one element (or to a slice that is flattened into consecutive
 // elements), so timestamps are looked up per referenced task via the dotID
-// registry and assigned in expansion order. When the expression contains no
-// var references, values came from the task inputs and correspond 1:1.
+// registry and assigned in expansion order. When the expression is empty,
+// values came from the task inputs and correspond 1:1; a non-empty expression
+// without var references is a literal with no source timestamps.
 func resolveTimestamps(expr string, vars Vars, values SliceParam, inputs []Result) []uint64 {
 	ts := make([]uint64, len(values))
-	refs := variableRegexp.FindAllStringSubmatch(expr, -1)
-	if len(refs) == 0 {
+	if strings.TrimSpace(expr) == "" {
 		if len(inputs) != len(values) {
 			return nil
 		}
@@ -149,6 +158,10 @@ func resolveTimestamps(expr string, vars Vars, values SliceParam, inputs []Resul
 			ts[i] = inputs[i].Timestamp
 		}
 		return ts
+	}
+	refs := variableRegexp.FindAllStringSubmatch(expr, -1)
+	if len(refs) == 0 {
+		return nil
 	}
 
 	idx := 0
@@ -221,16 +234,18 @@ func filterNilsWithTimestamps(values SliceParam, ts []uint64) (SliceParam, []uin
 
 // applyStalenessGate excludes values whose source timestamp is older than the
 // freshest input by more than stalenessGateSec seconds (the maximum
-// staleness), counting them as faults. Inputs with an unknown (zero)
-// timestamp are never excluded. It is a no-op when the gate is not enabled.
+// staleness), counting them as faults, and returns the surviving values and
+// their timestamps in lockstep. Inputs with an unknown (zero) timestamp are
+// never excluded. It is a no-op when the gate is not enabled.
 //
-// When the exclusions would fail the fault-threshold check, the gate is
-// discarded (staleness fallback) and the values are returned untouched, which
-// reproduces the pre-gate behavior.
-func applyStalenessGate(lggr logger.Logger, values SliceParam, ts []uint64, faults, allowedFaults int, stalenessGateSec uint64, enabled bool) (SliceParam, int) {
+// When excluding every stale value would fail the fault-threshold check, only
+// the stalest values are excluded, oldest first, as many as the threshold
+// still allows (staleness fallback). Equally stale values that cannot all be
+// excluded are excluded in their order in values, earliest first.
+func applyStalenessGate(lggr logger.Logger, values SliceParam, ts []uint64, faults, allowedFaults int, stalenessGateSec uint64, enabled bool) (SliceParam, []uint64, int) {
 	if !enabled || len(ts) != len(values) {
 		// Gate not opted into, or timestamps unknown for this run.
-		return values, faults
+		return values, ts, faults
 	}
 
 	// Guard against overflow: gate seconds near the uint64 maximum mean an
@@ -246,31 +261,59 @@ func applyStalenessGate(lggr logger.Logger, values SliceParam, ts []uint64, faul
 		}
 	}
 	if freshest == 0 {
-		return values, faults
+		return values, ts, faults
 	}
 
-	staleCount := 0
-	outValues := make(SliceParam, 0, len(values))
-	for i, x := range values {
-		if ts[i] != 0 && freshest-ts[i] > stalenessGateMs {
-			staleCount++
-			continue
+	var stale []int
+	for i, ms := range ts {
+		if ms != 0 && freshest-ms > stalenessGateMs {
+			stale = append(stale, i)
 		}
-		outValues = append(outValues, x)
 	}
-	if staleCount == 0 {
-		return values, faults
+	if len(stale) == 0 {
+		return values, ts, faults
 	}
 
-	if faults+staleCount > allowedFaults {
-		// Staleness fallback: discard the gate's filtering and medianize
-		// across all values as if the gate were absent.
-		logger.Sugared(lggr).Debugw("Median task: staleness gate would exceed allowed faults, falling back to all inputs",
-			"stale", staleCount,
+	if budget := max(allowedFaults-faults, 0); len(stale) > budget {
+		// Staleness fallback: exclude only the stalest values the threshold
+		// still allows. The stable sort keeps ties in values order.
+		logger.Sugared(lggr).Debugw("Median task: staleness gate would exceed allowed faults, excluding only the stalest inputs",
+			"stale", len(stale),
+			"excluded", budget,
 			"faults", faults,
 			"allowedFaults", allowedFaults,
 		)
-		return values, faults
+		sort.SliceStable(stale, func(i, j int) bool { return ts[stale[i]] < ts[stale[j]] })
+		stale = stale[:budget]
 	}
-	return outValues, faults + staleCount
+	if len(stale) == 0 {
+		return values, ts, faults
+	}
+
+	excluded := make(map[int]struct{}, len(stale))
+	for _, i := range stale {
+		excluded[i] = struct{}{}
+	}
+	outValues := make(SliceParam, 0, len(values)-len(stale))
+	outTs := make([]uint64, 0, len(values)-len(stale))
+	for i, x := range values {
+		if _, is := excluded[i]; is {
+			continue
+		}
+		outValues = append(outValues, x)
+		outTs = append(outTs, ts[i])
+	}
+	return outValues, outTs, faults + len(stale)
+}
+
+// oldestKnownTimestamp returns the oldest non-zero timestamp, or zero when
+// none is known.
+func oldestKnownTimestamp(ts []uint64) uint64 {
+	var oldest uint64
+	for _, ms := range ts {
+		if ms != 0 && (oldest == 0 || ms < oldest) {
+			oldest = ms
+		}
+	}
+	return oldest
 }

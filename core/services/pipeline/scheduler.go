@@ -164,8 +164,10 @@ func (s *scheduler) reconstructResults() {
 
 // reconstructTimestamps recovers source timestamps for reconstructed task
 // results: bridge tasks re-parse their stored response body, everything else
-// inherits the freshest timestamp among its dependencies (the same rule as
-// resolveTimestamp at runtime). Tasks are stored in topological order, so
+// inherits the oldest timestamp among its dependencies (the same rule as
+// resolveTimestamp at runtime). A reconstructed median therefore reflects all
+// of its dependencies rather than only the inputs that survived its staleness
+// gate, since the gate's outcome is not persisted. Tasks are stored in topological order, so
 // dependencies are reconstructed before their dependents. Without this, any
 // resumed run (e.g. an async bridge callback) would lose its timestamps and a
 // staleness gate would silently fail open.
@@ -214,8 +216,8 @@ func (s *scheduler) Run() {
 		}
 
 		// resolve the source timestamp: the task's own when set (e.g. parsed by
-		// a bridge task), otherwise the freshest among its propagatable inputs,
-		// so timestamps flow through intermediate tasks without their involvement
+		// a bridge task), otherwise the oldest among its dependencies, so
+		// timestamps flow through intermediate tasks without their involvement
 		result.Result.Timestamp = s.resolveTimestamp(result.Task, result.Result.Timestamp)
 
 		// store task run
@@ -312,25 +314,36 @@ func (s *scheduler) Run() {
 }
 
 // resolveTimestamp returns the task's own source timestamp when set, otherwise
-// the freshest timestamp among its dependencies, so timestamps flow through
-// intermediate tasks (jsonparse, multiply, merge, ...) without those tasks
-// needing to be aware of them.
+// the oldest known timestamp among its successful dependencies, so timestamps
+// flow through intermediate tasks (jsonparse, multiply, merge, ...) without
+// those tasks needing to be aware of them. A derived value is only as fresh as
+// its stalest component: divide(btc_usd, eur_usd) with a frozen EUR source
+// must not look fresh. Errored dependencies contribute no data, so they
+// contribute no timestamp either.
 //
 // All dependencies count, including implicit ones (var references like
 // data="$(ds1)"): PropagateResult only governs whether the Result value is
 // passed into the task, not timestamp lineage, and in typical specs every hop
-// from a bridge to the median is an implicit edge.
+// from a bridge to the median is an implicit edge. The flip side is that a
+// slow-moving dependency referenced only as a parameter (e.g. a decimals
+// bridge) drags down the timestamp of everything derived from it; when every
+// path into a median shares it, the median's inputs all look equally stale and
+// its staleness gate has no effect.
 func (s *scheduler) resolveTimestamp(task Task, own uint64) uint64 {
 	if own != 0 {
 		return own
 	}
-	var freshest uint64
+	var oldest uint64
 	for _, dep := range task.Inputs() {
-		if r, ok := s.results[dep.InputTask.ID()]; ok && r.Result.Timestamp > freshest {
-			freshest = r.Result.Timestamp
+		r, ok := s.results[dep.InputTask.ID()]
+		if !ok || r.Result.Error != nil || r.Result.Timestamp == 0 {
+			continue
+		}
+		if oldest == 0 || r.Result.Timestamp < oldest {
+			oldest = r.Result.Timestamp
 		}
 	}
-	return freshest
+	return oldest
 }
 
 func (s *scheduler) markRemaining(err error) {

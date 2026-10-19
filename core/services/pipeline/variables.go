@@ -33,7 +33,7 @@ func NewVarsFrom(m map[string]any) Vars {
 	if m == nil {
 		m = make(map[string]any)
 	}
-	return Vars{vars: m}
+	return Vars{vars: m, timestamps: make(map[string]uint64)}
 }
 
 // Get returns the value for the given keypath or error.
@@ -91,13 +91,10 @@ func (vars Vars) Set(dotID string, value any) error {
 
 // SetTimestamp records the source timestamp (unix ms) of a task's result,
 // keyed by dotID. Zero means unknown.
-func (vars *Vars) SetTimestamp(dotID string, timestamp uint64) {
+func (vars Vars) SetTimestamp(dotID string, timestamp uint64) {
 	if timestamp == 0 {
 		// Unknown timestamps are never consulted, so there is nothing to record.
 		return
-	}
-	if vars.timestamps == nil {
-		vars.timestamps = make(map[string]uint64)
 	}
 	vars.timestamps[dotID] = timestamp
 }
@@ -105,9 +102,6 @@ func (vars *Vars) SetTimestamp(dotID string, timestamp uint64) {
 // GetTimestamp returns the recorded source timestamp for a task's dotID.
 // Zero means unknown (never recorded or unknown).
 func (vars Vars) GetTimestamp(dotID string) uint64 {
-	if vars.timestamps == nil {
-		return 0
-	}
 	return vars.timestamps[dotID]
 }
 
@@ -117,10 +111,7 @@ func (vars Vars) Copy() Vars {
 	newVars := make(map[string]any)
 	// No need to copy recursively, because only the top-level map is mutable (see Set()).
 	maps.Copy(newVars, vars.vars)
-	var newTimestamps map[string]uint64
-	if vars.timestamps != nil {
-		newTimestamps = make(map[string]uint64, len(vars.timestamps))
-		maps.Copy(newTimestamps, vars.timestamps)
-	}
+	newTimestamps := make(map[string]uint64, len(vars.timestamps))
+	maps.Copy(newTimestamps, vars.timestamps)
 	return Vars{vars: newVars, timestamps: newTimestamps}
 }

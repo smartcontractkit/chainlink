@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -57,7 +58,7 @@ func TestMedianTask_StalenessGate(t *testing.T) {
 			want:                 "1.5",
 		},
 		{
-			name: "staleness fallback when exclusions would exceed allowed faults",
+			name: "staleness fallback with no fault budget left keeps every input",
 			timestamps: map[string]uint64{
 				"ds1": nowMs,
 				"ds2": nowMs - 10_000,
@@ -101,7 +102,7 @@ func TestMedianTask_StalenessGate(t *testing.T) {
 			want:                 "2",
 		},
 		{
-			name: "mostly stale triggers fallback when exclusions exceed threshold (freshest is never stale)",
+			name: "staleness fallback excludes only the stalest inputs the threshold allows (freshest is never stale)",
 			timestamps: map[string]uint64{
 				"ds1": nowMs - 120_000,
 				"ds2": nowMs - 240_000,
@@ -109,7 +110,33 @@ func TestMedianTask_StalenessGate(t *testing.T) {
 			},
 			allowedFaults:        "1",
 			stalenessGateSeconds: "30",
+			want:                 "1.5",
+		},
+		{
+			name: "staleness fallback excludes equally stale inputs earliest in values first",
+			timestamps: map[string]uint64{
+				"ds1": nowMs,
+				"ds2": nowMs - 120_000,
+				"ds3": nowMs - 120_000,
+			},
+			allowedFaults:        "1",
+			stalenessGateSeconds: "30",
 			want:                 "2",
+		},
+		{
+			// Accepted risk (docs/adr/0001-median-staleness-gate.md): the
+			// reference is the freshest input, so a single source reporting a
+			// future timestamp makes every other input stale and, with the
+			// default allowedFaults of n-1, alone becomes the median.
+			name: "a single future-timestamped source becomes the reference and the median",
+			timestamps: map[string]uint64{
+				"ds1": nowMs + 3_600_000,
+				"ds2": nowMs,
+				"ds3": nowMs - 10_000,
+			},
+			allowedFaults:        "",
+			stalenessGateSeconds: "30",
+			want:                 "1",
 		},
 		{
 			name: "explicit zero means zero tolerance: only the freshest survives",
@@ -212,6 +239,43 @@ func TestMedianTask_StalenessGate_InputsFallback(t *testing.T) {
 	require.Equal(t, "1.5", result.Value.(decimal.Decimal).String())
 }
 
+func TestMedianTask_StalenessGate_ResultTimestamp(t *testing.T) {
+	t.Parallel()
+
+	const nowMs = uint64(1_700_000_000_000)
+
+	tests := []struct {
+		name                 string
+		stalenessGateSeconds string
+		want                 uint64
+	}{
+		{"excluded inputs do not make the result look stale", "30", nowMs - 10_000},
+		{"without the gate every input counts", "", nowMs - 120_000},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			vars := NewVarsFrom(map[string]any{
+				"ds1": mustDecimalStaleness(t, "1"),
+				"ds2": mustDecimalStaleness(t, "2"),
+				"ds3": mustDecimalStaleness(t, "3"),
+				"ds4": mustDecimalStaleness(t, "4"),
+			})
+			vars.SetTimestamp("ds1", nowMs)
+			vars.SetTimestamp("ds2", nowMs-10_000)
+			vars.SetTimestamp("ds3", nowMs-120_000)
+			// ds4 is unknown and never lowers the result's timestamp
+			task := MedianTask{
+				BaseTask:             NewBaseTask(0, "task", nil, nil, 0),
+				Values:               "[$(ds1),$(ds2),$(ds3),$(ds4)]",
+				StalenessGateSeconds: test.stalenessGateSeconds,
+			}
+			result := runMedianWithTimestamps(t, task, vars, nil)
+			require.NoError(t, result.Error)
+			require.Equal(t, test.want, result.Timestamp)
+		})
+	}
+}
+
 func TestResolveTimestamps(t *testing.T) {
 	t.Parallel()
 
@@ -250,6 +314,13 @@ func TestResolveTimestamps(t *testing.T) {
 		values := SliceParam{mustDecimalStaleness(t, "1"), mustDecimalStaleness(t, "2")}
 		ts := resolveTimestamps("", NewVarsFrom(nil), values, inputs)
 		require.Equal(t, []uint64{nowMs, 0}, ts)
+	})
+
+	t.Run("literal values never take timestamps from inputs", func(t *testing.T) {
+		inputs := []Result{{Timestamp: nowMs}, {Timestamp: nowMs - 120_000}}
+		values := SliceParam{mustDecimalStaleness(t, "1"), mustDecimalStaleness(t, "2")}
+		ts := resolveTimestamps("[1,2]", NewVarsFrom(nil), values, inputs)
+		require.Nil(t, ts)
 	})
 }
 
@@ -413,6 +484,81 @@ func TestScheduler_TimestampPropagation_ImplicitEdge(t *testing.T) {
 
 	require.Equal(t, uint64(1000), s.results[p.ByDotID("b").ID()].Result.Timestamp)
 	require.Equal(t, uint64(1000), s.vars.GetTimestamp("b"))
+}
+
+func TestScheduler_TimestampPropagation_OldestDependency(t *testing.T) {
+	t.Parallel()
+
+	spec := `
+	a [type=median]
+	b [type=median]
+	c [type=median index=0]
+	a -> c
+	b -> c`
+
+	tests := []struct {
+		name    string
+		results map[string]Result
+		want    uint64
+	}{
+		{
+			name: "derived value is only as fresh as its stalest input",
+			results: map[string]Result{
+				"a": {Value: 1, Timestamp: 2000},
+				"b": {Value: 2, Timestamp: 1000},
+				"c": {Value: 3},
+			},
+			want: 1000,
+		},
+		{
+			name: "unknown dependency timestamps are ignored",
+			results: map[string]Result{
+				"a": {Value: 1, Timestamp: 2000},
+				"b": {Value: 2},
+				"c": {Value: 3},
+			},
+			want: 2000,
+		},
+		{
+			name: "errored dependencies contribute no timestamp",
+			results: map[string]Result{
+				"a": {Value: 1, Timestamp: 2000},
+				"b": {Error: errors.New("boom"), Timestamp: 1000},
+				"c": {Value: 3},
+			},
+			want: 2000,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p, err := Parse(spec)
+			require.NoError(t, err)
+			vars := NewVarsFrom(nil)
+			s := newScheduler(p, NewRun(Spec{}, vars), vars, logger.TestLogger(t))
+
+			go s.Run()
+
+			for {
+				select {
+				case taskRun, ok := <-s.taskCh:
+					if !ok {
+						require.Equal(t, test.want, s.results[p.ByDotID("c").ID()].Result.Timestamp)
+						return
+					}
+					now := time.Now()
+					s.report(t.Context(), TaskRunResult{
+						ID:         uuid.New(),
+						Task:       taskRun.task,
+						Result:     test.results[taskRun.task.DotID()],
+						FinishedAt: null.TimeFrom(now),
+						CreatedAt:  now,
+					})
+				case <-time.After(time.Second):
+					t.Fatal("timed out waiting for scheduler")
+				}
+			}
+		})
+	}
 }
 
 func TestScheduler_ReconstructTimestamps(t *testing.T) {
