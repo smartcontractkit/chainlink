@@ -40,6 +40,17 @@ func (c ccipFeeCollectorChangeset) VerifyPreconditions(e cldf.Environment, cfg C
 		return fmt.Errorf("MCMS Config cannot be nil")
 	}
 
+	if len(cfg.Chains) == 0 {
+		return fmt.Errorf("chains cannot be empty")
+	}
+
+	evmChains := e.BlockChains.EVMChains()
+	for chainSelector := range cfg.Chains {
+		if _, ok := evmChains[chainSelector]; !ok {
+			return fmt.Errorf("chain %d not found in environment", chainSelector)
+		}
+	}
+
 	for chainSelector, chainConfig := range cfg.Chains {
 		address := chainConfig.ExternalAddressTransfer
 		if address == "" {
@@ -108,15 +119,9 @@ func (c ccipFeeCollectorChangeset) Apply(e cldf.Environment, cfg CCIPUnwrapToken
 	evmChains := e.BlockChains.EVMChains()
 
 	// Pick a deterministic primary chain for deps (only needed for direct execution, not MCMS).
-	var (
-		primaryChainSelector uint64
-		primaryChainSet      bool
-	)
-	for chainSelector := range cfg.Chains {
-		if !primaryChainSet || chainSelector < primaryChainSelector {
-			primaryChainSelector = chainSelector
-			primaryChainSet = true
-		}
+	primaryChainSelector, found := lowestChainSelector(cfg.Chains)
+	if !found {
+		return cldf.ChangesetOutput{}, fmt.Errorf("no chains configured")
 	}
 
 	primaryChain := evmChains[primaryChainSelector]
@@ -257,7 +262,6 @@ var UnwrapWrappedTokeAndTransferSequence = operations.NewSequence(
 				ChainSelector: mcmstypes.ChainSelector(chainSelector),
 				Transactions:  mcmsTransactions,
 			})
-			mcmsTransactions = append(mcmsTransactions, unwrapOpReport.Output.MCMSTransaction)
 			timelockAddresses[chainSelector] = unwrapOpReport.Output.TimelockAddr
 			mcmAddressByChain[chainSelector] = unwrapOpReport.Output.MCMSAddr
 		}
