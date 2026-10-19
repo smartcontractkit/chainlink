@@ -1,7 +1,10 @@
 package types
 
 import (
+	"encoding/json"
+	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -290,6 +293,53 @@ type CCIPBridgeTransfer struct {
 	DestinationAddress string `json:"destination_address"`
 	// MaxCCIPFee optionally caps the buffered native fee actually sent for this transfer (wei).
 	MaxCCIPFee *big.Int `json:"max_ccip_fee,omitempty"`
+}
+
+// UnmarshalJSON lets Amount and MaxCCIPFee be supplied as either a JSON number or a quoted decimal
+// string. Quoting is REQUIRED for values above int64 max (~9.2e18 wei ≈ 9.2 ETH): an unquoted YAML
+// integer overflows int64 before it ever reaches here, so large transfers (e.g. 50 - 100 ETH) must be
+// written as strings, e.g. amount: "50000000000000000000". Smaller values may use either form.
+func (t *CCIPBridgeTransfer) UnmarshalJSON(data []byte) error {
+	var r struct {
+		ToChainSelector    uint64          `json:"to_chain_selector"`
+		Amount             json.RawMessage `json:"amount"`
+		DestinationAddress string          `json:"destination_address"`
+		MaxCCIPFee         json.RawMessage `json:"max_ccip_fee"`
+	}
+	if err := json.Unmarshal(data, &r); err != nil {
+		return err
+	}
+	amount, err := parseWeiBigInt(r.Amount)
+	if err != nil {
+		return fmt.Errorf("amount: %w", err)
+	}
+	maxFee, err := parseWeiBigInt(r.MaxCCIPFee)
+	if err != nil {
+		return fmt.Errorf("max_ccip_fee: %w", err)
+	}
+	t.ToChainSelector = r.ToChainSelector
+	t.DestinationAddress = r.DestinationAddress
+	t.Amount = amount
+	t.MaxCCIPFee = maxFee
+	return nil
+}
+
+// parseWeiBigInt parses a base-10 wei value from a JSON number or a quoted decimal string. It returns
+// nil for an absent, null, or empty value so an omitted optional field stays nil.
+func parseWeiBigInt(raw json.RawMessage) (*big.Int, error) {
+	s := strings.TrimSpace(string(raw))
+	if s == "" || s == "null" {
+		return nil, nil
+	}
+	s = strings.Trim(s, `"`)
+	if s == "" {
+		return nil, nil
+	}
+	v, ok := new(big.Int).SetString(s, 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid integer %q", s)
+	}
+	return v, nil
 }
 
 // CCIPBridgeConfig configures a CCIP bridge of native/wrapped-native value from one source chain's
