@@ -27,6 +27,7 @@ import (
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
@@ -541,11 +542,6 @@ func TestEngine_TriggerEventDeadlineUsesDispatchTimeSetting(t *testing.T) {
 	}
 }
 
-// admissionTimeout bounds how long a trigger capability may wait for the node to take an event.
-// Legacy never makes it wait, so a delivery that takes this long means the node stopped reading
-// the trigger's event channel.
-const admissionTimeout = 2 * time.Second
-
 // TestEngine_TriggerAdmission runs the same trigger admission scenarios against both engines, on
 // the lifecycle harness. The scenarios cover the path from the trigger's event channel to the
 // module: how the node reads events, and how many executions it runs at a time.
@@ -586,7 +582,7 @@ func testAdmissionReaderKeepsDraining(t *testing.T, mode lifecycleEngineMode) {
 
 	// The first execution is still held in the module. The node must keep taking events.
 	for range 3 {
-		h.deliver(admissionTimeout)
+		h.deliver(testutils.WaitTimeout(t))
 	}
 
 	// Every delivered event runs: ExecutionConcurrencyLimit defaults to 5, so all four are held
@@ -610,7 +606,7 @@ func testAdmissionOneTriggerRunsUpToLimit(t *testing.T, mode lifecycleEngineMode
 	h.start()
 
 	for range limit + 1 {
-		h.deliver(admissionTimeout)
+		h.deliver(testutils.WaitTimeout(t))
 	}
 
 	// The first limit executions start and are held in the module.
@@ -619,7 +615,7 @@ func testAdmissionOneTriggerRunsUpToLimit(t *testing.T, mode lifecycleEngineMode
 	}
 
 	// The extra event has asked for a slot, and every slot is held, so it is waiting.
-	require.Eventually(t, func() bool { return h.slots.waits.Load() == limit+1 }, admissionTimeout, 5*time.Millisecond,
+	require.Eventually(t, func() bool { return h.slots.waits.Load() == limit+1 }, testutils.WaitTimeout(t), 5*time.Millisecond,
 		"the extra event never asked for an execution-concurrency slot")
 
 	// It starts only once one execution returns.
@@ -697,17 +693,17 @@ func requireSharedLimit(t *testing.T, limit int32, flight *flightTracker, hs ...
 	}
 	for _, h := range hs {
 		for range eventsPerHarness {
-			h.deliver(admissionTimeout)
+			h.deliver(testutils.WaitTimeout(t))
 		}
 	}
 
 	// limit executions get a slot and run. At least one more event asks for a slot and waits.
 	// An admitter handles one event at a time, so a waiting event holds back the rest of its
 	// workflow's events, and not every event asks for a slot yet.
-	require.Eventually(t, func() bool { return flight.inFlight.Load() == limit }, admissionTimeout, 5*time.Millisecond,
+	require.Eventually(t, func() bool { return flight.inFlight.Load() == limit }, testutils.WaitTimeout(t), 5*time.Millisecond,
 		"executions holding a slot")
 	require.Eventually(t, func() bool { return sum(func(h *engineLifecycleHarness) int32 { return h.slots.waits.Load() }) > limit },
-		admissionTimeout, 5*time.Millisecond, "an event beyond the limit asked for a slot")
+		testutils.WaitTimeout(t), 5*time.Millisecond, "an event beyond the limit asked for a slot")
 	require.Equal(t, limit, sum(func(h *engineLifecycleHarness) int32 { return h.slots.acquired.Load() }),
 		"slots granted while an event waits for one")
 
@@ -718,7 +714,7 @@ func requireSharedLimit(t *testing.T, limit int32, flight *flightTracker, hs ...
 	}
 	require.Eventually(t, func() bool {
 		return sum(func(h *engineLifecycleHarness) int32 { return h.moduleExecutions.Load() }) == total && flight.inFlight.Load() == 0
-	}, admissionTimeout, 5*time.Millisecond, "every event executed")
+	}, testutils.WaitTimeout(t), 5*time.Millisecond, "every event executed")
 	require.Equal(t, limit, flight.max.Load(), "executions must never exceed the shared limit")
 }
 
@@ -740,18 +736,18 @@ func TestEngine_ConcurrencySlotsReturnToBaseline(t *testing.T) {
 				return []harnessOption{withBillingClient(newTestBillingClient(t, false))}
 			},
 			run: func(t *testing.T, h *engineLifecycleHarness) int32 {
-				h.deliver(admissionTimeout) // aborted before the module runs
+				h.deliver(testutils.WaitTimeout(t)) // aborted before the module runs
 				return 1
 			},
 		},
 		{
 			name: "duplicate execution",
 			run: func(t *testing.T, h *engineLifecycleHarness) int32 {
-				h.deliverEvent("duplicate", admissionTimeout)
+				h.deliverEvent("duplicate", testutils.WaitTimeout(t))
 				awaitLifecycle(t, h.blocker.started, "execution to start")
 				h.blocker.releaseOne()
-				require.Eventually(t, func() bool { return h.slots.released.Load() == 1 }, admissionTimeout, 5*time.Millisecond)
-				h.deliverEvent("duplicate", admissionTimeout) // rejected as a duplicate before the module runs
+				require.Eventually(t, func() bool { return h.slots.released.Load() == 1 }, testutils.WaitTimeout(t), 5*time.Millisecond)
+				h.deliverEvent("duplicate", testutils.WaitTimeout(t)) // rejected as a duplicate before the module runs
 				return 2
 			},
 		},
@@ -799,7 +795,7 @@ func TestEngine_ConcurrencySlotsReturnToBaseline(t *testing.T) {
 
 					require.Eventually(t, func() bool {
 						return h.slots.acquired.Load() == slots && h.slots.released.Load() == slots
-					}, admissionTimeout, 5*time.Millisecond, "every slot taken is given back")
+					}, testutils.WaitTimeout(t), 5*time.Millisecond, "every slot taken is given back")
 					got := available()
 					for i := range scopes {
 						assert.Equal(t, baseline[i], got[i], "%s scope", scopes[i])
