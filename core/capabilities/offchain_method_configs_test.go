@@ -1,6 +1,7 @@
 package capabilities
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +10,7 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	regpkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 )
 
 func TestOffchainMethodConfigs_Selection(t *testing.T) {
@@ -53,5 +55,32 @@ func TestOffchainMethodConfigs_Selection(t *testing.T) {
 		legacy, selectErr := unresolved.configuration(capID, don, onchain)
 		require.NoError(t, selectErr)
 		assert.Contains(t, legacy.CapabilityMethodConfig, "Legacy")
+	}
+}
+
+func TestOffchainMethodConfigs_LocalOnly(t *testing.T) {
+	t.Parallel()
+	const capID = "cap@1.0.0"
+	don := regpkg.DON{ID: 1, Name: "don-1"}
+	for _, onchainLocalOnly := range []bool{false, true} {
+		raw, err := proto.Marshal(&capabilitiespb.CapabilityConfig{LocalOnly: onchainLocalOnly})
+		require.NoError(t, err)
+		onchain := regpkg.CapabilityConfiguration{Config: raw}
+		var disabled *offchainMethodConfigs
+		config, err := disabled.configuration(capID, don, onchain)
+		require.NoError(t, err)
+		assert.Equal(t, onchainLocalOnly, config.LocalOnly, "gate off retains the on-chain flag")
+		for _, offchainLocalOnly := range []bool{false, true} {
+			gc := globalconfig.New()
+			_, err = gc.Store(fmt.Sprintf(`{"version":1,"dons":{"don-1":{"capabilities":{"cap@1.0.0":{"localOnly":%t}}}}}`, offchainLocalOnly), "payload")
+			require.NoError(t, err)
+			snapshot := newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{don})
+			config, err = snapshot.configuration(capID, don, onchain)
+			require.NoError(t, err)
+			assert.Equal(t, offchainLocalOnly, config.LocalOnly, "the selected offchain capability supplies the whole flag")
+			config, err = snapshot.configuration("missing@1.0.0", don, onchain)
+			require.NoError(t, err)
+			assert.Equal(t, onchainLocalOnly, config.LocalOnly, "a missing capability retains the on-chain flag")
+		}
 	}
 }
