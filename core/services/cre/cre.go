@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -105,6 +106,10 @@ type Opts struct {
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 
 	ShardAssignmentSettings *loop.AtomicSettings
+
+	// OffchainCapabilitiesRegistry holds the offchain capabilities registry config delivered
+	// via the cresettings job (config_type=capabilities_registry). Read by the Launcher.
+	OffchainCapabilitiesRegistry *globalconfig.GlobalConfig
 }
 
 // Services contains all CRE-related services
@@ -466,8 +471,10 @@ func (s *Services) newRegistrySyncer(
 	}
 	srvcs = append(srvcs, wfLauncher)
 
-	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	localCfg := cfg.Capabilities().Local()
+	wfLauncher.SetOffchainRegistry(opts.OffchainCapabilitiesRegistry, localCfg != nil && localCfg.UseOffchainRegistry())
+
+	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
 		// Both delegates are wired into a single LocalCapabilityManager.
 		// The newServicesFn routes to the correct delegate based on the capability ID:
@@ -490,7 +497,7 @@ func (s *Services) newRegistrySyncer(
 				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), oracleFactoryConfig, donID, ocr3Config)
 			}
 
-			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
+			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn, localCfg.UseOffchainRegistry())
 			if lcmErr != nil {
 				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
 			}
