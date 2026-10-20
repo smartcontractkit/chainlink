@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.67.3
+
+### Patch Changes
+
+- [#24028](https://github.com/smartcontractkit/chainlink/pull/24028) [`f20b0e3`](https://github.com/smartcontractkit/chainlink/commit/f20b0e36d267f6a5e4c5eaa6b015fa55820f3169) - #internal Rebuild with Ubuntu ca-certificates 20260816ubuntu0.24.04.1, which removes the compromised eMudhra intermediate CAs from the image trust store. No code changes.
+
 ## 2.67.0
 
 ### Minor Changes
