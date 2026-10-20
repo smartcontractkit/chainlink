@@ -206,16 +206,10 @@ func (e *engine) close() error {
 }
 
 func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions []*sdkpb.TriggerSubscription) error {
-	var creGetter settings.Getter
-	if e.base.cfg.LocalLimiters != nil {
-		creGetter = e.base.cfg.LocalLimiters.Settings
-	}
-
 	deps := triggers.RegisterDeps{
 		CapRegistry:  e.base.cfg.CapRegistry,
 		RegTimeout:   e.base.cfg.LocalLimiters.TriggerRegistrationsTime,
 		ChainAllowed: e.base.cfg.LocalLimiters.ChainAllowed,
-		Settings:     creGetter,
 		Logger:       e.base.logger(),
 		Metrics:      e.base.metrics,
 	}
@@ -264,7 +258,7 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 
 // NOTE: needs to be called under the triggersRegMu lock
 func (e *engine) unregisterAllTriggers(ctx context.Context) {
-	failCount := triggers.Unregister(ctx, e.base.logger(), e.base.cfg.WorkflowID, e.base.localNode.Load().WorkflowDON.ID, e.triggers)
+	failCount := triggers.Unregister(ctx, e.base.logger(), e.base.cfg.WorkflowID, e.base.localNode.Load().WorkflowDON.ID, e.base.orgID, e.triggers)
 	e.base.logger().Infow("All triggers unregistered", "numTriggers", len(e.triggers), "failed", failCount)
 	e.triggers = make(map[string]*triggers.Handle)
 }
