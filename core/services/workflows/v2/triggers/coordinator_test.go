@@ -255,7 +255,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		f.limits.mu.Unlock()
 	})
 
-	t.Run("keeps registration state and slot while an execution is in flight so it can still ACK", func(t *testing.T) {
+	t.Run("keeps registration state while an execution is in flight so it can still ACK", func(t *testing.T) {
 		t.Parallel()
 		f := newCoordinatorFixture(t)
 		trigger, eventCh := f.expectTrigger(t)
@@ -273,10 +273,11 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 
 		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
 
-		// The in-flight execution still resolves its handle.
+		// The in-flight execution still resolves its handle, even though the
+		// workflow slot is already free (see the slot-release test below).
 		require.NoError(t, f.c.Ack(t.Context(), testTriggerCapID, regID, "evt-1"))
 		assert.True(t, f.registered())
-		assert.Equal(t, 1, f.limits.inUse())
+		assert.Equal(t, 0, f.limits.inUse())
 
 		// Ingress is stopped: an event sent after unregister must never be
 		// delivered, including after the in-flight delivery returns. The send
@@ -289,6 +290,31 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 		executed := f.engine.executed()
 		require.Len(t, executed, 1, "evt-2 must not be delivered after unregister")
 		assert.Equal(t, "evt-1", executed[0].Event.Event.ID)
+	})
+
+	// UnregisterTriggers frees the workflow slot right away, even while an
+	// execution is still in flight and its handles are kept around so it can
+	// ACK. Slot release and handle retention are separate concerns.
+	t.Run("frees the workflow slot immediately, even while an execution is still in flight to ACK", func(t *testing.T) {
+		t.Parallel()
+		f := newCoordinatorFixture(t)
+		trigger, eventCh := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
+		trigger.EXPECT().AckEvent(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		started, release := f.blockingExecution()
+		defer close(release)
+
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+		eventCh <- triggerEvent("evt-1")
+		<-started
+
+		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+
+		// No Eventually: the execution is still held, so the drain cannot have
+		// finished yet. If the slot is only free once drained, this is 1, not 0.
+		assert.Equal(t, 0, f.limits.inUse(), "the workflow slot must be freed by UnregisterTriggers itself, not by the drain that follows it")
+		assert.Equal(t, 1, f.limits.freeCount())
 	})
 
 	t.Run("repeated calls unregister with the capability once", func(t *testing.T) {
@@ -388,21 +414,20 @@ func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 
 	newWT, _ := f.c.workflows.get(validWorkflowID)
 	require.NotSame(t, oldWT, newWT, "registering again must replace, not reuse, the old state")
-	assert.Equal(t, 2, f.limits.inUse(), "the old slot is held until its drain completes")
+	assert.Equal(t, 1, f.limits.inUse(), "UnregisterTriggers already freed the old slot, so the new registration takes the only slot in use")
 
 	close(release)
 	oldWT.readers.Wait() // the old registration's own readers have now exited
 
 	// The old release waiter, woken by the same Wait(), may still run and
-	// (wrongly, if buggy) drop the new registration. Poll instead of a single
-	// sleep-then-check: this fails the instant the bug appears rather than
-	// only if it happens to land inside a guessed window.
+	// (wrongly, if buggy) drop the new registration or free its slot. Poll
+	// instead of a single sleep-then-check: this fails the instant the bug
+	// appears rather than only if it happens to land inside a guessed window.
 	require.Never(t, func() bool {
 		cw, _ := f.c.workflows.get(validWorkflowID)
 		return cw != newWT
 	}, 100*time.Millisecond, 2*time.Millisecond, "the old waiter must not drop the new registration")
-	require.Eventually(t, func() bool { return f.limits.inUse() == 1 }, time.Second, time.Millisecond,
-		"the old waiter must still free its own slot")
+	assert.Equal(t, 1, f.limits.inUse(), "the old waiter must not free the new registration's slot")
 	assert.True(t, queues.get(t, 0).closed.Load(), "the old waiter closes its own queue")
 	assert.False(t, queues.get(t, 1).closed.Load(), "the old waiter must not close the new registration's queue")
 
