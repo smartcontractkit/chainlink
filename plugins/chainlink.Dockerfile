@@ -9,7 +9,7 @@
 # here so that source-only changes never invalidate their layer cache.
 FROM golang:1.27.1-bookworm AS deps-base
 RUN go version
-RUN apt-get update && apt-get install -y --no-install-recommends jq=1.6-2.1+deb12u2 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends jq && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /chainlink
 
@@ -112,11 +112,15 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND=noninteractive
+# Not pinned: Ubuntu only serves the newest build of each package, so exact
+# pins break when a security update ships, and ca-certificates must be the
+# current bundle (eMudhra CA revocation, 2026-10).
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates=20260601~24.04.1 \
-    gnupg=2.4.4-2ubuntu17.6 \
-    lsb-release=12.0-2 \
-    curl=8.5.0-2ubuntu10.15 \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Postgres for CLI tools, needed specifically for DB backups
