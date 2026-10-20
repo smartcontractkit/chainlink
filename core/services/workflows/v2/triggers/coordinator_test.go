@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -558,5 +559,55 @@ func TestCoordinator_Admission(t *testing.T) {
 		require.Eventually(t, func() bool { return queues.get(t, 0).closed.Load() }, 5*time.Second, 5*time.Millisecond)
 
 		assert.Equal(t, int64(0), counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", unregistered))
+	})
+	t.Run("a queued event notifies the user through Beholder with the execution ID the engine will use", func(t *testing.T) { //nolint:paralleltest // see above
+		f := newCoordinatorFixture(t)
+		trigger, eventCh := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		eventCh <- triggerEvent("evt-1")
+		require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+
+		// Same inputs base_engine.go uses once the event is dequeued: the
+		// queued notice and WorkflowExecutionStarted must carry the same ID.
+		wantExecutionID, err := workflows.GenerateExecutionIDWithTriggerIndex(validWorkflowID, "evt-1", 0)
+		require.NoError(t, err)
+
+		messages := f.emitter.messages()
+		require.Len(t, messages, 1)
+		assert.Contains(t, messages[0].msg, wantExecutionID)
+		assert.Contains(t, messages[0].msg, testTriggerCapID)
+		assert.Equal(t, testTriggerCapID, messages[0].labels[platform.KeyTriggerID])
+		assert.Equal(t, validWorkflowID, messages[0].labels[platform.KeyWorkflowID])
+	})
+	t.Run("a dropped event does not notify the user through Beholder", func(t *testing.T) { //nolint:paralleltest // see above
+		admission, pool := singleSlot(func(a *AdmissionLimiters) { a.NewTriggerEventQueue = newTestQueue(1) })
+		f := newCoordinatorFixtureWithAdmission(t, admission)
+		trigger, eventCh := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+		release := f.holdExecutions(t)
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		// Same staging as "a full queue drops the event": evt-1 executes,
+		// evt-2 holds the admitter waiting for the slot, evt-3 fills the
+		// queue, and evt-4 finds it full and is dropped.
+		eventCh <- triggerEvent("evt-1")
+		require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+		eventCh <- triggerEvent("evt-2")
+		require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond)
+		eventCh <- triggerEvent("evt-3")
+		require.Eventually(t, func() bool { return queueLen(f) == 1 }, 5*time.Second, 5*time.Millisecond)
+		eventCh <- triggerEvent("evt-4")
+		eventCh <- capabilities.TriggerResponse{Err: errors.New("probe")}
+
+		release()
+		require.Eventually(t, func() bool { return len(f.engine.executed()) == 3 }, 5*time.Second, 5*time.Millisecond)
+
+		// Only the three events that actually reached the queue (evt-1 to
+		// evt-3) get a notice; evt-4 was dropped before cw.queue.Put succeeded.
+		assert.Len(t, f.emitter.messages(), 3)
 	})
 }

@@ -11,10 +11,12 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -158,6 +160,7 @@ type coordinatedWorkflow struct {
 
 	lggr    logger.Logger
 	metrics *monitoring.WorkflowsMetricLabeler
+	emitter custmsg.MessageEmitter
 }
 
 func NewCoordinator(
@@ -197,6 +200,12 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 
 	lggr := logger.With(c.lggr, "workflowID", workflowID)
 	wfMetrics := c.deps.Metrics.With(
+		platform.KeyWorkflowID, workflowID,
+		platform.KeyWorkflowOwner, params.WorkflowOwner,
+		platform.KeyWorkflowName, params.WorkflowName.String(),
+		platform.KeyOrganizationID, cre.Org,
+	)
+	wfEmitter := c.deps.Emitter.With(
 		platform.KeyWorkflowID, workflowID,
 		platform.KeyWorkflowOwner, params.WorkflowOwner,
 		platform.KeyWorkflowName, params.WorkflowName.String(),
@@ -265,6 +274,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		queue:   queue,
 		lggr:    lggr,
 		metrics: wfMetrics,
+		emitter: wfEmitter,
 	}
 
 	// Set before publishing cw: an UnregisterTriggers racing in right after
@@ -381,6 +391,25 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 			return
 		}
 		tm.IncrementTriggerEventEnqueuedCounter(ctx)
+		c.notifyQueued(ctx, cw, event)
+	}
+}
+
+// notifyQueued tells the user, through Beholder, that their trigger event
+// reached the queue and is waiting for an execution slot.
+func (c *coordinator) notifyQueued(ctx context.Context, cw *coordinatedWorkflow, event CoordinatedEvent) {
+	executionID, err := workflows.GenerateExecutionIDWithTriggerIndex(cw.wid.Hex(), event.Event.Event.ID, event.TriggerIndex)
+	if err != nil {
+		cw.lggr.Errorw("Failed to generate execution ID for queued-trigger notice", "triggerID", event.TriggerCapID, "err", err)
+		return
+	}
+
+	msg := fmt.Sprintf(
+		"Trigger event queued for execution: executionID=%s triggerID=%s queuedAt=%s deadline=%s",
+		executionID, event.TriggerCapID, event.ObservedAt.Format(time.RFC3339Nano), event.Deadline.Format(time.RFC3339Nano),
+	)
+	if err := cw.emitter.With(platform.KeyTriggerID, event.TriggerCapID).Emit(ctx, msg); err != nil {
+		cw.lggr.Errorw("Failed to emit queued-trigger notice", "triggerID", event.TriggerCapID, "err", err)
 	}
 }
 

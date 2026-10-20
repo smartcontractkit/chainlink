@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -293,6 +294,7 @@ func newRegisterDeps(t *testing.T, capReg registry.CapabilitiesRegistry, chainAl
 		ChainAllowed: chainAllowed,
 		Logger:       logger.Test(t),
 		Metrics:      newTestMetrics(t),
+		Emitter:      custmsg.NewLabeler(),
 	}
 }
 
