@@ -129,6 +129,8 @@ type EngineLimiters struct {
 	ConfidentialWorkflowsEnabled                limits.GateLimiter
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
 	ShardingFailoverEnabled                     limits.GateLimiter
+	TimeoutBasedFailover                        limits.GateLimiter
+	TimeoutBasedFailoverWindow                  limits.TimeLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
 
 	// newTriggerEventQueue builds a trigger event queue from the same factory and
@@ -293,6 +295,14 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 		return err
 	}
 	l.ShardingFailoverEnabled, err = limits.MakeGateLimiter(lf, cresettings.Default.ShardingFailoverEnabled)
+	if err != nil {
+		return err
+	}
+	l.TimeoutBasedFailover, err = limits.MakeGateLimiter(lf, cresettings.Default.TimeoutBasedFailover)
+	if err != nil {
+		return err
+	}
+	l.TimeoutBasedFailoverWindow, err = lf.MakeTimeLimiter(cresettings.Default.TimeoutBasedFailoverWindow)
 	if err != nil {
 		return err
 	}
