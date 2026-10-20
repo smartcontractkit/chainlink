@@ -361,3 +361,15 @@ type CCIPBridgeConfig struct {
 	// Description for the generated MCMS proposal(s).
 	Description string `json:"description"`
 }
+
+type CCIPUnwrapTokenChainConfig struct {
+	ExternalAddressTransfer string `json:"external_address_transfer,omitempty"`
+}
+
+// types
+type CCIPUnwrapTokenConfig struct {
+	Chains      map[uint64]CCIPUnwrapTokenChainConfig `json:"chains"`
+	TestEnabled bool                                  `json:"test_enabled"`
+
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config"`
+}

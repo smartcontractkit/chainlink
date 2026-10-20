@@ -20,15 +20,15 @@ import (
 // 0.000062
 var TEST_AMOUNT_WEI = big.NewInt(62000000000000)
 
-type ccipFeeCollectorChangeset struct{}
+type ccipUnwrapperChangeset struct{}
 
-var CCIPFeeCollector cldf.ChangeSetV2[vaulttypes.CCIPUnwrapTokenConfig] = ccipFeeCollectorChangeset{}
+var CCIPUnwrapperChangeset cldf.ChangeSetV2[vaulttypes.CCIPUnwrapTokenConfig] = ccipUnwrapperChangeset{}
 
-func (c ccipFeeCollectorChangeset) VerifyPreconditions(e cldf.Environment, cfg vaulttypes.CCIPUnwrapTokenConfig) error {
+func (c ccipUnwrapperChangeset) VerifyPreconditions(e cldf.Environment, cfg vaulttypes.CCIPUnwrapTokenConfig) error {
 	return validateUnwrapChangesetConfig(e, cfg)
 }
 
-func (c ccipFeeCollectorChangeset) Apply(e cldf.Environment, cfg vaulttypes.CCIPUnwrapTokenConfig) (cldf.ChangesetOutput, error) {
+func (c ccipUnwrapperChangeset) Apply(e cldf.Environment, cfg vaulttypes.CCIPUnwrapTokenConfig) (cldf.ChangesetOutput, error) {
 	logger := e.Logger
 	logger.Infow("Unwraping wrapped balances",
 		"amountChains", len(cfg.Chains),
@@ -258,10 +258,10 @@ type UnwrapWrappedTokenInput struct {
 }
 
 type UnwrapWrappedTokenOutput struct {
-	TimelockAddr    string
-	MCMSAddr        string
-	Amount          *big.Int
-	MCMSTransaction mcmstypes.Transaction
+	TimelockAddr    string                `json:"timelock_address"`
+	MCMSAddr        string                `json:"mcms_address"`
+	Amount          *big.Int              `json:"amount"`
+	MCMSTransaction mcmstypes.Transaction `json:"mcms_transaction"`
 }
 
 var UnwrapWrappedTokenOperation = operations.NewOperation(
@@ -321,8 +321,8 @@ var UnwrapWrappedTokenOperation = operations.NewOperation(
 
 // Operation 2. Send token to address
 type TransferUnwrappedTokenInput struct {
-	ChainSelector   uint64 `json:"chain_selector"`
-	ExternalAddress string
+	ChainSelector   uint64   `json:"chain_selector"`
+	ExternalAddress string   `json:"external_address"`
 	Amount          *big.Int `json:"amount"`
 }
 

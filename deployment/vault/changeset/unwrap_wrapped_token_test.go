@@ -69,4 +69,38 @@ func TestSplitUnwrapAmount(t *testing.T) {
 		require.Equal(t, big.NewInt(42), remainder)
 		require.Equal(t, new(big.Int).Add(TEST_AMOUNT_WEI, big.NewInt(42)), balance)
 	})
+
+	t.Run("test and remainder are independent copies", func(t *testing.T) {
+		t.Parallel()
+
+		// Mutating the returned values must not leak into TEST_AMOUNT_WEI or the input,
+		// otherwise a later chain's split (or a later run) would use a corrupted test amount.
+		balance := new(big.Int).Mul(TEST_AMOUNT_WEI, big.NewInt(3))
+		test, remainder, err := splitUnwrapAmount(balance)
+		require.NoError(t, err)
+
+		test.Add(test, big.NewInt(1))
+		remainder.Add(remainder, big.NewInt(1))
+
+		require.Equal(t, TEST_AMOUNT_WEI, test.Sub(test, big.NewInt(1)))
+		require.Equal(t, new(big.Int).Mul(TEST_AMOUNT_WEI, big.NewInt(2)), remainder.Sub(remainder, big.NewInt(1)))
+		require.Equal(t, TEST_AMOUNT_WEI, TEST_AMOUNT_WEI, "package-level test amount must stay untouched")
+	})
+
+	t.Run("error mentions both balances", func(t *testing.T) {
+		t.Parallel()
+
+		_, _, err := splitUnwrapAmount(big.NewInt(1))
+		require.ErrorContains(t, err, "1")
+		require.ErrorContains(t, err, TEST_AMOUNT_WEI.String())
+	})
+
+	t.Run("test amount plus remainder equals the balance", func(t *testing.T) {
+		t.Parallel()
+
+		balance := new(big.Int).Mul(TEST_AMOUNT_WEI, big.NewInt(7))
+		test, remainder, err := splitUnwrapAmount(balance)
+		require.NoError(t, err)
+		require.Equal(t, balance, new(big.Int).Add(test, remainder))
+	})
 }
