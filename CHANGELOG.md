@@ -4,6 +4,12 @@
 
 ### Patch Changes
 
+- [#24029](https://github.com/smartcontractkit/chainlink/pull/24029) [`aceea69`](https://github.com/smartcontractkit/chainlink/commit/aceea69103a546697b0597842da316834d7aa3d2) - #internal Rebuild with Ubuntu ca-certificates 20260816ubuntu0.24.04.1, which removes the compromised eMudhra intermediate CAs from the image trust store. No code changes.
+
+## 2.68.1
+
+### Patch Changes
+
 - Hotfix line cut from v2.68.0-rc.0. Changes land via PRs against release/2.68.1.
 
 ## 2.68.0
