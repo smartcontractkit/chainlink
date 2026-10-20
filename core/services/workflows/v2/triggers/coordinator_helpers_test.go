@@ -3,15 +3,22 @@ package triggers
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -45,7 +52,7 @@ func (s *fakeSubscriber) Tenant() contexts.CRE { return s.tenant }
 
 type fakeEngine struct {
 	coordinated bool
-	// execute, if set, runs inside ExecuteTrigger on the reader goroutine.
+	// execute, if set, runs inside ExecuteTrigger on the execution's goroutine.
 	execute func(ctx context.Context, event CoordinatedEvent)
 
 	mu      sync.Mutex
@@ -65,6 +72,16 @@ func (e *fakeEngine) ExecuteTrigger(ctx context.Context, event CoordinatedEvent)
 }
 
 func (e *fakeEngine) IsCoordinated() bool { return e.coordinated }
+
+// executedIDs returns the event IDs of every ExecuteTrigger call, in call order.
+func (e *fakeEngine) executedIDs() []string {
+	executed := e.executed()
+	ids := make([]string, 0, len(executed))
+	for _, ev := range executed {
+		ids = append(ids, ev.Event.Event.ID)
+	}
+	return ids
+}
 
 func (e *fakeEngine) executed() []CoordinatedEvent {
 	e.mu.Lock()
@@ -149,6 +166,12 @@ type coordinatorFixture struct {
 // already in the registry for testTenant's workflow.
 func newCoordinatorFixture(t *testing.T) *coordinatorFixture {
 	t.Helper()
+	return newCoordinatorFixtureWithAdmission(t, newTestAdmission())
+}
+
+// newCoordinatorFixtureWithAdmission is newCoordinatorFixture with the given admission limiters.
+func newCoordinatorFixtureWithAdmission(t *testing.T, admission AdmissionLimiters) *coordinatorFixture {
+	t.Helper()
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	engines := newFakeEngineRegistry()
 	wfLimits := &fakeWorkflowLimits{}
@@ -159,7 +182,7 @@ func newCoordinatorFixture(t *testing.T) *coordinatorFixture {
 	engine := &fakeEngine{coordinated: true}
 	engines.set(wid, engine)
 
-	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), engines, wfLimits, clock)
+	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), admission, engines, wfLimits, clock)
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{
@@ -177,6 +200,71 @@ func (f *coordinatorFixture) expectTrigger(t *testing.T) (*capmocks.TriggerCapab
 		Return((<-chan capabilities.TriggerResponse)(eventCh), nil).Once()
 	f.capReg.EXPECT().GetTrigger(mock.Anything, testTriggerCapID).Return(trigger, nil).Once()
 	return trigger, eventCh
+}
+
+// newTestAdmission returns unscoped admission limiters with the production defaults.
+func newTestAdmission() AdmissionLimiters {
+	return AdmissionLimiters{
+		NewTriggerEventQueue: newTestQueue(50),
+		ExecutionConcurrency: limits.GlobalResourcePoolLimiter(5),
+	}
+}
+
+// newTestQueue returns an AdmissionLimiters.NewTriggerEventQueue that builds an
+// unscoped queue of the given capacity for each registration. It goes through
+// the factory, as production does, because the static limits.NewQueueLimiter
+// panics on Close, and each registration closes its queue.
+func newTestQueue(capacity int) func() (limits.QueueLimiter[CoordinatedEvent], error) {
+	return func() (limits.QueueLimiter[CoordinatedEvent], error) {
+		return limits.MakeQueueLimiter[CoordinatedEvent](limits.Factory{}, settings.Int(capacity))
+	}
+}
+
+// closeTrackingQueue records whether its registration closed it.
+type closeTrackingQueue struct {
+	limits.QueueLimiter[CoordinatedEvent]
+	closed atomic.Bool
+}
+
+func (q *closeTrackingQueue) Close() error {
+	q.closed.Store(true)
+	return q.QueueLimiter.Close()
+}
+
+// queueTracker hands each registration a fresh closeTrackingQueue and keeps
+// them in creation order.
+type queueTracker struct {
+	mu     sync.Mutex
+	queues []*closeTrackingQueue
+}
+
+func (q *queueTracker) newQueue() (limits.QueueLimiter[CoordinatedEvent], error) {
+	inner, err := newTestQueue(50)()
+	if err != nil {
+		return nil, err
+	}
+	queue := &closeTrackingQueue{QueueLimiter: inner}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.queues = append(q.queues, queue)
+	return queue, nil
+}
+
+// get returns the queue of the i-th registration, failing the test if there is none.
+func (q *queueTracker) get(t *testing.T, i int) *closeTrackingQueue {
+	t.Helper()
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	require.Greater(t, len(q.queues), i, "queues created")
+	return q.queues[i]
+}
+
+// newTrackedAdmission returns test admission limiters whose queues record Close.
+func newTrackedAdmission() (AdmissionLimiters, *queueTracker) {
+	queues := &queueTracker{}
+	admission := newTestAdmission()
+	admission.NewTriggerEventQueue = queues.newQueue
+	return admission, queues
 }
 
 func newTestSubscriber() *fakeSubscriber {
@@ -211,4 +299,76 @@ func (f *coordinatorFixture) blockingExecution() (started chan struct{}, release
 		<-release
 	}
 	return started, release
+}
+
+// holdExecutions makes the fixture engine hold every execution until release is
+// called. Unlike blockingExecution it never blocks on signalling a start, so it
+// holds any number of executions. Release also runs at cleanup.
+func (f *coordinatorFixture) holdExecutions(t *testing.T) (release func()) {
+	ch := make(chan struct{})
+	var once sync.Once
+	release = func() { once.Do(func() { close(ch) }) }
+	t.Cleanup(release)
+	f.engine.execute = func(context.Context, CoordinatedEvent) { <-ch }
+	return release
+}
+
+// countingPool counts Wait calls on a ResourcePoolLimiter, so a test can tell
+// when the admitter has taken an event off the queue and waits for a slot.
+type countingPool struct {
+	limits.ResourcePoolLimiter[int]
+	waits atomic.Int32
+}
+
+func (p *countingPool) Wait(ctx context.Context, amount int) (func(), error) {
+	p.waits.Add(1)
+	return p.ResourcePoolLimiter.Wait(ctx, amount)
+}
+
+// useTestMeter points the global beholder meter at a manual reader, so workflow
+// metrics created after this call can be read back. It swaps a global, so a test
+// that uses it must not run in parallel.
+func useTestMeter(t *testing.T) *sdkmetric.ManualReader {
+	t.Helper()
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+
+	prev := beholder.GetClient()
+	t.Cleanup(func() { beholder.SetClient(prev) })
+	client := beholder.NoopClientConfig{Lggr: logger.Test(t)}.New()
+	client.Meter = mp.Meter("beholder")
+	client.MeterProvider = mp
+	beholder.SetClient(client)
+	return reader
+}
+
+// counterTotal sums the named counter over the data points that carry every
+// attribute in attrs.
+func counterTotal(t *testing.T, reader *sdkmetric.ManualReader, name string, attrs map[string]string) int64 {
+	t.Helper()
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(t.Context(), &rm))
+	var total int64
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != name {
+				continue
+			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] for %s, got %T", name, m.Data)
+			for _, dp := range sum.DataPoints {
+				matches := true
+				for k, want := range attrs {
+					if got, ok := dp.Attributes.Value(attribute.Key(k)); !ok || got.AsString() != want {
+						matches = false
+					}
+				}
+				if matches {
+					total += dp.Value
+				}
+			}
+		}
+	}
+	return total
 }

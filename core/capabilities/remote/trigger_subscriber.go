@@ -5,14 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/messagecache"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -45,12 +51,18 @@ type triggerSubscriber struct {
 	// Records that the workflow engine already issued ACK fan-out for this logical event
 	// (registration TriggerID + TriggerEventId). Used to replay ACK on duplicate Receive without
 	// re-aggregating or delivering to the engine again.
-	ackReplayCache map[ackReplayKey]int64
-	mu             sync.RWMutex // protects registeredWorkflows, registrationBuckets, messageCache, and ackReplayCache
-	stopCh         services.StopChan
-	wg             sync.WaitGroup
-	closeOnce      sync.Once
-	lggr           logger.Logger
+	ackReplayCache     map[ackReplayKey]int64
+	propagateOrgIDGate limits.GateLimiter
+	metrics            triggerSubscriberMetrics
+	mu                 sync.RWMutex // protects registeredWorkflows, registrationBuckets, messageCache, and ackReplayCache
+	stopCh             services.StopChan
+	wg                 sync.WaitGroup
+	closeOnce          sync.Once
+	lggr               logger.Logger
+}
+
+type triggerSubscriberMetrics struct {
+	registrationOrgIDCounter metric.Int64Counter
 }
 
 type dynamicConfig struct {
@@ -74,11 +86,41 @@ type ackReplayKey struct {
 }
 
 type subRegState struct {
-	callback   chan commoncap.TriggerResponse
-	rawRequest []byte
+	callback chan commoncap.TriggerResponse
+	payloads registrationPayloads
 	// bucket is the index into triggerSubscriber.registrationBuckets
 	// assigned randomly so resends spread across the refresh window
 	bucket int
+}
+
+type registrationPayloads struct {
+	withOrgID    []byte
+	withoutOrgID []byte
+	hasOrgID     bool
+}
+
+func (p registrationPayloads) forFlag(propagateOrgID bool) []byte {
+	if propagateOrgID {
+		return p.withOrgID
+	}
+	return p.withoutOrgID
+}
+
+func newRegistrationPayloads(request commoncap.TriggerRegistrationRequest) (registrationPayloads, error) {
+	p := registrationPayloads{}
+	withOrgID, err := pb.MarshalTriggerRegistrationRequest(request)
+	if err != nil {
+		return registrationPayloads{}, err
+	}
+	p.withOrgID = withOrgID
+	p.hasOrgID = request.Metadata.OrgID != ""
+	request.Metadata.OrgID = ""
+	p.withoutOrgID, err = pb.MarshalTriggerRegistrationRequest(request)
+	if err != nil {
+		return registrationPayloads{}, err
+	}
+
+	return p, nil
 }
 
 type TriggerSubscriber interface {
@@ -135,13 +177,14 @@ func (s *triggerSubscriber) ensureBucketsLocked(refresh time.Duration) {
 	s.registrationBuckets = newBuckets
 }
 
-func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerSubscriber {
+func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher types.Dispatcher, propagateOrgIDGate limits.GateLimiter, lggr logger.Logger) *triggerSubscriber {
 	return &triggerSubscriber{
 		capabilityID:        capabilityID,
 		capMethodName:       capMethodName,
 		dispatcher:          dispatcher,
 		messageCache:        messagecache.NewMessageCache[triggerEventKey, p2ptypes.PeerID](),
 		ackReplayCache:      make(map[ackReplayKey]int64),
+		propagateOrgIDGate:  propagateOrgIDGate,
 		registeredWorkflows: make(map[string]map[string]*subRegState),
 		stopCh:              make(services.StopChan),
 		lggr:                logger.With(logger.Named(lggr, "TriggerSubscriber"), "capabilityID", capabilityID, "capMethodName", capMethodName),
@@ -174,6 +217,12 @@ func (s *triggerSubscriber) Start(ctx context.Context) error {
 	}
 	if s.dispatcher == nil {
 		return errors.New("dispatcher set to nil, cannot start triggerSubscriber")
+	}
+	if s.propagateOrgIDGate == nil {
+		return errors.New("propagateOrgIDGate set to nil, cannot start triggerSubscriber")
+	}
+	if err := s.initMetrics(); err != nil {
+		return fmt.Errorf("failed to initialize metrics: %w", err)
 	}
 
 	s.wg.Add(2)
@@ -221,7 +270,7 @@ func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, even
 }
 
 func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
-	rawRequest, err := pb.MarshalTriggerRegistrationRequest(request)
+	payloads, err := newRegistrationPayloads(request)
 	if err != nil {
 		return nil, err
 	}
@@ -247,14 +296,14 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 		// Assign a random bucket so resends spread across the refresh window instead of bursting.
 		bucket := rand.IntN(len(s.registrationBuckets)) //nolint:gosec // G404: weak random is fine for send-time jitter
 		regState = &subRegState{
-			callback:   make(chan commoncap.TriggerResponse, sendChannelBufferSize),
-			rawRequest: rawRequest,
-			bucket:     bucket,
+			callback: make(chan commoncap.TriggerResponse, sendChannelBufferSize),
+			payloads: payloads,
+			bucket:   bucket,
 		}
 		triggerMap[request.TriggerID] = regState
 		s.registrationBuckets[bucket][regState] = struct{}{}
 	} else {
-		regState.rawRequest = rawRequest
+		regState.payloads = payloads
 		s.lggr.Warnw("RegisterTrigger re-registering trigger", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID)
 	}
 
@@ -262,6 +311,9 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 }
 
 func (s *triggerSubscriber) registrationLoop() {
+	ctx, cancel := s.stopCh.NewCtx()
+	defer cancel()
+
 	defer s.wg.Done()
 	ticker := time.NewTicker(registrationBucketDuration)
 	defer ticker.Stop()
@@ -271,7 +323,7 @@ func (s *triggerSubscriber) registrationLoop() {
 		case <-s.stopCh:
 			return
 		case now := <-ticker.C:
-			lastSentSec = s.sendDueBuckets(lastSentSec, now.Unix())
+			lastSentSec = s.sendDueBuckets(ctx, lastSentSec, now.Unix())
 		}
 	}
 }
@@ -281,7 +333,7 @@ func (s *triggerSubscriber) registrationLoop() {
 // due "now", ensures no bucket is skipped when ticks are dropped (time.Ticker drops ticks while
 // a slow send is in progress) or land on both sides of a second boundary. The catch-up is
 // capped at one full refresh window so each registration is sent at most once per call.
-func (s *triggerSubscriber) sendDueBuckets(lastSentSec, nowSec int64) int64 {
+func (s *triggerSubscriber) sendDueBuckets(ctx context.Context, lastSentSec, nowSec int64) int64 {
 	if nowSec == lastSentSec {
 		return lastSentSec // already sent this second's bucket
 	}
@@ -295,10 +347,10 @@ func (s *triggerSubscriber) sendDueBuckets(lastSentSec, nowSec int64) int64 {
 	s.mu.Lock()
 	nBuckets := int64(len(s.registrationBuckets))
 	fromSec := max(lastSentSec+1, nowSec-nBuckets+1)
-	var due [][]byte
+	var due []registrationPayloads
 	for sec := fromSec; sec <= nowSec; sec++ {
 		for regState := range s.registrationBuckets[sec%nBuckets] {
-			due = append(due, regState.rawRequest)
+			due = append(due, regState.payloads)
 		}
 	}
 	s.mu.Unlock()
@@ -307,8 +359,14 @@ func (s *triggerSubscriber) sendDueBuckets(lastSentSec, nowSec int64) int64 {
 		return nowSec
 	}
 
-	var totalP2PSends, totalSendErrors int
-	for _, rawRequest := range due {
+	propagateOrgID := s.propagateOrgID(ctx)
+
+	var totalP2PSends, totalSendErrors, withOrgID int
+	for _, payloads := range due {
+		if payloads.hasOrgID {
+			withOrgID++
+		}
+		rawRequest := payloads.forFlag(propagateOrgID)
 		for _, peerID := range cfg.capDonInfo.Members {
 			m := &types.MessageBody{
 				CapabilityId:     cfg.capInfo.ID,
@@ -326,6 +384,8 @@ func (s *triggerSubscriber) sendDueBuckets(lastSentSec, nowSec int64) int64 {
 			}
 		}
 	}
+	s.addRegistrationOrgIDCount(ctx, withOrgID, true, propagateOrgID)
+	s.addRegistrationOrgIDCount(ctx, len(due)-withOrgID, false, propagateOrgID)
 	s.lggr.Infow("registrationLoop tick: sent due buckets",
 		"donId", cfg.capDonInfo.ID,
 		"nCapDonMembers", len(cfg.capDonInfo.Members),
@@ -334,6 +394,36 @@ func (s *triggerSubscriber) sendDueBuckets(lastSentSec, nowSec int64) int64 {
 		"p2pSendsSent", totalP2PSends,
 		"p2pSendErrors", totalSendErrors)
 	return nowSec
+}
+
+func (s *triggerSubscriber) initMetrics() error {
+	var err error
+	s.metrics.registrationOrgIDCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_subscriber_registration_org_id_total")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_trigger_subscriber_registration_org_id_total: %w", err)
+	}
+	return nil
+}
+
+func (s *triggerSubscriber) addRegistrationOrgIDCount(ctx context.Context, n int, hasOrgID, propagated bool) {
+	if n == 0 {
+		return
+	}
+	s.metrics.registrationOrgIDCounter.Add(ctx, int64(n), metric.WithAttributes(
+		attribute.String("capabilityID", s.capabilityID),
+		attribute.String("capMethodName", s.capMethodName),
+		attribute.String("hasOrgID", strconv.FormatBool(hasOrgID)),
+		attribute.String("orgIDPropagateEnabled", strconv.FormatBool(propagated)),
+	))
+}
+
+func (s *triggerSubscriber) propagateOrgID(ctx context.Context) bool {
+	open, err := s.propagateOrgIDGate.IsOpen(ctx)
+	if err != nil {
+		s.lggr.Warnw("failed to evaluate PropagateOrgIDInRequestMetadata; omitting OrgID from trigger registrations", "err", err)
+		return false
+	}
+	return open
 }
 
 func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) error {
