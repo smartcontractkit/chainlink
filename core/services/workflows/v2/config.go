@@ -75,7 +75,7 @@ type EngineConfig struct {
 	MeterRecordsEnabled bool
 	// MeteringIdentity is the node's [Metering] deployment dimensions; the engine adds service, pool and DON.
 	MeteringIdentity resourcemanager.DeploymentIdentity
-	// UsageEmitter is for tests; production resolves the global durable emitter.
+	// UsageEmitter delivers compute usage records; required when MeterRecordsEnabled.
 	UsageEmitter resourcemanager.Emitter
 
 	// includes additional logging of events internal to user workflows
@@ -510,6 +510,9 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
+	}
+	if c.MeterRecordsEnabled && c.UsageEmitter == nil {
+		return errors.New("usage emitter not set")
 	}
 
 	_, err := types.WorkflowIDFromHex(c.WorkflowID)

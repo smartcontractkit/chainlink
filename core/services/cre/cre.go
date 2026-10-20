@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
@@ -1000,7 +1002,11 @@ func newWorkflowRegistrySyncerV2(
 
 	// Compute usage records share the [Metering].MeterRecordsEnabled gate.
 	if meterRecordsEnabled {
-		handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(newDeploymentIdentity(cfg)))
+		if d := durableemitter.GetGlobalEmitter(); d != nil {
+			handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(newDeploymentIdentity(cfg), d))
+		} else {
+			lggr.Warnw("Compute usage metering enabled without a durable emitter; compute usage records disabled")
+		}
 	}
 
 	mc := capCfg.WorkflowRegistry().ModuleCache()
