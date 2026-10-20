@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/ethereum/go-ethereum v1.17.4
