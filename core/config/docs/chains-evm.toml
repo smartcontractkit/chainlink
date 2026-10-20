@@ -157,6 +157,8 @@ ReaperInterval = '1h' # Default
 ReaperThreshold = '168h' # Default
 # ResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
 ResendAfterThreshold = '1m' # Default
+# UnknownErrorRetryTimeout is how long broadcaster keeps retrying a transaction that fails with unknown (unclassified) RPC errors, measured from the first such error, before marking it as fatally errored.
+UnknownErrorRetryTimeout = '0s' # Default
 
 [EVM.Transactions.AutoPurge]
 # Enabled enables or disables automatically purging transactions that have been identified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.

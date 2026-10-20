@@ -160,6 +160,7 @@ func (m *localCapabilityManager) Reconcile(
 	allMyDONs []registry.DON,
 	offchainReg *capabilitiespb.OffchainCapabilitiesRegistry,
 ) error {
+	allMyDONs = uniqueDONsByID(allMyDONs)
 	offchainDONs := m.offchainDONsByID(offchainReg, allMyDONs)
 	m.recordOffchainDivergences(ctx, m.offchainDivergences(offchainDONs, allMyDONs))
 
@@ -214,6 +215,19 @@ func (m *localCapabilityManager) Reconcile(
 
 	m.metrics.recordRunning(ctx, int64(len(m.runningCapabilities)))
 	return nil
+}
+
+// uniqueDONsByID drops repeated DONs, e.g. a workflow DON that is also a capability DON.
+func uniqueDONsByID(dons []registry.DON) []registry.DON {
+	seen := make(map[uint32]bool, len(dons))
+	out := make([]registry.DON, 0, len(dons))
+	for _, don := range dons {
+		if !seen[don.ID] {
+			seen[don.ID] = true
+			out = append(out, don)
+		}
+	}
+	return out
 }
 
 // buildDesiredState extracts capabilities that should be running from DON configs, and

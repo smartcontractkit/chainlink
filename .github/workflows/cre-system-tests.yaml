@@ -158,6 +158,9 @@ jobs:
              ],
             "Test_CRE_V2_ShardFailoverConfidentialWorkflows": [
                {"topology":"workflow-gateway-sharded-confidential-workflows-failover","configs":"configs/workflow-gateway-sharded-confidential-workflows-failover.toml"}
+             ],
+            "Test_CRE_V2_OffchainCapabilitiesRegistry": [
+               {"topology":"workflow-gateway-capabilities-offchain-registry","configs":"configs/workflow-gateway-capabilities-don-offchain-registry.toml"}
              ]
           }'
 
