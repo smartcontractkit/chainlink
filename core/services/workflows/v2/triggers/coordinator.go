@@ -270,7 +270,7 @@ func (c *coordinator) UnregisterTriggers(ctx context.Context, workflowID string)
 	defer cancel()
 	ctx = contexts.WithCRE(ctx, cw.cre)
 
-	if failCount := Unregister(ctx, cw.lggr, workflowID, cw.donID, cw.handles); failCount > 0 {
+	if failCount := Unregister(ctx, cw.lggr, workflowID, cw.donID, cw.cre.Org, cw.handles); failCount > 0 {
 		cw.metrics.IncrementTriggerCoordinatorUnregisterFailuresCounter(ctx, int64(failCount))
 		return fmt.Errorf("failed to unregister %d of %d triggers", failCount, len(cw.handles))
 	}
@@ -308,7 +308,7 @@ func (c *coordinator) close() error {
 	var errs error
 	for workflowID, cw := range pending {
 		cw.cancel()
-		if failCount := Unregister(contexts.WithCRE(ctx, cw.cre), cw.lggr, workflowID, cw.donID, cw.handles); failCount > 0 {
+		if failCount := Unregister(contexts.WithCRE(ctx, cw.cre), cw.lggr, workflowID, cw.donID, cw.cre.Org, cw.handles); failCount > 0 {
 			cw.metrics.IncrementTriggerCoordinatorUnregisterFailuresCounter(ctx, int64(failCount))
 			errs = errors.Join(errs, fmt.Errorf("workflow %s: failed to unregister %d of %d triggers", workflowID, failCount, len(cw.handles)))
 		}
