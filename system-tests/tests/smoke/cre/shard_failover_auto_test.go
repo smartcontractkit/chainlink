@@ -38,7 +38,7 @@ import (
 const (
 	shardFailoverSchedule = "*/30 * * * * *"
 
-	shardAutoFailoverOnTOML = "ShardingFailoverAutoExecutionEnabled = 'true'\nShardingFailoverAutoWindow = '30s'"
+	shardTimeoutBasedFailoverOnTOML = "TimeoutBasedFailover = 'true'\nTimeoutBasedFailoverWindow = '30s'"
 
 	shardAutoFailoverExecutedLogNeedle = "secondary shard: auto failover executed cached trigger event"
 
@@ -305,7 +305,7 @@ func requireAssignmentLandedOnShard(t *testing.T, testEnv *ttypes.TestEnvironmen
 }
 
 // ExecuteShardFailoverAutoTest covers automatic failover on silent primary
-// death (CRE-SHARD-M5-3): with the ShardingFailoverAutoExecutionEnabled gate
+// death (CRE-SHARD-M5-3): with the TimeoutBasedFailover gate
 // open, a secondary shard executes a trigger event itself when no execution
 // outcome from the primary arrives within the (configurable) failover window.
 func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
@@ -326,9 +326,7 @@ func ExecuteShardFailoverAutoTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 
 	collector := startShardUserLogCollector(t, testEnv)
 
-	t_helpers.ApplyCRESettings(t, testEnv,
-		t_helpers.AllowUncatalogedSettings(),
-		t_helpers.Global(shardAutoFailoverOnTOML))
+	t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(shardTimeoutBasedFailoverOnTOML))
 
 	gateArmed := time.Now()
 	collector.awaitRecordsFromDON(t, []string{workflowID}, shards.shardZeroDON, shardTickRecords, gateArmed, shardEventAwaitTimeout)
@@ -442,9 +440,7 @@ func ExecuteShardFailoverCentralizedEventRoutingTest(t *testing.T, testEnv *ttyp
 	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shards.shardOneDON.Name, sharedVaultTriggerCachedLogNeedle, time.Minute, 5*time.Second)
 	testLogger.Info().Msg("Phase 1: shard 0 executing")
 
-	t_helpers.ApplyCRESettings(t, testEnv,
-		t_helpers.AllowUncatalogedSettings(),
-		t_helpers.Global(shardAutoFailoverOnTOML))
+	t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(shardTimeoutBasedFailoverOnTOML))
 
 	death := time.Now()
 	t_helpers.KillNodesetContainers(t, testEnv, shards.shardZeroDON.Name)

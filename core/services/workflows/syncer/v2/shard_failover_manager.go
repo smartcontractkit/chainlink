@@ -30,7 +30,7 @@ import (
 // cachedExpiry is how long a cached trigger event is kept for potential failover replay.
 const cachedExpiry = 10 * time.Minute
 
-const autoFailoverTick = time.Second
+const timeoutBasedFailoverTick = time.Second
 
 const failoverAutoExecutionTotalMetric = "failover_auto_execution_total"
 
@@ -86,16 +86,16 @@ type ShardFailoverManagerConfig struct {
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardRoutingSteady      *shardownership.SteadySignal
 
-	FailoverGate limits.GateLimiter
-	// FailoverAutoGate opens the automatic failover path: a secondary executes
+	ShardingFailoverGate limits.GateLimiter
+	// TimeoutBasedFailoverGate opens the automatic failover path: a secondary executes
 	// a cached trigger event itself if no execution outcome from the primary
-	// arrives within FailoverAutoWindow (the silent-primary-death case).
-	FailoverAutoGate limits.GateLimiter
-	// FailoverAutoWindow is how long a cached trigger event waits for the
+	// arrives within TimeoutBasedFailoverWindow (the silent-primary-death case).
+	TimeoutBasedFailoverGate limits.GateLimiter
+	// TimeoutBasedFailoverWindow is how long a cached trigger event waits for the
 	// primary's execution outcome before the secondary executes it itself.
 	// A nil limiter (or closed gate) disables automatic failover.
-	FailoverAutoWindow limits.TimeLimiter
-	Communicator       *sharding.ShardFailoverCommunicator
+	TimeoutBasedFailoverWindow limits.TimeLimiter
+	Communicator               *sharding.ShardFailoverCommunicator
 	// ShardDonLookup resolves a DON ID to the current DON, e.g. via
 	// capRegistry.DONByID. ResolveAllShards always returns real DON IDs
 	// (shardownership.manualShardResolver translates any configured shard
@@ -156,7 +156,7 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 	}
 
 	m.eng.GoCtx(ctx, m.pruneLoop)
-	m.eng.GoCtx(ctx, m.autoFailoverLoop)
+	m.eng.GoCtx(ctx, m.timeoutBasedFailoverLoop)
 	return nil
 }
 
@@ -184,7 +184,7 @@ func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event trigger
 	case shardownership.Allow:
 		return nil
 	case shardownership.DenyNotOwner:
-		if m.cfg.FailoverGate != nil && m.cfg.FailoverGate.AllowErr(ctx) == nil {
+		if m.cfg.ShardingFailoverGate != nil && m.cfg.ShardingFailoverGate.AllowErr(ctx) == nil {
 			m.cacheEvent(ctx, event)
 			return v2.ErrAdmissionCache
 		}
@@ -293,7 +293,7 @@ func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardown
 
 func (m *ShardFailoverManager) cacheEvent(ctx context.Context, event triggers.CoordinatedEvent) {
 	eventID := event.Event.Event.ID
-	failoverAt := m.autoFailoverDeadline(ctx)
+	failoverAt := m.timeoutBasedFailoverDeadline(ctx)
 	m.mu.Lock()
 	m.cache[eventID] = cachedEvent{event: event, cachedAt: time.Now(), failoverAt: failoverAt}
 	m.mu.Unlock()
@@ -305,16 +305,16 @@ func (m *ShardFailoverManager) cacheEvent(ctx context.Context, event triggers.Co
 		"failoverAt", failoverAt)
 }
 
-// autoFailoverDeadline returns the instant after which this node may execute a
+// timeoutBasedFailoverDeadline returns the instant after which this node may execute a
 // just-cached event itself, or the zero time if automatic failover is disabled.
-func (m *ShardFailoverManager) autoFailoverDeadline(ctx context.Context) time.Time {
-	if m.cfg.FailoverAutoGate == nil || m.cfg.FailoverAutoWindow == nil {
+func (m *ShardFailoverManager) timeoutBasedFailoverDeadline(ctx context.Context) time.Time {
+	if m.cfg.TimeoutBasedFailoverGate == nil || m.cfg.TimeoutBasedFailoverWindow == nil {
 		return time.Time{}
 	}
-	if m.cfg.FailoverAutoGate.AllowErr(ctx) != nil {
+	if m.cfg.TimeoutBasedFailoverGate.AllowErr(ctx) != nil {
 		return time.Time{}
 	}
-	window, err := m.cfg.FailoverAutoWindow.Limit(ctx)
+	window, err := m.cfg.TimeoutBasedFailoverWindow.Limit(ctx)
 	if err != nil {
 		if !limits.IsErrRecoverable(err) {
 			m.cfg.Logger.Warnw("secondary shard: failed to read failover auto window, automatic failover disabled for this event", "err", err)
@@ -328,27 +328,27 @@ func (m *ShardFailoverManager) autoFailoverDeadline(ctx context.Context) time.Ti
 	return time.Now().Add(window)
 }
 
-// autoFailoverLoop periodically executes cached trigger events whose failover
+// timeoutBasedFailoverLoop periodically executes cached trigger events whose failover
 // window elapsed without an execution outcome from the primary shard.
-func (m *ShardFailoverManager) autoFailoverLoop(ctx context.Context) {
-	if m.cfg.FailoverAutoGate == nil || m.cfg.FailoverAutoWindow == nil {
+func (m *ShardFailoverManager) timeoutBasedFailoverLoop(ctx context.Context) {
+	if m.cfg.TimeoutBasedFailoverGate == nil || m.cfg.TimeoutBasedFailoverWindow == nil {
 		return
 	}
-	ticker := time.NewTicker(autoFailoverTick)
+	ticker := time.NewTicker(timeoutBasedFailoverTick)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			m.executeDueAutoFailovers(ctx)
+			m.executeDueTimeoutBasedFailovers(ctx)
 		}
 	}
 }
 
-// executeDueAutoFailovers runs one auto-failover pass over cached events whose
+// executeDueTimeoutBasedFailovers runs one auto-failover pass over cached events whose
 // failover deadline has elapsed.
-func (m *ShardFailoverManager) executeDueAutoFailovers(ctx context.Context) {
+func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Context) {
 	if m.engine == nil {
 		return
 	}
@@ -369,7 +369,7 @@ func (m *ShardFailoverManager) executeDueAutoFailovers(ctx context.Context) {
 	m.mu.RUnlock()
 
 	for _, c := range due {
-		if m.cfg.FailoverAutoGate.AllowErr(ctx) != nil {
+		if m.cfg.TimeoutBasedFailoverGate.AllowErr(ctx) != nil {
 			return
 		}
 

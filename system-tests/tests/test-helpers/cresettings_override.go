@@ -60,11 +60,6 @@ const (
 	// We scan for it plus the doc hash as best-effort proof that a node converged.
 	creSettingsUpdateLogMarker = "Updated settings"
 
-	// allowUncatalogedSettingsFile is the sentinel path the AllowUncatalogedSettings
-	// option plants in the settings tree. It is stripped before combining and never
-	// reaches the delivered document; it only flags the delivery itself.
-	allowUncatalogedSettingsFile = "_allow_uncataloged_settings"
-
 	// how long to wait (best effort) for every targeted node to log the applied hash.
 	creSettingsConvergenceTimeout = 60 * time.Second
 
@@ -143,9 +138,6 @@ type CRESettingsHandle struct {
 	owner    string // t.Name() of the owning test; released back to the guard on restore
 	targets  []creSettingsTarget
 	reverted bool
-	// allowUncataloged replays on restore: the baseline document itself may
-	// carry uncataloged keys, so the restore must deliver exactly what was applied.
-	allowUncataloged bool
 }
 
 type creSettingsTarget struct {
@@ -154,17 +146,6 @@ type creSettingsTarget struct {
 	baselineHash string
 	appliedTOML  string
 	appliedHash  string
-}
-
-// AllowUncatalogedSettings opts the ApplyCRESettings call (and its automatic
-// baseline restore) into delivering settings keys that are not present in the
-// chainlink-common cresettings catalog - settings defined inline in core, such
-// as ShardingFailoverAutoExecutionEnabled.
-func AllowUncatalogedSettings() Option {
-	return func(files fstest.MapFS) error {
-		files[allowUncatalogedSettingsFile] = TOMLFile("")
-		return nil
-	}
 }
 
 // TOMLFile wraps a TOML settings fragment as an *fstest.MapFile. It is used internally by
@@ -261,9 +242,6 @@ func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, opts ...Option)
 		require.NoError(t, opt(files), "invalid CRE settings option")
 	}
 
-	_, allowUncataloged := files[allowUncatalogedSettingsFile]
-	delete(files, allowUncatalogedSettingsFile)
-
 	combined, combineErr := cre_jobs.CombineCRESettingsFiles(t.TempDir(), files)
 	require.NoError(t, combineErr, "failed to combine CRE settings files")
 	overrideDoc := map[string]any{}
@@ -291,7 +269,7 @@ func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, opts ...Option)
 		require.FailNow(t, err.Error())
 	}
 
-	h := &CRESettingsHandle{env: env, owner: owner, allowUncataloged: allowUncataloged}
+	h := &CRESettingsHandle{env: env, owner: owner}
 	// Register cleanup up front, so the override is reverted and the slot released even if
 	// a delivery below fails partway through.
 	if os.Getenv(creSettingsSkipRevertEnv) == "true" {
@@ -310,7 +288,7 @@ func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, opts ...Option)
 		t.Logf("[cresettings] DON %q: applying override (hash %s) over baseline (hash %s)",
 			don.Name, shortHash(appliedHash), shortHash(baselineHash))
 
-		err := deliverCRESettings(t.Context(), env, don, appliedTOML, allowUncataloged)
+		err := deliverCRESettings(t.Context(), env, don, appliedTOML)
 		require.NoErrorf(t, err, "failed to deliver CRE settings override to DON %q", don.Name)
 
 		h.targets = append(h.targets, creSettingsTarget{
@@ -396,7 +374,7 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 		var err error
 		deadline := time.Now().Add(creSettingsRevertTimeout)
 		for {
-			err = deliverCRESettings(ctx, h.env, tg.don, tg.baselineTOML, h.allowUncataloged)
+			err = deliverCRESettings(ctx, h.env, tg.don, tg.baselineTOML)
 			if err == nil || time.Now().After(deadline) {
 				break
 			}
@@ -423,22 +401,18 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 // which failed with "no job proposal found"). Application is confirmed best-effort via
 // the nodes' "Updated settings" logs (see logSettingsConvergence).
 //
-// Unless allowUncataloged is set, the proposal is preceded by the changeset's
-// catalog verification (cre_jobs.VerifyCRESettings) so misspelled settings keys
-// still fail the delivery; allowUncataloged opts out for keys defined inline in
-// core, which the chainlink-common catalog does not know.
+// The proposal is preceded by the changeset's catalog verification
+// (cre_jobs.VerifyCRESettings) so misspelled settings keys fail the delivery.
 //
 // The CLDF environment is used with ctx in place of its own context, which is bound to
 // t.Context() of the test that built the environment.
-func deliverCRESettings(ctx context.Context, env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string, allowUncataloged bool) error {
+func deliverCRESettings(ctx context.Context, env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string) error {
 	cldfEnv := *env.CreEnvironment.CldfEnvironment
 	cldfEnv.GetContext = func() context.Context { return ctx }
 	cldfEnv.OperationsBundle.GetContext = cldfEnv.GetContext
 
-	if !allowUncataloged {
-		if err := cre_jobs.VerifyCRESettings(settingsTOML); err != nil {
-			return fmt.Errorf("verify settings job preconditions: %w", err)
-		}
+	if err := cre_jobs.VerifyCRESettings(settingsTOML); err != nil {
+		return fmt.Errorf("verify settings job preconditions: %w", err)
 	}
 
 	_, err := cldf_operations.ExecuteOperation(

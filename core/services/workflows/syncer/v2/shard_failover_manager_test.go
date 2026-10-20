@@ -393,18 +393,18 @@ func TestShardFailoverManager_CoordinatorMethodsUnsupported(t *testing.T) {
 
 // --- automatic failover (CRE-SHARD-M5-3) test doubles ---
 
-type fakeAutoGateLimiter struct {
+type fakeGateLimiter struct {
 	mu   sync.Mutex
 	open bool
 }
 
-func (g *fakeAutoGateLimiter) Limit(context.Context) (bool, error) {
+func (g *fakeGateLimiter) Limit(context.Context) (bool, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.open, nil
 }
 
-func (g *fakeAutoGateLimiter) AllowErr(ctx context.Context) error {
+func (g *fakeGateLimiter) AllowErr(ctx context.Context) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if !g.open {
@@ -413,33 +413,33 @@ func (g *fakeAutoGateLimiter) AllowErr(ctx context.Context) error {
 	return nil
 }
 
-func (g *fakeAutoGateLimiter) IsOpen(ctx context.Context) (bool, error) {
+func (g *fakeGateLimiter) IsOpen(ctx context.Context) (bool, error) {
 	return g.Limit(ctx)
 }
 
-func (g *fakeAutoGateLimiter) Close() error { return nil }
+func (g *fakeGateLimiter) Close() error { return nil }
 
-func (g *fakeAutoGateLimiter) setOpen(open bool) {
+func (g *fakeGateLimiter) setOpen(open bool) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.open = open
 }
 
-type fakeAutoWindowLimiter struct {
+type fakeWindowLimiter struct {
 	window time.Duration
 }
 
-func (w *fakeAutoWindowLimiter) Limit(context.Context) (time.Duration, error) {
+func (w *fakeWindowLimiter) Limit(context.Context) (time.Duration, error) {
 	return w.window, nil
 }
 
-func (w *fakeAutoWindowLimiter) WithTimeout(ctx context.Context) (context.Context, func(), error) {
+func (w *fakeWindowLimiter) WithTimeout(ctx context.Context) (context.Context, func(), error) {
 	window, _ := w.Limit(ctx)
 	timeoutCtx, cancel := context.WithTimeout(ctx, window)
 	return timeoutCtx, cancel, nil
 }
 
-func (w *fakeAutoWindowLimiter) Close() error { return nil }
+func (w *fakeWindowLimiter) Close() error { return nil }
 
 type switchableShardResolver struct {
 	mu       sync.Mutex
@@ -500,7 +500,7 @@ func (e *recordingEngine) Tenant() contexts.CRE {
 	return contexts.CRE{Org: "org-1", Owner: "0xowner", Workflow: "wf-1"}
 }
 
-func autoFailoverTestEvent(id string) triggers.CoordinatedEvent {
+func timeoutBasedFailoverTestEvent(id string) triggers.CoordinatedEvent {
 	return triggers.CoordinatedEvent{
 		WorkflowID:   "wf-1",
 		TriggerCapID: "cron-trigger",
@@ -508,9 +508,9 @@ func autoFailoverTestEvent(id string) triggers.CoordinatedEvent {
 	}
 }
 
-// newAutoFailoverManager builds a secondary-shard manager (DON 2, owner DON 1);
+// newTimeoutBasedFailoverManager builds a secondary-shard manager (DON 2, owner DON 1);
 // a nil gate or window leaves automatic failover unconfigured.
-func newAutoFailoverManager(t *testing.T, eng *recordingEngine, gate *fakeAutoGateLimiter, window *fakeAutoWindowLimiter, resolver *switchableShardResolver) *ShardFailoverManager {
+func newTimeoutBasedFailoverManager(t *testing.T, eng *recordingEngine, gate *fakeGateLimiter, window *fakeWindowLimiter, resolver *switchableShardResolver) *ShardFailoverManager {
 	t.Helper()
 
 	var autoGate limits.GateLimiter
@@ -523,38 +523,38 @@ func newAutoFailoverManager(t *testing.T, eng *recordingEngine, gate *fakeAutoGa
 	}
 
 	m := NewShardFailoverManager(ShardFailoverManagerConfig{
-		ShardingEnabled:    true,
-		MyDONID:            2,
-		MyShardIndex:       1,
-		WorkflowID:         "wf-1",
-		WorkflowOwner:      "0xowner",
-		ShardResolver:      resolver,
-		FailoverGate:       &fakeAutoGateLimiter{open: true},
-		FailoverAutoGate:   autoGate,
-		FailoverAutoWindow: autoWindow,
-		Logger:             logger.Test(t),
+		ShardingEnabled:            true,
+		MyDONID:                    2,
+		MyShardIndex:               1,
+		WorkflowID:                 "wf-1",
+		WorkflowOwner:              "0xowner",
+		ShardResolver:              resolver,
+		ShardingFailoverGate:       &fakeGateLimiter{open: true},
+		TimeoutBasedFailoverGate:   autoGate,
+		TimeoutBasedFailoverWindow: autoWindow,
+		Logger:                     logger.Test(t),
 	})
 	m.SetEngine(eng)
 	return m
 }
 
-func TestShardFailoverManager_AutoFailover_ExecutesCachedEventAfterWindow(t *testing.T) {
+func TestShardFailoverManager_TimeoutBasedFailover_ExecutesCachedEventAfterWindow(t *testing.T) {
 	t.Parallel()
 
 	eng := &recordingEngine{}
-	gate := &fakeAutoGateLimiter{open: true}
-	window := &fakeAutoWindowLimiter{window: 50 * time.Millisecond}
+	gate := &fakeGateLimiter{open: true}
+	window := &fakeWindowLimiter{window: 50 * time.Millisecond}
 	resolver := &switchableShardResolver{ownerDON: 1, found: true}
-	m := newAutoFailoverManager(t, eng, gate, window, resolver)
+	m := newTimeoutBasedFailoverManager(t, eng, gate, window, resolver)
 
-	err := m.admissionCheck(t.Context(), autoFailoverTestEvent("evt-1"))
+	err := m.admissionCheck(t.Context(), timeoutBasedFailoverTestEvent("evt-1"))
 	require.ErrorIs(t, err, v2.ErrAdmissionCache, "a secondary with the failover gate open must cache, not drop")
 
-	m.executeDueAutoFailovers(t.Context())
+	m.executeDueTimeoutBasedFailovers(t.Context())
 	assert.Empty(t, eng.executedIDs(), "cached event executed before the failover window elapsed")
 
 	time.Sleep(60 * time.Millisecond)
-	m.executeDueAutoFailovers(t.Context())
+	m.executeDueTimeoutBasedFailovers(t.Context())
 	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "cached event was not auto-executed after the failover window elapsed")
 
 	tenants := eng.executionTenants()
@@ -563,75 +563,75 @@ func TestShardFailoverManager_AutoFailover_ExecutesCachedEventAfterWindow(t *tes
 	assert.Equal(t, wantTenant, tenants[0],
 		"auto-executed event ran without the workflow tenant on the context")
 
-	m.executeDueAutoFailovers(t.Context())
+	m.executeDueTimeoutBasedFailovers(t.Context())
 	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "auto-executed event was executed twice")
 }
 
-func TestShardFailoverManager_AutoFailover_DropsCachedEventWhenOwnerAgain(t *testing.T) {
+func TestShardFailoverManager_TimeoutBasedFailover_DropsCachedEventWhenOwnerAgain(t *testing.T) {
 	t.Parallel()
 
 	eng := &recordingEngine{}
-	gate := &fakeAutoGateLimiter{open: true}
-	window := &fakeAutoWindowLimiter{window: 10 * time.Millisecond}
+	gate := &fakeGateLimiter{open: true}
+	window := &fakeWindowLimiter{window: 10 * time.Millisecond}
 	resolver := &switchableShardResolver{ownerDON: 1, found: true}
-	m := newAutoFailoverManager(t, eng, gate, window, resolver)
+	m := newTimeoutBasedFailoverManager(t, eng, gate, window, resolver)
 
-	err := m.admissionCheck(t.Context(), autoFailoverTestEvent("evt-1"))
+	err := m.admissionCheck(t.Context(), timeoutBasedFailoverTestEvent("evt-1"))
 	require.ErrorIs(t, err, v2.ErrAdmissionCache)
 
 	resolver.setOwner(2)
 	time.Sleep(15 * time.Millisecond)
 
-	m.executeDueAutoFailovers(t.Context())
+	m.executeDueTimeoutBasedFailovers(t.Context())
 	assert.Empty(t, eng.executedIDs(), "cached event was executed although this shard became the owner again")
 	assert.Empty(t, m.cacheIDs(), "cached event was not dropped after this shard became the owner")
 }
 
-func TestShardFailoverManager_AutoFailover_GateClosed(t *testing.T) {
+func TestShardFailoverManager_TimeoutBasedFailover_GateClosed(t *testing.T) {
 	t.Parallel()
 
 	t.Run("gate closed at cache time", func(t *testing.T) {
 		t.Parallel()
 		eng := &recordingEngine{}
-		gate := &fakeAutoGateLimiter{open: false}
-		window := &fakeAutoWindowLimiter{window: 10 * time.Millisecond}
-		m := newAutoFailoverManager(t, eng, gate, window, &switchableShardResolver{ownerDON: 1, found: true})
+		gate := &fakeGateLimiter{open: false}
+		window := &fakeWindowLimiter{window: 10 * time.Millisecond}
+		m := newTimeoutBasedFailoverManager(t, eng, gate, window, &switchableShardResolver{ownerDON: 1, found: true})
 
-		err := m.admissionCheck(t.Context(), autoFailoverTestEvent("evt-1"))
+		err := m.admissionCheck(t.Context(), timeoutBasedFailoverTestEvent("evt-1"))
 		require.ErrorIs(t, err, v2.ErrAdmissionCache)
 
 		time.Sleep(15 * time.Millisecond)
-		m.executeDueAutoFailovers(t.Context())
+		m.executeDueTimeoutBasedFailovers(t.Context())
 		assert.Empty(t, eng.executedIDs(), "cached event was auto-executed with the automatic failover gate closed")
 	})
 
 	t.Run("gate closed after cache time", func(t *testing.T) {
 		t.Parallel()
 		eng := &recordingEngine{}
-		gate := &fakeAutoGateLimiter{open: true}
-		window := &fakeAutoWindowLimiter{window: 10 * time.Millisecond}
-		m := newAutoFailoverManager(t, eng, gate, window, &switchableShardResolver{ownerDON: 1, found: true})
+		gate := &fakeGateLimiter{open: true}
+		window := &fakeWindowLimiter{window: 10 * time.Millisecond}
+		m := newTimeoutBasedFailoverManager(t, eng, gate, window, &switchableShardResolver{ownerDON: 1, found: true})
 
-		err := m.admissionCheck(t.Context(), autoFailoverTestEvent("evt-1"))
+		err := m.admissionCheck(t.Context(), timeoutBasedFailoverTestEvent("evt-1"))
 		require.ErrorIs(t, err, v2.ErrAdmissionCache)
 
 		gate.setOpen(false)
 		time.Sleep(15 * time.Millisecond)
 
-		m.executeDueAutoFailovers(t.Context())
+		m.executeDueTimeoutBasedFailovers(t.Context())
 		assert.Empty(t, eng.executedIDs(), "cached event was auto-executed after the gate was closed at runtime")
 	})
 }
 
-func TestShardFailoverManager_AutoFailover_CompletionDrainsCache(t *testing.T) {
+func TestShardFailoverManager_TimeoutBasedFailover_CompletionDrainsCache(t *testing.T) {
 	t.Parallel()
 
 	eng := &recordingEngine{}
-	gate := &fakeAutoGateLimiter{open: true}
-	window := &fakeAutoWindowLimiter{window: 10 * time.Millisecond}
-	m := newAutoFailoverManager(t, eng, gate, window, &switchableShardResolver{ownerDON: 1, found: true})
+	gate := &fakeGateLimiter{open: true}
+	window := &fakeWindowLimiter{window: 10 * time.Millisecond}
+	m := newTimeoutBasedFailoverManager(t, eng, gate, window, &switchableShardResolver{ownerDON: 1, found: true})
 
-	err := m.admissionCheck(t.Context(), autoFailoverTestEvent("evt-1"))
+	err := m.admissionCheck(t.Context(), timeoutBasedFailoverTestEvent("evt-1"))
 	require.ErrorIs(t, err, v2.ErrAdmissionCache)
 
 	m.HandleExecutionStatusUpdate(&ringpb.ExecutionStatusUpdate{
@@ -641,21 +641,21 @@ func TestShardFailoverManager_AutoFailover_CompletionDrainsCache(t *testing.T) {
 	})
 
 	time.Sleep(15 * time.Millisecond)
-	m.executeDueAutoFailovers(t.Context())
+	m.executeDueTimeoutBasedFailovers(t.Context())
 	assert.Empty(t, eng.executedIDs(), "cached event was auto-executed although the primary reported success")
 }
 
-func TestShardFailoverManager_AutoFailover_DisabledByDefault(t *testing.T) {
+func TestShardFailoverManager_TimeoutBasedFailover_DisabledByDefault(t *testing.T) {
 	t.Parallel()
 
 	eng := &recordingEngine{}
-	m := newAutoFailoverManager(t, eng, nil, nil, &switchableShardResolver{ownerDON: 1, found: true})
+	m := newTimeoutBasedFailoverManager(t, eng, nil, nil, &switchableShardResolver{ownerDON: 1, found: true})
 
-	err := m.admissionCheck(t.Context(), autoFailoverTestEvent("evt-1"))
+	err := m.admissionCheck(t.Context(), timeoutBasedFailoverTestEvent("evt-1"))
 	require.ErrorIs(t, err, v2.ErrAdmissionCache)
 
 	time.Sleep(15 * time.Millisecond)
-	m.executeDueAutoFailovers(t.Context())
+	m.executeDueTimeoutBasedFailovers(t.Context())
 	assert.Empty(t, eng.executedIDs(), "cached event was auto-executed with automatic failover unconfigured")
 
 	m.mu.RLock()

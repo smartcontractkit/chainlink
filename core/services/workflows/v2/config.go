@@ -129,8 +129,8 @@ type EngineLimiters struct {
 	ConfidentialWorkflowsEnabled                limits.GateLimiter
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
 	ShardingFailoverEnabled                     limits.GateLimiter
-	ShardingFailoverAutoExecutionEnabled        limits.GateLimiter
-	ShardingFailoverAutoWindow                  limits.TimeLimiter
+	TimeoutBasedFailover                        limits.GateLimiter
+	TimeoutBasedFailoverWindow                  limits.TimeLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
 }
 
@@ -291,17 +291,11 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
-	shardingFailoverAutoSetting := settings.Bool(false)
-	shardingFailoverAutoSetting.Key = "ShardingFailoverAutoExecutionEnabled"
-	shardingFailoverAutoSetting.Scope = settings.ScopeGlobal
-	l.ShardingFailoverAutoExecutionEnabled, err = limits.MakeGateLimiter(lf, shardingFailoverAutoSetting)
+	l.TimeoutBasedFailover, err = limits.MakeGateLimiter(lf, cresettings.Default.TimeoutBasedFailover)
 	if err != nil {
 		return err
 	}
-	shardingFailoverWindowSetting := settings.Duration(5 * time.Minute)
-	shardingFailoverWindowSetting.Key = "ShardingFailoverAutoWindow"
-	shardingFailoverWindowSetting.Scope = settings.ScopeGlobal
-	l.ShardingFailoverAutoWindow, err = lf.MakeTimeLimiter(shardingFailoverWindowSetting)
+	l.TimeoutBasedFailoverWindow, err = lf.MakeTimeLimiter(cresettings.Default.TimeoutBasedFailoverWindow)
 	if err != nil {
 		return err
 	}
