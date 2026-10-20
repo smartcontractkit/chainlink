@@ -1916,7 +1916,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	}
 
 	rec := beholdertest.NewRecorder()
-	emitter := custmsg.NewLabeler()
+	emitter := custmsg.NewLabelerWithEmitter(rec)
 	ctx := t.Context()
 
 	// Set up mock gRPC server for linking service
@@ -1981,7 +1981,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 	require.NoError(t, err)
 
-	artifactStore, err := artifacts.NewStore(lggr, mockORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+	artifactStore, err := artifacts.NewStore(lggr, mockORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, emitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
 		ArtifactStorageHost: "example.com",
 	}))
 	require.NoError(t, err)
@@ -2008,7 +2008,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		WithEngineRegistry(er),
 		WithEngineFactoryFn(mockEngineFactory),
 		WithOrgResolver(orgResolver),
-		WithEventEmitter(events.NewEmitter(rec)),
+		WithEventEmitter(events.NewEmitter(rec, events.WithNoDurableEmit())),
 	)
 	require.NoError(t, err)
 
@@ -2040,14 +2040,12 @@ func Test_Handler_OrganizationID(t *testing.T) {
 
 	var orgIDFound bool
 	for _, msg := range allMessages {
-		if msg.Attrs["beholder_entity"] == "workflows.v2.WorkflowActivated" {
-			var payload eventsv2.WorkflowActivated
-			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+		var payload eventsv2.WorkflowActivated
+		require.NoError(t, proto.Unmarshal(msg.Body, &payload))
 
-			if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
-				orgIDFound = true
-				break
-			}
+		if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
+			orgIDFound = true
+			break
 		}
 	}
 	require.True(t, orgIDFound, "Expected WorkflowActivated message with orgID to be emitted")
@@ -2057,7 +2055,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		t.Parallel()
 
 		deleteRec := beholdertest.NewRecorder()
-		deleteEmitter := custmsg.NewLabeler()
+		deleteEmitter := custmsg.NewLabelerWithEmitter(deleteRec)
 
 		mockDeleteORM := mocks.NewORM(t)
 		spec := &job.WorkflowSpec{
@@ -2069,7 +2067,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		mockDeleteORM.EXPECT().GetWorkflowSpec(mock.Anything, types.WorkflowID(giveWFID).Hex()).Return(spec, nil)
 		mockDeleteORM.EXPECT().DeleteWorkflowSpec(mock.Anything, types.WorkflowID(giveWFID).Hex()).Return(&job.WorkflowSpec{}, nil)
 
-		deleteArtifactStore, err := artifacts.NewStore(lggr, mockDeleteORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+		deleteArtifactStore, err := artifacts.NewStore(lggr, mockDeleteORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, deleteEmitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
 			ArtifactStorageHost: "example.com",
 		}))
 		require.NoError(t, err)
@@ -2078,7 +2076,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(mockEngineFactory),
 			WithOrgResolver(orgResolver),
-			WithEventEmitter(events.NewEmitter(deleteRec)),
+			WithEventEmitter(events.NewEmitter(deleteRec, events.WithNoDurableEmit())),
 		)
 		require.NoError(t, err)
 
@@ -2097,14 +2095,12 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		deleteMessages := deleteRec.Messages(t, "beholder_entity", "workflows.v2.WorkflowDeleted")
 		var deleteOrgIDFound bool
 		for _, msg := range deleteMessages {
-			if msg.Attrs["beholder_entity"] == "workflows.v2.WorkflowDeleted" {
-				var payload eventsv2.WorkflowDeleted
-				require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+			var payload eventsv2.WorkflowDeleted
+			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
 
-				if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
-					deleteOrgIDFound = true
-					break
-				}
+			if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
+				deleteOrgIDFound = true
+				break
 			}
 		}
 		require.True(t, deleteOrgIDFound, "Expected WorkflowDeleted message with orgID to be emitted")

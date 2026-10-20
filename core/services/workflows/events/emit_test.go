@@ -1,6 +1,7 @@
 package events_test
 
 import (
+	"context"
 	"errors"
 	"regexp"
 	"testing"
@@ -36,7 +37,7 @@ func TestEmit(t *testing.T) {
 		t.Parallel()
 
 		rec := beholdertest.NewRecorder()
-		e := events.NewEmitter(rec)
+		e := events.NewEmitter(rec, events.WithNoDurableEmit())
 		require.NoError(t, e.EmitExecutionStartedEvent(t.Context(), labels, triggerID, executionID))
 		require.Len(t, labels, 1)
 
@@ -53,7 +54,7 @@ func TestEmit(t *testing.T) {
 		t.Parallel()
 
 		rec := beholdertest.NewRecorder()
-		e := events.NewEmitter(rec)
+		e := events.NewEmitter(rec, events.WithNoDurableEmit())
 		require.NoError(t, e.EmitExecutionFinishedEvent(t.Context(), labels, "status", executionID, nil, events.ErrorClassificationUnspecified, nil))
 		require.Len(t, labels, 1)
 
@@ -70,7 +71,7 @@ func TestEmit(t *testing.T) {
 		t.Parallel()
 
 		rec := beholdertest.NewRecorder()
-		e := events.NewEmitter(rec)
+		e := events.NewEmitter(rec, events.WithNoDurableEmit())
 		testErr := errors.New("something went wrong")
 		require.NoError(t, e.EmitExecutionFinishedEvent(t.Context(), labels, "errored", executionID, testErr, events.ErrorClassificationSystem, nil))
 
@@ -89,7 +90,7 @@ func TestEmit(t *testing.T) {
 		t.Parallel()
 
 		rec := beholdertest.NewRecorder()
-		e := events.NewEmitter(rec)
+		e := events.NewEmitter(rec, events.WithNoDurableEmit())
 		require.NoError(t, e.EmitCapabilityStartedEvent(t.Context(), labels, executionID, capabilityID, stepRef, "test-method"))
 		require.Len(t, labels, 1)
 
@@ -106,7 +107,7 @@ func TestEmit(t *testing.T) {
 		t.Parallel()
 
 		rec := beholdertest.NewRecorder()
-		e := events.NewEmitter(rec)
+		e := events.NewEmitter(rec, events.WithNoDurableEmit())
 		require.NoError(t, e.EmitCapabilityFinishedEvent(t.Context(), labels, executionID, capabilityID, stepRef, "status", "test-method", nil))
 		require.Len(t, labels, 1)
 
@@ -123,7 +124,7 @@ func TestEmit(t *testing.T) {
 		t.Parallel()
 
 		rec := beholdertest.NewRecorder()
-		e := events.NewEmitter(rec)
+		e := events.NewEmitter(rec, events.WithNoDurableEmit())
 		logLines := []*pb.LogLine{
 			{
 				NodeTimestamp: "2024-01-01T00:00:00Z",
@@ -172,7 +173,7 @@ func TestEmit(t *testing.T) {
 		t.Parallel()
 
 		rec := beholdertest.NewRecorder()
-		e := events.NewEmitter(rec)
+		e := events.NewEmitter(rec, events.WithNoDurableEmit())
 		workflowID := "workflow_" + uuid.NewString()
 		start := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
 		end := start.Add(2 * time.Second)
@@ -204,4 +205,31 @@ func TestEmit(t *testing.T) {
 		assert.Equal(t, stepEnd.UTC().Format(time.RFC3339Nano), received.Steps[0].EndTime)
 		assert.False(t, received.Steps[0].HasError)
 	})
+}
+
+func TestEmitter_NilReceiverUsesGlobals(t *testing.T) {
+	t.Parallel()
+
+	var e *events.Emitter
+	require.NoError(t, e.EmitUserMetric(t.Context(), map[string]string{}, &eventsv2.WorkflowUserMetric{}))
+}
+
+func TestEmitter_WithDurableEmit(t *testing.T) {
+	t.Parallel()
+
+	rec := beholdertest.NewRecorder()
+	var durableAttrs []any
+	e := events.NewEmitter(rec, events.WithDurableEmit(func(_ context.Context, _ []byte, attrKVs ...any) error {
+		durableAttrs = attrKVs
+		return nil
+	}))
+	require.NoError(t, e.EmitUserMetric(t.Context(), map[string]string{}, &eventsv2.WorkflowUserMetric{}))
+
+	entity := "workflows.v2." + events.WorkflowUserMetric
+	assert.Equal(t, 1, rec.Len(t, "beholder_entity", entity))
+	assert.Equal(t, []any{"source", "platform", "type", entity}, durableAttrs)
+
+	durableErr := errors.New("durable down")
+	e = events.NewEmitter(rec, events.WithDurableEmit(func(context.Context, []byte, ...any) error { return durableErr }))
+	require.ErrorIs(t, e.EmitUserMetric(t.Context(), map[string]string{}, &eventsv2.WorkflowUserMetric{}), durableErr)
 }

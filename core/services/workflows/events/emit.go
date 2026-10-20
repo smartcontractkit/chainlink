@@ -37,11 +37,14 @@ func WithDurableEmit(fn func(ctx context.Context, body []byte, attrKVs ...any) e
 	return func(e *Emitter) { e.durable = fn }
 }
 
-// NewEmitter returns an Emitter writing to e. A nil e uses beholder.GlobalEmitter().
+// WithNoDurableEmit disables the durable emitter, so events go to beholder only.
+func WithNoDurableEmit() EmitterOption {
+	return WithDurableEmit(func(context.Context, []byte, ...any) error { return nil })
+}
+
+// NewEmitter returns an Emitter writing to e. A nil e uses the global beholder
+// emitter, resolved at emit time.
 func NewEmitter(e beholder.Emitter, opts ...EmitterOption) *Emitter {
-	if e == nil {
-		e = beholder.GlobalEmitter()
-	}
 	em := &Emitter{beholder: e}
 	for _, opt := range opts {
 		opt(em)
@@ -49,20 +52,10 @@ func NewEmitter(e beholder.Emitter, opts ...EmitterOption) *Emitter {
 	return em
 }
 
-// DefaultEmitter returns NewEmitter(nil): the global beholder emitter and the
-// global durable emitter, both resolved at emit time.
+// DefaultEmitter returns an Emitter writing to the global beholder emitter and
+// the global durable emitter, both resolved at emit time.
 func DefaultEmitter() *Emitter {
-	return NewEmitter(nil)
-}
-
-// defaultEmitter backs nil *Emitter receivers, which behave like DefaultEmitter().
-var defaultEmitter = &Emitter{beholder: beholder.GlobalEmitter()}
-
-func (e *Emitter) get() *Emitter {
-	if e == nil {
-		return defaultEmitter
-	}
-	return e
+	return &Emitter{}
 }
 
 func (e *Emitter) EmitWorkflowStatusChangedEvent(
@@ -557,8 +550,6 @@ func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 // beholder emitter and durable emitter, both late-bound. A nil *Emitter
 // receiver behaves like DefaultEmitter().
 func (e *Emitter) emitProtoMessage(ctx context.Context, msg proto.Message) error {
-	e = e.get()
-
 	b, err := proto.Marshal(msg)
 	if err != nil {
 		return err
@@ -634,10 +625,17 @@ func (e *Emitter) emitProtoMessage(ctx context.Context, msg proto.Message) error
 }
 
 func (e *Emitter) emitRawMessage(ctx context.Context, body []byte, schema, entity string) error {
-	beholderEmitter := e.beholder
-	if beholderEmitter == nil {
-		beholderEmitter = beholder.GlobalEmitter()
+	beholderEmitter := beholder.GlobalEmitter()
+	durable := durableemitter.GlobalEmit
+	if e != nil {
+		if e.beholder != nil {
+			beholderEmitter = e.beholder
+		}
+		if e.durable != nil {
+			durable = e.durable
+		}
 	}
+
 	if err := beholderEmitter.Emit(ctx, body,
 		"beholder_data_schema", schema, // required
 		"beholder_domain", "platform", // required
@@ -645,10 +643,6 @@ func (e *Emitter) emitRawMessage(ctx context.Context, body []byte, schema, entit
 		return err
 	}
 
-	durable := e.durable
-	if durable == nil {
-		durable = durableemitter.GlobalEmit
-	}
 	err := durable(ctx, body, "source", "platform", "type", entity)
 	if err != nil && !errors.Is(err, durableemitter.ErrNotInitialized) {
 		return err

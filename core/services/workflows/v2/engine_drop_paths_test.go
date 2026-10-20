@@ -182,7 +182,7 @@ func newDropPathHarness(t *testing.T, billingClient *metmocks.BillingClient, con
 		},
 	}
 	rec := beholdertest.NewRecorder()
-	cfg.EventEmitter = workflowEvents.NewEmitter(rec)
+	cfg.EventEmitter = workflowEvents.NewEmitter(rec, workflowEvents.WithNoDurableEmit())
 	cfg.BeholderEmitter = custmsg.NewLabelerWithEmitter(rec)
 
 	if configure != nil {

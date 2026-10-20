@@ -1986,7 +1986,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		giveNumber: giveNum,
 	}
 	rec := beholdertest.NewRecorder()
-	cfg.EventEmitter = workflowEvents.NewEmitter(rec)
+	cfg.EventEmitter = workflowEvents.NewEmitter(rec, workflowEvents.WithNoDurableEmit())
 	cfg.BeholderEmitter = custmsg.NewLabelerWithEmitter(rec)
 
 	t.Run("OK received expected config", func(t *testing.T) {

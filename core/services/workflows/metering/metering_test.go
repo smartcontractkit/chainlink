@@ -1875,7 +1875,7 @@ func Test_Report_EmitReceipt(t *testing.T) {
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 			Return(&emptypb.Empty{}, nil)
 
-		report := newTestReport(t, logger.Nop(), billingClient, WithEventEmitter(events.NewEmitter(rec)))
+		report := newTestReport(t, logger.Nop(), billingClient, WithEventEmitter(events.NewEmitter(rec, events.WithNoDurableEmit())))
 
 		require.NoError(t, report.Reserve(t.Context()))
 
