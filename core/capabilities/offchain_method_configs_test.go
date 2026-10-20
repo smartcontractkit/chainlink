@@ -10,7 +10,6 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	regpkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 )
 
