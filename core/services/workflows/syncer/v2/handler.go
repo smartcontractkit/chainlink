@@ -112,6 +112,7 @@ type eventHandler struct {
 	meterRecordsEnabled bool
 	meteringIdentity    resourcemanager.DeploymentIdentity
 	usageEmitter        resourcemanager.Emitter
+	usageFaultInjection resourcemanager.UsageFaultInjection
 
 	orgResolver    orgresolver.OrgResolver
 	secretsFetcher v2.SecretsFetcher
@@ -200,11 +201,12 @@ func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 
 // WithUsageMetering enables compute usage records on the engines, delivered
 // through emitter; dep is the node's [Metering] dimensions.
-func WithUsageMetering(dep resourcemanager.DeploymentIdentity, emitter resourcemanager.Emitter) func(*eventHandler) {
+func WithUsageMetering(dep resourcemanager.DeploymentIdentity, emitter resourcemanager.Emitter, fault resourcemanager.UsageFaultInjection) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.meterRecordsEnabled = true
 		e.meteringIdentity = dep
 		e.usageEmitter = emitter
+		e.usageFaultInjection = fault
 	}
 }
 
@@ -1523,6 +1525,7 @@ func (h *eventHandler) newV2EngineConfig(
 		MeterRecordsEnabled:               h.meterRecordsEnabled,
 		MeteringIdentity:                  h.meteringIdentity,
 		UsageEmitter:                      h.usageEmitter,
+		UsageFaultInjection:               h.usageFaultInjection,
 		SecretsFetcher:                    h.secretsFetcher,
 		OverrideFetcher:                   h.overrideFetcherForOwner(owner),
 		DebugMode:                         h.debugMode,

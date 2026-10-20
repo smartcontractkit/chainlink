@@ -3191,6 +3191,8 @@ type Metering struct {
 	// NodeID is the node's logical name, e.g. "clp-cre-wf-zone-a-1" (NOT the CSA
 	// public key)
 	NodeID *string
+	// FaultInjection drops or perturbs a sample of usage records (test environments only).
+	FaultInjection MeteringFaultInjection `toml:",omitempty"`
 }
 
 func (b *Metering) setFrom(f *Metering) {
@@ -3218,6 +3220,7 @@ func (b *Metering) setFrom(f *Metering) {
 	if v := f.NodeID; v != nil {
 		b.NodeID = v
 	}
+	b.FaultInjection.setFrom(&f.FaultInjection)
 }
 
 func (b *Metering) ValidateConfig() (err error) {
@@ -3234,6 +3237,65 @@ func (b *Metering) ValidateConfig() (err error) {
 			Value: "",
 			Msg:   "must be non-empty when MeterRecordsEnabled is true (an empty NodeID collapses per-node snapshot dedup scope DON-wide)",
 		})
+	}
+	err = errors.Join(err, b.FaultInjection.validate(b.MeterRecordsEnabled != nil && *b.MeterRecordsEnabled))
+	return err
+}
+
+// MeteringFaultInjection configures usage record fault injection; see
+// resourcemanager.UsageFaultInjection. Test environments only.
+type MeteringFaultInjection struct {
+	// Mode is '' (off), 'drop' or 'perturb'.
+	Mode *string
+	// Rate is the fraction of usage events selected (0..1), keyed on event id.
+	Rate *float64
+	// Salt mixes into the selection hash so reconcilers can recompute the sample.
+	Salt *string
+	// Delta is added to the value in perturb mode.
+	Delta *int64
+	// NodeRate is the fraction of nodes applying a perturb (0..1; 1 = all).
+	NodeRate *float64
+}
+
+func (b *MeteringFaultInjection) setFrom(f *MeteringFaultInjection) {
+	if v := f.Mode; v != nil {
+		b.Mode = v
+	}
+	if v := f.Rate; v != nil {
+		b.Rate = v
+	}
+	if v := f.Salt; v != nil {
+		b.Salt = v
+	}
+	if v := f.Delta; v != nil {
+		b.Delta = v
+	}
+	if v := f.NodeRate; v != nil {
+		b.NodeRate = v
+	}
+}
+
+func (b *MeteringFaultInjection) validate(meterRecordsEnabled bool) (err error) {
+	mode := ""
+	if b.Mode != nil {
+		mode = *b.Mode
+	}
+	switch mode {
+	case "", "drop", "perturb":
+	default:
+		err = errors.Join(err, configutils.InvalidError{Name: "FaultInjection.Mode", Value: mode, Msg: "must be '', 'drop' or 'perturb'"})
+	}
+	if v := b.Rate; v != nil && (*v < 0 || *v > 1) {
+		err = errors.Join(err, configutils.InvalidError{Name: "FaultInjection.Rate", Value: *v, Msg: "must be between 0 and 1"})
+	}
+	if v := b.NodeRate; v != nil && (*v < 0 || *v > 1) {
+		err = errors.Join(err, configutils.InvalidError{Name: "FaultInjection.NodeRate", Value: *v, Msg: "must be between 0 and 1"})
+	}
+	if b.Rate != nil && *b.Rate > 0 && mode == "" {
+		err = errors.Join(err, configutils.InvalidError{Name: "FaultInjection.Rate", Value: *b.Rate, Msg: "requires FaultInjection.Mode to be set"})
+	}
+	if mode != "" && !meterRecordsEnabled {
+		err = errors.Join(err, configutils.InvalidError{Name: "FaultInjection.Mode", Value: mode, Msg: "requires MeterRecordsEnabled to be true"})
 	}
 	return err
 }
