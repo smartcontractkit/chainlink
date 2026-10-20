@@ -2,6 +2,12 @@
 
 ## 2.58.1
 
+### Patch Changes
+
+- [#24034](https://github.com/smartcontractkit/chainlink/pull/24034) [`7cb889f`](https://github.com/smartcontractkit/chainlink/commit/7cb889f2f345ba234d209850e5bdeeb793f57948) - #internal Rebuild with Ubuntu ca-certificates 20260816ubuntu0.24.04.1, which removes the compromised eMudhra intermediate CAs from the image trust store. No code changes.
+
+## 2.58.1
+
 ### Minor Changes
 
 - [#23250](https://github.com/smartcontractkit/chainlink/pull/23250) [`1543766`](https://github.com/smartcontractkit/chainlink/commit/15437660cdb66db2e9706f7e4b5cd179b319fb18) - #added Added head-reporter ability to expose heads in beholder metrics along with prom metrics and sending telemetry over OTI
