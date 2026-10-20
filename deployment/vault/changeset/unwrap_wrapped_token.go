@@ -10,22 +10,11 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 	"github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
-
-type CCIPUnwrapTokenChainConfig struct {
-	ExternalAddressTransfer string `json:"external_address_transfer,omitempty"`
-}
-
-// types
-type CCIPUnwrapTokenConfig struct {
-	Chains      map[uint64]CCIPUnwrapTokenChainConfig `json:"chains"`
-	TestEnabled bool                                  `json:"test_enabled"`
-
-	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config"`
-}
 
 // Given that we interact with native BTC chains, 0.000062 BTC (approximately $5 at 16 Oct 2026) could serve as our minimum test amount.
 // 0.000062
@@ -33,84 +22,13 @@ var TEST_AMOUNT_WEI = big.NewInt(62000000000000)
 
 type ccipFeeCollectorChangeset struct{}
 
-var CCIPFeeCollector cldf.ChangeSetV2[CCIPUnwrapTokenConfig] = ccipFeeCollectorChangeset{}
+var CCIPFeeCollector cldf.ChangeSetV2[vaulttypes.CCIPUnwrapTokenConfig] = ccipFeeCollectorChangeset{}
 
-func (c ccipFeeCollectorChangeset) VerifyPreconditions(e cldf.Environment, cfg CCIPUnwrapTokenConfig) error {
-	if cfg.MCMSConfig == nil {
-		return fmt.Errorf("MCMS Config cannot be nil")
-	}
-
-	if len(cfg.Chains) == 0 {
-		return fmt.Errorf("chains cannot be empty")
-	}
-
-	evmChains := e.BlockChains.EVMChains()
-	for chainSelector := range cfg.Chains {
-		if _, ok := evmChains[chainSelector]; !ok {
-			return fmt.Errorf("chain %d not found in environment", chainSelector)
-		}
-	}
-
-	for chainSelector, chainConfig := range cfg.Chains {
-		address := chainConfig.ExternalAddressTransfer
-		if address == "" {
-			continue
-		}
-
-		if !common.IsHexAddress(address) {
-			return fmt.Errorf(
-				"invalid transfer address %q for chain %d",
-				address, chainSelector,
-			)
-		}
-
-		recipient := common.HexToAddress(address)
-		if recipient == (common.Address{}) {
-			return fmt.Errorf(
-				"transfer address cannot be zero for chain %d",
-				chainSelector,
-			)
-		}
-
-		whitelist, err := GetWhitelistedAddresses(
-			e,
-			[]uint64{chainSelector},
-		)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to read whitelist for chain %d: %w",
-				chainSelector, err,
-			)
-		}
-
-		found := false
-		for _, entry := range whitelist[chainSelector] {
-			if common.IsHexAddress(entry.Address) &&
-				common.HexToAddress(entry.Address) == recipient {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			return fmt.Errorf(
-				"address %s is not whitelisted for chain %d",
-				recipient.Hex(), chainSelector,
-			)
-		}
-	}
-
-	return nil
+func (c ccipFeeCollectorChangeset) VerifyPreconditions(e cldf.Environment, cfg vaulttypes.CCIPUnwrapTokenConfig) error {
+	return validateUnwrapChangesetConfig(e, cfg)
 }
 
-// OKR
-// Withdrawing and converting CCIP revenue across 80 blockchains currently relies on heavy manual effort.
-// This initiative would use Chainlink Deployments (CLD)
-// 1) to provide the Treasury team a self-service option to pull revenue from CCIP v1.6 and v2.0 onRamps
-// 2) Create changeset for CLD to automatically unwrap collected fees (which is by default in wrapped native) into
-// native gas tokens across all 80 CCIP chains and transfer them to external addresses for mainnet bridging and liquidations
-// - eliminating manual processing time.
-func (c ccipFeeCollectorChangeset) Apply(e cldf.Environment, cfg CCIPUnwrapTokenConfig) (cldf.ChangesetOutput, error) {
+func (c ccipFeeCollectorChangeset) Apply(e cldf.Environment, cfg vaulttypes.CCIPUnwrapTokenConfig) (cldf.ChangesetOutput, error) {
 	logger := e.Logger
 	logger.Infow("Unwraping wrapped balances",
 		"amountChains", len(cfg.Chains),
@@ -156,9 +74,9 @@ func (c ccipFeeCollectorChangeset) Apply(e cldf.Environment, cfg CCIPUnwrapToken
 }
 
 type UnwrapWrappedTokenAndTransferSequenceInput struct {
-	Chains     map[uint64]CCIPUnwrapTokenChainConfig `json:"chains"`
-	MCMSConfig *cldfproposalutils.TimelockConfig     `json:"mcms_config"`
-	TestNeeded bool                                  `json:"test_needed"`
+	Chains     map[uint64]vaulttypes.CCIPUnwrapTokenChainConfig `json:"chains"`
+	MCMSConfig *cldfproposalutils.TimelockConfig                `json:"mcms_config"`
+	TestNeeded bool                                             `json:"test_needed"`
 }
 
 type UnwrapWrappedTokenAndTransferSequenceOutput struct {
@@ -173,9 +91,6 @@ const (
 )
 
 // Main Sequence
-// Must return the generated proposals
-// Operation 1. Unwrap
-// Operation 2. Send to x address
 var UnwrapWrappedTokeAndTransferSequence = operations.NewSequence(
 	"unwrap-wrapped-token-sequence",
 	semver.MustParse("1.0.0"),
@@ -336,8 +251,6 @@ func buildUnwrapProposal(
 }
 
 // Operation 1. Unwrap
-// Builds the wrapped-token withdraw transaction for an explicit amount (resolved upstream
-// from the on-chain balance).
 type UnwrapWrappedTokenInput struct {
 	ChainSelector uint64                            `json:"chain_selector"`
 	MCMSConfig    *cldfproposalutils.TimelockConfig `json:"mcms_config"`
