@@ -7,12 +7,13 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
