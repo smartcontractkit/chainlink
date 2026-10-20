@@ -205,3 +205,23 @@ func TestOffchainDivergences_LogsUnencodableSpecConfig(t *testing.T) {
 	assert.Zero(t, got[divergenceMismatch], "a failed comparison must not report a mismatch")
 	assert.Equal(t, 1, logs.FilterMessage("Failed to build offchain spec config for cross-validation").Len())
 }
+
+func TestOffchainDivergences_LocalOnly(t *testing.T) {
+	t.Parallel()
+	const capID = "cap@1.0.0"
+	m := newCrossCheckMgr(t, capID)
+	for _, onchainLocalOnly := range []bool{false, true} {
+		raw, err := proto.Marshal(&capabilitiespb.CapabilityConfig{LocalOnly: onchainLocalOnly})
+		require.NoError(t, err)
+		dons := []registry.DON{onchainDONWith(1, map[string]registry.CapabilityConfiguration{capID: {Config: raw}})}
+		for _, offchainLocalOnly := range []bool{false, true} {
+			off := map[uint32]*capabilitiespb.DONConfig{1: {Capabilities: map[string]*capabilitiespb.CapabilityConfig{capID: {LocalOnly: offchainLocalOnly}}}}
+			got := m.offchainDivergences(off, dons)
+			var want int64
+			if onchainLocalOnly != offchainLocalOnly {
+				want = 1
+			}
+			assert.Equal(t, want, got[divergenceMismatch])
+		}
+	}
+}

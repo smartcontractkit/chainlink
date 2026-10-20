@@ -401,3 +401,32 @@ func TestOffchainMethodConfigs_ServedMethodsReplaceAndRestore(t *testing.T) {
 		})
 	}
 }
+
+func TestOffchainMethodConfigs_LocalOnlySkipsRemoteShims(t *testing.T) {
+	t.Parallel()
+	const capID = "cap@1.0.0"
+	lggr := logger.Test(t)
+	dispatcher := remoteMocks.NewDispatcher(t)
+	peer := mocks.NewSharedPeer(t)
+	launcher, err := NewLauncher(lggr, peer, nil, dispatcher, regpkg.NewRegistry(lggr), &mockDonNotifier{}, limits.Factory{}, false, 0)
+	require.NoError(t, err)
+	method := &capabilitiespb.CapabilityMethodConfig{RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{}}}
+	don := regpkg.DON{ID: 1, Name: "don-1", CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{capID: {Config: onchainMethodCfg(t, map[string]*capabilitiespb.CapabilityMethodConfig{"Trigger": method})}}}
+	payload, err := protojson.Marshal(&capabilitiespb.OffchainCapabilitiesRegistry{Version: 1, Dons: map[string]*capabilitiespb.DONConfig{don.Name: {Capabilities: map[string]*capabilitiespb.CapabilityConfig{capID: {LocalOnly: true, MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{"Trigger": method}}}}}})
+	require.NoError(t, err)
+	gc := globalconfig.New()
+	_, err = gc.Store(string(payload), "payload")
+	require.NoError(t, err)
+	snapshot := newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{don})
+	wanted := computeWantedShimKeys([]regpkg.DON{don}, []regpkg.DON{don}, snapshot)
+	assert.Empty(t, wanted.combinedClients)
+	assert.Empty(t, wanted.triggerSubscribers)
+	assert.Empty(t, wanted.triggerPublishers)
+	// With LocalOnly set, both paths must skip the capability before accessing remote metadata
+	// or the dispatcher. The mock has no expectations, so any registration fails the test.
+	launcher.addRemoteCapabilities(t.Context(), regpkg.DON{}, don, nil, snapshot)
+	launcher.serveCapabilities(t.Context(), newNodes(1)[0], don, nil, snapshot)
+	assert.Empty(t, launcher.cachedShims.combinedClients)
+	assert.Empty(t, launcher.cachedShims.triggerSubscribers)
+	assert.Empty(t, launcher.cachedShims.triggerPublishers)
+}

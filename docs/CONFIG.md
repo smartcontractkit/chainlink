@@ -1885,6 +1885,7 @@ cross-validation telemetry only. When true, spec_config is sourced exclusively f
 payload. Don2Don method_configs use the complete offchain map when the capability is present;
 missing DONs or capabilities retain the on-chain map. Binary paths, the launch allowlist and OCR3
 config are unaffected.
+An offchain capability's local_only flag disables its Don2Don client/server shims when true.
 The gate is per-node and reversible.
 
 ## AutoPprof

@@ -114,7 +114,7 @@ func (g *GlobalConfig) notify() {
 //   - version must be >= 1 (0 is the proto default, i.e. "unset", and would defeat the
 //     monotonic version check),
 //   - DON names (map keys) and capability IDs must be non-empty,
-//   - capabilities may only set spec_config and method_configs,
+//   - capabilities may only set spec_config, method_configs and local_only,
 //   - every spec_config must convert to a config map,
 //   - method_configs must pass the offchain method validation before conversion.
 //
@@ -230,10 +230,10 @@ func validate(reg *capabilitiespb.OffchainCapabilitiesRegistry) error {
 			if capID == "" {
 				return fmt.Errorf("dons[%q]: empty capability ID", donName)
 			}
-			// Only spec_config and method_configs are sourced offchain for now; ocr3_configs remain on-chain.
-			allowed := &capabilitiespb.CapabilityConfig{SpecConfig: capCfg.GetSpecConfig(), MethodConfigs: capCfg.GetMethodConfigs()}
+			// OCR3 config remains on-chain.
+			allowed := &capabilitiespb.CapabilityConfig{SpecConfig: capCfg.GetSpecConfig(), MethodConfigs: capCfg.GetMethodConfigs(), LocalOnly: capCfg.GetLocalOnly()}
 			if !proto.Equal(capCfg, allowed) {
-				return fmt.Errorf("dons[%q].capabilities[%q]: only spec_config and method_configs are supported", donName, capID)
+				return fmt.Errorf("dons[%q].capabilities[%q]: only spec_config, method_configs and local_only are supported", donName, capID)
 			}
 			if _, err := SpecConfigMap(capCfg.GetSpecConfig()); err != nil {
 				return fmt.Errorf("dons[%q].capabilities[%q]: invalid spec_config: %w", donName, capID, err)
