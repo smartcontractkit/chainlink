@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -102,4 +103,17 @@ func TestSplitUnwrapAmount(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, balance, new(big.Int).Add(test, remainder))
 	})
+}
+
+func TestUnwrapProposalSalt(t *testing.T) {
+	t.Parallel()
+
+	labels := []string{unwrapLabelTest, unwrapLabelRemainder, unwrapLabelFull}
+	seen := make(map[common.Hash]string, len(labels))
+	for _, label := range labels {
+		salt := unwrapProposalSalt(label)
+		require.NotEqual(t, common.Hash{}, salt, "label %s must not produce a zero salt", label)
+		require.NotContains(t, seen, salt, "labels %s and %s must not share a salt", seen[salt], label)
+		seen[salt] = label
+	}
 }

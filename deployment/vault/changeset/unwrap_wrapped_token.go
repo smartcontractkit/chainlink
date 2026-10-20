@@ -7,6 +7,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -29,6 +30,14 @@ var CCIPUnwrapperChangeset cldf.ChangeSetV2[vaulttypes.CCIPUnwrapTokenConfig] = 
 
 func (c ccipUnwrapperChangeset) VerifyPreconditions(e cldf.Environment, cfg vaulttypes.CCIPUnwrapTokenConfig) error {
 	return validateUnwrapChangesetConfig(e, cfg)
+}
+
+func unwrapProposalLabelDescription(label string) string {
+	return fmt.Sprintf("%s [%s]", unwrapProposalDescription, label)
+}
+
+func unwrapProposalSalt(label string) common.Hash {
+	return crypto.Keccak256Hash([]byte(unwrapProposalLabelDescription(label)))
 }
 
 func (c ccipUnwrapperChangeset) Apply(e cldf.Environment, cfg vaulttypes.CCIPUnwrapTokenConfig) (cldf.ChangesetOutput, error) {
@@ -243,13 +252,20 @@ func buildUnwrapProposal(
 		mcmAddressByChain[chainSelector] = unwrapOpReport.Output.MCMSAddr
 	}
 
-	proposal, err := proposeutils.BuildProposalFromBatchesV2(deps.Environment,
-		timelockAddresses, mcmAddressByChain, nil, batches,
-		fmt.Sprintf("%s [%s]", unwrapProposalDescription, label), *input.MCMSConfig,
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
+		deps.Environment,
+		timelockAddresses,
+		mcmAddressByChain,
+		nil,
+		batches,
+		unwrapProposalLabelDescription(label), *input.MCMSConfig,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build timelock proposal: %w", err)
 	}
+
+	salt := unwrapProposalSalt(label)
+	proposal.SaltOverride = &salt
 	return proposal, nil
 }
 
