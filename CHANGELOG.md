@@ -4,6 +4,12 @@
 
 ### Patch Changes
 
+- [#24036](https://github.com/smartcontractkit/chainlink/pull/24036) [`4c0dbfa`](https://github.com/smartcontractkit/chainlink/commit/4c0dbfa5a968cc32dc74059766b79695541c6879) - #internal Dockerfile: drop apt version pins in the final stage so the image takes Ubuntu's current ca-certificates (20260816ubuntu0.24.04.1, eMudhra CAs removed). The pinned 20260601 bundle and curl 8.5.0-2ubuntu10.15 are no longer in the archive and broke the v2.67.3-rc.1 build.
+
+## 2.67.3
+
+### Patch Changes
+
 - [#24028](https://github.com/smartcontractkit/chainlink/pull/24028) [`f20b0e3`](https://github.com/smartcontractkit/chainlink/commit/f20b0e36d267f6a5e4c5eaa6b015fa55820f3169) - #internal Rebuild with Ubuntu ca-certificates 20260816ubuntu0.24.04.1, which removes the compromised eMudhra intermediate CAs from the image trust store. No code changes.
 
 ## 2.67.0
