@@ -124,11 +124,19 @@ func requireVaultGetSecretsLoggedEventually(t *testing.T, testEnv *ttypes.TestEn
 	}, time.Minute, 2*time.Second, "expected a vault GetSecrets request for %s with direct=%t", secretID, direct)
 }
 
-// ExecuteVaultDirectReadTests covers GetSecrets served from the Vault nodes' local
-// replicated state. The subtests run in order and share the flag override.
-func ExecuteVaultDirectReadTests(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+// newEnabledVaultDirectReadEnv stands up the direct-read test environment (including its own
+// verifier workflow, so the flag override doesn't leak into other vault tests) and enables the
+// direct-read feature flag.
+func newEnabledVaultDirectReadEnv(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) (*vaultDirectReadEnv, *t_helpers.CRESettingsHandle) {
+	t.Helper()
 	env := newVaultDirectReadEnv(t, fixture, testEnv, "direct-read-verifier")
-	flag := env.enableDirectRead(t)
+	return env, env.enableDirectRead(t)
+}
+
+// ExecuteVaultDirectReadTests covers the GetSecrets CRUD lifecycle served from the Vault nodes'
+// local replicated state. It runs in its own suite bucket
+func ExecuteVaultDirectReadTests(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+	env, _ := newEnabledVaultDirectReadEnv(t, fixture, testEnv)
 
 	secretA := uniqueVaultSecretID("directa")
 	secretB := uniqueVaultSecretID("directb")
@@ -173,6 +181,13 @@ func ExecuteVaultDirectReadTests(t *testing.T, fixture *vaultScenarioFixture, te
 			Checks: []vaultWorkflowCheck{{Name: "b-main", SecretKey: secretB, SecretNamespace: "main", ExpectNotFound: true}},
 		})
 	})
+}
+
+// ExecuteVaultDirectReadErrorsTests covers GetSecrets error parity with the OCR path and the
+// flag-off fallback to the OCR path. The subtests run in order: flag_off_uses_ocr
+// resets the flag override, so it must come last.
+func ExecuteVaultDirectReadErrorsTests(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+	env, flag := newEnabledVaultDirectReadEnv(t, fixture, testEnv)
 
 	t.Run("errors_match_ocr_path", func(t *testing.T) {
 		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, env.verifier, env.ulCh, env.bmCh)

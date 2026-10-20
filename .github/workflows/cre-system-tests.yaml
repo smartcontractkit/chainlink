@@ -96,6 +96,12 @@ jobs:
                {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
                {"topology":"workflow-gateway-capabilities-vault-stall-purge","configs":"configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"}
              ],
+            "Test_CRE_V2_Suite_VaultDirectRead": [
+               {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
+             ],
+            "Test_CRE_V2_Suite_VaultDirectReadErrors": [
+               {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
+             ],
             "Test_CRE_V2_Aptos_Suite": [
                {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
              ],
