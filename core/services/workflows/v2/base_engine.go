@@ -198,7 +198,7 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 				beholderLogger.Errorw("Compute usage metering enabled but no durable emitter is configured; compute usage records will not be delivered")
 			}
 		}
-		engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: true, Emitter: emitter})
+		engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: true, Emitter: emitter, FaultInjection: cfg.UsageFaultInjection})
 	}
 	engine.loggerLabels.Store(&labelsMap)
 	engine.localNode.Store(&localNode)

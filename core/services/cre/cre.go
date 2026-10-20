@@ -987,7 +987,7 @@ func newWorkflowRegistrySyncerV2(
 		usageIdentity := meterIdentity
 		usageIdentity.Service = resourcemanager.EmittingServiceWorkflowEngine
 		usageIdentity = resourcemanager.WithWorkflowUsagePool(usageIdentity, resourcemanager.ResourceTypeWorkflowCompute)
-		handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(usageIdentity))
+		handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(usageIdentity, meteringCfg.FaultInjection()))
 	}
 
 	mc := capCfg.WorkflowRegistry().ModuleCache()

@@ -2611,6 +2611,47 @@ NodeID = '' # Default
 ```
 NodeID is the node's logical name, e.g. 'clp-cre-wf-zone-a-1' (not the CSA public key).
 
+## Metering.FaultInjection
+```toml
+[Metering.FaultInjection]
+Mode = '' # Default
+Rate = 0.0 # Default
+Salt = '' # Default
+Delta = 0 # Default
+NodeRate = 1.0 # Default
+```
+FaultInjection drops or perturbs a deterministic sample of usage records so billing reconcilers can measure their recall. Test environments only.
+
+### Mode
+```toml
+Mode = '' # Default
+```
+Mode is '' (off), 'drop' (skip emission on every node) or 'perturb' (add Delta to the value on NodeRate of the nodes).
+
+### Rate
+```toml
+Rate = 0.0 # Default
+```
+Rate is the fraction of usage events selected, keyed on the event id (0..1).
+
+### Salt
+```toml
+Salt = '' # Default
+```
+Salt mixes into the selection hash so reconcilers can recompute the sample.
+
+### Delta
+```toml
+Delta = 0 # Default
+```
+Delta is added to the value in perturb mode.
+
+### NodeRate
+```toml
+NodeRate = 1.0 # Default
+```
+NodeRate is the fraction of nodes that apply a perturb (0..1; 1 = all nodes).
+
 ## CRE.Streams
 ```toml
 [CRE.Streams]

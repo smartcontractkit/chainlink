@@ -1069,6 +1069,53 @@ func TestMetering_ValidateConfig(t *testing.T) {
 			expectError: true,
 			errorMsg:    "requires MeterRecordsEnabled to be true",
 		},
+		{
+			name: "fault injection perturb with records enabled",
+			config: &Metering{
+				MeterRecordsEnabled: new(true),
+				NodeID:              new("clp-cre-wf-zone-a-1"),
+				FaultInjection:      MeteringFaultInjection{Mode: new("perturb"), Rate: new(0.1), Delta: new(int64(7)), NodeRate: new(0.5)},
+			},
+			expectError: false,
+		},
+		{
+			name: "fault injection unknown mode",
+			config: &Metering{
+				MeterRecordsEnabled: new(true),
+				NodeID:              new("clp-cre-wf-zone-a-1"),
+				FaultInjection:      MeteringFaultInjection{Mode: new("corrupt"), Rate: new(0.1)},
+			},
+			expectError: true,
+			errorMsg:    "FaultInjection.Mode",
+		},
+		{
+			name: "fault injection rate out of range",
+			config: &Metering{
+				MeterRecordsEnabled: new(true),
+				NodeID:              new("clp-cre-wf-zone-a-1"),
+				FaultInjection:      MeteringFaultInjection{Mode: new("drop"), Rate: new(1.5)},
+			},
+			expectError: true,
+			errorMsg:    "FaultInjection.Rate",
+		},
+		{
+			name: "fault injection rate without mode",
+			config: &Metering{
+				MeterRecordsEnabled: new(true),
+				NodeID:              new("clp-cre-wf-zone-a-1"),
+				FaultInjection:      MeteringFaultInjection{Rate: new(0.1)},
+			},
+			expectError: true,
+			errorMsg:    "requires FaultInjection.Mode",
+		},
+		{
+			name: "fault injection without records enabled",
+			config: &Metering{
+				FaultInjection: MeteringFaultInjection{Mode: new("drop"), Rate: new(0.1)},
+			},
+			expectError: true,
+			errorMsg:    "requires MeterRecordsEnabled to be true",
+		},
 	}
 
 	for _, tc := range testCases {

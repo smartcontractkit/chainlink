@@ -74,6 +74,8 @@ type EngineConfig struct {
 	// MeterRecordsEnabled emits a cre:workflow:compute usage record per execution.
 	MeterRecordsEnabled bool
 	UsageIdentity       resourcemanager.ResourceIdentity
+	// UsageFaultInjection drops or perturbs a sample of usage records (test environments only).
+	UsageFaultInjection resourcemanager.UsageFaultInjection
 	// UsageEmitter overrides the global durable emitter.
 	UsageEmitter resourcemanager.Emitter
 

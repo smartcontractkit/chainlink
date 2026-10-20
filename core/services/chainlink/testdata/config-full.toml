@@ -394,6 +394,13 @@ Environment = 'production'
 Zone = 'wf-zone-a'
 NodeID = 'clp-cre-wf-zone-a-1'
 
+[Metering.FaultInjection]
+Mode = 'perturb'
+Rate = 0.1
+Salt = 'canary'
+Delta = 7
+NodeRate = 0.5
+
 [Workflows]
 [Workflows.Limits]
 Global = 200

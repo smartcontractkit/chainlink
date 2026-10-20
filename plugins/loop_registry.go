@@ -191,6 +191,12 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.MeterEnvironment = m.cfgMetering.Environment()
 		envCfg.MeterZone = m.cfgMetering.Zone()
 		envCfg.MeterNodeID = m.cfgMetering.NodeID()
+		fault := m.cfgMetering.FaultInjection()
+		envCfg.MeterFaultMode = fault.Mode
+		envCfg.MeterFaultRate = fault.Rate
+		envCfg.MeterFaultSalt = fault.Salt
+		envCfg.MeterFaultDelta = fault.Delta
+		envCfg.MeterFaultNodeRate = fault.NodeRate
 	}
 	m.lggr.Debugf("Registered loopp %q with port %d", id, envCfg.PrometheusPort)
 

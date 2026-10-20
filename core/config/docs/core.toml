@@ -937,6 +937,19 @@ Zone = '' # Default
 # NodeID is the node's logical name, e.g. 'clp-cre-wf-zone-a-1' (not the CSA public key).
 NodeID = '' # Default
 
+# FaultInjection drops or perturbs a deterministic sample of usage records so billing reconcilers can measure their recall. Test environments only.
+[Metering.FaultInjection]
+# Mode is '' (off), 'drop' (skip emission on every node) or 'perturb' (add Delta to the value on NodeRate of the nodes).
+Mode = '' # Default
+# Rate is the fraction of usage events selected, keyed on the event id (0..1).
+Rate = 0.0 # Default
+# Salt mixes into the selection hash so reconcilers can recompute the sample.
+Salt = '' # Default
+# Delta is added to the value in perturb mode.
+Delta = 0 # Default
+# NodeRate is the fraction of nodes that apply a perturb (0..1; 1 = all nodes).
+NodeRate = 1.0 # Default
+
 [CRE.Streams]
 # WsURL is the websockets url for the streams sdk config
 WsURL = "streams.url" # Example

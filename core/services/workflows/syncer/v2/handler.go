@@ -111,6 +111,7 @@ type eventHandler struct {
 	// meterRecordsEnabled gates the engines' compute usage records.
 	meterRecordsEnabled bool
 	usageIdentity       resourcemanager.ResourceIdentity
+	usageFaultInjection resourcemanager.UsageFaultInjection
 
 	orgResolver    orgresolver.OrgResolver
 	secretsFetcher v2.SecretsFetcher
@@ -198,10 +199,11 @@ func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 }
 
 // WithUsageMetering enables compute usage records on the engines with identity.
-func WithUsageMetering(identity resourcemanager.ResourceIdentity) func(*eventHandler) {
+func WithUsageMetering(identity resourcemanager.ResourceIdentity, fault resourcemanager.UsageFaultInjection) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.meterRecordsEnabled = true
 		e.usageIdentity = identity
+		e.usageFaultInjection = fault
 	}
 }
 
@@ -1519,6 +1521,7 @@ func (h *eventHandler) newV2EngineConfig(
 		OrgResolver:                       h.orgResolver,
 		MeterRecordsEnabled:               h.meterRecordsEnabled,
 		UsageIdentity:                     h.usageIdentity,
+		UsageFaultInjection:               h.usageFaultInjection,
 		SecretsFetcher:                    h.secretsFetcher,
 		OverrideFetcher:                   h.overrideFetcherForOwner(owner),
 		DebugMode:                         h.debugMode,

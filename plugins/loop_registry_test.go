@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"net/url"
 	"testing"
 	"time"
@@ -131,6 +132,9 @@ func (m mockCfgMetering) NumericTenantID() string     { return "42" }
 func (m mockCfgMetering) Environment() string         { return "production" }
 func (m mockCfgMetering) Zone() string                { return "wf-zone-a" }
 func (m mockCfgMetering) NodeID() string              { return "clp-cre-wf-zone-a-1" }
+func (m mockCfgMetering) FaultInjection() resourcemanager.UsageFaultInjection {
+	return resourcemanager.UsageFaultInjection{Mode: "perturb", Rate: 0.1, Salt: "canary", Delta: 7, NodeRate: 0.5}
+}
 
 type mockPrometheusBridge struct{}
 
@@ -300,6 +304,11 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, "production", envCfg.MeterEnvironment)
 	require.Equal(t, "wf-zone-a", envCfg.MeterZone)
 	require.Equal(t, "clp-cre-wf-zone-a-1", envCfg.MeterNodeID)
+	require.Equal(t, "perturb", envCfg.MeterFaultMode)
+	require.Equal(t, 0.1, envCfg.MeterFaultRate)
+	require.Equal(t, "canary", envCfg.MeterFaultSalt)
+	require.Equal(t, int64(7), envCfg.MeterFaultDelta)
+	require.Equal(t, 0.5, envCfg.MeterFaultNodeRate)
 	require.Equal(t, []string{"event_id"}, envCfg.TelemetryMetricViewsDenyAttributes)
 	require.NotNil(t, envCfg.TelemetryMetricCardinalityLimit)
 	require.Equal(t, 100000, *envCfg.TelemetryMetricCardinalityLimit)
