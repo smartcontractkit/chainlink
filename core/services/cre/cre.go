@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
@@ -26,6 +24,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
