@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -654,6 +655,7 @@ func (h *engineLifecycleHarness) newCoordinator(capreg *regmocks.CapabilitiesReg
 			ChainAllowed: limits.NewGateLimiter(true),
 			Logger:       commonlogger.Test(h.t),
 			Metrics:      monitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), em),
+			Emitter:      custmsg.NewLabeler(),
 		},
 		// The engine's own limiters, as in production, so the limits a scenario sets apply to both.
 		h.cfg.LocalLimiters.Admission(),

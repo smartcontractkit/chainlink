@@ -2,6 +2,7 @@ package triggers
 
 import (
 	"context"
+	"maps"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -160,6 +162,7 @@ type coordinatorFixture struct {
 	clock   *clockwork.FakeClock
 	wid     types.WorkflowID
 	engine  *fakeEngine
+	emitter *fakeEmitter
 }
 
 // newCoordinatorFixture starts a coordinator with one coordinated engine
@@ -182,13 +185,80 @@ func newCoordinatorFixtureWithAdmission(t *testing.T, admission AdmissionLimiter
 	engine := &fakeEngine{coordinated: true}
 	engines.set(wid, engine)
 
-	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), admission, engines, wfLimits, clock)
+	deps := newRegisterDeps(t, capReg, limits.NewGateLimiter(true))
+	emitter := newFakeEmitter()
+	deps.Emitter = emitter
+
+	c := NewCoordinator(deps, admission, engines, wfLimits, clock)
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{
 		c: c.(*coordinator), capReg: capReg, engines: engines, limits: wfLimits,
-		clock: clock, wid: wid, engine: engine,
+		clock: clock, wid: wid, engine: engine, emitter: emitter,
 	}
+}
+
+// fakeEmission is one message recorded by a fakeEmitter.
+type fakeEmission struct {
+	msg    string
+	labels map[string]string
+}
+
+// fakeEmitterSink is the shared recording behind a fakeEmitter and every
+// emitter custmsg.MessageEmitter.With derives from it. Production code calls
+// With to add labels before each Emit, so the sink must outlive any single
+// fakeEmitter value.
+type fakeEmitterSink struct {
+	mu       sync.Mutex
+	messages []fakeEmission
+}
+
+// fakeEmitter is a custmsg.MessageEmitter double that records every message
+// and the labels it carried, so tests can assert on both without a real
+// Beholder client.
+type fakeEmitter struct {
+	sink   *fakeEmitterSink
+	labels map[string]string
+}
+
+func newFakeEmitter() *fakeEmitter {
+	return &fakeEmitter{sink: &fakeEmitterSink{}, labels: map[string]string{}}
+}
+
+func (f *fakeEmitter) Emit(_ context.Context, msg string) error {
+	f.sink.mu.Lock()
+	defer f.sink.mu.Unlock()
+	f.sink.messages = append(f.sink.messages, fakeEmission{msg: msg, labels: maps.Clone(f.labels)})
+	return nil
+}
+
+func (f *fakeEmitter) With(keyValues ...string) custmsg.MessageEmitter {
+	if len(keyValues)%2 != 0 {
+		return f
+	}
+	next := &fakeEmitter{sink: f.sink, labels: maps.Clone(f.labels)}
+	for i := 0; i < len(keyValues); i += 2 {
+		next.labels[keyValues[i]] = keyValues[i+1]
+	}
+	return next
+}
+
+func (f *fakeEmitter) WithMapLabels(labels map[string]string) custmsg.MessageEmitter {
+	next := &fakeEmitter{sink: f.sink, labels: maps.Clone(f.labels)}
+	maps.Copy(next.labels, labels)
+	return next
+}
+
+func (f *fakeEmitter) Labels() map[string]string {
+	return maps.Clone(f.labels)
+}
+
+// messages returns every message recorded so far, across every emitter
+// derived from this one with With/WithMapLabels.
+func (f *fakeEmitter) messages() []fakeEmission {
+	f.sink.mu.Lock()
+	defer f.sink.mu.Unlock()
+	return append([]fakeEmission(nil), f.sink.messages...)
 }
 
 // expectTrigger wires a trigger capability that hands back a fresh event channel on registration.

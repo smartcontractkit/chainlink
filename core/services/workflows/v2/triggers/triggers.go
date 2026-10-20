@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -179,6 +180,7 @@ type RegisterDeps struct {
 	ChainAllowed limits.GateLimiter
 	Logger       logger.Logger
 	Metrics      *monitoring.WorkflowsMetricLabeler
+	Emitter      custmsg.MessageEmitter
 }
 
 // RegisterMetadata is everything that goes into every trigger's

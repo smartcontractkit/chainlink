@@ -938,6 +938,7 @@ func newWorkflowRegistrySyncerV2(
 			ChainAllowed: engineLimiters.ChainAllowed,
 			Logger:       lggr,
 			Metrics:      wfmonitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), coordinatorMetrics),
+			Emitter:      custmsg.NewLabeler(),
 		},
 		engineLimiters.Admission(),
 		syncerV2.NewTriggerEngineRegistry(engineRegistry),
