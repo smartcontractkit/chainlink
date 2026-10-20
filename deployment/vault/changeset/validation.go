@@ -15,7 +15,6 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
-	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
 func ValidateBatchNativeTransferConfig(ctx context.Context, e cldf.Environment, cfg types.BatchNativeTransferConfig) error {
@@ -630,13 +629,13 @@ func whitelistContains(entries []WhitelistEntry, addr string) bool {
 	return false
 }
 
-func validateUnwrapChangesetConfig(e cldf.Environment, cfg vaulttypes.CCIPUnwrapTokenConfig) error {
+func validateUnwrapChangesetConfig(e cldf.Environment, cfg types.CCIPUnwrapTokenConfig) error {
 	if cfg.MCMSConfig == nil {
-		return fmt.Errorf("MCMS Config cannot be nil")
+		return errors.New("MCMS Config cannot be nil")
 	}
 
 	if len(cfg.Chains) == 0 {
-		return fmt.Errorf("chains cannot be empty")
+		return errors.New("chains cannot be empty")
 	}
 
 	evmChains := e.BlockChains.EVMChains()

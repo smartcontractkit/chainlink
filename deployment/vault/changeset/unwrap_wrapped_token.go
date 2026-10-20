@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -9,16 +10,17 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 	"github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
 // Given that we interact with native BTC chains, 0.000062 BTC (approximately $5 at 16 Oct 2026) could serve as our minimum test amount.
 // 0.000062
-var TEST_AMOUNT_WEI = big.NewInt(62000000000000)
+var testAmountWei = big.NewInt(62000000000000)
 
 type ccipUnwrapperChangeset struct{}
 
@@ -39,7 +41,7 @@ func (c ccipUnwrapperChangeset) Apply(e cldf.Environment, cfg vaulttypes.CCIPUnw
 	// Pick a deterministic primary chain for deps (only needed for direct execution, not MCMS).
 	primaryChainSelector, found := lowestChainSelector(cfg.Chains)
 	if !found {
-		return cldf.ChangesetOutput{}, fmt.Errorf("no chains configured")
+		return cldf.ChangesetOutput{}, errors.New("no chains configured")
 	}
 
 	primaryChain := evmChains[primaryChainSelector]
@@ -152,10 +154,10 @@ var UnwrapWrappedTokeAndTransferSequence = operations.NewSequence(
 // mirroring splitTransfersForTest in bridge_operations.go. Requires balance > TEST_AMOUNT_WEI
 // so the remainder is strictly positive.
 func splitUnwrapAmount(balance *big.Int) (test, remainder *big.Int, err error) {
-	if balance == nil || balance.Cmp(TEST_AMOUNT_WEI) <= 0 {
-		return nil, nil, fmt.Errorf("wrapped balance %s must be greater than test amount %s", balance, TEST_AMOUNT_WEI)
+	if balance == nil || balance.Cmp(testAmountWei) <= 0 {
+		return nil, nil, fmt.Errorf("wrapped balance %s must be greater than test amount %s", balance, testAmountWei)
 	}
-	return new(big.Int).Set(TEST_AMOUNT_WEI), new(big.Int).Sub(balance, TEST_AMOUNT_WEI), nil
+	return new(big.Int).Set(testAmountWei), new(big.Int).Sub(balance, testAmountWei), nil
 }
 
 // readTimelockWrappedBalance resolves the chain's Timelock and wrapped-native token from the
