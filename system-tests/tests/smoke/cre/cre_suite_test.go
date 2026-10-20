@@ -150,6 +150,7 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 		})
 	case suite_config.SuiteScenarioVaultDirectRead:
 		t.Run("Vault Direct Read - "+topology, func(t *testing.T) {
+			t_helpers.SkipIfMixedEnv(t, "vault direct-read behavior is absent in baseline images; the direct-path log assertions cannot pass until the feature lands in develop")
 			if parallelEnabled {
 				t.Parallel()
 			}
