@@ -94,7 +94,7 @@ func ExecuteShardingTestWithEVMLogTrigger(t *testing.T, testEnv *ttypes.TestEnvi
 
 	workflowFileLocation := "./evm/logtrigger/main.go"
 
-	const numWorkflows = 5
+	const numWorkflows = 10
 	workflowNames := make([]string, numWorkflows)
 	for i := range numWorkflows {
 		workflowNames[i] = fmt.Sprintf("shardtest-evmlogtrigger-%d", i)

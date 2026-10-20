@@ -97,7 +97,7 @@ Create `devenv/tests/<name>/smoke_test.go`.
 
 Reference files:
 - [tests/cron/smoke_test.go](tests/cron/smoke_test.go) -- simplest test (no contracts, just job run polling)
-- [tests/vrfv2/smoke_test.go](tests/vrfv2/smoke_test.go) -- test with contract interaction and async polling
+- [tests/vrfv2plus/smoke_test.go](tests/vrfv2plus/smoke_test.go) -- test with contract interaction and async polling
 
 Every test must:
 

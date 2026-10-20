@@ -327,7 +327,7 @@ func createJobs(
 				return fmt.Errorf("failed to get key bundle id for evm family for node %s", workerNode.Name)
 			}
 
-			bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"), bootstrap.Host, cre.OCRPeeringPort)}
+			bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"), bootstrap.Host, cre.PeeringPort)}
 
 			strategyName := "single-chain"
 			if len(workerNode.Keys.OCR2BundleIDs) > 1 {

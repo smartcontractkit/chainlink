@@ -57,6 +57,7 @@ type triggerPublisher struct {
 
 type triggerPublisherMetrics struct {
 	registerTriggerCounter      metric.Int64Counter
+	registerTriggerOrgIDCounter metric.Int64Counter
 	unregisterTriggerCounter    metric.Int64Counter
 	ackEventCounter             metric.Int64Counter
 	registerTriggerDurationMs   metric.Int64Histogram
@@ -188,6 +189,10 @@ func (p *triggerPublisher) initMetrics() error {
 	p.metrics.registerTriggerCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_publisher_register_trigger_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_total: %w", err)
+	}
+	p.metrics.registerTriggerOrgIDCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_publisher_register_trigger_org_id_total")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_org_id_total: %w", err)
 	}
 	p.metrics.unregisterTriggerCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_publisher_unregister_trigger_total")
 	if err != nil {
@@ -325,6 +330,12 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.lggr.Errorw("received trigger request with invalid workflow ID", "workflowId", SanitizeLogString(req.Metadata.WorkflowID), "err", err)
 			return
 		}
+		p.metrics.registerTriggerOrgIDCounter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("capabilityID", p.capabilityID),
+			attribute.String("capMethodName", p.capMethodName),
+			attribute.String("callerDonID", strconv.FormatUint(uint64(msg.CallerDonId), 10)),
+			attribute.String("hasOrgID", strconv.FormatBool(req.Metadata.OrgID != "")),
+		))
 		p.lggr.Debugw("received trigger registration", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "sender", sender)
 		key := registrationKey{msg.CallerDonId, req.Metadata.WorkflowID, req.TriggerID}
 		nowMs := time.Now().UnixMilli()

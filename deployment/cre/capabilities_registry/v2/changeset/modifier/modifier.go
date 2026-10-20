@@ -84,8 +84,8 @@ const aptosCapabilityIDPrefix = "aptos:ChainSelector:"
 // selector is empty or not a base-10 uint64.
 func parseChainSelectorFromCapabilityID(capabilityID, prefix string) (selector uint64, matched bool, err error) {
 	capID := capabilityID
-	if i := strings.LastIndex(capabilityID, "@"); i >= 0 {
-		capID = capabilityID[:i]
+	if before, _, ok := strings.CutLast(capabilityID, "@"); ok {
+		capID = before
 	}
 	if !strings.HasPrefix(capID, prefix) {
 		return 0, false, nil

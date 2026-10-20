@@ -225,7 +225,10 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 			"triggerEventID", msg.TriggerEventId,
 			"workflowID", msg.WorkflowId,
 			"executionID", msg.ExecutionId)
-		if err := m.engine.ExecuteTrigger(context.Background(), event); err != nil {
+		// The replay doesn't come through the engine's trigger loop, so attach the
+		// tenant here; scoped settings lookups (e.g. execution timeout) require it.
+		ctx := contexts.WithCRE(context.Background(), m.engine.Tenant())
+		if err := m.engine.ExecuteTrigger(ctx, event); err != nil {
 			m.cfg.Logger.Errorw("failover: failed to replay cached trigger event",
 				"triggerEventID", msg.TriggerEventId,
 				"workflowID", msg.WorkflowId,

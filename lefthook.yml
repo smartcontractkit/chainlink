@@ -30,7 +30,7 @@ pre-commit:
                 # Prevent committing secret keys or sensitive information
                 - name: betterleaks
                   tags: [security]
-                  run: betterleaks git . --pre-commit --staged
+                  run: betterleaks git . --pre-commit --staged -v
                   fail_text: "betterleaks failed or missing. Install: https://github.com/betterleaks/betterleaks#installation"
 
                 # Check for common typos in the codebase
