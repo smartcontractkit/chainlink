@@ -308,6 +308,10 @@ func (c *coordinator) UnregisterTriggers(ctx context.Context, workflowID string)
 	// call cancel to stop all reader goroutines associated with this workflow.
 	cw.cancel()
 	if spawnRelease {
+		// Free the slot now: a replacement registration must not wait behind
+		// the drain below, which only exists so an in-flight execution can
+		// still ACK against the retained handles.
+		c.freeWorkflowLimit(contexts.WithCRE(ctx, cw.cre), cw.lggr)
 		c.eng.Go(func(ctx context.Context) { c.releaseWhenDrained(ctx, cw) })
 	}
 
@@ -445,9 +449,11 @@ func (c *coordinator) coordinatedEngine(cw *coordinatedWorkflow, event Coordinat
 	return engine, true
 }
 
-// releaseWhenDrained drops the registration and frees the workflow-count limit
-// once no execution can still need it to ACK: once this registration's
-// readers, its admitter and every execution the admitter started have returned.
+// releaseWhenDrained drops the registration's handles and closes its queue
+// once no execution can still need them to ACK: once this registration's
+// readers, its admitter and every execution the admitter started have
+// returned. The workflow-count limit is a separate concern and is already
+// free by the time this runs; UnregisterTriggers frees it synchronously.
 func (c *coordinator) releaseWhenDrained(ctx context.Context, cw *coordinatedWorkflow) {
 	ctx = contexts.WithCRE(ctx, cw.cre)
 
@@ -472,7 +478,6 @@ func (c *coordinator) releaseWhenDrained(ctx context.Context, cw *coordinatedWor
 	c.workflows.deleteIf(cw.wid.Hex(), cw)
 	c.deps.Metrics.UpdateTriggerCoordinatorWorkflowsGauge(ctx, c.workflowsGauge.Add(-1))
 
-	c.freeWorkflowLimit(ctx, cw.lggr)
 	cw.lggr.Infow("Released trigger handles")
 }
 
