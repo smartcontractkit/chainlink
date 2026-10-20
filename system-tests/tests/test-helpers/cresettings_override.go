@@ -48,7 +48,6 @@ import (
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_job_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_pkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
