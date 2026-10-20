@@ -112,8 +112,6 @@ func runOneExecution(t *testing.T, cfg *v2.EngineConfig, run moduleRun) string {
 func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 	t.Parallel()
 
-	identity := resourcemanager.WithWorkflowUsagePool(resourcemanager.ResourceIdentity{Product: "cre", Service: resourcemanager.EmittingServiceWorkflowEngine}, resourcemanager.ResourceTypeWorkflowCompute)
-
 	t.Run("emits one compute record per execution and logs the contract line", func(t *testing.T) {
 		t.Parallel()
 		lggr, obs := logger.TestObserved(t, zapcore.InfoLevel)
@@ -122,7 +120,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		emitter := &recordingEmitter{}
 		cfg.MeterRecordsEnabled = true
 		cfg.UsageEmitter = emitter
-		cfg.UsageIdentity = identity
+		cfg.MeteringIdentity = resourcemanager.DeploymentIdentity{Product: "cre"}
 
 		executionID := runOneExecution(t, cfg, moduleRun{})
 
@@ -157,7 +155,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		emitter := &recordingEmitter{}
 		cfg.MeterRecordsEnabled = true
 		cfg.UsageEmitter = emitter
-		cfg.UsageIdentity = identity
+		cfg.MeteringIdentity = resourcemanager.DeploymentIdentity{Product: "cre"}
 
 		runOneExecution(t, cfg, moduleRun{err: errors.New("module failed")})
 
@@ -170,7 +168,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		emitter := &recordingEmitter{}
 		cfg.MeterRecordsEnabled = true
 		cfg.UsageEmitter = emitter
-		cfg.UsageIdentity = identity
+		cfg.MeteringIdentity = resourcemanager.DeploymentIdentity{Product: "cre"}
 		runOneExecution(t, cfg, moduleRun{result: &sdkpb.ExecutionResult{ComputeDurationMs: proto.Int64(1234)}})
 
 		records := emitter.all()
@@ -184,7 +182,7 @@ func TestEngine_ComputeUsageMeterRecord(t *testing.T) {
 		emitter := &recordingEmitter{}
 		cfg.MeterRecordsEnabled = true
 		cfg.UsageEmitter = emitter
-		cfg.UsageIdentity = identity
+		cfg.MeteringIdentity = resourcemanager.DeploymentIdentity{Product: "cre"}
 
 		runOneExecution(t, cfg, moduleRun{onExecute: func() { time.Sleep(20 * time.Millisecond) }})
 
@@ -216,7 +214,7 @@ func TestEngine_ComputeUsageMeterRecord_ConfidentialRun(t *testing.T) {
 	emitter := &recordingEmitter{}
 	cfg.MeterRecordsEnabled = true
 	cfg.UsageEmitter = emitter
-	cfg.UsageIdentity = resourcemanager.WithWorkflowUsagePool(resourcemanager.ResourceIdentity{Product: "cre", Service: resourcemanager.EmittingServiceWorkflowEngine}, resourcemanager.ResourceTypeWorkflowCompute)
+	cfg.MeteringIdentity = resourcemanager.DeploymentIdentity{Product: "cre"}
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)

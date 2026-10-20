@@ -73,8 +73,9 @@ type EngineConfig struct {
 
 	// MeterRecordsEnabled emits a cre:workflow:compute usage record per execution.
 	MeterRecordsEnabled bool
-	UsageIdentity       resourcemanager.ResourceIdentity
-	// UsageEmitter overrides the global durable emitter.
+	// MeteringIdentity is the node's [Metering] deployment dimensions; the engine adds service, pool and DON.
+	MeteringIdentity resourcemanager.DeploymentIdentity
+	// UsageEmitter is for tests; production resolves the global durable emitter.
 	UsageEmitter resourcemanager.Emitter
 
 	// includes additional logging of events internal to user workflows

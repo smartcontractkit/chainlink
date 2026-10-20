@@ -715,6 +715,22 @@ func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.Billi
 // registry from the don notifier (the engine runs on the workflow DON), so it
 // is intentionally left empty here. Service/resource_pool are stamped by
 // syncer.NewSpecMeter.
+// newDeploymentIdentity returns the node's [Metering] deployment dimensions.
+func newDeploymentIdentity(cfg Config) resourcemanager.DeploymentIdentity {
+	m := cfg.Metering()
+	if m == nil {
+		return resourcemanager.DeploymentIdentity{}
+	}
+	return resourcemanager.DeploymentIdentity{
+		Product:         m.Product(),
+		Tenant:          m.Tenant(),
+		NumericTenantID: m.NumericTenantID(),
+		Environment:     m.Environment(),
+		Zone:            m.Zone(),
+		NodeID:          m.NodeID(),
+	}
+}
+
 func newSyncerMeterIdentity(cfg Config) resourcemanager.ResourceIdentity {
 	m := cfg.Metering()
 	if m == nil {
@@ -984,10 +1000,7 @@ func newWorkflowRegistrySyncerV2(
 
 	// Compute usage records share the [Metering].MeterRecordsEnabled gate.
 	if meterRecordsEnabled {
-		usageIdentity := meterIdentity
-		usageIdentity.Service = resourcemanager.EmittingServiceWorkflowEngine
-		usageIdentity = resourcemanager.WithWorkflowUsagePool(usageIdentity, resourcemanager.ResourceTypeWorkflowCompute)
-		handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(usageIdentity))
+		handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(newDeploymentIdentity(cfg)))
 	}
 
 	mc := capCfg.WorkflowRegistry().ModuleCache()

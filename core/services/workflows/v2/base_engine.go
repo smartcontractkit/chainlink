@@ -113,8 +113,9 @@ type baseEngine struct {
 	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
 	tracer trace.Tracer
 
-	usageMeter *resourcemanager.ResourceManager
-	orgID      string
+	usageMeter    *resourcemanager.ResourceManager
+	usageIdentity resourcemanager.ResourceIdentity
+	orgID         string
 	// orgIDMissingReason records why orgID is empty ("resolver_nil",
 	// "resolver_error", or "empty_response"). It is set once in startWith() and
 	// read by startExecution() to label the org_id_missing counter. It is only
@@ -191,14 +192,16 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 	engine.metrics = metricsLabeler
 	if cfg.MeterRecordsEnabled {
 		emitter := cfg.UsageEmitter
+		if d := durableemitter.GetGlobalEmitter(); emitter == nil && d != nil {
+			emitter = d
+		}
 		if emitter == nil {
-			if d := durableemitter.GetGlobalEmitter(); d != nil {
-				emitter = d
-			} else {
-				beholderLogger.Errorw("Compute usage metering enabled but no durable emitter is configured; compute usage records will not be delivered")
-			}
+			beholderLogger.Warnw("Compute usage metering enabled without a durable emitter; records will not be delivered")
 		}
 		engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: true, Emitter: emitter})
+		engine.usageIdentity = resourcemanager.WithWorkflowUsagePool(
+			resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
+			resourcemanager.ResourceTypeWorkflowCompute)
 	}
 	engine.loggerLabels.Store(&labelsMap)
 	engine.localNode.Store(&localNode)
@@ -1159,7 +1162,7 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, e
 		lggr.Errorw("Compute usage meter record not emitted", "err", err)
 		return
 	}
-	identity := e.cfg.UsageIdentity
+	identity := e.usageIdentity
 	if node := e.localNode.Load(); node != nil {
 		identity = identity.WithDonID(strconv.FormatUint(uint64(node.WorkflowDON.ID), 10))
 	}
