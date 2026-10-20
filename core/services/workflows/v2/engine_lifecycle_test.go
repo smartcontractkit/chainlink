@@ -408,14 +408,14 @@ func testLifecycleReplaceNextEventRunsOnNewEngine(t *testing.T, mode lifecycleEn
 	h.start()
 	h.blocker.release()
 
-	h.deliver(admissionTimeout)
-	require.Eventually(t, func() bool { return h.moduleExecutions.Load() == 1 }, admissionTimeout, 5*time.Millisecond,
+	h.deliver(testutils.WaitTimeout(t))
+	require.Eventually(t, func() bool { return h.moduleExecutions.Load() == 1 }, testutils.WaitTimeout(t), 5*time.Millisecond,
 		"the first event to run on the original engine")
 
 	h.replaceEngine()
 
-	h.deliver(admissionTimeout)
-	require.Eventually(t, func() bool { return h.moduleExecutions.Load() == 2 }, admissionTimeout, 5*time.Millisecond,
+	h.deliver(testutils.WaitTimeout(t))
+	require.Eventually(t, func() bool { return h.moduleExecutions.Load() == 2 }, testutils.WaitTimeout(t), 5*time.Millisecond,
 		"the next event to run on the replacement engine")
 }
 
