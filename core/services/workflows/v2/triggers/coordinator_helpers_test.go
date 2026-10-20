@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/mock"
@@ -206,7 +207,9 @@ func (f *coordinatorFixture) expectTrigger(t *testing.T) (*capmocks.TriggerCapab
 func newTestAdmission() AdmissionLimiters {
 	return AdmissionLimiters{
 		NewTriggerEventQueue: newTestQueue(50),
-		ExecutionConcurrency: limits.GlobalResourcePoolLimiter(5),
+		// Long enough that no test accidentally expires an event; tests for expiry override this.
+		TriggerEventQueueTimeout: limits.NewUpperBoundLimiter(time.Hour),
+		ExecutionConcurrency:     limits.GlobalResourcePoolLimiter(5),
 	}
 }
 
@@ -371,4 +374,25 @@ func counterTotal(t *testing.T, reader *sdkmetric.ManualReader, name string, att
 		}
 	}
 	return total
+}
+
+// mutableTimeoutLimiter is a BoundLimiter[time.Duration] whose value a test can change while running.
+type mutableTimeoutLimiter struct {
+	mu    sync.Mutex
+	value time.Duration
+}
+
+func (m *mutableTimeoutLimiter) Limit(context.Context) (time.Duration, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.value, nil
+}
+
+func (m *mutableTimeoutLimiter) Check(context.Context, time.Duration) error { return nil }
+func (m *mutableTimeoutLimiter) Close() error                               { return nil }
+
+func (m *mutableTimeoutLimiter) set(v time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.value = v
 }

@@ -512,6 +512,7 @@ func TestCoordinator_Admission(t *testing.T) {
 		assert.Equal(t, int64(1), counterTotal(t, reader, "platform_engine_trigger_event_enqueue_dropped_total", nil))
 		assert.Equal(t, int64(4), counterTotal(t, reader, "platform_engine_trigger_event_enqueued_total", nil), "evt-1, evt-2, evt-3 and evt-5")
 	})
+
 	unregistered := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonUnregistered}
 	t.Run("unregistering counts events not yet admitted as dropped", func(t *testing.T) { //nolint:paralleltest // see above
 		reader := useTestMeter(t)
@@ -558,5 +559,67 @@ func TestCoordinator_Admission(t *testing.T) {
 		require.Eventually(t, func() bool { return queues.get(t, 0).closed.Load() }, 5*time.Second, 5*time.Millisecond)
 
 		assert.Equal(t, int64(0), counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", unregistered))
+	})
+
+	t.Run("an event that expires while still queued is dropped and never executed", func(t *testing.T) { //nolint:paralleltest // see above
+		reader := useTestMeter(t)
+		admission, pool := singleSlot(func(a *AdmissionLimiters) {
+			a.TriggerEventQueueTimeout = limits.NewUpperBoundLimiter(time.Minute)
+		})
+		f := newCoordinatorFixtureWithAdmission(t, admission)
+		trigger, eventCh := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+		release := f.holdExecutions(t)
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		// evt-1 and evt-2 move off the queue as before, leaving evt-3 queued.
+		eventCh <- triggerEvent("evt-1")
+		require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+		eventCh <- triggerEvent("evt-2")
+		require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond)
+		eventCh <- triggerEvent("evt-3")
+		require.Eventually(t, func() bool { return queueLen(f) == 1 }, 5*time.Second, 5*time.Millisecond)
+
+		// evt-3's 1-minute deadline passes while it is still in the queue.
+		f.clock.Advance(2 * time.Minute)
+
+		release()
+		expired := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonExpired}
+		require.Eventually(t, func() bool {
+			return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", expired) == 1
+		},
+			5*time.Second, 5*time.Millisecond, "evt-3 dropped as expired")
+		assert.Equal(t, int64(1), counterTotal(t, reader, "platform_engine_trigger_event_expired_total", nil))
+		assert.Equal(t, []string{"evt-1", "evt-2"}, f.engine.executedIDs(), "evt-3 must never reach ExecuteTrigger")
+	})
+
+	t.Run("the deadline is stamped at dispatch, so a later timeout change does not move it", func(t *testing.T) { //nolint:paralleltest // see above
+		timeout := &mutableTimeoutLimiter{value: time.Minute}
+		admission, pool := singleSlot(func(a *AdmissionLimiters) { a.TriggerEventQueueTimeout = timeout })
+		f := newCoordinatorFixtureWithAdmission(t, admission)
+		trigger, eventCh := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+		release := f.holdExecutions(t)
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		eventCh <- triggerEvent("evt-1")
+		require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+		eventCh <- triggerEvent("evt-2")
+		require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond)
+
+		// evt-3 is enqueued while the setting is still 1 minute.
+		eventCh <- triggerEvent("evt-3")
+		require.Eventually(t, func() bool { return queueLen(f) == 1 }, 5*time.Second, 5*time.Millisecond)
+
+		// Shrink the setting after evt-3 is stamped. If the admitter recomputed the
+		// deadline now, evt-3 would look expired.
+		timeout.set(time.Millisecond)
+		f.clock.Advance(2 * time.Second)
+
+		release()
+		require.Eventually(t, func() bool { return len(f.engine.executed()) == 3 }, 5*time.Second, 5*time.Millisecond)
+		assert.Equal(t, []string{"evt-1", "evt-2", "evt-3"}, f.engine.executedIDs(), "evt-3 keeps the deadline stamped at dispatch")
 	})
 }

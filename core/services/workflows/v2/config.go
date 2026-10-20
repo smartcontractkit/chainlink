@@ -405,8 +405,9 @@ func (l *EngineLimiters) Close() error {
 // engine evicting its workflow from these limiters never touches it.
 func (l *EngineLimiters) Admission() triggers.AdmissionLimiters {
 	return triggers.AdmissionLimiters{
-		NewTriggerEventQueue: l.newTriggerEventQueue,
-		ExecutionConcurrency: l.ExecutionConcurrency,
+		NewTriggerEventQueue:     l.newTriggerEventQueue,
+		TriggerEventQueueTimeout: l.TriggerEventQueueTimeout,
+		ExecutionConcurrency:     l.ExecutionConcurrency,
 	}
 }
 
