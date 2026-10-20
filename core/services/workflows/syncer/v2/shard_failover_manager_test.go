@@ -567,6 +567,38 @@ func TestShardFailoverManager_TimeoutBasedFailover_ExecutesCachedEventAfterWindo
 	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "auto-executed event was executed twice")
 }
 
+// TestShardFailoverManager_SystemErrorReplay_ExecutesWithTenantContext covers
+// the pre-existing failover replay path the replayExecCtx fix repairs: a
+// secondary that cached a denied trigger event replays it when the primary
+// reports a SYSTEM_ERROR outcome, and the replay must carry the workflow's
+// tenant identity on the context - the engine's queue path stamps it, and
+// capability calls (e.g. the shared-vault secret fetch) fail without it.
+func TestShardFailoverManager_SystemErrorReplay_ExecutesWithTenantContext(t *testing.T) {
+	t.Parallel()
+
+	eng := &recordingEngine{}
+	// Timeout-based failover stays unconfigured so only the replay path runs.
+	m := newTimeoutBasedFailoverManager(t, eng, nil, nil, &switchableShardResolver{ownerDON: 1, found: true})
+
+	err := m.admissionCheck(t.Context(), timeoutBasedFailoverTestEvent("evt-1"))
+	require.ErrorIs(t, err, v2.ErrAdmissionCache)
+
+	m.HandleExecutionStatusUpdate(&ringpb.ExecutionStatusUpdate{
+		WorkflowId:     "wf-1",
+		TriggerEventId: "evt-1",
+		ExecutionId:    "exec-1",
+		Status:         ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR,
+	})
+
+	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "the SYSTEM_ERROR replay did not execute the cached event")
+
+	tenants := eng.executionTenants()
+	require.Len(t, tenants, 1, "the SYSTEM_ERROR replay did not go through the recording engine")
+	wantTenant := contexts.CREValue(contexts.WithCRE(context.Background(), eng.Tenant()))
+	assert.Equal(t, wantTenant, tenants[0],
+		"replayed event ran without the workflow tenant on the context")
+}
+
 func TestShardFailoverManager_TimeoutBasedFailover_DropsCachedEventWhenOwnerAgain(t *testing.T) {
 	t.Parallel()
 
