@@ -18,11 +18,6 @@ type ShardAssignmentConfig struct {
 	HashedOwnerAssignment   map[string]bool
 }
 
-const (
-	ConfigTypeSettings        = "settings"
-	ConfigTypeShardAssignment = "shard_assignment"
-)
-
 func ParseShardAssignmentConfig(raw string) (*ShardAssignmentConfig, error) {
 	cfg := &ShardAssignmentConfig{
 		PerOwnerAssignment:    make(map[string][]uint32),

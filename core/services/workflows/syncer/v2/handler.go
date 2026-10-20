@@ -108,9 +108,10 @@ type eventHandler struct {
 	// disabled: its handler-facing methods are nil-receiver safe no-ops.
 	specMeter *SpecMeter
 
-	// meterRecordsEnabled gates the engines' compute usage records.
+	// meterRecordsEnabled gates the engines' compute usage records; meteringIdentity is the node's [Metering] dimensions.
 	meterRecordsEnabled bool
-	usageIdentity       resourcemanager.ResourceIdentity
+	meteringIdentity    resourcemanager.DeploymentIdentity
+	usageEmitter        resourcemanager.Emitter
 	usageFaultInjection resourcemanager.UsageFaultInjection
 
 	orgResolver    orgresolver.OrgResolver
@@ -198,11 +199,13 @@ func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	}
 }
 
-// WithUsageMetering enables compute usage records on the engines with identity.
-func WithUsageMetering(identity resourcemanager.ResourceIdentity, fault resourcemanager.UsageFaultInjection) func(*eventHandler) {
+// WithUsageMetering enables compute usage records on the engines, delivered
+// through emitter; dep is the node's [Metering] dimensions.
+func WithUsageMetering(dep resourcemanager.DeploymentIdentity, emitter resourcemanager.Emitter, fault resourcemanager.UsageFaultInjection) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.meterRecordsEnabled = true
-		e.usageIdentity = identity
+		e.meteringIdentity = dep
+		e.usageEmitter = emitter
 		e.usageFaultInjection = fault
 	}
 }
@@ -1520,7 +1523,8 @@ func (h *eventHandler) newV2EngineConfig(
 		WorkflowRegistryChainSelector:     h.workflowRegistryChainSelector,
 		OrgResolver:                       h.orgResolver,
 		MeterRecordsEnabled:               h.meterRecordsEnabled,
-		UsageIdentity:                     h.usageIdentity,
+		MeteringIdentity:                  h.meteringIdentity,
+		UsageEmitter:                      h.usageEmitter,
 		UsageFaultInjection:               h.usageFaultInjection,
 		SecretsFetcher:                    h.secretsFetcher,
 		OverrideFetcher:                   h.overrideFetcherForOwner(owner),

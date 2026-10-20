@@ -25,7 +25,6 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
@@ -113,8 +112,9 @@ type baseEngine struct {
 	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
 	tracer trace.Tracer
 
-	usageMeter *resourcemanager.ResourceManager
-	orgID      string
+	usageMeter    *resourcemanager.ResourceManager
+	usageIdentity resourcemanager.ResourceIdentity
+	orgID         string
 	// orgIDMissingReason records why orgID is empty ("resolver_nil",
 	// "resolver_error", or "empty_response"). It is set once in startWith() and
 	// read by startExecution() to label the org_id_missing counter. It is only
@@ -189,17 +189,11 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 	engine.setLogger(beholderLogger)
 	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2)
 	engine.metrics = metricsLabeler
-	if cfg.MeterRecordsEnabled {
-		emitter := cfg.UsageEmitter
-		if emitter == nil {
-			if d := durableemitter.GetGlobalEmitter(); d != nil {
-				emitter = d
-			} else {
-				beholderLogger.Errorw("Compute usage metering enabled but no durable emitter is configured; compute usage records will not be delivered")
-			}
-		}
-		engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: true, Emitter: emitter, FaultInjection: cfg.UsageFaultInjection})
-	}
+	// Disabled metering is a no-op inside the resource manager.
+	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter, FaultInjection: cfg.UsageFaultInjection})
+	engine.usageIdentity = resourcemanager.WithWorkflowUsagePool(
+		resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
+		resourcemanager.ResourceTypeWorkflowCompute)
 	engine.loggerLabels.Store(&labelsMap)
 	engine.localNode.Store(&localNode)
 
@@ -216,17 +210,13 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 	}.NewServiceEngine(lggr)
 }
 
-// ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
+// ExecuteTrigger is the engine's public execution entry point. It performs no admission control, the caller is responsible for those.
 // It rejects events with ErrEngineClosed unless the engine is started and with ErrEngineDraining once Drain has been called.
 //
 // An admitted execution runs on the service engine's WaitGroup, so Close cancels it and waits for it. The lock is released before
 // the execution runs, since holding it would block Close, and therefore the cancellation, until the execution
 // finished on its own.
 func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	// engineMode labels only this gauge, so the migration can compare legacy and
-	// coordinated in-flight load without changing every other engine metric.
-	gaugeMetrics := e.metrics.With(keyEngineMode, e.engineMode)
-
 	done := make(chan error, 1)
 
 	// only admit if engine is started and not draining
@@ -238,16 +228,11 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 		// execute in a goroutine tied to the service engine's context
 		// launch async to release the lock held by IfStarted to prevent deadlock
 		// with Close
-		gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(1)))
 		e.srvcEng.GoCtx(ctx, func(ctx context.Context) {
 			// Always send a result, even if executeTrigger panics or calls
 			// runtime.Goexit, so the caller never blocks on done.
 			err := errors.New("execution exited without a result")
-			defer func() {
-				// ctx may already be canceled by Close, so the decrement is recorded without its cancellation.
-				gaugeMetrics.UpdateActiveExecutionsGauge(context.WithoutCancel(ctx), int64(e.activeExecutions.Add(-1)))
-				done <- err
-			}()
+			defer func() { done <- err }()
 
 			err = e.executeTrigger(ctx, event)
 		})
@@ -262,8 +247,21 @@ func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.Coordina
 	return <-done
 }
 
-// executeTrigger runs an admitted event. ctx is canceled when the engine is closed.
+// executeTrigger runs an admitted event, counting it as an active execution while it runs. It runs
+// until the execution finishes or ctx is done.
+//
+// Must be run on the service engine's WaitGroup through GoCtx.
 func (e *baseEngine) executeTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	// engineMode labels only this gauge, so the migration can compare legacy and
+	// coordinated in-flight load without changing every other engine metric.
+	gaugeMetrics := e.metrics.With(keyEngineMode, e.engineMode)
+
+	gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(1)))
+	defer func() {
+		// ctx may already be canceled by Close, so the decrement is recorded without its cancellation.
+		gaugeMetrics.UpdateActiveExecutionsGauge(context.WithoutCancel(ctx), int64(e.activeExecutions.Add(-1)))
+	}()
+
 	eventID := event.Event.Event.ID
 	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 	creCtx := contexts.CREValue(ctx)
@@ -826,9 +824,9 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		execErrClass = events.ClassifyError(execErr, events.ErrorClassificationSystem)
 		if errors.Is(execErr, context.DeadlineExceeded) {
 			executionStatus = store.StatusTimeout
-			e.metrics.UpdateWorkflowTimeoutDurationHistogram(ctx, int64(executionDuration.Seconds()))
+			e.metrics.UpdateWorkflowTimeoutDurationHistogram(ctx, executionDuration.Seconds())
 		} else {
-			e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
+			e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, executionDuration.Seconds())
 		}
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "err", execErr)
@@ -844,7 +842,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		execErr = errors.New(result.GetError())
 		// The user's workflow ran and returned an error: a user failure.
 		execErrClass = events.ErrorClassificationUser
-		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
+		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, executionDuration.Seconds())
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
@@ -853,7 +851,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 
 	executionStatus = store.StatusCompleted
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
-	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, int64(executionDuration.Seconds()))
+	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, executionDuration.Seconds())
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 	e.cfg.Hooks.OnResultReceived(result)
@@ -1147,7 +1145,7 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 // billing reconciler (fields: executionID, eventID, resourceType, value, orgID)
 // and must stay stable. Fail-open: never returns an error to the execution.
 func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, executionID string, computeDuration time.Duration) {
-	if e.usageMeter == nil {
+	if !e.cfg.MeterRecordsEnabled {
 		return
 	}
 	resourceID, err := resourcemanager.WorkflowUsageResourceID(e.cfg.WorkflowID, executionID)
@@ -1155,7 +1153,7 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, e
 		lggr.Errorw("Compute usage meter record not emitted", "err", err)
 		return
 	}
-	identity := e.cfg.UsageIdentity
+	identity := e.usageIdentity
 	if node := e.localNode.Load(); node != nil {
 		identity = identity.WithDonID(strconv.FormatUint(uint64(node.WorkflowDON.ID), 10))
 	}

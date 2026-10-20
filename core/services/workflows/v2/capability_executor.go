@@ -258,7 +258,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	executionDuration := executionEnd.Sub(executionStart)
 	c.executionProfile.recordStepEnd(meteringRef, executionEnd, err != nil)
 
-	c.base.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
+	c.base.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, executionDuration.Seconds())
 	if err != nil {
 		if capabilityError, ok := errors.AsType[caperrors.Error](err); ok {
 			if capabilityError.Origin() == caperrors.OriginUser {

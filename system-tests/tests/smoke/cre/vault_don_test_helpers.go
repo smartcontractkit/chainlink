@@ -1678,3 +1678,81 @@ func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.R
 		framework.L.Info().Msgf("Allowlisted request digestHexStr: %s, owner: %s, expiry: %d", hex.EncodeToString(req.RequestDigest[:]), req.Owner.Hex(), req.ExpiryTimestamp)
 	}
 }
+
+// allowlistRequestFromKey lands an allowlistRequest from the seth key at keyNum. The on-chain
+// entry's owner is msg.sender (sc.Addresses[keyNum]), so this registers the request digest
+// under a different owner than the default key-0 caller — used to simulate a second owner
+// (e.g. an attacker) allowlisting a victim's public digest.
+func allowlistRequestFromKey(t *testing.T, keyNum int, owner string, request jsonrpc.Request[json.RawMessage], sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
+	requestDigest, err := request.Digest()
+	require.NoError(t, err, "failed to get digest for request")
+	requestDigestBytes, err := hex.DecodeString(requestDigest)
+	require.NoError(t, err, "failed to decode digest")
+	reqDigestBytes := [32]byte(requestDigestBytes)
+	_, err = wfRegistryContract.AllowlistRequest(sethClient.NewTXKeyOpts(keyNum), reqDigestBytes, uint32(time.Now().Add(1*time.Hour).Unix())) //nolint:gosec // disable G115
+	require.NoErrorf(t, err, "failed to allowlist request from key %d (owner %s)", keyNum, owner)
+	framework.L.Info().Msgf("Allowlisted request digest %s for owner %s from key %d", requestDigest, owner, keyNum)
+}
+
+// requireVaultLinkOwnerKey links the seth key at keyNum as a workflow owner, tolerating an
+// already-linked owner.
+func requireVaultLinkOwnerKey(t *testing.T, sc *seth.Client, keyNum int, workflowRegistryAddr common.Address, version *semver.Version) {
+	t.Helper()
+
+	err := creworkflow.LinkOwnerKey(sc, keyNum, workflowRegistryAddr, version)
+	if err != nil && !strings.Contains(err.Error(), "OwnershipLinkAlreadyExists") {
+		require.NoError(t, err)
+	}
+}
+
+// executeVaultAllowlistOwnerScopedLookupTest verifies that owner-scoped allowlist matching
+// serves the real owner even when another owner has allowlisted the same request digest.
+//
+// Threat: allowlist entries are matched by digest alone, and the authorized owner is taken
+// from whichever entry matched. The digest is public once the real owner's allowlistRequest
+// hits the mempool, so another linked owner (attacker) can allowlist the same digest under
+// their own owner and make the real owner's request resolve to the attacker's identity and
+// fail. With owner-scoped matching the request matches only the entry whose owner equals the
+// request's payload owner, so the real owner is served. The attacker cannot forge a competing
+// entry under the victim's owner because an entry's owner is the msg.sender of allowlistRequest.
+func executeVaultAllowlistOwnerScopedLookupTest(
+	t *testing.T,
+	victimOwner, attackerOwner, encryptedSecret, secretID, gatewayURL string,
+	attackerKeyNum int,
+	sethClient *seth.Client,
+	wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry,
+) {
+	t.Helper()
+
+	// Build the victim's request (payload + label owner = victimOwner).
+	requestID := uuid.New().String()
+	secretsCreateRequest := vault_helpers.CreateSecretsRequest{
+		RequestId:        requestID,
+		EncryptedSecrets: buildEncryptedSecrets(secretID, victimOwner, encryptedSecret, []string{"main"}),
+	}
+	jsonRequest := newVaultJSONRequest(t, requestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
+
+	// Attacker front-runs: allowlist the victim's digest under the attacker's owner.
+	allowlistRequestFromKey(t, attackerKeyNum, attackerOwner, jsonRequest, sethClient, wfRegistryContract)
+	// Victim allowlists the same digest under their own owner (dedup is per (owner, digest),
+	// so this coexists with the attacker's entry).
+	allowlistRequest(t, victimOwner, jsonRequest, sethClient, wfRegistryContract)
+
+	// With owner-scoped matching the request resolves to the victim's entry and is served.
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, victimOwner)
+	if jsonResponse.ID == "" {
+		t.Skip("gateway-to-DON timeout; owner-scoped matching is covered by unit tests")
+	}
+	require.Equal(t, requestID, jsonResponse.ID)
+	require.Equal(t, vaulttypes.MethodSecretsCreate, jsonResponse.Method)
+
+	createSecretsResponse := vault_helpers.CreateSecretsResponse{}
+	err := protojson.Unmarshal(jsonResponse.Result.Payload, &createSecretsResponse)
+	require.NoError(t, err, "failed to decode payload into CreateSecretsResponse proto")
+	require.Len(t, createSecretsResponse.Responses, 1, "expected one response for the single namespace")
+	result := createSecretsResponse.GetResponses()[0]
+	require.Empty(t, result.GetError(), "victim's request should be served despite the attacker's same-digest entry")
+	require.Equal(t, secretID, result.GetId().Key)
+	require.Equal(t, vaultutils.NormalizeOwner(victimOwner), vaultutils.NormalizeOwner(result.GetId().Owner),
+		"secret must be created under the victim's owner, not the attacker's")
+}

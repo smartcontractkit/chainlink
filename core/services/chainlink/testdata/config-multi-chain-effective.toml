@@ -472,6 +472,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '5m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [EVM.Transactions.AutoPurge]
 Enabled = false
@@ -596,6 +597,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [EVM.Transactions.AutoPurge]
 Enabled = false
@@ -716,6 +718,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [EVM.Transactions.AutoPurge]
 Enabled = false

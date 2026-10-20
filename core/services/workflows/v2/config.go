@@ -73,10 +73,11 @@ type EngineConfig struct {
 
 	// MeterRecordsEnabled emits a cre:workflow:compute usage record per execution.
 	MeterRecordsEnabled bool
-	UsageIdentity       resourcemanager.ResourceIdentity
+	// MeteringIdentity is the node's [Metering] deployment dimensions; the engine adds service, pool and DON.
+	MeteringIdentity resourcemanager.DeploymentIdentity
 	// UsageFaultInjection drops or perturbs a sample of usage records (test environments only).
 	UsageFaultInjection resourcemanager.UsageFaultInjection
-	// UsageEmitter overrides the global durable emitter.
+	// UsageEmitter delivers compute usage records; required when MeterRecordsEnabled.
 	UsageEmitter resourcemanager.Emitter
 
 	// includes additional logging of events internal to user workflows
@@ -139,6 +140,10 @@ type EngineLimiters struct {
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
 	ShardingFailoverEnabled                     limits.GateLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
+
+	// newTriggerEventQueue builds a trigger event queue from the same factory and
+	// setting as TriggerEventQueue, for a coordinator's trigger registration to own.
+	newTriggerEventQueue func() (limits.QueueLimiter[triggers.CoordinatedEvent], error)
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -174,6 +179,9 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	l.TriggerEventQueue, err = limits.MakeQueueLimiter[triggers.CoordinatedEvent](lf, cfg.TriggerEventQueueLimit)
 	if err != nil {
 		return err
+	}
+	l.newTriggerEventQueue = func() (limits.QueueLimiter[triggers.CoordinatedEvent], error) {
+		return limits.MakeQueueLimiter[triggers.CoordinatedEvent](lf, cfg.TriggerEventQueueLimit)
 	}
 	l.TriggerEventQueueTimeout, err = limits.MakeUpperBoundLimiter(lf, cfg.TriggerEventQueueTimeout)
 	if err != nil {
@@ -390,6 +398,18 @@ func (l *EngineLimiters) Close() error {
 	)
 }
 
+// Admission returns the limiters a trigger coordinator admits events with.
+// ExecutionConcurrency is this same instance, so coordinated and legacy
+// executions share every concurrency limit. Each registration gets its own
+// trigger event queue, built from the same setting as TriggerEventQueue, so an
+// engine evicting its workflow from these limiters never touches it.
+func (l *EngineLimiters) Admission() triggers.AdmissionLimiters {
+	return triggers.AdmissionLimiters{
+		NewTriggerEventQueue: l.newTriggerEventQueue,
+		ExecutionConcurrency: l.ExecutionConcurrency,
+	}
+}
+
 type EngineFeatureFlags struct {
 	// WorkflowTagBackfill gates the reconciler backfill of workflow_specs_v2.workflow_tag.
 	// The Check succeeds only when time.Now() is inside the configured active period,
@@ -492,6 +512,9 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
+	}
+	if c.MeterRecordsEnabled && c.UsageEmitter == nil {
+		return errors.New("usage emitter not set")
 	}
 
 	_, err := types.WorkflowIDFromHex(c.WorkflowID)
