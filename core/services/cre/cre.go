@@ -60,6 +60,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	artifactsV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
@@ -92,6 +93,11 @@ type Opts struct {
 	BillingClient metering.BillingClient
 	LinkingClient linkingclient.LinkingServiceClient
 	Meter         metric.Meter
+
+	// DurableEmit persists workflow events for durable chip ingress delivery.
+	// Nil falls back to the global durable emitter, which is a no-op when
+	// durable delivery is not configured.
+	DurableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
 
 	StorageClient storage.WorkflowClient
 
@@ -957,6 +963,9 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithShardResolver(shardResolver),
 		syncerV2.WithShardIndex(uint32(cfg.Sharding().ShardIndex())),
 		syncerV2.WithTriggerCoordinator(triggerCoordinator),
+		// One emitter for the handler and every engine it spawns, so sync and
+		// execution events share the same beholder and durable sinks.
+		syncerV2.WithEventEmitter(events.NewEmitter(nil, events.WithDurableEmit(opts.DurableEmit))),
 	}
 	if shardingEnabled && dispatcher != nil {
 		handlerOpts = append(handlerOpts,

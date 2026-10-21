@@ -22,8 +22,8 @@ import (
 )
 
 // Emitter emits workflow platform events to beholder (and the durable emitter, if configured).
-// Construct with NewEmitter or DefaultEmitter; both default to the global beholder
-// and durable emitters, each resolved at emit time.
+// Construct with NewEmitter or DefaultEmitter, then inject concrete emitters with options.
+// Anything left unset falls back to a global emitter, resolved at emit time.
 type Emitter struct {
 	beholder beholder.Emitter
 	durable  func(ctx context.Context, body []byte, attrKVs ...any) error
@@ -32,9 +32,14 @@ type Emitter struct {
 // EmitterOption configures an Emitter.
 type EmitterOption func(*Emitter)
 
-// WithDurableEmit overrides the durable emit func (default durableemitter.GlobalEmit).
+// WithDurableEmit overrides the durable emit func. A nil fn keeps the default,
+// durableemitter.GlobalEmit, so callers can pass an optional emitter.
 func WithDurableEmit(fn func(ctx context.Context, body []byte, attrKVs ...any) error) EmitterOption {
-	return func(e *Emitter) { e.durable = fn }
+	return func(e *Emitter) {
+		if fn != nil {
+			e.durable = fn
+		}
+	}
 }
 
 // WithNoDurableEmit disables the durable emitter, so events go to beholder only.
