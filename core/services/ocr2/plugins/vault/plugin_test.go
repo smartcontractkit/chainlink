@@ -96,7 +96,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	_ = writeDKGPackage(t, orm, dkgrecipientKey, instanceID)
 
 	lpk := vaultcap.NewLazyPublicKey()
-	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, testRequestLifecycleTracker(t, lggr))
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, nil, limits.Factory{Settings: cresettings.DefaultGetter}, testRequestLifecycleTracker(t, lggr))
 	require.NoError(t, err)
 
 	cfg := vaultcommon.ReportingPluginConfig{
@@ -188,7 +188,7 @@ func TestPlugin_ReportingPluginFactory_PassesValidate(t *testing.T) {
 	_ = writeDKGPackage(t, orm, dkgrecipientKey, instanceID)
 
 	lpk := vaultcap.NewLazyPublicKey()
-	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, testRequestLifecycleTracker(t, lggr))
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, nil, limits.Factory{Settings: cresettings.DefaultGetter}, testRequestLifecycleTracker(t, lggr))
 	require.NoError(t, err)
 
 	cfg := vaultcommon.ReportingPluginConfig{
@@ -223,7 +223,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	require.NoError(t, err)
 
 	lpk := vaultcap.NewLazyPublicKey()
-	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, testRequestLifecycleTracker(t, lggr))
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, nil, limits.Factory{Settings: cresettings.DefaultGetter}, testRequestLifecycleTracker(t, lggr))
 	require.NoError(t, err)
 
 	instanceIDString := instanceID
@@ -269,17 +269,17 @@ func TestPlugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
 	lpk := vaultcap.NewLazyPublicKey()
 
 	_, orm := setupORM(t)
-	_, err := NewReportingPluginFactory(lggr, store, orm, nil, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, nil)
+	_, err := NewReportingPluginFactory(lggr, store, orm, nil, lpk, nil, limits.Factory{Settings: cresettings.DefaultGetter}, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "DKG recipient key cannot be nil when using result package db")
 
-	_, err = NewReportingPluginFactory(lggr, store, nil, nil, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, nil)
+	_, err = NewReportingPluginFactory(lggr, store, nil, nil, lpk, nil, limits.Factory{Settings: cresettings.DefaultGetter}, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "result package db cannot be nil")
 
 	dkgrecipientKey, err := dkgrecipientkey.New()
 	require.NoError(t, err)
-	_, err = NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, nil)
+	_, err = NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, nil, limits.Factory{Settings: cresettings.DefaultGetter}, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "request lifecycle tracker cannot be nil")
 }

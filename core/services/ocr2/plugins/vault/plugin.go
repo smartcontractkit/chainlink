@@ -71,6 +71,7 @@ func NewReportingPluginFactory(
 	db dkgocrtypes.ResultPackageDatabase,
 	recipientKey *dkgrecipientkey.Key,
 	lazyPublicKey *vaultcap.LazyPublicKey,
+	directReader *vaultcap.LazyDirectSecretsReader,
 	limitsFactory limits.Factory,
 	lifecycle *vaultcap.RequestLifecycleTracker,
 ) (*ReportingPluginFactory, error) {
@@ -98,6 +99,7 @@ func NewReportingPluginFactory(
 		recipientKey:  recipientKey,
 		limitsFactory: limitsFactory,
 		lifecycle:     lifecycle,
+		directReader:  directReader,
 	}, nil
 }
 
@@ -110,10 +112,6 @@ type ReportingPluginFactory struct {
 	limitsFactory limits.Factory
 	lifecycle     *vaultcap.RequestLifecycleTracker
 	directReader  *vaultcap.LazyDirectSecretsReader
-}
-
-func (r *ReportingPluginFactory) SetDirectSecretsReader(l *vaultcap.LazyDirectSecretsReader) {
-	r.directReader = l
 }
 
 func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID string) (publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, err error) {
@@ -310,14 +308,24 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
 
+	pluginLggr := r.lggr.Named("VaultReportingPlugin")
+	reads := &getSecretsHandler{
+		lggr:            pluginLggr,
+		metrics:         metrics,
+		validator:       validator,
+		publicKey:       publicKey,
+		privateKeyShare: privateKeyShare,
+	}
+
 	plugin := &ReportingPlugin{
-		lggr:                         r.lggr.Named("VaultReportingPlugin"),
+		lggr:                         pluginLggr,
 		store:                        r.store,
 		cfg:                          cfg,
 		metrics:                      metrics,
 		onchainCfg:                   config,
 		validator:                    validator,
 		lifecycle:                    r.lifecycle,
+		reads:                        reads,
 		maxObservationBytes:          pluginLimits.MaxObservationBytes,
 		maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
 		unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
@@ -330,10 +338,12 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		},
 	}
 
+	// Register the shared get-secrets handler with the vault capability's lazy
+	// reader so it can serve direct reads for this DKG instance's key material.
 	if readOnlyKV != nil && r.directReader != nil {
-		plugin.readOnlyKV = readOnlyKV
-		plugin.directReader = r.directReader
-		r.directReader.Set(plugin)
+		reads.readOnlyKV = readOnlyKV
+		reads.registry = r.directReader
+		r.directReader.Set(reads)
 	}
 
 	return plugin, ocr3_1types.ReportingPluginInfo1{
@@ -362,9 +372,9 @@ type ReportingPlugin struct {
 
 	pendingQueueStallTracker pendingQueueStallTracker
 
-	// Nil unless this instance serves direct GetSecrets reads.
-	readOnlyKV   ocr3_1types.ReadOnlyKeyValueState
-	directReader *vaultcap.LazyDirectSecretsReader
+	// Shared GetSecrets read/response handler for this DKG instance; also
+	// serves direct reads when registered with a lazy reader.
+	reads *getSecretsHandler
 }
 
 type pendingQueueStallTracker struct {
@@ -1009,7 +1019,7 @@ func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2
 }
 
 func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest, requestsCountForID map[string]int) (*vaultcommon.SecretResponse, error) {
-	id, err := r.validateGetSecretsRequestItem(ctx, secretRequest, requestsCountForID)
+	id, err := validateGetSecretsRequestItem(ctx, r.validator, secretRequest, requestsCountForID)
 	if err != nil {
 		return nil, err
 	}
@@ -1022,37 +1032,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		return nil, vaulttypes.NewUserError("key does not exist")
 	}
 
-	return r.buildGetSecretsResponse(id, secretRequest, secret)
-}
-
-func (r *ReportingPlugin) buildGetSecretsResponse(id *vaultcommon.SecretIdentifier, secretRequest *vaultcommon.SecretRequest, secret *vaultcommon.StoredSecret) (*vaultcommon.SecretResponse, error) {
-	sh, err := generatePlaintextShare(r.cfg.PublicKey, r.cfg.PrivateKeyShare, secret.EncryptedSecret, id.Owner)
-	if err != nil {
-		return nil, err
-	}
-
-	shares := []*vaultcommon.EncryptedShares{}
-	for _, pk := range secretRequest.EncryptionKeys {
-		encShare, err := sh.encryptWithKeyBinary(pk)
-		if err != nil {
-			return nil, err
-		}
-
-		shares = append(shares, &vaultcommon.EncryptedShares{
-			EncryptionKey: pk,
-			BinaryShares:  [][]byte{encShare},
-		})
-	}
-
-	return &vaultcommon.SecretResponse{
-		Id: id,
-		Result: &vaultcommon.SecretResponse_Data{
-			Data: &vaultcommon.SecretData{
-				EncryptedValue:               hex.EncodeToString(secret.EncryptedSecret),
-				EncryptedDecryptionKeyShares: shares,
-			},
-		},
-	}, nil
+	return r.reads.buildGetSecretsResponse(id, secretRequest, secret)
 }
 
 func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, seqNr uint64, requestID string, req proto.Message, o *vaultcommon.Observation) {
@@ -2510,9 +2490,7 @@ func (r *ReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, seqN
 }
 
 func (r *ReportingPlugin) Close() error {
-	if r.directReader != nil {
-		r.directReader.Clear(r)
-	}
+	r.reads.Close()
 	return errors.Join(
 		r.validator.Close(),
 		r.cfg.MaxSecretsPerOwner.Close(),

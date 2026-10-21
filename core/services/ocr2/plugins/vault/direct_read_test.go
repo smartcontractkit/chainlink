@@ -78,7 +78,7 @@ func newDirectReadFixture(t *testing.T) *directReadFixture {
 	require.NoError(t, err)
 
 	f.plugin = newTestReportingPlugin(t, withKeys(pk, shares[0]), withMaxSecretsPerOwner(10))
-	f.plugin.readOnlyKV = f.kv
+	f.plugin.reads.readOnlyKV = f.kv
 	return f
 }
 
@@ -130,7 +130,7 @@ func TestGetSecretsDirect(t *testing.T) {
 	id := f.writeSecret(t, "present", "my-secret-value")
 	missing := &vaultcommon.SecretIdentifier{Owner: f.owner, Namespace: "main", Key: "missing"}
 
-	resp, err := f.plugin.GetSecretsDirect(t.Context(), f.request(id, missing))
+	resp, err := f.plugin.reads.GetSecretsDirect(t.Context(), f.request(id, missing))
 	require.NoError(t, err)
 	require.Len(t, resp.Responses, 2)
 
@@ -153,7 +153,7 @@ func TestGetSecretsDirect_ItemValidationErrorsMatchOCRPath(t *testing.T) {
 	f := newDirectReadFixture(t)
 	id := f.writeSecret(t, "dup", "value")
 
-	resp, err := f.plugin.GetSecretsDirect(t.Context(), f.request(id, id, nil))
+	resp, err := f.plugin.reads.GetSecretsDirect(t.Context(), f.request(id, id, nil))
 	require.NoError(t, err)
 	require.Len(t, resp.Responses, 3)
 	assert.Contains(t, resp.Responses[0].GetError(), "duplicate request for secret identifier")
@@ -169,7 +169,7 @@ func TestGetSecretsDirect_WrongLabel(t *testing.T) {
 	otherID := &vaultcommon.SecretIdentifier{Owner: f.owner, Namespace: "main", Key: "k"}
 	f.writeSecretLabelledFor(t, otherID, "0x2222222222222222222222222222222222222222", "value")
 
-	resp, err := f.plugin.GetSecretsDirect(t.Context(), f.request(otherID))
+	resp, err := f.plugin.reads.GetSecretsDirect(t.Context(), f.request(otherID))
 	require.NoError(t, err)
 	require.Len(t, resp.Responses, 1)
 	assert.NotEmpty(t, resp.Responses[0].GetError())
@@ -179,9 +179,9 @@ func TestGetSecretsDirect_WrongLabel(t *testing.T) {
 func TestGetSecretsDirect_NotReady(t *testing.T) {
 	t.Parallel()
 	f := newDirectReadFixture(t)
-	f.plugin.readOnlyKV = nil
+	f.plugin.reads.readOnlyKV = nil
 
-	_, err := f.plugin.GetSecretsDirect(t.Context(), f.request())
+	_, err := f.plugin.reads.GetSecretsDirect(t.Context(), f.request())
 	require.ErrorIs(t, err, vaultcap.ErrDirectReadNotReady)
 }
 
@@ -190,7 +190,7 @@ func TestGetSecretsDirect_OpenTransactionFails(t *testing.T) {
 	f := newDirectReadFixture(t)
 	f.kv.openErr = errors.New("boom")
 
-	_, err := f.plugin.GetSecretsDirect(t.Context(), f.request(f.writeSecret(t, "k", "v")))
+	_, err := f.plugin.reads.GetSecretsDirect(t.Context(), f.request(f.writeSecret(t, "k", "v")))
 	require.ErrorContains(t, err, "failed to open read transaction: boom")
 	assert.Equal(t, 0, f.kv.discards)
 }
@@ -200,15 +200,15 @@ func TestReportingPlugin_CloseClearsDirectReader(t *testing.T) {
 	holder := vaultcap.NewLazyDirectSecretsReader()
 
 	old := newDirectReadFixture(t).plugin
-	old.directReader = holder
-	holder.Set(old)
+	old.reads.registry = holder
+	holder.Set(old.reads)
 
 	replacement := newDirectReadFixture(t).plugin
-	replacement.directReader = holder
-	holder.Set(replacement)
+	replacement.reads.registry = holder
+	holder.Set(replacement.reads)
 
 	require.NoError(t, old.Close())
-	assert.Same(t, replacement, holder.Get(), "closing a stale instance must not clear its replacement")
+	assert.Same(t, replacement.reads, holder.Get(), "closing a stale instance must not clear its replacement")
 
 	require.NoError(t, replacement.Close())
 	assert.Nil(t, holder.Get())
@@ -224,10 +224,9 @@ func TestPlugin_ReportingPluginFactory_RegistersDirectReader(t *testing.T) {
 	instanceID := "instanceID"
 	_ = writeDKGPackage(t, orm, dkgrecipientKey, instanceID)
 
-	rpf, err := NewReportingPluginFactory(lggr, requests.NewStore[*vaulttypes.Request](), orm, &dkgrecipientKey, vaultcap.NewLazyPublicKey(), limits.Factory{Settings: cresettings.DefaultGetter}, testRequestLifecycleTracker(t, lggr))
-	require.NoError(t, err)
 	holder := vaultcap.NewLazyDirectSecretsReader()
-	rpf.SetDirectSecretsReader(holder)
+	rpf, err := NewReportingPluginFactory(lggr, requests.NewStore[*vaulttypes.Request](), orm, &dkgrecipientKey, vaultcap.NewLazyPublicKey(), holder, limits.Factory{Settings: cresettings.DefaultGetter}, testRequestLifecycleTracker(t, lggr))
+	require.NoError(t, err)
 
 	cfgb, err := proto.Marshal(&vaultcommon.ReportingPluginConfig{DKGInstanceID: &instanceID})
 	require.NoError(t, err)
@@ -239,8 +238,10 @@ func TestPlugin_ReportingPluginFactory_RegistersDirectReader(t *testing.T) {
 
 	rp, _, err := rpf.NewReportingPlugin(t.Context(), onchainCfg, nil, &fakeReadOnlyKV{kv: &kv{m: map[string]response{}}})
 	require.NoError(t, err)
-	assert.Same(t, rp, holder.Get())
+	vrp, ok := rp.(*ReportingPlugin)
+	require.True(t, ok)
+	assert.Same(t, vrp.reads, holder.Get())
 
-	require.NoError(t, rp.Close())
+	require.NoError(t, vrp.Close())
 	assert.Nil(t, holder.Get())
 }

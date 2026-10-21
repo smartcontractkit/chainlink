@@ -1079,13 +1079,13 @@ func (d *Delegate) newServicesVaultPlugin(
 		vaultocrplugin.NewVaultORM(d.ds),
 		&dkgRecipientKey,
 		lpk,
+		directReader,
 		limitsFactory,
 		requestLifecycle,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
 	}
-	rpf.SetDirectSecretsReader(directReader)
 	wrappedRpf := beholderwrapper.NewReportingPluginFactory2(
 		rpf,
 		lggr,
