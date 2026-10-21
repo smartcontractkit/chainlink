@@ -23,6 +23,7 @@ import (
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -341,16 +342,13 @@ func (c *ExecutionHelper) EmitUserMetric(ctx context.Context, metric *eventsv2.W
 	return events.EmitUserMetric(ctx, c.base.eventLabels(), metric)
 }
 
-// dontimeCapabilityID matches the capability ID registered by the OCR2 delegate
-// (core/services/ocr2/delegate.go).
-const dontimeCapabilityID = "dontime@1.0.0"
-
 // systemCapabilities lists capability IDs that are internal plumbing and must
 // not be callable from user workflow steps.
 var systemCapabilities = map[string]bool{
-	confidentialWorkflowsCapabilityID: true,
-	vaultcommon.CapabilityID:          true,
-	dontimeCapabilityID:               true,
+	confidentialWorkflowsCapabilityID:   true,
+	internal.VaultCapabilityID:          true,
+	internal.DontimeCapabilityID:        true,
+	internal.ConsensusQueueCapabilityID: true,
 }
 
 func isSystemCapability(capID string) bool {

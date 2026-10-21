@@ -66,6 +66,7 @@ const (
 	ConfidentialRelayCapability CapabilityFlag = "confidential-relay"
 	// ConfidentialWorkflowsCapability doubles as the enclave application name.
 	ConfidentialWorkflowsCapability CapabilityFlag = "confidential-workflows"
+	ConsensusQueueCapability        CapabilityFlag = "consensus-queue"
 	AptosCapability                 CapabilityFlag = "aptos"
 	StellarCapability               CapabilityFlag = "stellar"
 	// Add more capabilities as needed
@@ -784,7 +785,7 @@ func (m *DonMetadata) StellarChains() []string {
 
 func (m *DonMetadata) RequiresOCR() bool {
 	return slices.Contains(m.Flags, ConsensusCapability) ||
-		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability) || slices.Contains(m.Flags, SolanaCapability)
+		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, ConsensusQueueCapability) || slices.Contains(m.Flags, EVMCapability) || slices.Contains(m.Flags, SolanaCapability)
 }
 
 func (m *DonMetadata) RequiresGateway() bool {
