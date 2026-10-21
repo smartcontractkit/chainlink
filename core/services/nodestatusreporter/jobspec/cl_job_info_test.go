@@ -136,15 +136,16 @@ func TestBuildCLJobInfo_UnmanagedJobHasNoProvenance(t *testing.T) {
 	require.Nil(t, info.ApprovedAtMs)
 }
 
-//nolint:paralleltest // installs a process-global beholder emitter
 func TestEmitCLJobInfo_PublishesToBeholder(t *testing.T) {
-	obs := beholdertest.NewObserver(t)
+	t.Parallel()
+
+	rec := beholdertest.NewRecorder()
 
 	info, err := jobspec.BuildCLJobInfo(clJobInfoSampleJob(), commonv1.CLJobInfoTrigger_CL_JOB_INFO_TRIGGER_CREATE, jobspec.NodeIdentity{CSAPublicKey: "csa"}, nil, time.Now())
 	require.NoError(t, err)
-	require.NoError(t, jobspec.EmitCLJobInfo(t.Context(), beholder.GetEmitter(), info))
+	require.NoError(t, jobspec.EmitCLJobInfo(t.Context(), rec, info))
 
-	msgs := obs.Messages(t, beholder.AttrKeyEntity, jobspec.Entity)
+	msgs := rec.Messages(t, beholder.AttrKeyEntity, jobspec.Entity)
 	require.NotEmpty(t, msgs)
 
 	msg := msgs[0]

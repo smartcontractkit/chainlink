@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -206,7 +207,7 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 				MessageExpiry:           time.Hour,
 			}
 
-			subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, lggr)
+			subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(false), lggr)
 			agg := aggregation.NewDefaultModeAggregator(cfg.MinResponsesToAggregate)
 			require.NoError(t, subscriber.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
 
@@ -286,7 +287,7 @@ func TestRegistrationLoopSpreadsSendsOverRefreshWindow(t *testing.T) {
 		MessageExpiry:           time.Hour,
 	}
 
-	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, lggr)
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(false), lggr)
 	agg := aggregation.NewDefaultModeAggregator(cfg.MinResponsesToAggregate)
 	require.NoError(t, subscriber.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
 
@@ -554,7 +555,7 @@ func TestRegistrationLoopLockDuration(t *testing.T) {
 				MessageExpiry:           time.Hour,
 			}
 
-			subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, lggr)
+			subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(false), lggr)
 			agg := aggregation.NewDefaultModeAggregator(cfg.MinResponsesToAggregate)
 			require.NoError(t, subscriber.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
 
@@ -643,7 +644,7 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           time.Hour,
 	}
-	sub := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subRegDisp, lggr)
+	sub := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subRegDisp, limits.NewGateLimiter(false), lggr)
 	agg := aggregation.NewDefaultModeAggregator(subCfg.MinResponsesToAggregate)
 	require.NoError(t, sub.SetConfig(subCfg, capInfo, wfDon.ID, capDon, agg))
 	for i := range nRegistrations {
@@ -672,7 +673,7 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 
 	// --- Phase 2: subscriber — one engine round-trip: deliver event + AckEvent (ACK fan-out to cap DON) ---
 	subAckDisp := newCountingDispatcher()
-	sub2 := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subAckDisp, lggr)
+	sub2 := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subAckDisp, limits.NewGateLimiter(false), lggr)
 	require.NoError(t, sub2.SetConfig(subCfg, capInfo, wfDon.ID, capDon, agg))
 	require.NoError(t, sub2.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, sub2.Close()) })

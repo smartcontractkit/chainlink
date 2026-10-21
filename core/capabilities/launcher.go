@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
@@ -73,8 +74,23 @@ type launcher struct {
 	// deactivated after rollout to exclude WorkflowTag from the requestID.
 	workflowTagHashFlag limits.RangeLimiter[commonconfig.Timestamp]
 
+	propagateOrgIDGate limits.GateLimiter
+
 	muSubServices sync.Mutex
 	subServices   []services.Service
+
+	// offchainRegistry is the offchain capabilities registry delivered via the cresettings job;
+	// nil when not wired. With useOffchainRegistry, a new payload re-runs onNewRegistry.
+	offchainRegistry    *globalconfig.GlobalConfig
+	useOffchainRegistry bool
+
+	// reconcileMu serializes onNewRegistry between registry syncs and offchain updates.
+	reconcileMu sync.Mutex
+	// lastRegistry is the registry from the most recent sync. Guarded by reconcileMu.
+	lastRegistry *registry.RegistryMetadata
+
+	stopCh services.StopChan
+	wg     sync.WaitGroup
 }
 
 // For V2 capabilities, shims are created once and their config is updated dynamically.
@@ -138,6 +154,10 @@ func NewLauncher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow tag hash flag limiter: %w", err)
 	}
+	propagateOrgIDGate, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.PropagateOrgIDInRequestMetadata)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create propagate org ID gate limiter: %w", err)
+	}
 	return &launcher{
 		lggr:       logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		dispatcher: dispatcher,
@@ -155,8 +175,10 @@ func NewLauncher(
 		metrics:                metrics,
 		workflowDONBindingGate: workflowDONBindingGate,
 		workflowTagHashFlag:    workflowTagHashFlag,
+		propagateOrgIDGate:     propagateOrgIDGate,
 		shardingEnabled:        shardingEnabled,
 		shardIndex:             shardIndex,
+		stopCh:                 make(services.StopChan),
 	}, nil
 }
 
@@ -190,12 +212,48 @@ func (w *launcher) allDONs(localRegistry *registry.RegistryMetadata) []registry.
 func (w *launcher) Start(ctx context.Context) error {
 	return w.StartOnce("CapabilitiesLauncher", func() error {
 		w.myPeerID = w.don2donSharedPeer.ID()
+		if w.useOffchainRegistry && w.offchainRegistry != nil {
+			updates, unsubscribe := w.offchainRegistry.Subscribe()
+			w.wg.Go(func() {
+				defer unsubscribe()
+				w.watchOffchainUpdates(updates)
+			})
+		}
 		return nil
 	})
 }
 
+// watchOffchainUpdates re-runs onNewRegistry whenever a new offchain payload is applied, so an
+// offchain-only change takes effect without waiting for the next registry sync.
+func (w *launcher) watchOffchainUpdates(updates <-chan struct{}) {
+	ctx, cancel := w.stopCh.NewCtx()
+	defer cancel()
+	for {
+		select {
+		case <-w.stopCh:
+			return
+		case <-updates:
+			w.onOffchainUpdate(ctx)
+		}
+	}
+}
+
+func (w *launcher) onOffchainUpdate(ctx context.Context) {
+	w.reconcileMu.Lock()
+	defer w.reconcileMu.Unlock()
+	if w.lastRegistry == nil {
+		return // the first registry sync reads the latest offchain snapshot anyway
+	}
+	w.lggr.Info("Offchain capabilities registry updated, re-running launcher")
+	if err := w.onNewRegistry(ctx, w.lastRegistry); err != nil {
+		w.lggr.Errorw("Failed to apply offchain capabilities registry update", "error", err)
+	}
+}
+
 func (w *launcher) Close() error {
 	return w.StopOnce("CapabilitiesLauncher", func() error {
+		close(w.stopCh)
+		w.wg.Wait()
 		for _, s := range w.subServices {
 			if err := s.Close(); err != nil {
 				w.lggr.Errorw("failed to close a sub-service", "name", s.Name(), "error", err)
@@ -211,6 +269,11 @@ func (w *launcher) Close() error {
 				w.lggr.Errorw("failed to close workflow tag hash flag limiter", "error", err)
 			}
 		}
+		if w.propagateOrgIDGate != nil {
+			if err := w.propagateOrgIDGate.Close(); err != nil {
+				w.lggr.Errorw("failed to close propagate org ID gate limiter", "error", err)
+			}
+		}
 		return nil
 	})
 }
@@ -218,6 +281,21 @@ func (w *launcher) Close() error {
 // LocalCapabilityManager is initialized after the Launcher is created
 func (w *launcher) SetLocalCapabilityManager(lcm localcapmgr.LocalCapabilityManager) {
 	w.localCapMgr = lcm
+}
+
+// SetOffchainRegistry wires the offchain capabilities registry. Must be called before Start.
+// useOffchainRegistry is the cutover gate; when false the registry is used for telemetry only.
+func (w *launcher) SetOffchainRegistry(reg *globalconfig.GlobalConfig, useOffchainRegistry bool) {
+	w.offchainRegistry = reg
+	w.useOffchainRegistry = useOffchainRegistry
+}
+
+// loadOffchainRegistry returns a snapshot of the offchain registry, or nil when none is applied.
+func (w *launcher) loadOffchainRegistry() *capabilitiespb.OffchainCapabilitiesRegistry {
+	if w.offchainRegistry == nil {
+		return nil
+	}
+	return w.offchainRegistry.LoadParsed()
 }
 
 func (w *launcher) HealthReport() map[string]error {
@@ -267,6 +345,9 @@ func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *regist
 
 func (w *launcher) OnNewRegistry(ctx context.Context, metadataRegistry *registry.RegistryMetadata) (err error) {
 	if !w.IfNotStopped(func() {
+		w.reconcileMu.Lock()
+		defer w.reconcileMu.Unlock()
+		w.lastRegistry = metadataRegistry
 		err = w.onNewRegistry(ctx, metadataRegistry)
 	}) {
 		return errors.New("service has been stopped")
@@ -277,6 +358,8 @@ func (w *launcher) OnNewRegistry(ctx context.Context, metadataRegistry *registry
 func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry.RegistryMetadata) error {
 	w.lggr.Debug("CapabilitiesLauncher triggered...")
 	w.registry.SetRegistryMetadata(metadataRegistry)
+	// One offchain snapshot for the whole pass.
+	offchainReg := w.loadOffchainRegistry()
 
 	allDONIDs := w.allDONs(metadataRegistry)
 	w.lggr.Debugw("All DONs in the local registry", "allDONIDs", allDONIDs)
@@ -367,14 +450,25 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 	if belongsToACapabilityDON {
 		wantedServerDONs = myCapabilityDONs
 	}
-	w.pruneStaleShims(ctx, computeWantedShimKeys(wantedClientDONs, wantedServerDONs))
+
+	// Build the offchain method_configs snapshot from the same offchainReg loaded above, so
+	// pruning and the client/server shim wiring all see the same payload. Gate on only.
+	var offchainMC *offchainMethodConfigs
+	if w.useOffchainRegistry && offchainReg != nil {
+		allDONs := make([]registry.DON, 0, len(allDONIDs))
+		for _, id := range allDONIDs {
+			allDONs = append(allDONs, metadataRegistry.IDsToDONs[id])
+		}
+		offchainMC = newOffchainMethodConfigs(offchainReg, allDONs)
+	}
+	w.pruneStaleShims(ctx, computeWantedShimKeys(wantedClientDONs, wantedServerDONs, offchainMC))
 
 	// Reconcile local capabilities: start/stop/restart capabilities based on registry state.
 	if w.localCapMgr != nil {
 		myDONs := make([]registry.DON, 0, len(myCapabilityDONs)+len(myWorkflowDONs))
 		myDONs = append(myDONs, myCapabilityDONs...)
 		myDONs = append(myDONs, myWorkflowDONs...)
-		if err := w.localCapMgr.Reconcile(ctx, myDONs); err != nil {
+		if err := w.localCapMgr.Reconcile(ctx, myDONs, offchainReg); err != nil {
 			w.lggr.Errorw("Failed to reconcile local capabilities", "error", err)
 		}
 	}
@@ -392,13 +486,13 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 
 		w.warnOnDuplicateInFamilyCapabilities(ctx, remoteCapabilityDONs)
 		for _, rcd := range remoteCapabilityDONs {
-			w.addRemoteCapabilities(ctx, myDON, rcd, metadataRegistry)
+			w.addRemoteCapabilities(ctx, myDON, rcd, metadataRegistry, offchainMC)
 		}
 	}
 
 	if belongsToACapabilityDON {
 		for _, myDON := range myCapabilityDONs {
-			w.serveCapabilities(ctx, w.myPeerID, myDON, remoteWorkflowDONs, metadataRegistry)
+			w.serveCapabilities(ctx, w.myPeerID, myDON, remoteWorkflowDONs, offchainMC, metadataRegistry)
 		}
 	}
 
@@ -459,9 +553,9 @@ func donFamiliesOverlap(donA, donB []string) bool {
 // addRemoteCapabilities adds remote capabilities from a remote DON to the local node,
 // allowing the local node to use these capabilities in its workflows.
 // it is best effort to ensure that valid capabilities are added even if some fail
-func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON registry.DON, localRegistry *registry.RegistryMetadata) {
+func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON registry.DON, localRegistry *registry.RegistryMetadata, offchainMC *offchainMethodConfigs) {
 	for cid, c := range remoteDON.CapabilityConfigurations {
-		capabilityConfig, err := c.Unmarshal()
+		capabilityConfig, err := offchainMC.configuration(cid, remoteDON, c)
 		if err != nil {
 			w.lggr.Errorw("could not unmarshal capability config", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid, "error", err)
 			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultFailure)
@@ -497,7 +591,8 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON r
 
 // serveCapabilities exposes capabilities that are available on this node, as part of the given DON.
 // It is best effort, ensuring that valid capabilities are exposed even if some fail
-func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registry.DON, remoteWorkflowDONs []registry.DON, metadataRegistry *registry.RegistryMetadata) {
+func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registry.DON, remoteWorkflowDONs []registry.DON, offchainMC *offchainMethodConfigs,
+	metadataRegistry *registry.RegistryMetadata) {
 	idsToDONs := map[uint32]capabilities.DON{}
 	workflowDONSigners := map[uint32][]ocrtypes.OnchainPublicKey{}
 	for _, d := range remoteWorkflowDONs {
@@ -511,7 +606,7 @@ func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.Peer
 	}
 
 	for cid, c := range don.CapabilityConfigurations {
-		capabilityConfig, err := c.Unmarshal()
+		capabilityConfig, err := offchainMC.configuration(cid, don, c)
 		if err != nil {
 			w.lggr.Errorw("could not unmarshal capability config", "localDON", don, "capabilityID", cid, "error", err)
 			w.metrics.recordLocalCapabilityExposed(ctx, cid, resultFailure)
@@ -617,7 +712,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		if config.RemoteTriggerConfig != nil { // trigger
 			sub, alreadyExists := w.cachedShims.triggerSubscribers[key]
 			if !alreadyExists {
-				sub = remote.NewTriggerSubscriber(capID, method, w.dispatcher, w.lggr)
+				sub = remote.NewTriggerSubscriber(capID, method, w.dispatcher, w.propagateOrgIDGate, w.lggr)
 				cc.SetTriggerSubscriber(method, sub)
 				// add to cachedShims later, only after startNewShim succeeds
 			}
@@ -705,6 +800,10 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 		return fmt.Errorf("failed to get capability %s from registry: %w", capID, err)
 	}
 	for method, config := range methodConfig {
+		if config.RemoteTriggerConfig == nil && config.RemoteExecutableConfig == nil {
+			// Invalid entries are rejected at ingestion; skip defensively.
+			continue
+		}
 		if config.RemoteTriggerConfig != nil { // trigger
 			underlyingTriggerCapability, ok := underlying.(capabilities.TriggerCapability)
 			if !ok {
@@ -827,8 +926,10 @@ type wantedShimKeys struct {
 // run. It mirrors the filtering addRemoteCapabilities/serveCapabilities apply (unmarshal errors,
 // LocalOnly, missing method config) but only collects keys - it never creates or mutates anything.
 // Pass nil for remoteCapabilityDONs/myCapabilityDONs when the node doesn't currently belong to a
-// workflow/capability DON, matching the gating in onNewRegistry.
-func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON) wantedShimKeys {
+// workflow/capability DON, matching the gating in onNewRegistry. offchainMC is the same per-pass
+// offchain method_configs snapshot the create/update loops use, so the wanted set reflects the
+// post-overlay method maps (a method added or changed offchain-only is kept, not pruned).
+func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON, offchainMC *offchainMethodConfigs) wantedShimKeys {
 	wanted := wantedShimKeys{
 		combinedClients:    map[shimID]struct{}{},
 		triggerSubscribers: map[shimID]struct{}{},
@@ -838,7 +939,7 @@ func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON
 	}
 	for _, remoteDON := range remoteCapabilityDONs {
 		for cid, c := range remoteDON.CapabilityConfigurations {
-			methodConfig, ok := unmarshalWantedMethodConfig(c)
+			methodConfig, ok := unmarshalWantedMethodConfig(c, cid, remoteDON, offchainMC)
 			if !ok {
 				continue
 			}
@@ -856,7 +957,7 @@ func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON
 	}
 	for _, myDON := range myCapabilityDONs {
 		for cid, c := range myDON.CapabilityConfigurations {
-			methodConfig, ok := unmarshalWantedMethodConfig(c)
+			methodConfig, ok := unmarshalWantedMethodConfig(c, cid, myDON, offchainMC)
 			if !ok {
 				continue
 			}
@@ -874,8 +975,8 @@ func computeWantedShimKeys(remoteCapabilityDONs, myCapabilityDONs []registry.DON
 	return wanted
 }
 
-func unmarshalWantedMethodConfig(c registry.CapabilityConfiguration) (map[string]capabilities.CapabilityMethodConfig, bool) {
-	capabilityConfig, err := c.Unmarshal()
+func unmarshalWantedMethodConfig(c registry.CapabilityConfiguration, cid string, don registry.DON, offchainMC *offchainMethodConfigs) (map[string]capabilities.CapabilityMethodConfig, bool) {
+	capabilityConfig, err := offchainMC.configuration(cid, don, c)
 	if err != nil || capabilityConfig.LocalOnly || capabilityConfig.CapabilityMethodConfig == nil {
 		return nil, false
 	}
@@ -901,12 +1002,18 @@ func (w *launcher) pruneStaleShims(ctx context.Context, wanted wantedShimKeys) {
 		if _, ok := wanted.triggerSubscribers[key]; ok {
 			continue
 		}
+		if cc := w.cachedShims.combinedClients[shimID{capID: key.capID, donID: key.donID}]; cc != nil {
+			cc.SetTriggerSubscriber(key.method, nil)
+		}
 		w.closeStaleShim(key, sub)
 		delete(w.cachedShims.triggerSubscribers, key)
 	}
 	for key, client := range w.cachedShims.executableClients {
 		if _, ok := wanted.executableClients[key]; ok {
 			continue
+		}
+		if cc := w.cachedShims.combinedClients[shimID{capID: key.capID, donID: key.donID}]; cc != nil {
+			cc.SetExecutableClient(key.method, nil)
 		}
 		w.closeStaleShim(key, client)
 		delete(w.cachedShims.executableClients, key)

@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"

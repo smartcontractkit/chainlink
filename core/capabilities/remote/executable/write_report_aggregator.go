@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 	"slices"
 
@@ -315,11 +316,7 @@ func (a *writeReportAccumulator) Payload() ([]byte, bool, error) {
 }
 
 func (a *writeReportAccumulator) aggregatedPayload(required int) ([]byte, error) {
-	sigs := make([]*sdk.AttributedSignature, 0, len(a.valid))
-	for _, sig := range a.valid {
-		sigs = append(sigs, sig)
-	}
-	slices.SortFunc(sigs, compareSignatures)
+	sigs := slices.SortedFunc(maps.Values(a.valid), compareSignatures)
 
 	wrReq, ok := proto.Clone(a.baseWrReq).(writeReportRequest)
 	if !ok {
