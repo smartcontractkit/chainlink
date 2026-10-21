@@ -1184,6 +1184,15 @@ func dumpSchema(dbURL url.URL) (string, error) {
 		dbURL.String(),
 		"--schema-only",
 	}
+
+	// pg_dump releases since August 2025 emit \restrict lines with a random key
+	// unless --restrict-key is set, so two dumps of the same schema never match.
+	// The dump is only compared against itself before and after rollback, so a
+	// fixed key is safe. Backport of #18985.
+	if help, err := exec.Command("pg_dump", "--help").Output(); err == nil && strings.Contains(string(help), "--restrict-key") {
+		args = append(args, "--restrict-key=chainlinktestrestrictkey")
+	}
+
 	cmd := exec.Command(
 		"pg_dump", args...,
 	)

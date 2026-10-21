@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.23-bullseye as buildgo
+FROM golang:1.23-bookworm as buildgo
 RUN go version
 WORKDIR /chainlink
 
@@ -20,7 +20,7 @@ COPY . .
 RUN apt-get update && apt-get install -y jq
 
 # Install Delve for debugging
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
+RUN go install github.com/go-delve/delve/cmd/dlv@v1.24.2
 
 # Build the golang binaries
 RUN make GO_GCFLAGS="${GO_GCFLAGS}" install-chainlink
@@ -39,7 +39,7 @@ RUN mkdir /chainlink-starknet
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer | xargs -I % ln -s % /chainlink-starknet/relayer
 
 # Build image: Plugins
-FROM golang:1.23-bullseye as buildplugins
+FROM golang:1.23-bookworm as buildplugins
 RUN go version
 
 WORKDIR /chainlink-feeds
@@ -60,7 +60,7 @@ RUN go install ./pkg/chainlink/cmd/chainlink-starknet
 
 
 # Final image: ubuntu with chainlink binary
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND noninteractive

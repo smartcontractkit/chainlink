@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.23-bullseye as buildgo
+FROM golang:1.23-bookworm as buildgo
 RUN go version
 WORKDIR /chainlink
 
@@ -31,7 +31,7 @@ RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds | xargs
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana | xargs -I % ln -s % /chainlink-solana
 
 # Build image: Plugins
-FROM golang:1.23-bullseye as buildplugins
+FROM golang:1.23-bookworm as buildplugins
 RUN go version
 
 WORKDIR /chainlink-feeds
@@ -43,7 +43,7 @@ COPY --from=buildgo /chainlink-solana .
 RUN go install ./pkg/solana/cmd/chainlink-solana
 
 # Final image: ubuntu with chainlink binary
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND noninteractive
