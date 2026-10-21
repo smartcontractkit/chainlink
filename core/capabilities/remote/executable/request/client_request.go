@@ -327,8 +327,7 @@ func (c *ClientRequest) onMessageWithAggregator(sender p2ptypes.PeerID, msg *typ
 
 	// observation errors are returned to the OnMessage caller without
 	// deciding the request
-	var obs observationError
-	if errors.As(err, &obs) {
+	if obs, ok := errors.AsType[observationError](err); ok {
 		return obs.err
 	}
 

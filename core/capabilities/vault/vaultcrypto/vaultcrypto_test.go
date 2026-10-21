@@ -54,11 +54,12 @@ func setup(t *testing.T, k, n int, secret string) (*tdh2easy.PublicKey, []*tdh2e
 }
 
 func TestGenerateShareEncryptAndDecrypt(t *testing.T) {
+	t.Parallel()
 	const k, n = 2, 4
 	pk, keyShares, ctb := setup(t, k, n, "my secret")
 	r := newRecipient(t)
 
-	var encrypted [][]byte
+	encrypted := make([][]byte, 0, k)
 	for _, ks := range keyShares[:k] {
 		share, err := GeneratePlaintextShare(pk, ks, ctb, label)
 		require.NoError(t, err)
@@ -74,6 +75,7 @@ func TestGenerateShareEncryptAndDecrypt(t *testing.T) {
 }
 
 func TestGeneratePlaintextShare_Errors(t *testing.T) {
+	t.Parallel()
 	pk, keyShares, ctb := setup(t, 2, 4, "my secret")
 
 	_, err := GeneratePlaintextShare(pk, keyShares[0], ctb, [32]byte{31: 2})
@@ -90,6 +92,7 @@ func TestGeneratePlaintextShare_Errors(t *testing.T) {
 }
 
 func TestEncryptShareBinary_InvalidKey(t *testing.T) {
+	t.Parallel()
 	_, err := EncryptShareBinary([]byte("share"), "zz")
 	require.ErrorIs(t, err, ErrInvalidRecipientKey)
 
@@ -98,15 +101,17 @@ func TestEncryptShareBinary_InvalidKey(t *testing.T) {
 }
 
 func TestInvalidRecipientKeyError_MatchesItself(t *testing.T) {
+	t.Parallel()
 	_, err := EncryptShareBinary([]byte("share"), "zz")
 	require.ErrorIs(t, err, ErrInvalidRecipientKey)
 
 	other := invalidRecipientKeyError{"some other detail"}
-	assert.ErrorIs(t, err, other)
-	assert.ErrorIs(t, other, err)
+	require.ErrorIs(t, err, other)
+	require.ErrorIs(t, other, err)
 }
 
 func TestDecryptSecret_SkipsBadShares(t *testing.T) {
+	t.Parallel()
 	const k, n = 2, 4
 	pk, keyShares, ctb := setup(t, k, n, "my secret")
 	r := newRecipient(t)
@@ -136,6 +141,7 @@ func TestDecryptSecret_SkipsBadShares(t *testing.T) {
 }
 
 func TestDecryptSecret_DuplicateShares(t *testing.T) {
+	t.Parallel()
 	const k, n = 2, 4
 	pk, keyShares, ctb := setup(t, k, n, "my secret")
 	r := newRecipient(t)
@@ -162,7 +168,7 @@ func TestDecryptSecret_DuplicateShares(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "my secret", string(plaintext))
 	require.Len(t, rejected, 1)
-	assert.ErrorContains(t, rejected[0], "duplicate share for node index 0")
+	require.ErrorContains(t, rejected[0], "duplicate share for node index 0")
 
 	// A re-randomized share from the same node (fresh proof scalars, same u_i
 	// and index) is also dropped; byte-level dedup would miss this one.
@@ -170,16 +176,17 @@ func TestDecryptSecret_DuplicateShares(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "my secret", string(plaintext))
 	require.Len(t, rejected, 1)
-	assert.ErrorContains(t, rejected[0], "duplicate share for node index 0")
+	require.ErrorContains(t, rejected[0], "duplicate share for node index 0")
 
 	// Duplicates never inflate the distinct-share count past the threshold.
 	_, rejected, err = DecryptSecret(ctb, pk, k, [][]byte{share0Enc1, share0Enc2}, r.decrypter())
 	require.ErrorContains(t, err, "not enough decryption shares")
 	require.Len(t, rejected, 1)
-	assert.ErrorContains(t, rejected[0], "duplicate share for node index 0")
+	require.ErrorContains(t, rejected[0], "duplicate share for node index 0")
 }
 
 func TestSharesForKey(t *testing.T) {
+	t.Parallel()
 	entries := []*vaultcommon.EncryptedShares{
 		{EncryptionKey: "a", BinaryShares: [][]byte{{1}, {2}}},
 		{EncryptionKey: "b", BinaryShares: [][]byte{{3}}},
