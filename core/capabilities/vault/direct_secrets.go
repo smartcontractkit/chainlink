@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 )
 
 var ErrDirectReadNotReady = errors.New("vault direct read path is not ready")
+
+const directReadWaitPollInterval = 2 * time.Second
 
 // DirectSecretsReader serves GetSecrets from local replicated state, returning only this node's shares.
 type DirectSecretsReader interface {
@@ -56,7 +59,28 @@ func (s *Capability) handleGetSecretsDirect(ctx context.Context, requestID strin
 
 	reader := s.directReader.Get()
 	if reader == nil {
-		return nil, ErrDirectReadNotReady
+		reader, err = s.waitForDirectReader(ctx, start.Add(s.expiresAfter))
+		if err != nil {
+			return nil, err
+		}
 	}
 	return reader.GetSecretsDirect(ctx, req)
+}
+
+// waitForDirectReader polls the lazy reader until the running reporting plugin
+// instance's directReader is available
+func (s *Capability) waitForDirectReader(ctx context.Context, deadline time.Time) (DirectSecretsReader, error) {
+	for {
+		if reader := s.directReader.Get(); reader != nil {
+			return reader, nil
+		}
+		if !s.clock.Now().Before(deadline) {
+			return nil, ErrDirectReadNotReady
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-s.clock.After(directReadWaitPollInterval):
+		}
+	}
 }

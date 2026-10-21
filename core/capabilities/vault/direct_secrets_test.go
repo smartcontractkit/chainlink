@@ -50,7 +50,7 @@ const directTestOwner = "0x1111111111111111111111111111111111111111"
 
 var directTestID = &vault.SecretIdentifier{Key: "Foo", Namespace: "Bar", Owner: directTestOwner}
 
-func newDirectTestCapability(t *testing.T) (*Capability, *LazyDirectSecretsReader, *requests.Store[*vaulttypes.Request], capabilities.CapabilityRequest) {
+func newDirectTestCapability(t *testing.T) (*Capability, *LazyDirectSecretsReader, *requests.Store[*vaulttypes.Request], capabilities.CapabilityRequest, *clockwork.FakeClock) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	store := requests.NewStore[*vaulttypes.Request]()
@@ -75,7 +75,7 @@ func newDirectTestCapability(t *testing.T) (*Capability, *LazyDirectSecretsReade
 			ReferenceID:         "ref",
 		},
 	}
-	return capability, directReader, store, req
+	return capability, directReader, store, req, clock
 }
 
 func TestCapability_GetSecretsDirect(t *testing.T) {
@@ -83,14 +83,80 @@ func TestCapability_GetSecretsDirect(t *testing.T) {
 
 	t.Run("not ready", func(t *testing.T) {
 		t.Parallel()
-		capability, _, _, req := newDirectTestCapability(t)
-		_, err := capability.Execute(t.Context(), req)
-		require.ErrorIs(t, err, ErrDirectReadNotReady)
+		capability, _, _, req, clock := newDirectTestCapability(t)
+		errCh := make(chan error, 1)
+		go func() {
+			_, err := capability.Execute(t.Context(), req)
+			errCh <- err
+		}()
+		timeout := time.After(10 * time.Second)
+		for {
+			select {
+			case err := <-errCh:
+				require.ErrorIs(t, err, ErrDirectReadNotReady)
+				return
+			case <-time.After(10 * time.Millisecond):
+				clock.Advance(directReadWaitPollInterval)
+			case <-timeout:
+				t.Fatal("timed out waiting for the not-ready error")
+			}
+		}
+	})
+
+	t.Run("reader appears while waiting", func(t *testing.T) {
+		t.Parallel()
+		capability, directReader, store, req, clock := newDirectTestCapability(t)
+		want := &vault.GetSecretsResponse{Responses: []*vault.SecretResponse{{
+			Id:     directTestID,
+			Result: &vault.SecretResponse_Data{Data: &vault.SecretData{EncryptedValue: "ct"}},
+		}}}
+		reader := &fakeDirectSecretsReader{resp: want}
+		type result struct {
+			resp capabilities.CapabilityResponse
+			err  error
+		}
+		resCh := make(chan result, 1)
+		go func() {
+			resp, err := capability.Execute(t.Context(), req)
+			resCh <- result{resp, err}
+		}()
+		clock.Advance(directReadWaitPollInterval)
+		directReader.Set(reader)
+		clock.Advance(directReadWaitPollInterval)
+		select {
+		case r := <-resCh:
+			require.NoError(t, r.err)
+			got := &vault.GetSecretsResponse{}
+			require.NoError(t, r.resp.Payload.UnmarshalTo(got))
+			assert.True(t, proto.Equal(want, got))
+			assert.True(t, reader.got.GetSecretsDirectly)
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the direct read to be served")
+		}
+		assert.Empty(t, store.GetByIDs([]string{vault.BuildWorkflowGetSecretsRequestID(req.Metadata)}), "nothing is queued for OCR")
+	})
+
+	t.Run("context cancelled while waiting", func(t *testing.T) {
+		t.Parallel()
+		capability, _, _, req, _ := newDirectTestCapability(t)
+		ctx, cancel := context.WithCancel(t.Context())
+		errCh := make(chan error, 1)
+		go func() {
+			_, err := capability.Execute(ctx, req)
+			errCh <- err
+		}()
+		cancel()
+		select {
+		case err := <-errCh:
+			require.ErrorIs(t, err, context.Canceled)
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for the cancelled wait to return")
+		}
 	})
 
 	t.Run("served without OCR", func(t *testing.T) {
 		t.Parallel()
-		capability, directReader, store, req := newDirectTestCapability(t)
+		capability, directReader, store, req, _ := newDirectTestCapability(t)
 		want := &vault.GetSecretsResponse{Responses: []*vault.SecretResponse{{
 			Id:     directTestID,
 			Result: &vault.SecretResponse_Data{Data: &vault.SecretData{EncryptedValue: "ct"}},
@@ -110,7 +176,7 @@ func TestCapability_GetSecretsDirect(t *testing.T) {
 
 	t.Run("still validated", func(t *testing.T) {
 		t.Parallel()
-		capability, directReader, _, req := newDirectTestCapability(t)
+		capability, directReader, _, req, _ := newDirectTestCapability(t)
 		directReader.Set(&fakeDirectSecretsReader{resp: &vault.GetSecretsResponse{}})
 		req.Metadata.WorkflowOwner = "0x2222222222222222222222222222222222222222"
 		_, err := capability.Execute(t.Context(), req)
