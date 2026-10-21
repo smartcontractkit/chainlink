@@ -47,23 +47,14 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Checkout repo (full)
-      uses: actions/checkout@v7
-      # Only do a full checkout on merge_groups
-      if: github.event_name == 'merge_group'
-      with:
-        persist-credentials: false
-        fetch-depth: 0
-
     - name: Checkout repo
       uses: actions/checkout@v7
-      if: github.event_name != 'merge_group'
       with:
         persist-credentials: false
         fetch-depth: 1
 
     - name: Setup Go
-      uses: ./.github/actions/setup-go
+      uses: $/.github/actions/setup-go
       with:
         only-modules: ${{ inputs.only-modules }}
         cache-version: ${{ inputs.cache-version }}

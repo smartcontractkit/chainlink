@@ -10,10 +10,9 @@ import (
 )
 
 const (
-	OCRPeeringPort          = 5001
-	CapabilitiesPeeringPort = 6690
-	GatewayIncomingPort     = 5002
-	GatewayOutgoingPort     = 5003
+	PeeringPort         = 5001
+	GatewayIncomingPort = 5002
+	GatewayOutgoingPort = 5003
 )
 
 // ApplyRuntimeValues fills in any missing config values with runtime-generated values

@@ -15,6 +15,7 @@ import (
 	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/pluginconfig"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
 // newTestDelegate returns a delegate carrying only what v31FactoryParams reads.
@@ -37,9 +38,11 @@ func Test_delegate_v31FactoryParams(t *testing.T) {
 				BlobInFlightWaitFactor:     5,
 				MaxBlobSnapshotAge:         lloconfig.Duration(9 * time.Second),
 				MaxRoundPeriod:             lloconfig.Duration(time.Minute),
+				CaptureStagingTelemetry:    true,
 			},
 		}).v31FactoryParams(logger.Test(t), nil)
 
+		assert.True(t, params.CaptureStagingTelemetry)
 		assert.Equal(t, uint64(7), params.MaxSnapshotRounds)
 		assert.Equal(t, uint64(11), params.BlobLifetimeRounds)
 		assert.Equal(t, 3*time.Second, params.MaxDurationBlobObservation)
@@ -60,6 +63,7 @@ func Test_delegate_v31FactoryParams(t *testing.T) {
 		assert.Zero(t, params.BlobInFlightWaitFactor)
 		assert.Zero(t, params.MaxBlobSnapshotAge)
 		assert.Zero(t, params.MaxRoundPeriod)
+		assert.Nil(t, params.AttributedObservationTelemetryCh)
 	})
 
 	t.Run("forwards a negative MaxBlobSnapshotAge, which disables the age check", func(t *testing.T) {
@@ -99,6 +103,74 @@ func Test_delegate_v31FactoryParams(t *testing.T) {
 		}
 	})
 }
+
+// Test_delegate_pluginTelemetry checks that each plugin version only gets the
+// telemetry channels its own config enables: v30 from the node driven flags, v31
+// from V31Config alone.
+func Test_delegate_pluginTelemetry(t *testing.T) {
+	t.Parallel()
+
+	type channels struct{ outcome, report, attributed bool }
+	for _, tc := range []struct {
+		name     string
+		cfg      DelegateConfig
+		v30, v31 channels
+	}{
+		{
+			name: "all off",
+		},
+		{
+			name: "node flags enable v30 only",
+			cfg: DelegateConfig{
+				CaptureEATelemetry:      true,
+				CaptureOutcomeTelemetry: true,
+				CaptureReportTelemetry:  true,
+			},
+			v30: channels{outcome: true, report: true},
+		},
+		{
+			name: "v31 flags enable v31 only, without the node flag",
+			cfg: DelegateConfig{
+				V31Config: lloconfig.V31Config{
+					CaptureOutcomeTelemetry:               true,
+					CaptureReportTelemetry:                true,
+					CaptureAttributedObservationTelemetry: true,
+				},
+			},
+			v31: channels{outcome: true, report: true, attributed: true},
+		},
+		{
+			name: "each flag independently",
+			cfg: DelegateConfig{
+				CaptureEATelemetry:      true,
+				CaptureOutcomeTelemetry: true,
+				V31Config:               lloconfig.V31Config{CaptureReportTelemetry: true},
+			},
+			v30: channels{outcome: true},
+			v31: channels{report: true},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			tc.cfg.PluginMonitoringEndpoint = nopTypedEndpoint{}
+			d := &delegate{cfg: tc.cfg, telem: telem.NewTelemeterService(tc.cfg.telemeterParams(logger.Test(t)))}
+
+			v30 := d.v30FactoryParams(logger.Test(t), nil)
+			assert.Equal(t, tc.v30.outcome, v30.OutcomeTelemetryCh != nil, "v30 outcome")
+			assert.Equal(t, tc.v30.report, v30.ReportTelemetryCh != nil, "v30 report")
+
+			v31 := d.v31FactoryParams(logger.Test(t), nil)
+			assert.Equal(t, tc.v31.outcome, v31.OutcomeTelemetryCh != nil, "v31 outcome")
+			assert.Equal(t, tc.v31.report, v31.ReportTelemetryCh != nil, "v31 report")
+			assert.Equal(t, tc.v31.attributed, v31.AttributedObservationTelemetryCh != nil, "v31 attributed observation")
+		})
+	}
+}
+
+type nopTypedEndpoint struct{}
+
+func (nopTypedEndpoint) SendTypedLog(synchronization.TelemetryType, []byte) {}
 
 // stubKeyValueDatabaseFactory and stubBinaryNetworkEndpoint2Factory stand in
 // for the OCR3.1-only dependencies; validateInstances only checks that they

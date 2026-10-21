@@ -1,16 +1,20 @@
 package metering
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -90,6 +94,7 @@ var (
 	defaultLabels = map[string]string{
 		platform.KeyWorkflowOwner:       "accountId",
 		platform.KeyWorkflowID:          "workflowId",
+		platform.KeyWorkflowName:        "workflowName",
 		platform.KeyWorkflowVersion:     workflowV2,
 		platform.KeyWorkflowExecutionID: "workflowExecutionId",
 		platform.KeyDonID:               "42",
@@ -1038,7 +1043,7 @@ func Test_Report_FormatReport(t *testing.T) {
 		meteringReport := report.FormatReport()
 		require.Equal(t, &eventspb.WorkflowMetadata{
 			WorkflowOwner:           "accountId",
-			WorkflowName:            "workflowId",
+			WorkflowName:            "workflowName",
 			Version:                 workflowV2,
 			WorkflowID:              "workflowId",
 			WorkflowExecutionID:     "workflowExecutionId",
@@ -1814,6 +1819,38 @@ func Test_Report_SendReceipt(t *testing.T) {
 				req.Metering.Message == ""
 		})).Return(&emptypb.Empty{}, nil)
 
+		require.NoError(t, report.SendReceipt(t.Context()))
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("bounds each SubmitWorkflowReceipt attempt with a deadline", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponse, nil)
+
+		// first attempt fails with a retryable error so we can assert every
+		// attempt (not just the first) receives a fresh deadline.
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+			Run(func(ctx context.Context, _ *billing.SubmitWorkflowReceiptRequest) {
+				deadline, ok := ctx.Deadline()
+				require.True(t, ok, "SubmitWorkflowReceipt context must carry a deadline")
+				require.WithinDuration(t, time.Now().Add(defaultBillingCallTimeout), deadline, time.Second)
+			}).
+			Return(nil, status.Error(codes.Unavailable, "unavailable")).Times(1)
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+			Run(func(ctx context.Context, _ *billing.SubmitWorkflowReceiptRequest) {
+				deadline, ok := ctx.Deadline()
+				require.True(t, ok, "SubmitWorkflowReceipt context must carry a deadline")
+				require.WithinDuration(t, time.Now().Add(defaultBillingCallTimeout), deadline, time.Second)
+			}).
+			Return(&emptypb.Empty{}, nil).Times(1)
+
+		report := newTestReport(t, logger.Nop(), billingClient)
+		require.NoError(t, report.Reserve(t.Context()))
 		require.NoError(t, report.SendReceipt(t.Context()))
 		billingClient.AssertExpectations(t)
 	})

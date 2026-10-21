@@ -67,6 +67,9 @@ linters:
               desc: System-level tests must not import chainlink/v2
     exhaustive:
       default-signifies-exhaustive: true
+    modernize:
+      disable:
+        - embedlit
     gosec:
       excludes:
         - G101

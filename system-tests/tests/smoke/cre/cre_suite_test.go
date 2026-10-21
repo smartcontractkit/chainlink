@@ -452,3 +452,51 @@ func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {
 	)
 	ExecuteShardFailoverSharedVaultTest(t, testEnv)
 }
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardFailoverAutoOnPrimaryDeath(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-failover.toml"),
+	)
+	ExecuteShardFailoverAutoTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardFailoverPrimaryRecovery(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-failover.toml"),
+	)
+	ExecuteShardFailoverPrimaryRecoveryTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology and the observability stack it runs on
+func Test_CRE_V2_ShardFailoverCentralizedEventRouting(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-failover.toml"),
+		"--with-dashboards",
+	)
+	ExecuteShardFailoverCentralizedEventRoutingTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology and the enclave host env it runs on
+func Test_CRE_V2_ShardManualAssignmentConfidentialWorkflows(t *testing.T) {
+	confidentialComputeRoot(t) // skip before standing up the environment when the checkout is missing
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, shardedConfidentialManualConfigPath),
+	)
+	ExecuteShardManualAssignmentConfidentialWorkflowsTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology and the enclave host env it runs on
+func Test_CRE_V2_ShardFailoverConfidentialWorkflows(t *testing.T) {
+	confidentialComputeRoot(t) // skip before standing up the environment when the checkout is missing
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, shardedConfidentialFailoverConfigPath),
+	)
+	ExecuteShardFailoverConfidentialWorkflowsTest(t, testEnv)
+}
