@@ -37,6 +37,10 @@ type client struct {
 	// created through this client. Defaults to beholder.GlobalEmitter().
 	emitter beholder.Emitter
 
+	// durableEmit persists the same transmission schedule events. Empty falls
+	// back to durableemitter.GlobalEmit in the request constructor.
+	durableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
+
 	requestIDToCallerRequest map[string]*request.ClientRequest
 	mutex                    sync.Mutex
 	stopCh                   services.StopChan
@@ -81,6 +85,13 @@ type ClientOption func(*client)
 // beholder.GlobalEmitter(), which resolves the global client at emit time.
 func WithEmitter(e beholder.Emitter) ClientOption {
 	return func(c *client) { c.emitter = e }
+}
+
+// WithDurableEmit sets the durable emit func for transmission schedule events
+// emitted by requests created through this client. Empty keeps the default,
+// durableemitter.GlobalEmit.
+func WithDurableEmit(fn func(ctx context.Context, body []byte, attrKVs ...any) error) ClientOption {
+	return func(c *client) { c.durableEmit = fn }
 }
 
 func NewClient(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger, opts ...ClientOption) *client {
@@ -259,7 +270,8 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	}
 
 	req, err := request.NewClientExecuteRequest(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
-		cfg.requestTimeout, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate, request.WithEmitter(c.emitter))
+		cfg.requestTimeout, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate,
+		request.WithEmitter(c.emitter), request.WithDurableEmit(c.durableEmit))
 	if err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to create client request: %w", err)
 	}

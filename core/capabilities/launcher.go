@@ -59,6 +59,10 @@ type launcher struct {
 	metrics             *launcherMetrics
 	localCapMgr         localcapmgr.LocalCapabilityManager
 
+	// durableEmit persists events emitted by remote executable clients (e.g. the
+	// transmission schedule). Empty falls back to durableemitter.GlobalEmit.
+	durableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
+
 	// shardingEnabled and shardIndex carry this node's local shard identity,
 	// taken from the [Sharding] config section. shardIndex is only meaningful
 	// when shardingEnabled is true; it is 0 for unsharded deployments.
@@ -125,6 +129,7 @@ func NewLauncher(
 	limitsFactory limits.Factory,
 	shardingEnabled bool,
 	shardIndex uint16,
+	durableEmit func(ctx context.Context, body []byte, attrKVs ...any) error,
 ) (*launcher, error) {
 	if don2donSharedPeer == nil {
 		return nil, errors.New("don2donSharedPeer is required")
@@ -179,6 +184,7 @@ func NewLauncher(
 		propagateOrgIDGate:     propagateOrgIDGate,
 		shardingEnabled:        shardingEnabled,
 		shardIndex:             shardIndex,
+		durableEmit:            durableEmit,
 		stopCh:                 make(services.StopChan),
 	}, nil
 }
@@ -736,7 +742,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		} else { // executable
 			client, alreadyExists := w.cachedShims.executableClients[key]
 			if !alreadyExists {
-				client = executable.NewClient(info.ID, method, w.dispatcher, w.lggr)
+				client = executable.NewClient(info.ID, method, w.dispatcher, w.lggr, executable.WithDurableEmit(w.durableEmit))
 				cc.SetExecutableClient(method, client)
 				// add to cachedShims later, only after startNewShim succeeds
 			}

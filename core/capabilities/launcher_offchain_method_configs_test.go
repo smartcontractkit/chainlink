@@ -142,7 +142,7 @@ func TestOffchainMethodConfigs_GateOff_Unchanged(t *testing.T) {
 		},
 	})
 
-	launcher, err := NewLauncher(lggr, sharedPeer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0)
+	launcher, err := NewLauncher(lggr, sharedPeer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0, nil)
 	require.NoError(t, err)
 	launcher.SetOffchainRegistry(gc, false) // gate OFF
 	require.NoError(t, launcher.Start(t.Context()))
@@ -215,7 +215,7 @@ func TestOffchainMethodConfigs_GateOn_Overrides(t *testing.T) {
 		},
 	})
 
-	launcher, err := NewLauncher(lggr, sharedPeer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0)
+	launcher, err := NewLauncher(lggr, sharedPeer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0, nil)
 	require.NoError(t, err)
 	launcher.SetOffchainRegistry(gc, true) // gate ON
 	require.NoError(t, launcher.Start(t.Context()))
@@ -302,7 +302,7 @@ func TestOffchainMethodConfigs_NoThrashAcrossPasses(t *testing.T) {
 		},
 	})
 
-	launcher, err := NewLauncher(lggr, sharedPeer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0)
+	launcher, err := NewLauncher(lggr, sharedPeer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0, nil)
 	require.NoError(t, err)
 	launcher.SetOffchainRegistry(gc, true) // gate ON
 	require.NoError(t, launcher.Start(t.Context()))
@@ -369,7 +369,7 @@ func TestOffchainMethodConfigs_ServedMethodsReplaceAndRestore(t *testing.T) {
 			dispatcher := remoteMocks.NewDispatcher(t)
 			peer := mocks.NewSharedPeer(t)
 			peer.On("ID").Return(capNodes[0])
-			launcher, err := NewLauncher(lggr, peer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0)
+			launcher, err := NewLauncher(lggr, peer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0, nil)
 			require.NoError(t, err)
 			require.NoError(t, launcher.Start(t.Context()))
 			t.Cleanup(func() { require.NoError(t, launcher.Close()) })
@@ -408,7 +408,7 @@ func TestOffchainMethodConfigs_LocalOnlySkipsRemoteShims(t *testing.T) {
 	lggr := logger.Test(t)
 	dispatcher := remoteMocks.NewDispatcher(t)
 	peer := mocks.NewSharedPeer(t)
-	launcher, err := NewLauncher(lggr, peer, nil, dispatcher, regpkg.NewRegistry(lggr), &mockDonNotifier{}, limits.Factory{}, false, 0)
+	launcher, err := NewLauncher(lggr, peer, nil, dispatcher, regpkg.NewRegistry(lggr), &mockDonNotifier{}, limits.Factory{}, false, 0, nil)
 	require.NoError(t, err)
 	method := &capabilitiespb.CapabilityMethodConfig{RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{}}}
 	don := regpkg.DON{ID: 1, Name: "don-1", CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{capID: {Config: onchainMethodCfg(t, map[string]*capabilitiespb.CapabilityMethodConfig{"Trigger": method})}}}
