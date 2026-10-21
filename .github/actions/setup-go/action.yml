@@ -156,12 +156,18 @@ runs:
 
     # 3. Build the cache keys
     # ---
-    # - The primary key is the branch name + short SHA
-    # - The secondary key is the branch name + no SHA
-    # - The tertiary key is the default branch name + no SHA
+    # - The primary key is the Go version + branch name + short SHA
+    # - The secondary key is the Go version + branch name + no SHA
+    # - The tertiary key is the Go version + default branch name + no SHA
     # ---
     # We build the cache keys here so that we can guarantee that the cache keys are the same
     # across the conditional steps below.
+    # ---
+    # Why do we include the Go version in the cache key?
+    #   Go build cache entries are only valid for the toolchain that produced them, so a toolchain
+    #   bump makes every restored entry a miss. Restoring anyway is pure cost: wasted restore time
+    #   plus several GB of dead weight on disk, which has pushed the largest lint modules into
+    #   "no space left on device" failures.
     # ---
     # Why do we use a SHA and the branch name in the cache key?
     #   We use a SHA and the branch name in the cache key, so that build caches can be "upserted".
@@ -185,12 +191,13 @@ runs:
         RAW_CACHE_VERSION: ${{ inputs.build-cache-version || inputs.cache-version }}
         CURRENT_BRANCH: ${{ steps.branch-name.outputs.current_branch }}
         DEFAULT_BRANCH: ${{ steps.branch-name.outputs.default_branch }}
+        GO_VERSION: ${{ steps.go-version.outputs.version }}
         RUNNER_OS: ${{ runner.os }}
         RUNNER_ARCH: ${{ runner.arch }}
       run: |
         CACHE_VERSION="${RAW_CACHE_VERSION//\//-}"
         SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
-        KEY_PREFIX="${RUNNER_OS}-${RUNNER_ARCH}-gobuild-${CACHE_VERSION}"
+        KEY_PREFIX="${RUNNER_OS}-${RUNNER_ARCH}-gobuild-go${GO_VERSION}-${CACHE_VERSION}"
 
         echo "primary-key=${KEY_PREFIX}-${CURRENT_BRANCH}-${SHORT_SHA}" >> "${GITHUB_OUTPUT}"
 
@@ -199,7 +206,7 @@ runs:
         fi
 
         echo "secondary-key=${KEY_PREFIX}-${CURRENT_BRANCH}-" >> "${GITHUB_OUTPUT}"
-        echo "develop-key=${RUNNER_OS}-${RUNNER_ARCH}-gobuild-${CACHE_VERSION}-${DEFAULT_BRANCH}-" >> "${GITHUB_OUTPUT}"
+        echo "develop-key=${KEY_PREFIX}-${DEFAULT_BRANCH}-" >> "${GITHUB_OUTPUT}"
 
     # 4. Restore the build cache
     # ---
