@@ -99,3 +99,54 @@ func TestCCIPBridgeConfig_UnmarshalTransfers(t *testing.T) {
 	require.True(t, cfg.TestNeeded)
 	require.Zero(t, cfg.Transfers[0].Amount.Cmp(mustBig(t, "50000000000000000000")))
 }
+
+func TestCCIPBridgeConfig_NormalizedSources(t *testing.T) {
+	t.Parallel()
+
+	// Single-source shorthand is promoted to one source.
+	short := CCIPBridgeConfig{
+		FromChainSelector: 10,
+		TokenType:         TokenTypeNative,
+		Transfers:         []CCIPBridgeTransfer{{ToChainSelector: 1, Amount: big.NewInt(5)}},
+	}
+	got := short.NormalizedSources()
+	require.Len(t, got, 1)
+	require.Equal(t, uint64(10), got[0].FromChainSelector)
+	require.Equal(t, TokenTypeNative, got[0].TokenType)
+	require.Len(t, got[0].Transfers, 1)
+
+	// Explicit sources are returned as-is.
+	multi := CCIPBridgeConfig{
+		Sources: []CCIPBridgeSource{
+			{FromChainSelector: 10, TokenType: TokenTypeNative},
+			{FromChainSelector: 20, TokenType: TokenTypeWrappedNative},
+		},
+	}
+	require.Len(t, multi.NormalizedSources(), 2)
+
+	// Nothing set -> nil.
+	require.Nil(t, CCIPBridgeConfig{}.NormalizedSources())
+}
+
+func TestCCIPBridgeConfig_UnmarshalSources(t *testing.T) {
+	t.Parallel()
+
+	payload := `{
+		"test_needed": false,
+		"sources": [
+			{"from_chain_selector": 4949039107694359620, "token_type": "native",
+			 "transfers": [{"to_chain_selector": 5009297550715157269, "amount": "1000000000000000000", "destination_address": "0xabc"}]},
+			{"from_chain_selector": 15971525489660198786, "token_type": "wrappedNative",
+			 "transfers": [{"to_chain_selector": 5009297550715157269, "amount": "100000000000000000000", "destination_address": "0xabc"}]}
+		]
+	}`
+
+	var cfg CCIPBridgeConfig
+	require.NoError(t, json.Unmarshal([]byte(payload), &cfg))
+
+	srcs := cfg.NormalizedSources()
+	require.Len(t, srcs, 2)
+	require.Equal(t, TokenTypeNative, srcs[0].TokenType)
+	require.Equal(t, TokenTypeWrappedNative, srcs[1].TokenType)
+	require.Zero(t, srcs[1].Transfers[0].Amount.Cmp(mustBig(t, "100000000000000000000")))
+}

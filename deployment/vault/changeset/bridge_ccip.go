@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -53,20 +54,24 @@ func (b bridgeNativeChangeset) Apply(e cldf.Environment, cfg types.CCIPBridgeCon
 	lggr := e.Logger
 
 	evmChains := e.BlockChains.EVMChains()
-	sourceChain, ok := evmChains[cfg.FromChainSelector]
+	sources := cfg.NormalizedSources()
+	if len(sources) == 0 {
+		return cldf.ChangesetOutput{}, errors.New("no sources configured")
+	}
+	// Pick any source chain; the sequence resolves each source
+	// from the environment and datastore.
+	primaryChain, ok := evmChains[sources[0].FromChainSelector]
 	if !ok {
-		return cldf.ChangesetOutput{}, fmt.Errorf("source chain %d not found in environment", cfg.FromChainSelector)
+		return cldf.ChangesetOutput{}, fmt.Errorf("source chain %d not found in environment", sources[0].FromChainSelector)
 	}
 
 	lggr.Infow("Starting CCIP bridge",
-		"from", cfg.FromChainSelector,
-		"token_type", cfg.TokenType,
-		"destinations", len(cfg.Transfers),
+		"sources", len(sources),
 		"test_mode", cfg.TestNeeded)
 
 	deps := VaultDeps{
-		Chain:       sourceChain,
-		Auth:        sourceChain.DeployerKey,
+		Chain:       primaryChain,
+		Auth:        primaryChain.DeployerKey,
 		DataStore:   e.DataStore,
 		Environment: e,
 	}
@@ -82,7 +87,7 @@ func (b bridgeNativeChangeset) Apply(e cldf.Environment, cfg types.CCIPBridgeCon
 	}
 
 	lggr.Infow("CCIP bridge proposal generation completed",
-		"from", cfg.FromChainSelector,
+		"sources", len(sources),
 		"proposals", len(seqReport.Output.MCMSTimelockProposals))
 
 	return cldf.ChangesetOutput{
