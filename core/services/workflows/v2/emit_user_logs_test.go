@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -35,7 +36,7 @@ func TestEngine_emitUserLogs_ProcessesLogsWhenContextCancelled(t *testing.T) {
 			cfg: &EngineConfig{
 				DebugMode:     true,
 				LocalLimiters: limiters,
-				EventEmitter:  workflowEvents.DefaultEmitter(),
+				EventEmitter:  workflowEvents.NewEmitter(beholdertest.NewRecorder(), workflowEvents.WithNoDurableEmit()),
 			},
 		}
 		e.setLogger(logger.Sugared(logger.Test(t)))
@@ -91,7 +92,7 @@ func TestEngine_emitUserLogs_DrainsUntilTimeout(t *testing.T) {
 			cfg: &EngineConfig{
 				DebugMode:     true,
 				LocalLimiters: limiters,
-				EventEmitter:  workflowEvents.DefaultEmitter(),
+				EventEmitter:  workflowEvents.NewEmitter(beholdertest.NewRecorder(), workflowEvents.WithNoDurableEmit()),
 			},
 		}
 		e.setLogger(logger.Sugared(logger.Test(t)))
@@ -146,7 +147,7 @@ func TestEngine_emitUserLogs_TeardownOnChannelClose(t *testing.T) {
 			cfg: &EngineConfig{
 				DebugMode:     true,
 				LocalLimiters: limiters,
-				EventEmitter:  workflowEvents.DefaultEmitter(),
+				EventEmitter:  workflowEvents.NewEmitter(beholdertest.NewRecorder(), workflowEvents.WithNoDurableEmit()),
 			},
 		}
 		e.setLogger(logger.Sugared(logger.Test(t)))

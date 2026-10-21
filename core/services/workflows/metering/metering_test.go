@@ -1862,6 +1862,11 @@ func Test_Report_EmitReceipt(t *testing.T) {
 		t.Parallel()
 
 		rec := beholdertest.NewRecorder()
+		var durableAttrs []any
+		emitter := events.NewEmitter(rec, events.WithDurableEmit(func(_ context.Context, _ []byte, attrKVs ...any) error {
+			durableAttrs = attrKVs
+			return nil
+		}))
 		billingClient := mocks.NewBillingClient(t)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
@@ -1875,15 +1880,19 @@ func Test_Report_EmitReceipt(t *testing.T) {
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 			Return(&emptypb.Empty{}, nil)
 
-		report := newTestReport(t, logger.Nop(), billingClient, WithEventEmitter(events.NewEmitter(rec, events.WithNoDurableEmit())))
+		report := newTestReport(t, logger.Nop(), billingClient, WithEventEmitter(emitter))
 
 		require.NoError(t, report.Reserve(t.Context()))
 
 		require.NoError(t, report.EmitReceipt(t.Context()))
 
-		assert.Equal(t, 1, rec.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity)))
+		meteringEntity := fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity)
+		assert.Equal(t, 1, rec.Len(t, "beholder_entity", meteringEntity))
 
-		messages := rec.Messages(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity))
+		// Receipts must also reach the durable emitter, not just beholder.
+		assert.Equal(t, []any{"source", "platform", "type", meteringEntity}, durableAttrs)
+
+		messages := rec.Messages(t, "beholder_entity", meteringEntity)
 
 		for _, msg := range messages {
 			entity := msg.Attrs["beholder_entity"]
