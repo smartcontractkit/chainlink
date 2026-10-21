@@ -835,9 +835,9 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		execErrClass = events.ClassifyError(execErr, events.ErrorClassificationSystem)
 		if errors.Is(execErr, context.DeadlineExceeded) {
 			executionStatus = store.StatusTimeout
-			e.metrics.UpdateWorkflowTimeoutDurationHistogram(ctx, int64(executionDuration.Seconds()))
+			e.metrics.UpdateWorkflowTimeoutDurationHistogram(ctx, executionDuration.Seconds())
 		} else {
-			e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
+			e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, executionDuration.Seconds())
 		}
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "err", execErr)
@@ -853,7 +853,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		execErr = errors.New(result.GetError())
 		// The user's workflow ran and returned an error: a user failure.
 		execErrClass = events.ErrorClassificationUser
-		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
+		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, executionDuration.Seconds())
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
@@ -862,7 +862,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 
 	executionStatus = store.StatusCompleted
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
-	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, int64(executionDuration.Seconds()))
+	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, executionDuration.Seconds())
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 	e.cfg.Hooks.OnResultReceived(result)

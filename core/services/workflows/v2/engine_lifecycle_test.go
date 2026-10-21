@@ -20,6 +20,7 @@ import (
 	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -86,7 +87,7 @@ const (
 	shutdownDrainWaitThenClose
 )
 
-// TestEngine_Lifecycle runs the same Close and Drain scenarios against both engines. Each
+// TestEngine_Lifecycle runs the same Close, Drain and replacement scenarios against both engines. Each
 // scenario asserts the behavior every engine is expected to have, so the two must not diverge.
 //
 // The scenarios hold executions in the module on channels, or let them run to completion, and order
@@ -111,6 +112,7 @@ func TestEngine_Lifecycle(t *testing.T) {
 		{"ExecuteTrigger_WhileDraining", testLifecycleExecuteTriggerWhileDraining},
 		{"Drain_KeepsInFlightExecutionRunning", testLifecycleDrainKeepsInFlightExecutionRunning},
 		{"Drain_ThenClose_CancelsInFlightExecution", testLifecycleDrainThenCloseCancelsInFlightExecution},
+		{"Replace_NextEventRunsOnNewEngine", testLifecycleReplaceNextEventRunsOnNewEngine},
 	}
 	for _, mode := range []lifecycleEngineMode{lifecycleLegacy, lifecycleCoordinated} {
 		t.Run(string(mode), func(t *testing.T) {
@@ -399,6 +401,24 @@ func testLifecycleDrainThenCloseCancelsInFlightExecution(t *testing.T, mode life
 		eventExecutionCanceled, eventExecutionFinished, eventModuleClosed, eventCloseReturned)
 }
 
+// testLifecycleReplaceNextEventRunsOnNewEngine asserts that after an engine is closed and replaced
+// by a new one for the same workflow, the next trigger event runs on the new engine.
+func testLifecycleReplaceNextEventRunsOnNewEngine(t *testing.T, mode lifecycleEngineMode) {
+	h := newEngineLifecycleHarness(t, mode)
+	h.start()
+	h.blocker.release()
+
+	h.deliver(testutils.WaitTimeout(t))
+	require.Eventually(t, func() bool { return h.moduleExecutions.Load() == 1 }, testutils.WaitTimeout(t), 5*time.Millisecond,
+		"the first event to run on the original engine")
+
+	h.replaceEngine()
+
+	h.deliver(testutils.WaitTimeout(t))
+	require.Eventually(t, func() bool { return h.moduleExecutions.Load() == 2 }, testutils.WaitTimeout(t), 5*time.Millisecond,
+		"the next event to run on the replacement engine")
+}
+
 // engineLifecycleHarness is a real engine of the harness's mode over a mock module whose executions
 // are held by an executionBlocker until the test releases them or their context is canceled. In
 // coordinated mode a real trigger coordinator registers the engine's triggers, delivers its events
@@ -421,7 +441,16 @@ type engineLifecycleHarness struct {
 
 	moduleCloses     atomic.Int32
 	moduleExecutions atomic.Int32 // executions that reached the module, subscribe calls excluded
-	nextEvent        atomic.Int32
+	moduleInFlight   atomic.Int32 // executions currently held in the module
+	moduleMaxFlight  atomic.Int32 // the most executions ever held in the module at once
+
+	// slots counts requests for an execution-concurrency slot, made by whichever component
+	// admits events: the legacy engine or the coordinator.
+	slots *slotCounter
+	// sharedFlight, if set, also counts this harness's executions, so scenarios with several
+	// harnesses can see how many run at once across all of them.
+	sharedFlight *flightTracker
+	nextEvent    atomic.Int32
 
 	finishedMu  sync.Mutex
 	finishedLog []string // status of every OnExecutionFinished call, which finishedCh drops when full
@@ -433,7 +462,15 @@ const defaultSignalBuffer = 16
 
 // harnessOptions holds the settings harnessOption values change.
 type harnessOptions struct {
-	signalBuffer int
+	signalBuffer  int
+	eventBuffer   int
+	settings      func(*cresettings.Workflows)
+	limiters      *v2.EngineLimiters
+	workflowID    string
+	workflowOwner string
+	orgID         string
+	billing       *metmocks.BillingClient
+	sharedFlight  *flightTracker
 }
 
 // harnessOption configures newEngineLifecycleHarness.
@@ -442,6 +479,43 @@ type harnessOption func(*harnessOptions)
 // withSignalBuffer sets the capacity of the finished and blocker signal channels.
 func withSignalBuffer(n int) harnessOption {
 	return func(o *harnessOptions) { o.signalBuffer = n }
+}
+
+// withEventBuffer sets the capacity of the trigger capability's event channel. It is unbuffered
+// by default, so a delivery only completes once the node's reader takes the event.
+func withEventBuffer(n int) harnessOption {
+	return func(o *harnessOptions) { o.eventBuffer = n }
+}
+
+// withSettings overrides the CRE settings the engine's limiters are built from.
+func withSettings(fn func(*cresettings.Workflows)) harnessOption {
+	return func(o *harnessOptions) { o.settings = fn }
+}
+
+// withLimiters makes the engine use limiters, so several harnesses can share them as the
+// engines on a node do. It takes precedence over withSettings.
+func withLimiters(l *v2.EngineLimiters) harnessOption {
+	return func(o *harnessOptions) { o.limiters = l }
+}
+
+// withWorkflow sets the workflow ID and owner, so several harnesses can run distinct workflows.
+func withWorkflow(id, owner string) harnessOption {
+	return func(o *harnessOptions) { o.workflowID, o.workflowOwner = id, owner }
+}
+
+// withOrg makes the engine resolve its workflow owner to orgID.
+func withOrg(orgID string) harnessOption {
+	return func(o *harnessOptions) { o.orgID = orgID }
+}
+
+// withBillingClient replaces the default billing client, which accepts every call.
+func withBillingClient(c *metmocks.BillingClient) harnessOption {
+	return func(o *harnessOptions) { o.billing = c }
+}
+
+// withSharedFlight also counts the harness's executions in f.
+func withSharedFlight(f *flightTracker) harnessOption {
+	return func(o *harnessOptions) { o.sharedFlight = f }
 }
 
 // newEngineLifecycleHarness builds the engine for mode without starting it. Whatever the test
@@ -459,7 +533,7 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 		t:            t,
 		mode:         mode,
 		engines:      &lifecycleEngineRegistry{},
-		eventCh:      make(chan capabilities.TriggerResponse),
+		eventCh:      make(chan capabilities.TriggerResponse, o.eventBuffer),
 		blocker:      newExecutionBlocker(t, log, o.signalBuffer),
 		log:          log,
 		initDoneCh:   make(chan error, 1),
@@ -475,10 +549,28 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Maybe()
 	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
-	cfg := defaultTestConfig(t, nil)
+	cfg := defaultTestConfig(t, o.settings)
+	if o.limiters != nil {
+		// A copy, so wrapping its ExecutionConcurrency below does not change the shared struct.
+		// The copy still holds the shared limiter instances.
+		shared := *o.limiters
+		cfg.LocalLimiters = &shared
+	}
+	if o.workflowID != "" {
+		cfg.WorkflowID, cfg.WorkflowOwner = o.workflowID, o.workflowOwner
+	}
+	if o.orgID != "" {
+		cfg.OrgResolver = &mockOrgResolver{orgID: o.orgID}
+	}
+	h.sharedFlight = o.sharedFlight
+	h.slots = &slotCounter{ResourcePoolLimiter: cfg.LocalLimiters.ExecutionConcurrency}
+	cfg.LocalLimiters.ExecutionConcurrency = h.slots
 	cfg.CapRegistry = capreg
 	cfg.Module = h.newModule()
 	cfg.BillingClient = newLifecycleBillingClient(t)
+	if o.billing != nil {
+		cfg.BillingClient = o.billing
+	}
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized:          func(err error) { nonBlockingSend(h.initDoneCh, err) },
 		OnSubscribedToTriggers: func(ids []string) { nonBlockingSend(h.subscribedCh, ids) },
@@ -500,7 +592,7 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	require.NoError(t, err)
 	h.engine = engine
 	// Set before the engine starts, so the coordinator's readers never see it unset.
-	h.engines.engine = engine
+	h.engines.set(engine)
 
 	// Close the engine before the mocks and limiters it uses go away. The test's context is
 	// already canceled by now, which returns any execution still held by the blocker. An engine
@@ -526,6 +618,15 @@ func (h *engineLifecycleHarness) newModule() *modulemocks.ModuleV2 {
 				return newTriggerSubs(1), nil
 			}
 			h.moduleExecutions.Add(1)
+			inFlight := h.moduleInFlight.Add(1)
+			defer h.moduleInFlight.Add(-1)
+			for maxFlight := h.moduleMaxFlight.Load(); inFlight > maxFlight && !h.moduleMaxFlight.CompareAndSwap(maxFlight, inFlight); {
+				maxFlight = h.moduleMaxFlight.Load()
+			}
+			if h.sharedFlight != nil {
+				h.sharedFlight.enter()
+				defer h.sharedFlight.exit()
+			}
 			if err := h.blocker.block(ctx); err != nil {
 				return nil, err
 			}
@@ -554,6 +655,8 @@ func (h *engineLifecycleHarness) newCoordinator(capreg *regmocks.CapabilitiesReg
 			Logger:       commonlogger.Test(h.t),
 			Metrics:      monitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), em),
 		},
+		// The engine's own limiters, as in production, so the limits a scenario sets apply to both.
+		h.cfg.LocalLimiters.Admission(),
 		h.engines,
 		workflowLimits,
 		clockwork.NewFakeClock(),
@@ -589,13 +692,26 @@ func (h *engineLifecycleHarness) start() {
 // context is canceled.
 func (h *engineLifecycleHarness) startExecution() {
 	h.t.Helper()
-	event := h.event(fmt.Sprintf("event-%d", h.nextEvent.Add(1))).Event
-	select {
-	case h.eventCh <- event:
-	case <-time.After(testutils.WaitTimeout(h.t)):
-		require.FailNow(h.t, "trigger event was not accepted")
-	}
+	h.deliver(testutils.WaitTimeout(h.t))
 	awaitLifecycle(h.t, h.blocker.started, "execution to start")
+}
+
+// deliver hands the next trigger event to the node as the trigger capability does, failing the
+// test if the node's reader does not take it within timeout.
+func (h *engineLifecycleHarness) deliver(timeout time.Duration) {
+	h.t.Helper()
+	h.deliverEvent(fmt.Sprintf("event-%d", h.nextEvent.Add(1)), timeout)
+}
+
+// deliverEvent is deliver with a chosen event ID, for scenarios that send the same event twice.
+func (h *engineLifecycleHarness) deliverEvent(id string, timeout time.Duration) {
+	h.t.Helper()
+	select {
+	case h.eventCh <- h.event(id).Event:
+	case <-time.After(timeout):
+		require.FailNowf(h.t, "trigger event was not accepted",
+			"%s was not read within %s: the node stopped draining the trigger's event channel", id, timeout)
+	}
 }
 
 // feedEvents sends trigger events through the engine's real delivery path until stop is closed or
@@ -624,6 +740,35 @@ func (h *engineLifecycleHarness) close() error {
 	err := h.engine.Close()
 	h.log.record(eventCloseReturned)
 	return err
+}
+
+// replaceEngine closes the engine under test and starts a new one of the same mode for the same
+// workflow. In coordinated mode the new engine only replaces the old one in the registry, leaving
+// the coordinator registration untouched, as when a workflow's engine changes while its
+// registration stays live. In legacy mode the new engine registers its own triggers.
+func (h *engineLifecycleHarness) replaceEngine() {
+	h.t.Helper()
+	require.NoError(h.t, h.close())
+
+	cfg := *h.cfg
+	cfg.Module = h.newModule()
+	construct := v2.NewCoordinatedEngine
+	if h.mode == lifecycleLegacy {
+		// NewEngine set the old engine as its own acknowledger; the new one must acknowledge through itself.
+		cfg.TriggerAcknowledger = nil
+		construct = v2.NewEngine
+	}
+	engine, err := construct(&cfg)
+	require.NoError(h.t, err)
+	h.t.Cleanup(func() { _ = engine.Close() })
+	h.engine = engine
+	h.engines.set(engine)
+
+	require.NoError(h.t, engine.Start(h.t.Context()))
+	require.NoError(h.t, awaitLifecycle(h.t, h.initDoneCh, "replacement engine to initialize"))
+	if h.mode == lifecycleLegacy {
+		require.Equal(h.t, []string{lifecycleTriggerCapID}, awaitLifecycle(h.t, h.subscribedCh, "replacement engine to register triggers"))
+	}
 }
 
 // recordFinished is the OnExecutionFinished hook's record of an execution's status.
@@ -730,17 +875,28 @@ func (l *lifecycleLog) events() []lifecycleEvent {
 	return append([]lifecycleEvent(nil), l.logged...)
 }
 
-// lifecycleEngineRegistry is a triggers.EngineRegistry holding the one engine under test.
+// lifecycleEngineRegistry is a triggers.EngineRegistry holding the one engine under test. It is
+// safe for concurrent use.
 type lifecycleEngineRegistry struct {
+	mu     sync.Mutex
 	engine v2.WorkflowEngine
 }
 
 // Get returns the engine under test if wid is its workflow.
 func (r *lifecycleEngineRegistry) Get(wid types.WorkflowID) (triggers.RegisteredEngine, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.engine == nil || wid.Hex() != r.engine.Tenant().Workflow {
 		return nil, false
 	}
 	return r.engine, true
+}
+
+// set makes e the engine under test.
+func (r *lifecycleEngineRegistry) set(e v2.WorkflowEngine) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.engine = e
 }
 
 // executionBlocker holds executions in the module until the test releases them or their context
@@ -751,6 +907,7 @@ type executionBlocker struct {
 	started  chan struct{}
 	canceled chan struct{} // signaled when a held execution observes its context's cancellation
 	released chan struct{}
+	step     chan struct{} // releases one held execution per receive
 	once     sync.Once
 	log      *lifecycleLog
 
@@ -768,6 +925,7 @@ func newExecutionBlocker(t *testing.T, log *lifecycleLog, signalBuffer int) *exe
 		started:  make(chan struct{}, signalBuffer),
 		canceled: make(chan struct{}, signalBuffer),
 		released: make(chan struct{}),
+		step:     make(chan struct{}),
 		log:      log,
 	}
 }
@@ -783,6 +941,8 @@ func (b *executionBlocker) block(ctx context.Context) error {
 	defer backstop.Stop()
 
 	select {
+	case <-b.step:
+		return nil
 	case <-b.released:
 		b.mu.Lock()
 		b.errAtRelease = ctx.Err()
@@ -800,6 +960,16 @@ func (b *executionBlocker) block(ctx context.Context) error {
 	}
 }
 
+// releaseOne lets exactly one held execution return, waiting until one takes the release.
+func (b *executionBlocker) releaseOne() {
+	b.t.Helper()
+	select {
+	case b.step <- struct{}{}:
+	case <-time.After(b.backstop):
+		require.FailNow(b.t, "no held execution to release")
+	}
+}
+
 // release lets every held execution return.
 func (b *executionBlocker) release() {
 	b.once.Do(func() { close(b.released) })
@@ -813,6 +983,43 @@ func (b *executionBlocker) contextErrAtRelease() error {
 	return b.errAtRelease
 }
 
+// slotCounter counts Wait calls on the execution-concurrency limiter, so a scenario can tell when
+// an event is waiting for a slot.
+type slotCounter struct {
+	limits.ResourcePoolLimiter[int]
+	waits    atomic.Int32 // Wait calls
+	acquired atomic.Int32 // slots granted
+	released atomic.Int32 // slots given back
+}
+
+func (s *slotCounter) Wait(ctx context.Context, amount int) (func(), error) {
+	s.waits.Add(1)
+	free, err := s.ResourcePoolLimiter.Wait(ctx, amount)
+	if err != nil {
+		return free, err
+	}
+	s.acquired.Add(1)
+	return func() {
+		free()
+		s.released.Add(1)
+	}, nil
+}
+
+// flightTracker counts executions running at once across several harnesses, and the most seen.
+type flightTracker struct {
+	inFlight atomic.Int32
+	max      atomic.Int32
+}
+
+func (f *flightTracker) enter() {
+	n := f.inFlight.Add(1)
+	for m := f.max.Load(); n > m && !f.max.CompareAndSwap(m, n); {
+		m = f.max.Load()
+	}
+}
+
+func (f *flightTracker) exit() { f.inFlight.Add(-1) }
+
 // nonBlockingSend sends v on ch unless it is full, so a hook never stalls the engine.
 func nonBlockingSend[T any](ch chan<- T, v T) {
 	select {
@@ -824,6 +1031,13 @@ func nonBlockingSend[T any](ch chan<- T, v T) {
 // newLifecycleBillingClient returns a billing client that accepts, but does not require, the calls
 // an execution makes, since not every scenario runs one.
 func newLifecycleBillingClient(t *testing.T) *metmocks.BillingClient {
+	t.Helper()
+	return newTestBillingClient(t, true)
+}
+
+// newTestBillingClient is newLifecycleBillingClient whose credit reservations succeed only if
+// reserveOK. A failed reservation makes the engine abort the execution before the module runs.
+func newTestBillingClient(t *testing.T, reserveOK bool) *metmocks.BillingClient {
 	t.Helper()
 	client := metmocks.NewBillingClient(t)
 	client.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
@@ -842,7 +1056,7 @@ func newLifecycleBillingClient(t *testing.T) *metmocks.BillingClient {
 			},
 		}, nil).Maybe()
 	client.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-		Return(&billing.ReserveCreditsResponse{Success: true, Credits: "10000"}, nil).Maybe()
+		Return(&billing.ReserveCreditsResponse{Success: reserveOK, Credits: "10000"}, nil).Maybe()
 	client.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).Return(&emptypb.Empty{}, nil).Maybe()
 	return client
 }

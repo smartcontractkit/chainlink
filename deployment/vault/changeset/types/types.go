@@ -342,20 +342,35 @@ func parseWeiBigInt(raw json.RawMessage) (*big.Int, error) {
 	return v, nil
 }
 
-// CCIPBridgeConfig configures a CCIP bridge of native/wrapped-native value from one source chain's
-// Timelock to one or more destination chains, delivering native value via an EtherSenderReceiver.
-type CCIPBridgeConfig struct {
-	// FromChainSelector is the source chain whose Timelock holds the funds and executes the proposal.
+// CCIPBridgeSource is one source chain's bridge: what its Timelock holds and the destinations it
+// sends to. Each source resolves its own Timelock/MCM/WETH/Router from the datastore.
+type CCIPBridgeSource struct {
+	// FromChainSelector is the source chain whose Timelock holds the funds and executes the batch.
 	FromChainSelector uint64 `json:"from_chain_selector"`
-	// TokenType is TokenTypeNative or TokenTypeWrappedNative; it describes what the Timelock holds.
+	// TokenType is TokenTypeNative or TokenTypeWrappedNative; it describes what this source holds.
 	TokenType string `json:"token_type"`
-	// TestNeeded, when true, splits each transfer into a test proposal (TestBridgeAmount) and a
-	// remainder proposal (amount - TestBridgeAmount), produced as two separate timelock proposals.
+	// Transfers is the list of destinations bridged from this source.
+	Transfers []CCIPBridgeTransfer `json:"transfers"`
+}
+
+// CCIPBridgeConfig configures a CCIP bridge of native/wrapped-native value from one or more source
+// Timelocks to destination chains, delivering native value via an EtherSenderReceiver. Listing
+// several sources produces a single multi-chain MCMS proposal so signers sign once.
+type CCIPBridgeConfig struct {
+	// Sources lists the source chains to bridge from. Preferred form; multiple sources are bundled
+	// into one proposal. When empty, the single-source fields below are used instead.
+	Sources []CCIPBridgeSource `json:"sources,omitempty"`
+
+	// Single-source shorthand (used only when Sources is empty) - kept for backward compatibility.
+	FromChainSelector uint64               `json:"from_chain_selector,omitempty"`
+	TokenType         string               `json:"token_type,omitempty"`
+	Transfers         []CCIPBridgeTransfer `json:"transfers,omitempty"`
+
+	// TestNeeded, when true, splits every transfer into a test proposal (TestBridgeAmount) and a
+	// remainder proposal (amount - TestBridgeAmount), each spanning all sources.
 	TestNeeded bool `json:"test_needed"`
 	// GasLimit is the destination execution gas limit encoded in CCIP extraArgs (default used if 0).
 	GasLimit uint64 `json:"gas_limit,omitempty"`
-	// Transfers is the list of destinations.
-	Transfers []CCIPBridgeTransfer `json:"transfers"`
 	// MCMSConfig is the timelock/MCMS configuration; injected by the pipeline.
 	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config"`
 	// Description for the generated MCMS proposal(s).
@@ -366,10 +381,25 @@ type CCIPUnwrapTokenChainConfig struct {
 	ExternalAddressTransfer string `json:"external_address_transfer,omitempty"`
 }
 
-// types
 type CCIPUnwrapTokenConfig struct {
 	Chains      map[uint64]CCIPUnwrapTokenChainConfig `json:"chains"`
 	TestEnabled bool                                  `json:"test_enabled"`
 
 	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config"`
+}
+
+// NormalizedSources returns Sources, or a single source built from the shorthand fields when Sources
+// is empty. It returns nil when neither form is set.
+func (c CCIPBridgeConfig) NormalizedSources() []CCIPBridgeSource {
+	if len(c.Sources) > 0 {
+		return c.Sources
+	}
+	if c.FromChainSelector == 0 && len(c.Transfers) == 0 {
+		return nil
+	}
+	return []CCIPBridgeSource{{
+		FromChainSelector: c.FromChainSelector,
+		TokenType:         c.TokenType,
+		Transfers:         c.Transfers,
+	}}
 }

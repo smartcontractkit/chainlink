@@ -1,6 +1,9 @@
 package localcapmgr
 
 import (
+	"reflect"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
@@ -11,7 +14,7 @@ import (
 const (
 	// divergenceMissing: the offchain registry has no entry for the capability on its DON.
 	divergenceMissing = "missing"
-	// divergenceMismatch: the offchain spec_config differs from the on-chain one.
+	// divergenceMismatch: the offchain launch or remote config differs from the on-chain one.
 	divergenceMismatch = "mismatch"
 )
 
@@ -24,7 +27,8 @@ func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*ca
 			if m.localCfg == nil || !m.localCfg.IsAllowlisted(capID) {
 				continue
 			}
-			if _, ok := offDON.GetCapabilities()[capID]; !ok {
+			offCap, ok := offDON.GetCapabilities()[capID]
+			if !ok {
 				out[divergenceMissing]++
 				m.lggr.Debugw("Offchain registry has no config for capability", "donID", don.ID, "capID", capID)
 				continue
@@ -32,13 +36,22 @@ func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*ca
 			info := &capabilityInfo{capID: capID, donID: don.ID, config: onchain}
 			legacy, err := m.buildConfigJSON(info)
 			if err != nil {
+				m.lggr.Warnw("Failed to build on-chain spec config for cross-validation", "donID", don.ID, "capID", capID, "error", err)
 				continue
 			}
 			info.useOffchain = true
 			info.offchainSpecConfig = m.offchainSpecConfig(offDON, capID, don.ID)
-			if cutover, _ := m.buildConfigJSON(info); cutover != legacy {
+			cutover, err := m.buildConfigJSON(info)
+			if err != nil {
+				m.lggr.Warnw("Failed to build offchain spec config for cross-validation", "donID", don.ID, "capID", capID, "error", err)
+				continue
+			}
+			// A mismatch means turning the gate on changes this capability: either the launch
+			// config (spec_config) or the don2don config would differ.
+			remoteConfigDiffers := offchainRemoteConfigDiffers(onchain, offCap)
+			if cutover != legacy || remoteConfigDiffers {
 				out[divergenceMismatch]++
-				m.lggr.Debugw("Offchain spec_config differs from on-chain", "donID", don.ID, "capID", capID)
+				m.lggr.Debugw("Offchain config differs from on-chain", "donID", don.ID, "capID", capID, "specConfigDiffers", cutover != legacy, "remoteConfigDiffers", remoteConfigDiffers)
 			}
 		}
 	}
@@ -69,6 +82,7 @@ func (m *localCapabilityManager) offchainSpecConfig(don *capabilitiespb.DONConfi
 		m.lggr.Warnw("Invalid offchain spec_config, ignoring offchain override", "capID", capID, "donID", donID, "error", err)
 		return nil
 	}
+
 	return out
 }
 
@@ -96,4 +110,41 @@ func (m *localCapabilityManager) offchainDONNames(dons []registry.DON) map[uint3
 		out[ids[0]] = name
 	}
 	return out
+}
+
+// offchainRemoteConfigDiffers compares LocalOnly and the complete selected method maps.
+func offchainRemoteConfigDiffers(onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
+	offMethodConfigs, err := globalconfig.MethodConfigsFromProto(offCap.GetMethodConfigs())
+	if err != nil {
+		return false
+	}
+	onchainCfg, err := onchain.Unmarshal()
+	if err != nil {
+		return false
+	}
+	if onchainCfg.LocalOnly != offCap.GetLocalOnly() {
+		return true
+	}
+	onMethodConfigs := onchainCfg.CapabilityMethodConfig
+	if len(onMethodConfigs) != len(offMethodConfigs) {
+		return true
+	}
+	for method, offCfg := range offMethodConfigs {
+		if onCfg, ok := onMethodConfigs[method]; !ok || !methodConfigEqual(onCfg, offCfg) {
+			return true
+		}
+	}
+	return false
+}
+
+// methodConfigEqual compares two method configs for equality on the fields the launcher
+// consumes (remote trigger/executable config and aggregator config).
+func methodConfigEqual(a, b capabilities.CapabilityMethodConfig) bool {
+	if !reflect.DeepEqual(a.RemoteTriggerConfig, b.RemoteTriggerConfig) {
+		return false
+	}
+	if !reflect.DeepEqual(a.RemoteExecutableConfig, b.RemoteExecutableConfig) {
+		return false
+	}
+	return reflect.DeepEqual(a.AggregatorConfig, b.AggregatorConfig)
 }

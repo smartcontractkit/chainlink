@@ -15,7 +15,9 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
@@ -112,8 +114,9 @@ func (g *GlobalConfig) notify() {
 //   - version must be >= 1 (0 is the proto default, i.e. "unset", and would defeat the
 //     monotonic version check),
 //   - DON names (map keys) and capability IDs must be non-empty,
-//   - capabilities may only set spec_config (other fields are not consumed yet),
-//   - every spec_config must convert to a config map.
+//   - capabilities may only set spec_config, method_configs and local_only,
+//   - every spec_config must convert to a config map,
+//   - method_configs must pass the offchain method validation before conversion.
 //
 // It does not perform on-chain cross-validation, which happens in the LocalCapabilityManager
 // where the on-chain DON set is available.
@@ -227,13 +230,143 @@ func validate(reg *capabilitiespb.OffchainCapabilitiesRegistry) error {
 			if capID == "" {
 				return fmt.Errorf("dons[%q]: empty capability ID", donName)
 			}
-			if !proto.Equal(capCfg, &capabilitiespb.CapabilityConfig{SpecConfig: capCfg.GetSpecConfig()}) {
-				return fmt.Errorf("dons[%q].capabilities[%q]: only spec_config is supported", donName, capID)
+			// OCR3 config remains on-chain.
+			allowed := &capabilitiespb.CapabilityConfig{SpecConfig: capCfg.GetSpecConfig(), MethodConfigs: capCfg.GetMethodConfigs(), LocalOnly: capCfg.GetLocalOnly()}
+			if !proto.Equal(capCfg, allowed) {
+				return fmt.Errorf("dons[%q].capabilities[%q]: only spec_config, method_configs and local_only are supported", donName, capID)
 			}
 			if _, err := SpecConfigMap(capCfg.GetSpecConfig()); err != nil {
 				return fmt.Errorf("dons[%q].capabilities[%q]: invalid spec_config: %w", donName, capID, err)
 			}
+			if _, err := MethodConfigsFromProto(capCfg.GetMethodConfigs()); err != nil {
+				return fmt.Errorf("dons[%q].capabilities[%q]: invalid method_configs: %w", donName, capID, err)
+			}
 		}
+	}
+	return nil
+}
+
+// MethodConfigsFromProto converts validated offchain method configs using the same field
+// mapping as the on-chain registry converter. An unset remote_config is rejected in both paths.
+func MethodConfigsFromProto(in map[string]*capabilitiespb.CapabilityMethodConfig) (map[string]capabilities.CapabilityMethodConfig, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make(map[string]capabilities.CapabilityMethodConfig, len(in))
+	for method, mc := range in {
+		if method == "" {
+			return nil, errors.New("empty method name")
+		}
+		if err := validateMethodConfig(mc); err != nil {
+			return nil, fmt.Errorf("method %q: %w", method, err)
+		}
+		var config capabilities.CapabilityMethodConfig
+		switch remoteCfg := mc.GetRemoteConfig().(type) {
+		case *capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig:
+			rt := remoteCfg.RemoteTriggerConfig
+			config = capabilities.CapabilityMethodConfig{
+				RemoteTriggerConfig: &capabilities.RemoteTriggerConfig{
+					RegistrationRefresh:     rt.GetRegistrationRefresh().AsDuration(),
+					RegistrationExpiry:      rt.GetRegistrationExpiry().AsDuration(),
+					MinResponsesToAggregate: rt.GetMinResponsesToAggregate(),
+					MessageExpiry:           rt.GetMessageExpiry().AsDuration(),
+					MaxBatchSize:            rt.GetMaxBatchSize(),
+					BatchCollectionPeriod:   rt.GetBatchCollectionPeriod().AsDuration(),
+				},
+			}
+		case *capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig:
+			re := remoteCfg.RemoteExecutableConfig
+			config = capabilities.CapabilityMethodConfig{
+				RemoteExecutableConfig: &capabilities.RemoteExecutableConfig{
+					TransmissionSchedule:      capabilities.TransmissionSchedule(re.GetTransmissionSchedule()),
+					DeltaStage:                re.GetDeltaStage().AsDuration(),
+					RequestTimeout:            re.GetRequestTimeout().AsDuration(),
+					ServerMaxParallelRequests: re.GetServerMaxParallelRequests(),
+					RequestHasherType:         capabilities.RequestHasherType(re.GetRequestHasherType()),
+					MinResponsesToAggregate:   re.GetMinResponsesToAggregate(),
+				},
+			}
+		default:
+			return nil, fmt.Errorf("method %q: unknown method config type %T", method, mc.GetRemoteConfig())
+		}
+		if agg := mc.GetAggregatorConfig(); agg != nil {
+			config.AggregatorConfig = &capabilities.AggregatorConfig{
+				AggregatorType: capabilities.AggregatorType(agg.GetAggregatorType()),
+			}
+		}
+		out[method] = config
+	}
+	return out, nil
+}
+
+// validateMethodConfig checks values independently of the DON that will consume them. Trigger
+// zero durations retain the shims' defaults; executable configs must supply the positive
+// timeout and parallelism required by both sides of the don2don connection.
+func validateMethodConfig(mc *capabilitiespb.CapabilityMethodConfig) error {
+	if agg := mc.GetAggregatorConfig(); agg != nil {
+		if _, ok := capabilitiespb.AggregatorType_name[int32(agg.GetAggregatorType())]; !ok {
+			return fmt.Errorf("unknown aggregator_type %d", agg.GetAggregatorType())
+		}
+	}
+	switch remote := mc.GetRemoteConfig().(type) {
+	case nil:
+		return errors.New("remote_config must be set")
+	case *capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig:
+		rt := remote.RemoteTriggerConfig
+		for _, field := range []struct {
+			name  string
+			value *durationpb.Duration
+		}{
+			{"registration_refresh", rt.GetRegistrationRefresh()},
+			{"registration_expiry", rt.GetRegistrationExpiry()},
+			{"message_expiry", rt.GetMessageExpiry()},
+			{"batch_collection_period", rt.GetBatchCollectionPeriod()},
+		} {
+			if err := validateMethodDuration(field.name, field.value); err != nil {
+				return err
+			}
+		}
+	case *capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig:
+		re := remote.RemoteExecutableConfig
+		if _, ok := capabilitiespb.TransmissionSchedule_name[int32(re.GetTransmissionSchedule())]; !ok {
+			return fmt.Errorf("unknown transmission_schedule %d", re.GetTransmissionSchedule())
+		}
+		if _, ok := capabilitiespb.RequestHasherType_name[int32(re.GetRequestHasherType())]; !ok {
+			return fmt.Errorf("unknown request_hasher_type %d", re.GetRequestHasherType())
+		}
+		if err := validateMethodDuration("delta_stage", re.GetDeltaStage()); err != nil {
+			return err
+		}
+		if err := validateMethodDuration("request_timeout", re.GetRequestTimeout()); err != nil {
+			return err
+		}
+		if re.GetRequestTimeout().AsDuration() <= 0 {
+			return errors.New("request_timeout must be positive")
+		}
+		if re.GetServerMaxParallelRequests() == 0 {
+			return errors.New("server_max_parallel_requests must be positive")
+		}
+	default:
+		return fmt.Errorf("unknown method config type %T", mc.GetRemoteConfig())
+	}
+	return nil
+}
+
+func validateMethodDuration(name string, value *durationpb.Duration) error {
+	if value == nil {
+		return nil
+	}
+	if err := value.CheckValid(); err != nil {
+		return fmt.Errorf("invalid %s: %w", name, err)
+	}
+	d := value.AsDuration()
+	if d < 0 {
+		return fmt.Errorf("%s must not be negative", name)
+	}
+	// AsDuration saturates on overflow. Reject values that would silently change in conversion.
+	roundTrip := durationpb.New(d)
+	if roundTrip.Seconds != value.Seconds || roundTrip.Nanos != value.Nanos {
+		return fmt.Errorf("%s exceeds the Go duration range", name)
 	}
 	return nil
 }
