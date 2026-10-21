@@ -221,6 +221,7 @@ jobs:
         if: steps.cmd.outputs.type == 'run' && steps.verify.outputs.unverified == 'false'
         uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
         with:
+          gati-version: v2
           aws-role-arn: ${{ secrets.CHAINLINK_CRE_DOCS_GATI_AWS_ROLE_ARN }}
           aws-lambda-url: ${{ secrets.CHAINLINK_CRE_DOCS_GATI_AWS_LAMBDA_URL }}
           aws-region: us-west-2

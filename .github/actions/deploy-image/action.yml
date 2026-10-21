@@ -59,6 +59,7 @@ runs:
       id: setup-github-token
       uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
       with:
+        gati-version: v2
         aws-role-arn: ${{ inputs.aws-role-arn }}
         aws-lambda-url: ${{ inputs.aws-lambda-url }}
         aws-region: ${{ inputs.aws-region }}
