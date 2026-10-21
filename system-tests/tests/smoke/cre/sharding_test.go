@@ -60,7 +60,9 @@ func ExecuteShardingTestWithCronTrigger(t *testing.T, testEnv *ttypes.TestEnviro
 	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: "*/30 * * * * *",
 	}
-	const numWorkflows = 5
+	// Workflow IDs depend on the compiled binary, so which shard each one hashes to changes with
+	// the toolchain. Use enough workflows that landing all of them on one shard is negligible.
+	const numWorkflows = 16
 	workflowNames := make([]string, numWorkflows)
 	for i := range numWorkflows {
 		workflowNames[i] = fmt.Sprintf("shardtest-cron-%d", i)
