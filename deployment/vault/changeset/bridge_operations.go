@@ -131,8 +131,9 @@ type BridgeCCIPSequenceOutput struct {
 	Description           string                  `json:"description"`
 }
 
-// BridgeCCIPSequence builds one MCMS timelock proposal (or two, in test mode) that bridge
-// native/wrapped-native value from the source Timelock via CCIP.
+// BridgeCCIPSequence builds one MCMS timelock proposal (or two, in test mode) that bridges
+// native/wrapped-native value from one or more source Timelocks via CCIP. Multiple sources are
+// bundled into a single proposal (one batch per source chain), so signers sign once.
 var BridgeCCIPSequence = operations.NewSequence(
 	"bridge-ccip-sequence",
 	semver.MustParse("1.0.0"),
@@ -141,16 +142,21 @@ var BridgeCCIPSequence = operations.NewSequence(
 		cfg := input.Config
 		out := BridgeCCIPSequenceOutput{Description: cfg.Description}
 
+		sources := cfg.NormalizedSources()
+		if len(sources) == 0 {
+			return BridgeCCIPSequenceOutput{}, errors.New("no sources configured")
+		}
+
 		if cfg.TestNeeded {
-			testTransfers, remainderTransfers, err := splitTransfersForTest(cfg.Transfers)
+			testSources, remainderSources, err := splitSourcesForTest(sources)
 			if err != nil {
 				return BridgeCCIPSequenceOutput{}, err
 			}
-			testProposal, err := buildBridgeProposal(b, deps, cfg, testTransfers, bridgeLabelTest)
+			testProposal, err := buildBridgeProposal(b, deps, cfg, testSources, bridgeLabelTest)
 			if err != nil {
 				return BridgeCCIPSequenceOutput{}, fmt.Errorf("test proposal: %w", err)
 			}
-			remainderProposal, err := buildBridgeProposal(b, deps, cfg, remainderTransfers, bridgeLabelRemainder)
+			remainderProposal, err := buildBridgeProposal(b, deps, cfg, remainderSources, bridgeLabelRemainder)
 			if err != nil {
 				return BridgeCCIPSequenceOutput{}, fmt.Errorf("remainder proposal: %w", err)
 			}
@@ -158,7 +164,7 @@ var BridgeCCIPSequence = operations.NewSequence(
 			return out, nil
 		}
 
-		proposal, err := buildBridgeProposal(b, deps, cfg, cfg.Transfers, bridgeLabelFull)
+		proposal, err := buildBridgeProposal(b, deps, cfg, sources, bridgeLabelFull)
 		if err != nil {
 			return BridgeCCIPSequenceOutput{}, err
 		}
@@ -166,6 +172,24 @@ var BridgeCCIPSequence = operations.NewSequence(
 		return out, nil
 	},
 )
+
+// splitSourcesForTest splits every source's transfers into a test set (each amount = TestBridgeAmount)
+// and a remainder set (each amount = amount - TestBridgeAmount), preserving per-source token type.
+func splitSourcesForTest(sources []types.CCIPBridgeSource) (test, remainder []types.CCIPBridgeSource, err error) {
+	for _, s := range sources {
+		testTransfers, remainderTransfers, err := splitTransfersForTest(s.Transfers)
+		if err != nil {
+			return nil, nil, fmt.Errorf("source %d: %w", s.FromChainSelector, err)
+		}
+		testSource := s
+		testSource.Transfers = testTransfers
+		remainderSource := s
+		remainderSource.Transfers = remainderTransfers
+		test = append(test, testSource)
+		remainder = append(remainder, remainderSource)
+	}
+	return test, remainder, nil
+}
 
 // splitTransfersForTest returns a test slice (each amount = TestBridgeAmount) and a remainder slice
 // (each amount = amount - TestBridgeAmount). Requires amount > TestBridgeAmount for every transfer.
@@ -186,136 +210,154 @@ func splitTransfersForTest(transfers []types.CCIPBridgeTransfer) (test, remainde
 	return test, remainder, nil
 }
 
-// buildBridgeProposal resolves source contracts, quotes CCIP fees, performs balance preconditions,
-// assembles the (deposit?/approve/ccipSend) timelock batch on the source chain, and builds the proposal.
+// buildBridgeProposal builds a single MCMS proposal covering every source: for each source it resolves
+// the Timelock/MCM/WETH/Router, quotes CCIP fees, checks balances, and assembles one batch of
+// (deposit?/approve/ccipSend) transactions on that source chain.
 func buildBridgeProposal(
 	b operations.Bundle,
 	deps VaultDeps,
 	cfg types.CCIPBridgeConfig,
-	transfers []types.CCIPBridgeTransfer,
+	sources []types.CCIPBridgeSource,
 	label string,
 ) (*mcms.TimelockProposal, error) {
 	ctx := b.GetContext()
-	src := cfg.FromChainSelector
-	sourceChain := deps.Chain
-
-	timelockAddr, err := GetContractAddress(deps.DataStore, src, commontypes.RBACTimelock)
-	if err != nil {
-		return nil, fmt.Errorf("timelock not found for source chain %d: %w", src, err)
-	}
-	mcmType := commontypes.ProposerManyChainMultisig
-	if cfg.MCMSConfig.MCMSAction == mcmstypes.TimelockActionBypass {
-		mcmType = commontypes.BypasserManyChainMultisig
-	}
-	mcmAddr, err := GetContractAddress(deps.DataStore, src, mcmType)
-	if err != nil {
-		return nil, fmt.Errorf("%s not found for source chain %d: %w", mcmType, src, err)
-	}
-	wethAddrStr, err := GetContractAddress(deps.DataStore, src, WETHContractType)
-	if err != nil {
-		return nil, fmt.Errorf("WETH not found for source chain %d: %w", src, err)
-	}
-	routerAddrStr, err := GetContractAddress(deps.DataStore, src, RouterContractType)
-	if err != nil {
-		return nil, fmt.Errorf("router not found for source chain %d: %w", src, err)
-	}
-
-	wethAddr := common.HexToAddress(wethAddrStr)
-	routerAddr := common.HexToAddress(routerAddrStr)
-	timelockAddress := common.HexToAddress(timelockAddr)
-
-	routerContract, err := router.NewRouter(routerAddr, sourceChain.Client)
-	if err != nil {
-		return nil, fmt.Errorf("failed to bind router %s: %w", routerAddr.Hex(), err)
-	}
+	evmChains := deps.Environment.BlockChains.EVMChains()
 
 	gasLimit := cfg.GasLimit
 	if gasLimit == 0 {
 		gasLimit = defaultBridgeGasLimit
 	}
+	mcmType := commontypes.ProposerManyChainMultisig
+	if cfg.MCMSConfig.MCMSAction == mcmstypes.TimelockActionBypass {
+		mcmType = commontypes.BypasserManyChainMultisig
+	}
 
-	var txs []mcmstypes.Transaction
-	totalFee := big.NewInt(0)
-	totalAmount := big.NewInt(0)
+	var batches []mcmstypes.BatchOperation
+	timelockAddressByChain := make(map[uint64]string, len(sources))
+	mcmAddressByChain := make(map[uint64]string, len(sources))
+	inspectorPerChain := make(map[uint64]mcmssdk.Inspector, len(sources))
 
-	for _, t := range transfers {
-		esrStr, err := GetContractAddress(deps.DataStore, t.ToChainSelector, EtherSenderReceiverContractType)
-		if err != nil {
-			return nil, fmt.Errorf("EtherSenderReceiver not found for dest chain %d: %w", t.ToChainSelector, err)
+	totalAmountAll := big.NewInt(0)
+	totalFeeAll := big.NewInt(0)
+
+	for _, s := range sources {
+		src := s.FromChainSelector
+		sourceChain, ok := evmChains[src]
+		if !ok {
+			return nil, fmt.Errorf("source chain %d not found in environment", src)
 		}
-		esrAddr := common.HexToAddress(esrStr)
-		recipient := common.HexToAddress(t.DestinationAddress)
 
-		msg, err := buildCCIPMessage(wethAddr, esrAddr, recipient, t.Amount, gasLimit)
+		timelockAddr, err := GetContractAddress(deps.DataStore, src, commontypes.RBACTimelock)
 		if err != nil {
+			return nil, fmt.Errorf("timelock not found for source chain %d: %w", src, err)
+		}
+		mcmAddr, err := GetContractAddress(deps.DataStore, src, mcmType)
+		if err != nil {
+			return nil, fmt.Errorf("%s not found for source chain %d: %w", mcmType, src, err)
+		}
+		wethAddrStr, err := GetContractAddress(deps.DataStore, src, WETHContractType)
+		if err != nil {
+			return nil, fmt.Errorf("WETH not found for source chain %d: %w", src, err)
+		}
+		routerAddrStr, err := GetContractAddress(deps.DataStore, src, RouterContractType)
+		if err != nil {
+			return nil, fmt.Errorf("router not found for source chain %d: %w", src, err)
+		}
+
+		wethAddr := common.HexToAddress(wethAddrStr)
+		routerAddr := common.HexToAddress(routerAddrStr)
+		timelockAddress := common.HexToAddress(timelockAddr)
+
+		routerContract, err := router.NewRouter(routerAddr, sourceChain.Client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to bind router %s: %w", routerAddr.Hex(), err)
+		}
+
+		var txs []mcmstypes.Transaction
+		totalFee := big.NewInt(0)
+		totalAmount := big.NewInt(0)
+
+		for _, t := range s.Transfers {
+			esrStr, err := GetContractAddress(deps.DataStore, t.ToChainSelector, EtherSenderReceiverContractType)
+			if err != nil {
+				return nil, fmt.Errorf("EtherSenderReceiver not found for dest chain %d: %w", t.ToChainSelector, err)
+			}
+			esrAddr := common.HexToAddress(esrStr)
+			recipient := common.HexToAddress(t.DestinationAddress)
+
+			msg, err := buildCCIPMessage(wethAddr, esrAddr, recipient, t.Amount, gasLimit)
+			if err != nil {
+				return nil, err
+			}
+
+			supported, err := routerContract.IsChainSupported(&bind.CallOpts{Context: ctx}, t.ToChainSelector)
+			if err != nil {
+				return nil, fmt.Errorf("isChainSupported(%d): %w", t.ToChainSelector, err)
+			}
+			if !supported {
+				return nil, fmt.Errorf("router on source chain %d does not support destination %d", src, t.ToChainSelector)
+			}
+
+			fee, err := routerContract.GetFee(&bind.CallOpts{Context: ctx}, t.ToChainSelector, msg)
+			if err != nil {
+				return nil, fmt.Errorf("getFee(%d): %w", t.ToChainSelector, err)
+			}
+			feeWithBuffer := bufferedFee(fee)
+			if t.MaxCCIPFee != nil && feeWithBuffer.Cmp(t.MaxCCIPFee) > 0 {
+				return nil, fmt.Errorf("dest %d: buffered fee %s exceeds max_ccip_fee %s", t.ToChainSelector, feeWithBuffer, t.MaxCCIPFee)
+			}
+
+			// native: wrap the amount first (Timelock holds native). wrappedNative: skip (holds WETH).
+			if s.TokenType == types.TokenTypeNative {
+				depositData, err := wethABI.Pack("deposit")
+				if err != nil {
+					return nil, fmt.Errorf("failed to pack deposit: %w", err)
+				}
+				depositTx, err := cldfproposalutils.TransactionForChain(src, wethAddr.Hex(), depositData, t.Amount, "WETHDeposit", []string{"vault", "bridge", "wrap"})
+				if err != nil {
+					return nil, fmt.Errorf("failed to build deposit tx: %w", err)
+				}
+				txs = append(txs, depositTx)
+			}
+
+			approveData, err := wethABI.Pack("approve", routerAddr, t.Amount)
+			if err != nil {
+				return nil, fmt.Errorf("failed to pack approve: %w", err)
+			}
+			approveTx, err := cldfproposalutils.TransactionForChain(src, wethAddr.Hex(), approveData, big.NewInt(0), "WETHApprove", []string{"vault", "bridge", "approve"})
+			if err != nil {
+				return nil, fmt.Errorf("failed to build approve tx: %w", err)
+			}
+			txs = append(txs, approveTx)
+
+			sendData, err := routerABI.Pack("ccipSend", t.ToChainSelector, msg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to pack ccipSend: %w", err)
+			}
+			sendTx, err := cldfproposalutils.TransactionForChain(src, routerAddr.Hex(), sendData, feeWithBuffer, "CCIPSend", []string{"vault", "bridge", "ccip-send"})
+			if err != nil {
+				return nil, fmt.Errorf("failed to build ccipSend tx: %w", err)
+			}
+			txs = append(txs, sendTx)
+
+			totalFee.Add(totalFee, feeWithBuffer)
+			totalAmount.Add(totalAmount, t.Amount)
+		}
+
+		if err := assertTimelockBalances(ctx, sourceChain.Client, s.TokenType, timelockAddress, wethAddr, totalAmount, totalFee, src); err != nil {
 			return nil, err
 		}
 
-		supported, err := routerContract.IsChainSupported(&bind.CallOpts{Context: ctx}, t.ToChainSelector)
-		if err != nil {
-			return nil, fmt.Errorf("isChainSupported(%d): %w", t.ToChainSelector, err)
-		}
-		if !supported {
-			return nil, fmt.Errorf("router on source chain %d does not support destination %d", src, t.ToChainSelector)
-		}
-
-		fee, err := routerContract.GetFee(&bind.CallOpts{Context: ctx}, t.ToChainSelector, msg)
-		if err != nil {
-			return nil, fmt.Errorf("getFee(%d): %w", t.ToChainSelector, err)
-		}
-		feeWithBuffer := bufferedFee(fee)
-		if t.MaxCCIPFee != nil && feeWithBuffer.Cmp(t.MaxCCIPFee) > 0 {
-			return nil, fmt.Errorf("dest %d: buffered fee %s exceeds max_ccip_fee %s", t.ToChainSelector, feeWithBuffer, t.MaxCCIPFee)
-		}
-
-		// native: wrap the amount first (Timelock holds native). wrappedNative: skip (holds WETH).
-		if cfg.TokenType == types.TokenTypeNative {
-			depositData, err := wethABI.Pack("deposit")
-			if err != nil {
-				return nil, fmt.Errorf("failed to pack deposit: %w", err)
-			}
-			depositTx, err := cldfproposalutils.TransactionForChain(src, wethAddr.Hex(), depositData, t.Amount, "WETHDeposit", []string{"vault", "bridge", "wrap"})
-			if err != nil {
-				return nil, fmt.Errorf("failed to build deposit tx: %w", err)
-			}
-			txs = append(txs, depositTx)
-		}
-
-		approveData, err := wethABI.Pack("approve", routerAddr, t.Amount)
-		if err != nil {
-			return nil, fmt.Errorf("failed to pack approve: %w", err)
-		}
-		approveTx, err := cldfproposalutils.TransactionForChain(src, wethAddr.Hex(), approveData, big.NewInt(0), "WETHApprove", []string{"vault", "bridge", "approve"})
-		if err != nil {
-			return nil, fmt.Errorf("failed to build approve tx: %w", err)
-		}
-		txs = append(txs, approveTx)
-
-		sendData, err := routerABI.Pack("ccipSend", t.ToChainSelector, msg)
-		if err != nil {
-			return nil, fmt.Errorf("failed to pack ccipSend: %w", err)
-		}
-		sendTx, err := cldfproposalutils.TransactionForChain(src, routerAddr.Hex(), sendData, feeWithBuffer, "CCIPSend", []string{"vault", "bridge", "ccip-send"})
-		if err != nil {
-			return nil, fmt.Errorf("failed to build ccipSend tx: %w", err)
-		}
-		txs = append(txs, sendTx)
-
-		totalFee.Add(totalFee, feeWithBuffer)
-		totalAmount.Add(totalAmount, t.Amount)
+		timelockAddressByChain[src] = timelockAddr
+		mcmAddressByChain[src] = mcmAddr
+		inspectorPerChain[src] = mcmsevmsdk.NewInspector(sourceChain.Client)
+		batches = append(batches, mcmstypes.BatchOperation{
+			ChainSelector: mcmstypes.ChainSelector(src),
+			Transactions:  txs,
+		})
+		totalAmountAll.Add(totalAmountAll, totalAmount)
+		totalFeeAll.Add(totalFeeAll, totalFee)
 	}
-
-	if err := assertTimelockBalances(ctx, sourceChain.Client, cfg.TokenType, timelockAddress, wethAddr, totalAmount, totalFee, src); err != nil {
-		return nil, err
-	}
-
-	timelockAddressByChain := map[uint64]string{src: timelockAddr}
-	mcmAddressByChain := map[uint64]string{src: mcmAddr}
-	inspectorPerChain := map[uint64]mcmssdk.Inspector{src: mcmsevmsdk.NewInspector(sourceChain.Client)}
-	batches := []mcmstypes.BatchOperation{{
-		ChainSelector: mcmstypes.ChainSelector(src),
-		Transactions:  txs,
-	}}
 
 	description := cfg.Description
 	if description == "" {
@@ -338,10 +380,9 @@ func buildBridgeProposal(
 
 	b.Logger.Infow("Built CCIP bridge proposal",
 		"label", label,
-		"source", src,
-		"destinations", len(transfers),
-		"total_amount_wei", totalAmount.String(),
-		"total_buffered_fee_wei", totalFee.String(),
+		"sources", len(sources),
+		"total_amount_wei", totalAmountAll.String(),
+		"total_buffered_fee_wei", totalFeeAll.String(),
 		"operations", len(proposal.Operations))
 
 	return proposal, nil
