@@ -4,6 +4,12 @@
 
 ### Patch Changes
 
+- [#24042](https://github.com/smartcontractkit/chainlink/pull/24042) [`eb37531`](https://github.com/smartcontractkit/chainlink/commit/eb375317a47ea771c2d6843f683a1eade46fe9dd) - #internal Dockerfile: drop apt version pins so the image takes Ubuntu's current ca-certificates (20260816ubuntu0.24.04.1, eMudhra CAs removed). The pinned 20260601 bundle and the pinned curl and jq builds are no longer in the archive.
+
+## 2.62.3
+
+### Patch Changes
+
 - [#23801](https://github.com/smartcontractkit/chainlink/pull/23801) [`420e219`](https://github.com/smartcontractkit/chainlink/commit/420e219ba1217cdf4251744d35eef649b0a8a8fc) - #updated observation cache TTL and bridge cache-fallback test coverage
 
 - [#23801](https://github.com/smartcontractkit/chainlink/pull/23801) [`5afb3c5`](https://github.com/smartcontractkit/chainlink/commit/5afb3c55c1ea148b7011d224d23367f18ade54db) - Removing deprecated Cosmos support #nops #removed
