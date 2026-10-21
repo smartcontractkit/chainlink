@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.23-bullseye as buildgo
+FROM golang:1.23-bookworm as buildgo
 RUN go version
 WORKDIR /chainlink
 
@@ -39,7 +39,7 @@ RUN mkdir /chainlink-starknet
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer | xargs -I % ln -s % /chainlink-starknet/relayer
 
 # Build image: Plugins
-FROM golang:1.23-bullseye as buildplugins
+FROM golang:1.23-bookworm as buildplugins
 RUN go version
 
 WORKDIR /chainlink-feeds
@@ -60,7 +60,7 @@ RUN go install ./pkg/chainlink/cmd/chainlink-starknet
 
 
 # Final image: ubuntu with chainlink binary
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND noninteractive
