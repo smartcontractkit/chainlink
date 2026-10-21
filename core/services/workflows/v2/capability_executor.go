@@ -301,6 +301,34 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}, nil
 }
 
+// GetSecrets wraps the embedded SecretsFetcher so a Vault get-secrets call is
+// observable in the CRE UI as a capability execution step, matching the events
+// the engine already emits for other capability calls (see callCapability).
+// One Started/Finished pair is emitted per batch call; a failed call finishes as
+// errored with the returned error.
+func (c *ExecutionHelper) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+	stepRef := strconv.FormatInt(int64(request.GetCallbackId()), 10)
+	labels := c.base.eventLabels()
+
+	_ = events.EmitCapabilityStartedEvent(
+		ctx, labels, c.WorkflowExecutionID,
+		vaultcommon.CapabilityID, stepRef, vaultcommon.MethodGetSecrets,
+	)
+
+	resp, err := c.SecretsFetcher.GetSecrets(ctx, request)
+
+	status := store.StatusCompleted
+	if err != nil {
+		status = store.StatusErrored
+	}
+	_ = events.EmitCapabilityFinishedEvent(
+		ctx, labels, c.WorkflowExecutionID,
+		vaultcommon.CapabilityID, stepRef, status, vaultcommon.MethodGetSecrets, err,
+	)
+
+	return resp, err
+}
+
 func (c *ExecutionHelper) GetWorkflowExecutionID() string {
 	return c.WorkflowExecutionID
 }
