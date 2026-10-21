@@ -86,7 +86,7 @@ func decodeCapabilityExecutionFinished(t *testing.T, observer beholdertest.Obser
 // any other capability call.
 //
 // NewObserver mutates process-global beholder state, so this test must not be parallel.
-func TestExecutionHelper_GetSecretsEmitsCapabilityExecutionEvents(t *testing.T) {
+func TestExecutionHelper_GetSecretsEmitsCapabilityExecutionEvents(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
 	observer := beholdertest.NewObserver(t)
 
 	const executionID = "exec-1"
@@ -120,7 +120,7 @@ func TestExecutionHelper_GetSecretsEmitsCapabilityExecutionEvents(t *testing.T) 
 // visible in the CRE UI.
 //
 // NewObserver mutates process-global beholder state, so this test must not be parallel.
-func TestExecutionHelper_GetSecretsEmitsErroredOnFailure(t *testing.T) {
+func TestExecutionHelper_GetSecretsEmitsErroredOnFailure(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
 	observer := beholdertest.NewObserver(t)
 
 	wantErr := errors.New("vault unavailable")
@@ -140,7 +140,7 @@ func TestExecutionHelper_GetSecretsEmitsErroredOnFailure(t *testing.T) {
 // so confidential workflows surface in the CRE UI too.
 //
 // NewObserver mutates process-global beholder state, so this test must not be parallel.
-func TestExecutionHelper_GetRawSecretsResponseEmitsCapabilityExecutionEvents(t *testing.T) {
+func TestExecutionHelper_GetRawSecretsResponseEmitsCapabilityExecutionEvents(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
 	observer := beholdertest.NewObserver(t)
 
 	const executionID = "exec-tee"
@@ -170,7 +170,7 @@ func TestExecutionHelper_GetRawSecretsResponseEmitsCapabilityExecutionEvents(t *
 // failed confidential get-secrets call finishes as errored with the returned error.
 //
 // NewObserver mutates process-global beholder state, so this test must not be parallel.
-func TestExecutionHelper_GetRawSecretsResponseEmitsErroredOnFailure(t *testing.T) {
+func TestExecutionHelper_GetRawSecretsResponseEmitsErroredOnFailure(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
 	observer := beholdertest.NewObserver(t)
 
 	wantErr := errors.New("vault unavailable")
