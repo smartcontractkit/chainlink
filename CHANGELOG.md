@@ -1,5 +1,40 @@
 # Changelog Chainlink Core
 
+## 2.70.0
+
+### Minor Changes
+
+- [#23982](https://github.com/smartcontractkit/chainlink/pull/23982) [`e20e6a5`](https://github.com/smartcontractkit/chainlink/commit/e20e6a5b6231a4ee885e032e45aacfb671912be6) - Minor bump to start next version
+
+- [#23824](https://github.com/smartcontractkit/chainlink/pull/23824) [`7996394`](https://github.com/smartcontractkit/chainlink/commit/79963940158af5bdc717195f9f13e478335043d8) - #added Offchain capabilities registry: `cresettings` jobs accept `config_type = "capabilities_registry"` in their `settings` TOML, with the versioned `OffchainCapabilitiesRegistry` proto-JSON payload under `offchain_config` (`domain`, `env`, `version`, and per-DON `capabilities` keyed by on-chain DON name; only `spec_config` is supported). Unknown payload fields are rejected and versions must increase. With `[Capabilities.Local] UseOffchainRegistry = true` (default `false`), each capability is launched with the offchain `spec_config` for its (DON, capability) only; the on-chain `spec_config` is ignored (a capability with no offchain entry gets an empty config), and local capabilities are not reconciled until a payload is applied. Offchain-only updates reconfigure affected capabilities. At most one `capabilities_registry` job may be active; deleting it keeps the last payload applied. Emits `platform_cap_config_applied_version`, `platform_cap_config_validation_errors_total` and `platform_offchain_registry_divergences`.
+
+- [#23913](https://github.com/smartcontractkit/chainlink/pull/23913) [`11943e5`](https://github.com/smartcontractkit/chainlink/commit/11943e57b2800365c81addc0d5f691ce73e597aa) - #added Offchain capabilities registry `method_configs` cutover: with `[Capabilities.Local] UseOffchainRegistry = true`, each capability's Don2Don `method_configs` replace the complete on-chain method map when that capability is present offchain (omitted methods are removed; capabilities/DONs absent offchain are unchanged). Payloads carrying `method_configs` are validated at ingestion, and the cross-validation `mismatch` divergence now also covers method_configs changes. Gate off (default) or no payload: behavior unchanged.
+  #fixed Fixed a lost-wakeup race in the workflow DON notifier (`donNotifier.Subscribe`): a `NotifyDonSet` arriving between a subscriber's initial value check and its channel registration was missed entirely, leaving the subscriber (workflow engines, shard failover manager, or `WaitForDon` callers) blocked indefinitely. The subscriber channel is now registered before the current value is read, so a concurrent notify is either delivered by the broadcast or observed by the read.
+
+### Patch Changes
+
+- [#23958](https://github.com/smartcontractkit/chainlink/pull/23958) [`eade466`](https://github.com/smartcontractkit/chainlink/commit/eade4663b30c31c9b72c0d21e9e426b2c322c216) - #bugfix Standard capabilities and registry-launched OCR2 plugins (DON Time) launched with a Capabilities Registry OCR config now match multichain signers covering several chain families (e.g. EVM + Solana + Aptos), signing with every matched family's OCR key bundle and using the transmitter paired with the node's signer.
+
+- [#23916](https://github.com/smartcontractkit/chainlink/pull/23916) [`8555f50`](https://github.com/smartcontractkit/chainlink/commit/8555f50d2c907f23811c3b772a15c506eeaff670) - #bugfix wrap duplicate-key Import errors with ErrKeyExists for the Solana, Stellar, Starknet, Sui, TON and Tron keystores, so nodes that import those keys from config can restart against a persisted keystore
+
+- [#23996](https://github.com/smartcontractkit/chainlink/pull/23996) [`4251278`](https://github.com/smartcontractkit/chainlink/commit/4251278afbac3464086c3076850c70796180fc10) - #bugfix Offchain capabilities registry: a workflow DON that is also a capability DON no longer loses its offchain `spec_config` as an ambiguous DON name.
+
+- [#24011](https://github.com/smartcontractkit/chainlink/pull/24011) [`a3110c7`](https://github.com/smartcontractkit/chainlink/commit/a3110c740e528bc6edc64391eeb584cce5459d42) - #bugfix Sharded workflow DON failover now replays cached trigger events with the workflow's CRE tenant on the context, so replays no longer fail with `missing tenant for scope: workflow`.
+
+## 2.69.0
+
+### Minor Changes
+
+- [#23931](https://github.com/smartcontractkit/chainlink/pull/23931) [`29695ba`](https://github.com/smartcontractkit/chainlink/commit/29695ba94b9b1274eff068767d6a436fff5e1def) - Remove VRF v2 support including the v2 coordinator, VRFOwner force-fulfillment and custom reverted-txns pipeline, the legacy `vrfv2` pipeline task, and the v2 blockhash store / block header feeder coordinators. Migrate to VRF v2 Plus. #removed #breaking_change
+
+- [#23918](https://github.com/smartcontractkit/chainlink/pull/23918) [`10ffbd7`](https://github.com/smartcontractkit/chainlink/commit/10ffbd7327faa00d194e09779a3ccb23d9a623b7) - Minor bump to start next version
+
+- [#23927](https://github.com/smartcontractkit/chainlink/pull/23927) [`81a8d1b`](https://github.com/smartcontractkit/chainlink/commit/81a8d1b3ef12b4fdb0304baa64db05d622fd71ca) - #added `[Capabilities.Local] UseOffchainRegistry` config flag (default `false`), gating the offchain capabilities registry cutover. #removed the `[Capabilities.Local.Capabilities.<id>]` per-capability TOML table entirely, including the `Config` key/value overrides and `BinaryPathOverride`; capability config now comes from the on-chain registry (and, with the gate, the offchain registry), and the capability binary is always resolved from the capability ID.
+
+### Patch Changes
+
+- [#23956](https://github.com/smartcontractkit/chainlink/pull/23956) [`2bb6b97`](https://github.com/smartcontractkit/chainlink/commit/2bb6b975360ef69f71fe6af822c64acd345ba656) - #bugfix Registry-launched OCR instances now take their default bootstrappers from `[P2P.V2].DefaultBootstrappers` instead of `[Capabilities.Peering.V2].DefaultBootstrappers`. The confidential relay now signs responses with the key for `[P2P].PeerID` and no longer reads `[Capabilities.Peering].PeerID`.
+
 ## 2.68.0
 
 ### Minor Changes

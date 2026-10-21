@@ -131,16 +131,26 @@ func RegisterWithContract(
 	return workflowID, nil
 }
 
+// LinkOwner links the seth client's root key (key 0) as a workflow owner.
 func LinkOwner(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) error {
+	return LinkOwnerKey(sc, 0, workflowRegistryAddr, version)
+}
+
+// LinkOwnerKey links the seth key at keyNum as a workflow owner. It mirrors LinkOwner but
+// signs with and transacts from the given key, so tests can link an additional owner.
+func LinkOwnerKey(sc *seth.Client, keyNum int, workflowRegistryAddr common.Address, version *semver.Version) error {
 	if version == nil || version.Major() != 2 {
 		return fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
+	}
+	if keyNum < 0 || keyNum >= len(sc.Addresses) || keyNum >= len(sc.PrivateKeys) {
+		return fmt.Errorf("seth client has no key at index %d", keyNum)
 	}
 
 	validity := time.Now().UTC().Add(time.Hour * 24)
 	validityTimestamp := big.NewInt(validity.Unix())
 	defaultOrgID := 22
 	nonce := uuid.New().String()
-	workflowOwner := sc.MustGetRootKeyAddress().Hex()
+	workflowOwner := sc.Addresses[keyNum].Hex()
 	data := fmt.Sprintf("%s%d%s", workflowOwner, defaultOrgID, nonce)
 	hash := sha256.Sum256([]byte(data))
 	ownershipProof := hex.EncodeToString(hash[:])
@@ -159,7 +169,7 @@ func LinkOwner(sc *seth.Client, workflowRegistryAddr common.Address, version *se
 	messageDigest, err := PreparePayloadForSigning(
 		OwnershipProofSignaturePayload{
 			RequestType:              linkRequestType,
-			WorkflowOwnerAddress:     common.HexToAddress(workflowOwner),
+			WorkflowOwnerAddress:     sc.Addresses[keyNum],
 			ChainID:                  strconv.FormatInt(sc.ChainID, 10),
 			WorkflowRegistryContract: workflowRegistryAddr,
 			Version:                  typeAndVersion,
@@ -170,14 +180,14 @@ func LinkOwner(sc *seth.Client, workflowRegistryAddr common.Address, version *se
 		return fmt.Errorf("failed to prepare payload for signing: %w", err)
 	}
 
-	signature, err := crypto.Sign(messageDigest, sc.MustGetRootPrivateKey())
+	signature, err := crypto.Sign(messageDigest, sc.PrivateKeys[keyNum])
 	if err != nil {
 		return fmt.Errorf("failed to sign ownership proof: %w", err)
 	}
 
 	signature[64] += 27
 
-	_, err = sc.Decode(registry.LinkOwner(sc.NewTXOpts(), validityTimestamp, common.HexToHash(ownershipProof), signature))
+	_, err = sc.Decode(registry.LinkOwner(sc.NewTXKeyOpts(keyNum), validityTimestamp, common.HexToHash(ownershipProof), signature))
 	return err
 }
 

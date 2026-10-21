@@ -177,12 +177,12 @@ func getBootstrapURLs(dons *cre.Dons) ([]string, error) {
 		return nil, errors.New("no bootstrap node found in dons")
 	}
 
-	_, ocrPeeringCfg, err := cre.PeeringCfgs(bootstrap)
+	peeringCfg, err := cre.PeeringCfgs(bootstrap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peering configs: %w", err)
 	}
 
-	bootstrapURL := ocrPeeringCfg.OCRBootstrapperPeerID + "@" + ocrPeeringCfg.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)
+	bootstrapURL := peeringCfg.BootstrapperPeerID + "@" + peeringCfg.BootstrapperHost + ":" + strconv.Itoa(peeringCfg.Port)
 	return []string{bootstrapURL}, nil
 }
 
