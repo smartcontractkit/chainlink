@@ -365,7 +365,7 @@ func (s *secretsFetcher) getRawSecrets(ctx context.Context, request *sdkpb.GetSe
 
 	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "vaultRequestID", vaultRequestID, "metadata", metadata, "direct", vp.GetSecretsDirectly)
 	resps, err := s.executeGetSecrets(ctx, lggr, vaultCap, vp, metadata)
-	if !vp.GetSecretsDirectly || !vault.IsSecretVersionSkew(err) {
+	if !vp.GetSecretsDirectly || !errors.Is(err, vault.ErrSecretVersionSkew) {
 		return resps, err
 	}
 

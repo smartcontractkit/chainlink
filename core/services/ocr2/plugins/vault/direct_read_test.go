@@ -29,6 +29,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
+type decryptFunc func(encrypted []byte) ([]byte, error)
+
+func (f decryptFunc) Decrypt(encrypted []byte) ([]byte, error) { return f(encrypted) }
+
 type fakeReadTxn struct {
 	*kv
 	seqNr    uint64
@@ -108,7 +112,7 @@ func (f *directReadFixture) decrypt(t *testing.T, resp *vaultcommon.SecretRespon
 	require.NoError(t, err)
 	shares, err := vaultcrypto.SharesForKey(resp.GetData().GetEncryptedDecryptionKeyShares(), hex.EncodeToString(f.recipient.pub[:]))
 	require.NoError(t, err)
-	d := vaultcrypto.DecryptFunc(func(b []byte) ([]byte, error) {
+	d := decryptFunc(func(b []byte) ([]byte, error) {
 		out, ok := box.OpenAnonymous(nil, b, f.recipient.pub, f.recipient.priv)
 		if !ok {
 			return nil, errors.New("failed to open box")

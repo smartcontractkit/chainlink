@@ -116,7 +116,6 @@ func TestAggregator_SplitVersionsIsSkew(t *testing.T) {
 
 	_, err = a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "v1", 3)))
 	require.ErrorIs(t, err, vaultcommon.ErrSecretVersionSkew)
-	assert.True(t, vaultcommon.IsSecretVersionSkew(err))
 }
 
 func TestAggregator_ReturnsVaultPublicKey(t *testing.T) {
@@ -218,7 +217,7 @@ func TestAggregator_PeerErrors(t *testing.T) {
 		require.NoError(t, err)
 		_, err = a.OnError(p2ptypes.PeerID{}, "some other error")
 		require.ErrorIs(t, err, ErrNotEnoughMatchingResponses)
-		assert.False(t, vaultcommon.IsSecretVersionSkew(err))
+		assert.NotErrorIs(t, err, vaultcommon.ErrSecretVersionSkew)
 	})
 
 	t.Run("malformed responses count as errors", func(t *testing.T) {
