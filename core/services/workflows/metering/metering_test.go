@@ -94,6 +94,7 @@ var (
 	defaultLabels = map[string]string{
 		platform.KeyWorkflowOwner:       "accountId",
 		platform.KeyWorkflowID:          "workflowId",
+		platform.KeyWorkflowName:        "workflowName",
 		platform.KeyWorkflowVersion:     workflowV2,
 		platform.KeyWorkflowExecutionID: "workflowExecutionId",
 		platform.KeyDonID:               "42",
@@ -1042,7 +1043,7 @@ func Test_Report_FormatReport(t *testing.T) {
 		meteringReport := report.FormatReport()
 		require.Equal(t, &eventspb.WorkflowMetadata{
 			WorkflowOwner:           "accountId",
-			WorkflowName:            "workflowId",
+			WorkflowName:            "workflowName",
 			Version:                 workflowV2,
 			WorkflowID:              "workflowId",
 			WorkflowExecutionID:     "workflowExecutionId",

@@ -129,6 +129,8 @@ type EngineLimiters struct {
 	ConfidentialWorkflowsEnabled                limits.GateLimiter
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
 	ShardingFailoverEnabled                     limits.GateLimiter
+	TimeoutBasedFailover                        limits.GateLimiter
+	TimeoutBasedFailoverWindow                  limits.TimeLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
 
 	// newTriggerEventQueue builds a trigger event queue from the same factory and
@@ -296,6 +298,14 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
+	l.TimeoutBasedFailover, err = limits.MakeGateLimiter(lf, cresettings.Default.TimeoutBasedFailover)
+	if err != nil {
+		return err
+	}
+	l.TimeoutBasedFailoverWindow, err = lf.MakeTimeLimiter(cresettings.Default.TimeoutBasedFailoverWindow)
+	if err != nil {
+		return err
+	}
 	l.DONTimeRequestTimeout, err = lf.MakeTimeLimiter(cfg.DONTime.RequestTimeout)
 	if err != nil {
 		return err
@@ -395,8 +405,9 @@ func (l *EngineLimiters) Close() error {
 // engine evicting its workflow from these limiters never touches it.
 func (l *EngineLimiters) Admission() triggers.AdmissionLimiters {
 	return triggers.AdmissionLimiters{
-		NewTriggerEventQueue: l.newTriggerEventQueue,
-		ExecutionConcurrency: l.ExecutionConcurrency,
+		NewTriggerEventQueue:     l.newTriggerEventQueue,
+		TriggerEventQueueTimeout: l.TriggerEventQueueTimeout,
+		ExecutionConcurrency:     l.ExecutionConcurrency,
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 const (
 	// divergenceMissing: the offchain registry has no entry for the capability on its DON.
 	divergenceMissing = "missing"
-	// divergenceMismatch: the offchain spec_config differs from the on-chain one.
+	// divergenceMismatch: the offchain launch or remote config differs from the on-chain one.
 	divergenceMismatch = "mismatch"
 )
 
@@ -47,11 +47,11 @@ func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*ca
 				continue
 			}
 			// A mismatch means turning the gate on changes this capability: either the launch
-			// config (spec_config) or the don2don method configs would differ.
-			methodsDiffer := offchainMethodConfigsDiffer(onchain, offCap)
-			if cutover != legacy || methodsDiffer {
+			// config (spec_config) or the don2don config would differ.
+			remoteConfigDiffers := offchainRemoteConfigDiffers(onchain, offCap)
+			if cutover != legacy || remoteConfigDiffers {
 				out[divergenceMismatch]++
-				m.lggr.Debugw("Offchain config differs from on-chain", "donID", don.ID, "capID", capID, "specConfigDiffers", cutover != legacy, "methodConfigsDiffer", methodsDiffer)
+				m.lggr.Debugw("Offchain config differs from on-chain", "donID", don.ID, "capID", capID, "specConfigDiffers", cutover != legacy, "remoteConfigDiffers", remoteConfigDiffers)
 			}
 		}
 	}
@@ -112,8 +112,8 @@ func (m *localCapabilityManager) offchainDONNames(dons []registry.DON) map[uint3
 	return out
 }
 
-// offchainMethodConfigsDiffer compares the complete selected method maps.
-func offchainMethodConfigsDiffer(onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
+// offchainRemoteConfigDiffers compares LocalOnly and the complete selected method maps.
+func offchainRemoteConfigDiffers(onchain registry.CapabilityConfiguration, offCap *capabilitiespb.CapabilityConfig) bool {
 	offMethodConfigs, err := globalconfig.MethodConfigsFromProto(offCap.GetMethodConfigs())
 	if err != nil {
 		return false
@@ -121,6 +121,9 @@ func offchainMethodConfigsDiffer(onchain registry.CapabilityConfiguration, offCa
 	onchainCfg, err := onchain.Unmarshal()
 	if err != nil {
 		return false
+	}
+	if onchainCfg.LocalOnly != offCap.GetLocalOnly() {
+		return true
 	}
 	onMethodConfigs := onchainCfg.CapabilityMethodConfig
 	if len(onMethodConfigs) != len(offMethodConfigs) {
