@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.20.1
+
+### Patch Changes
+
+- [#24041](https://github.com/smartcontractkit/chainlink/pull/24041) [`f27aedf`](https://github.com/smartcontractkit/chainlink/commit/f27aedf45e24a5f92fc1fb112e86e78ef6f0bfcd) - #internal Rebuild on Ubuntu 24.04 with ca-certificates 20260816ubuntu0.24.04.1, which removes the compromised eMudhra intermediate CAs from the image trust store. Ubuntu 20.04 is out of standard support and does not receive the fix. Build stages move from Debian bullseye to bookworm because the bullseye security archive no longer serves packages. No code changes.
+
 ## 2.20.0 - 2025-01-30
 
 ### Minor Changes
