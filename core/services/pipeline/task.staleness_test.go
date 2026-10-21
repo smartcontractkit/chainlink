@@ -15,11 +15,13 @@ import (
 func TestStalenessTask(t *testing.T) {
 	t.Parallel()
 
-	now := time.Now().UnixMilli()
-	fresh := now - 1000  // 1 second old
-	stale := now - 30000 // 30 seconds old
-
+	// Samples are stamped at call time, right before Run reads the clock.
+	// Capturing the reference time before the parallel subtests start lets
+	// scheduler delay inflate the observed age and break the assertions.
 	makeSamples := func() []pipeline.Result {
+		now := time.Now()
+		fresh := now.Add(-time.Second).UnixMilli()      // 1 second old
+		stale := now.Add(-30 * time.Second).UnixMilli() // 30 seconds old
 		return []pipeline.Result{
 			{Value: pipeline.Sample{Source: "a", Value: decimal.NewFromInt(100), Weight: decimal.RequireFromString("0.5"), TsMs: fresh}},
 			{Value: pipeline.Sample{Source: "b", Value: decimal.NewFromInt(101), Weight: decimal.RequireFromString("0.3"), TsMs: stale}},
@@ -27,10 +29,10 @@ func TestStalenessTask(t *testing.T) {
 		}
 	}
 
-	// Helper running Run with a single sample at the given ageMs. Uses approximate
+	// Helper running Run with a single sample at the given age. Uses approximate
 	// bounds because the sample's TsMs is captured here but Run calls time.Now()
 	// itself, introducing sub-ms drift between capture and use.
-	runAt := func(method string, ageMs int64, extra ...func(*pipeline.StalenessTask)) (decimal.Decimal, error) {
+	runAt := func(method string, age time.Duration, extra ...func(*pipeline.StalenessTask)) (decimal.Decimal, error) {
 		t.Helper()
 		task := pipeline.StalenessTask{
 			BaseTask:  pipeline.NewBaseTask(0, "stale", nil, nil, 0),
@@ -41,7 +43,7 @@ func TestStalenessTask(t *testing.T) {
 		for _, f := range extra {
 			f(&task)
 		}
-		sampleAt := time.Now().UnixMilli() - ageMs
+		sampleAt := time.Now().Add(-age).UnixMilli()
 		sample := pipeline.Sample{Source: "x", Value: decimal.NewFromInt(1), Weight: decimal.NewFromInt(1), TsMs: sampleAt}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: sample}})
 		if out.Error != nil {
@@ -139,11 +141,11 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("decayThreshold drops samples below K", func(t *testing.T) {
 		t.Parallel()
-		subNow := time.Now().UnixMilli()
+		subNow := time.Now()
 		// 50s old: exp_cooldown T=10s, H=5s -> decay = 2^(-(50-10)/5) = 2^-8 = 0.0039 < 0.03
 		inputs := []pipeline.Result{
-			{Value: pipeline.Sample{Source: "fresh", Value: decimal.NewFromInt(100), Weight: decimal.NewFromInt(1), TsMs: subNow - 1000}},
-			{Value: pipeline.Sample{Source: "stale", Value: decimal.NewFromInt(101), Weight: decimal.NewFromInt(1), TsMs: subNow - 50000}},
+			{Value: pipeline.Sample{Source: "fresh", Value: decimal.NewFromInt(100), Weight: decimal.NewFromInt(1), TsMs: subNow.Add(-time.Second).UnixMilli()}},
+			{Value: pipeline.Sample{Source: "stale", Value: decimal.NewFromInt(101), Weight: decimal.NewFromInt(1), TsMs: subNow.Add(-50 * time.Second).UnixMilli()}},
 		}
 		task := pipeline.StalenessTask{
 			BaseTask:       pipeline.NewBaseTask(0, "stale", nil, nil, 0),
@@ -161,10 +163,10 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("decayThreshold keeps samples above K", func(t *testing.T) {
 		t.Parallel()
-		subNow := time.Now().UnixMilli()
+		subNow := time.Now()
 		// 15s old: exp_cooldown T=10s, H=5s -> decay = 2^-((15-10)/5) = 2^-1 = 0.5 > 0.03
 		inputs := []pipeline.Result{
-			{Value: pipeline.Sample{Source: "a", Value: decimal.NewFromInt(100), Weight: decimal.NewFromInt(1), TsMs: subNow - 15000}},
+			{Value: pipeline.Sample{Source: "a", Value: decimal.NewFromInt(100), Weight: decimal.NewFromInt(1), TsMs: subNow.Add(-15 * time.Second).UnixMilli()}},
 		}
 		task := pipeline.StalenessTask{
 			BaseTask:       pipeline.NewBaseTask(0, "stale", nil, nil, 0),
@@ -217,19 +219,19 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("exp fails without halfLife", func(t *testing.T) {
 		t.Parallel()
-		_, err := runAt("exp", 1000, func(t *pipeline.StalenessTask) { t.HalfLife = "" })
+		_, err := runAt("exp", time.Second, func(t *pipeline.StalenessTask) { t.HalfLife = "" })
 		require.Error(t, err)
 	})
 
 	t.Run("exp_cooldown fails without halfLife", func(t *testing.T) {
 		t.Parallel()
-		_, err := runAt("exp_cooldown", 15000, func(t *pipeline.StalenessTask) { t.HalfLife = "" })
+		_, err := runAt("exp_cooldown", 15*time.Second, func(t *pipeline.StalenessTask) { t.HalfLife = "" })
 		require.Error(t, err)
 	})
 
 	t.Run("unknown method returns error", func(t *testing.T) {
 		t.Parallel()
-		_, err := runAt("mystery", 1000)
+		_, err := runAt("mystery", time.Second)
 		require.Error(t, err)
 	})
 
@@ -244,14 +246,14 @@ func TestStalenessTask(t *testing.T) {
 	t.Run("exp at exact halfLife is 0.5", func(t *testing.T) {
 		t.Parallel()
 		// age=5s, halfLife=5s -> 2^-1 = 0.5
-		w, err := runAt("exp", 5000, func(t *pipeline.StalenessTask) { t.Threshold = "60s" })
+		w, err := runAt("exp", 5*time.Second, func(t *pipeline.StalenessTask) { t.Threshold = "60s" })
 		require.NoError(t, err)
 		assert.True(t, w.GreaterThan(decimal.RequireFromString("0.49")) && w.LessThan(decimal.RequireFromString("0.51")), "got %s", w)
 	})
 
 	t.Run("exp_cooldown at exact threshold is near 1", func(t *testing.T) {
 		t.Parallel()
-		w, err := runAt("exp_cooldown", 10000)
+		w, err := runAt("exp_cooldown", 10*time.Second)
 		require.NoError(t, err)
 		assert.True(t, w.GreaterThan(decimal.RequireFromString("0.99")), "got %s", w)
 	})
@@ -265,7 +267,7 @@ func TestStalenessTask(t *testing.T) {
 
 	t.Run("linear at exact threshold is 0", func(t *testing.T) {
 		t.Parallel()
-		w, err := runAt("linear", 10000)
+		w, err := runAt("linear", 10*time.Second)
 		require.NoError(t, err)
 		assert.True(t, w.IsZero(), "got %s", w)
 	})
@@ -279,7 +281,7 @@ func TestStalenessTask(t *testing.T) {
 			Threshold:      "10s",
 			DecayThreshold: "10",
 		}
-		sample := pipeline.Sample{Source: "x", Value: decimal.NewFromInt(1), Weight: decimal.NewFromInt(1), TsMs: now - 5000}
+		sample := pipeline.Sample{Source: "x", Value: decimal.NewFromInt(1), Weight: decimal.NewFromInt(1), TsMs: time.Now().Add(-5 * time.Second).UnixMilli()}
 		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: sample}})
 		require.NoError(t, out.Error)
 		res := out.Value.([]pipeline.Sample)
