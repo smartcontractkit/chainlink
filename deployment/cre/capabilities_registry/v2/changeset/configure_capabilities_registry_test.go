@@ -656,12 +656,6 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 	// Create capability configurations
 	configMap := map[string]any{
 		"defaultConfig": map[string]any{},
-		"remoteTriggerConfig": map[string]any{
-			"registrationRefresh":     "20s",
-			"registrationExpiry":      "60s",
-			"minResponsesToAggregate": 2,
-			"messageExpiry":           "120s",
-		},
 	}
 
 	DONs := []changeset.CapabilitiesRegistryNewDONParams{
@@ -807,12 +801,6 @@ func setupCapabilitiesRegistryTest(t *testing.T) *testFixture {
 	// Create capability configurations with readable config
 	configMap := map[string]any{
 		"defaultConfig": map[string]any{},
-		"remoteTriggerConfig": map[string]any{
-			"registrationRefresh":     "20s",
-			"registrationExpiry":      "60s",
-			"minResponsesToAggregate": 2,
-			"messageExpiry":           "120s",
-		},
 		"ocr3Configs": map[string]any{
 			"__default__": map[string]any{
 				"signers":               []any{"AQIDBA==", "BQYHCA=="},

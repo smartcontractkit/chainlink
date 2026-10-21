@@ -56,7 +56,7 @@ func NewLegacyChains(
 	}
 
 	// map with lazy initialization for the txm to access evm clients for different chain
-	var clientsByChainID = make(map[string]rollups.DAClient)
+	clientsByChainID := make(map[string]rollups.DAClient)
 	for i := range enabled {
 		cid := enabled[i].ChainID.ToInt()
 		opts := legacyevm.ChainRelayOpts{
@@ -75,7 +75,7 @@ func NewLegacyChains(
 		clientsByChainID[cid.String()] = chain.Client()
 		result = append(result, chain)
 	}
-	return
+	return result, err
 }
 
 // Deprecated: use the Relayer interface

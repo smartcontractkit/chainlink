@@ -206,7 +206,7 @@ func TestEngine_OrgIDMissingCounter(t *testing.T) {
 			require.NoError(t, err)
 
 			labeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
-			engine := &Engine{
+			engine := &baseEngine{
 				cfg:                &EngineConfig{WorkflowID: "wf-1", WorkflowOwner: "owner-1"},
 				orgID:              tt.orgID,
 				orgIDMissingReason: tt.reason,

@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -30,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
@@ -110,17 +110,14 @@ func TestTransfersController_CreateSuccess_From_WithRelayer(t *testing.T) {
 	request := models.SendEtherRequest{
 		DestinationAddress: to,
 		FromAddress:        from,
-		Amount:             (assets.Eth)(*amount),
+		Amount:             assets.Eth(*amount),
 		SkipWaitTxAttempt:  true,
 		EVMChainID:         sqlutil.New(chainB),
 	}
 	relayer.EXPECT().Transact(mock.Anything, from.String(), to.String(), amount, true).Return(nil).Once()
 	relayer.EXPECT().GetChainInfo(mock.Anything).Return(types.ChainInfo{ChainID: chainB.String()}, nil).Once()
 
-	cfg := configtest.NewTestGeneralConfig(t)
-	auditLogger, err := audit.NewAuditLogger(logger.TestLogger(t), cfg.AuditLogger())
-	require.NoError(t, err)
-	app.EXPECT().GetAuditLogger().Return(auditLogger).Once()
+	app.EXPECT().GetAuditLogger().Return(audit.NoopLogger).Once()
 
 	ctrl := &web.EVMTransfersController{App: app}
 
@@ -142,7 +139,7 @@ func TestTransfersController_CreateSuccess_From_WithRelayer(t *testing.T) {
 		From:       &from,
 		To:         &to,
 		EVMChainID: *sqlutil.New(chainB),
-		Value:      ((*assets.Eth)(amount)).String(),
+		Value:      (*assets.Eth)(amount).String(),
 		Data:       []byte{},
 	}, resp)
 }
@@ -527,7 +524,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 }
 
 func validateTxCount(t *testing.T, ds sqlutil.DataSource, count int) {
-	txStore := txmgr.NewTxStore(ds, logger.TestLogger(t))
+	txStore := txmgr.NewTxStore(ds, logger.Test(t))
 
 	txes, err := txStore.GetAllTxes(t.Context())
 	require.NoError(t, err)

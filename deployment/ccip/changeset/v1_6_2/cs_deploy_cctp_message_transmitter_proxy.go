@@ -8,6 +8,7 @@ import (
 
 	cmtp "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/cctp_message_transmitter_proxy"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -63,6 +64,7 @@ func deployCCTPMessageTransmitterProxyContractLogic(env cldf.Environment, c Depl
 		return cldf.ChangesetOutput{}, fmt.Errorf("invalid DeployCCTPMessageTransmitterProxyContractConfig: %w", err)
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
@@ -74,7 +76,7 @@ func deployCCTPMessageTransmitterProxyContractLogic(env cldf.Environment, c Depl
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get EVM chain state for chain selector %d: %w", chainSelector, err)
 		}
-		_, err = cldf.DeployContract(env.Logger, chain, newAddresses,
+		_, err = shared.DeployContractAndRecord(env.Logger, chain, newAddresses, ds, cldf.NewTypeAndVersion(shared.CCTPMessageTransmitterProxy, deployment.Version1_6_2), "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*cmtp.CCTPMessageTransmitterProxy] {
 				proxyAddress, tx, proxy, err := cmtp.DeployCCTPMessageTransmitterProxy(
 					chain.DeployerKey,          // auth
@@ -93,11 +95,6 @@ func deployCCTPMessageTransmitterProxyContractLogic(env cldf.Environment, c Depl
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy CCTPMessageTransmitterProxy on %s: %w", chain, err)
 		}
-	}
-
-	ds, err := shared.PopulateDataStore(newAddresses)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{

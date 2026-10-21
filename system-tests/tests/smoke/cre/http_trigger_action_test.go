@@ -21,14 +21,11 @@ import (
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
-
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -109,7 +106,7 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *ttypes.TestEnvironment, ga
 		testEnv.Logger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 		testEnv.Logger.Info().Msg("Executing HTTP trigger request with retries until workflow is loaded...")
 
-		req, err := http.NewRequestWithContext(t.Context(), "POST", gatewayURL.String(), bytes.NewBuffer(triggerRequestBody))
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, gatewayURL.String(), bytes.NewBuffer(triggerRequestBody))
 		if err != nil {
 			testEnv.Logger.Warn().Msgf("Failed to create request: %v", err)
 			return false

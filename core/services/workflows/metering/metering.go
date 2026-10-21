@@ -7,6 +7,7 @@ import (
 	"log"
 	"maps"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,8 +38,8 @@ const (
 	EngineVersionV1 = "v1"
 	EngineVersionV2 = "v2"
 
-	// defaultBillingCallTimeout bounds the blocking billing-service RPCs made on
-	// the execution-start path (GetWorkflowExecutionRates, ReserveCredits). The
+	// defaultBillingCallTimeout bounds the blocking billing-service RPCs
+	// (GetWorkflowExecutionRates, ReserveCredits, SubmitWorkflowReceipt). The
 	// billing client itself sets no deadline, so without this a slow or hung
 	// billing call (e.g. an upstream proxy returning a 524) can stall workflow
 	// executions long enough to fall behind peer nodes and fail consensus. We
@@ -529,7 +530,7 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 		Steps: map[string]*protoEvents.MeteringReportStep{},
 		Metadata: &protoEvents.WorkflowMetadata{
 			WorkflowOwner:           r.labels[platform.KeyWorkflowOwner],
-			WorkflowName:            r.labels[platform.KeyWorkflowID],
+			WorkflowName:            r.labels[platform.KeyWorkflowName],
 			Version:                 r.labels[platform.KeyWorkflowVersion],
 			WorkflowID:              r.labels[platform.KeyWorkflowID],
 			WorkflowExecutionID:     r.labels[platform.KeyWorkflowExecutionID],
@@ -572,10 +573,18 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 			details := step.Spends[unit]
 
 			for _, detail := range details {
+				// For gas spend types with a native fixed-point value available, collapse
+				// SpendValueInGasUnits into SpendValue for billing consumers.
+				spendValue := detail.SpendValue
+				if isGasSpendType(unit) && detail.SpendValueInGasUnits != "" {
+					if _, err := parseNativeGasUnits(detail.SpendValueInGasUnits); err == nil {
+						spendValue = detail.SpendValueInGasUnits
+					}
+				}
 				nodeDetails = append(nodeDetails, &protoEvents.MeteringReportNodeDetail{
 					Peer_2PeerId:         detail.Peer2PeerID,
 					SpendUnit:            unit,
-					SpendValue:           detail.SpendValue,
+					SpendValue:           spendValue,
 					SpendValueCre:        detail.CRESpendValue.StringFixed(defaultDecimalPrecision),
 					SpendValueInGasUnits: detail.SpendValueInGasUnits,
 				})
@@ -647,7 +656,9 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 	var err error
 
 	for attempt := 0; ; attempt++ {
-		resp, err = r.client.SubmitWorkflowReceipt(ctx, &req)
+		receiptCtx, cancel := context.WithTimeout(ctx, defaultBillingCallTimeout)
+		resp, err = r.client.SubmitWorkflowReceipt(receiptCtx, &req)
+		cancel()
 		if err == nil {
 			break
 		}
@@ -760,16 +771,35 @@ func (r *Report) creditToSpendingLimits(
 	return limits
 }
 
+// parseNativeGasUnits validates and parses a SpendValueInGasUnits string, which by
+// contract is a base-10, non-negative integer in the chain's smallest native unit
+// (wei, lamports, octas, ...). decimal.NewFromString alone is too permissive: it
+// accepts fractional decimals ("0.001158"), scientific notation ("1e18"),
+// and negatives ("-5")
+func parseNativeGasUnits(s string) (decimal.Decimal, error) {
+	value, err := decimal.NewFromString(s)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	if value.Sign() < 0 || !value.Equal(value.Truncate(0)) {
+		return decimal.Zero, fmt.Errorf("spend value in gas units %q is not a non-negative integer", s)
+	}
+	return value, nil
+}
+
 // parseSpendValue extracts the decimal spend value from a node detail report.
 // If SpendValueInGasUnits is populated for a gas spend type, it is used directly
 // (native fixed-point integer, no shift needed). Otherwise, SpendValue is parsed
 // and Shift(18) is applied for gas spend types (legacy path).
-// Returns an error if the value could not be parsed; the caller should skip it.
+// Returns an error if the value could not be parsed or fails validation; the
+// caller should skip it. Invalid SpendValueInGasUnits values are dropped rather
+// than falling back to the legacy path.
 func (r *Report) parseSpendValue(unit string, detail ReportStepDetail) (decimal.Decimal, error) {
 	if isGasSpendType(unit) && detail.SpendValueInGasUnits != "" {
-		value, err := decimal.NewFromString(detail.SpendValueInGasUnits)
+		value, err := parseNativeGasUnits(detail.SpendValueInGasUnits)
 		if err != nil {
-			r.lggr.Info(fmt.Sprintf("failed to get spend value in gas units from %s: %s", detail.SpendValueInGasUnits, err))
+			r.lggr.Warnw("invalid spend value in gas units; dropping from settlement",
+				"spendValueInGasUnits", detail.SpendValueInGasUnits, "peer", detail.Peer2PeerID, "err", err)
 			return decimal.Zero, err
 		}
 		return value, nil
@@ -870,9 +900,10 @@ func toRateCard(resp *billing.GetWorkflowExecutionRatesResponse) (map[string]dec
 }
 
 func medianSpend(spends []decimal.Decimal) decimal.Decimal {
-	sort.Slice(spends, func(i, j int) bool {
-		return spends[j].GreaterThan(spends[i])
-	})
+	if len(spends) == 0 {
+		return decimal.Zero
+	}
+	slices.SortFunc(spends, decimal.Decimal.Compare)
 
 	if len(spends)%2 > 0 {
 		return spends[len(spends)/2]

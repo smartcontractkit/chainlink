@@ -80,6 +80,14 @@ func TestIsDiagnoseCommand(t *testing.T) {
 }
 
 func TestNeedsPostgres(t *testing.T) {
+	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+		t.Skip("skipping in CI: relies on local repo state and package graph analysis")
+	}
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+	t.Parallel()
+
 	repoRoot := findRepoRoot(t)
 	t.Logf("repoRoot: %q", repoRoot)
 
@@ -165,6 +173,7 @@ func TestNeedsPostgres(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := NeedsPostgres(repoRoot, tt.args)
 			if tt.wantErr {
 				assert.Error(t, err)

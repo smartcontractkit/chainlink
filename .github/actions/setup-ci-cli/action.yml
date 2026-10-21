@@ -1,0 +1,37 @@
+name: Setup CI CLI
+description: Builds and caches the tools/ci CLI binary
+outputs:
+  ci-path:
+    description: Absolute path to the ci CLI binary
+    value: ${{ steps.set-path.outputs.ci-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Cache CI CLI Binary
+      id: cache-ci-cli
+      uses: actions/cache@v6
+      with:
+        path: tools/ci/.bin/ci
+        key: ci-cli-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/ci/**') }}
+
+    - name: Setup Go (on cache miss)
+      if: ${{ steps.cache-ci-cli.outputs.cache-hit != 'true' }}
+      uses: actions/setup-go@v7
+      with:
+        go-version-file: tools/ci/go.mod
+        cache: true
+
+    - name: Build CI CLI
+      if: ${{ steps.cache-ci-cli.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: |
+        mkdir -p tools/ci/.bin
+        go -C tools/ci build -o .bin/ci .
+
+    - name: Export CI CLI Path
+      id: set-path
+      shell: bash
+      run: |
+        echo "$GITHUB_WORKSPACE/tools/ci/.bin" | tee -a "$GITHUB_PATH"
+        echo "ci-path=$GITHUB_WORKSPACE/tools/ci/.bin/ci" | tee -a "$GITHUB_OUTPUT"

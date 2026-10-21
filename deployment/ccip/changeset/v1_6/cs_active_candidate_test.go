@@ -197,12 +197,10 @@ func Test_ActiveCandidate(t *testing.T) {
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 			v1_6.SetCandidateChangesetConfig{
-				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-					HomeChainSelector: tenv.HomeChainSel,
-					FeedChainSelector: tenv.FeedChainSel,
-					MCMS: &cldfproposalutils.TimelockConfig{
-						MinDelay: 0,
-					},
+				HomeChainSelector: tenv.HomeChainSel,
+				FeedChainSelector: tenv.FeedChainSel,
+				MCMS: &cldfproposalutils.TimelockConfig{
+					MinDelay: 0,
 				},
 				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{

@@ -14,10 +14,10 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -103,9 +103,11 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 	}
 }
 
-const defaultUpdateInterval = time.Minute * 5
-const defaultStalenessAlertThreshold = time.Hour * 24
-const dataSourceCacheKey = "dscache"
+const (
+	defaultUpdateInterval          = time.Minute * 5
+	defaultStalenessAlertThreshold = time.Hour * 24
+	dataSourceCacheKey             = "dscache"
+)
 
 type DataSourceCacheService interface {
 	Start(context.Context) error

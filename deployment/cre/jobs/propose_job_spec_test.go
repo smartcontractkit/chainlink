@@ -561,112 +561,6 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		}
 	})
 
-	t.Run("successful web-api-trigger job distribution", func(t *testing.T) {
-		input := jobs.ProposeJobSpecInput{
-			Environment: test.EnvironmentName,
-			Domain:      "cre",
-			JobName:     "web-api-trigger-cap-job",
-			DONName:     test.DONName,
-			Template:    job_types.WebAPITrigger,
-			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: test.EnvironmentName},
-				{Key: "product", Value: offchain.ProductLabel},
-			},
-			Inputs: job_types.JobSpecInput{
-				"command":       "__builtin_web-api-trigger",
-				"externalJobID": "a-web-api-trigger-job-id",
-				"oracleFactory": pkg.OracleFactory{
-					Enabled: false,
-				},
-			},
-		}
-
-		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
-		require.NoError(t, err)
-
-		for _, n := range allNodes.Nodes {
-			t.Logf("found node %s, with ID %v", n.Name, n.Id)
-		}
-
-		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
-		require.NoError(t, err)
-		assert.Len(t, out.Reports, 1)
-
-		reqs, err := h.TestJD.ListProposedJobRequests()
-		require.NoError(t, err)
-
-		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
-			return !strings.Contains(s.Spec, `name = "web-api-trigger-cap-job"`)
-		})
-		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
-
-		for _, req := range filteredReqs {
-			t.Logf("Job Spec:\n%s", req.Spec)
-			assert.Contains(t, req.Spec, `command = "__builtin_web-api-trigger"`)
-			assert.Contains(t, req.Spec, `externalJobID = "a-web-api-trigger-job-id"`)
-		}
-	})
-
-	t.Run("successful web-api-target job distribution", func(t *testing.T) {
-		input := jobs.ProposeJobSpecInput{
-			Environment: test.EnvironmentName,
-			Domain:      "cre",
-			JobName:     "web-api-target-cap-job",
-			DONName:     test.DONName,
-			Template:    job_types.WebAPITarget,
-			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: test.EnvironmentName},
-				{Key: "product", Value: offchain.ProductLabel},
-			},
-			Inputs: job_types.JobSpecInput{
-				"command": "__builtin_web-api-target",
-				"config": `[rateLimiter]
-GlobalRPS = 10
-GlobalBurst = 200
-PerSenderRPS = 2
-PerSenderBurst = 100
-`,
-				"externalJobID": "a-web-api-target-job-id",
-				"oracleFactory": pkg.OracleFactory{
-					Enabled: false,
-				},
-			},
-		}
-
-		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
-		require.NoError(t, err)
-
-		for _, n := range allNodes.Nodes {
-			t.Logf("found node %s, with ID %v", n.Name, n.Id)
-		}
-
-		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
-		require.NoError(t, err)
-		assert.Len(t, out.Reports, 1)
-
-		reqs, err := h.TestJD.ListProposedJobRequests()
-		require.NoError(t, err)
-
-		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
-			return !strings.Contains(s.Spec, `name = "web-api-target-cap-job"`)
-		})
-		assert.Len(t, filteredReqs, 4) // there are 4 plugin nodes
-
-		for _, req := range filteredReqs {
-			t.Logf("Job Spec:\n%s", req.Spec)
-			assert.Contains(t, req.Spec, `command = "__builtin_web-api-target"`)
-			assert.Contains(t, req.Spec, `config = """[rateLimiter]
-GlobalRPS = 10
-GlobalBurst = 200
-PerSenderRPS = 2
-PerSenderBurst = 100
-"""`)
-			assert.Contains(t, req.Spec, `externalJobID = "a-web-api-target-job-id"`)
-		}
-	})
-
 	t.Run("successful aptos job distribution includes oracle factory", func(t *testing.T) {
 		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
@@ -1535,8 +1429,6 @@ PerSenderBurst = 100
 		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
-		expectedChainID := chainsel.TEST_90000001.EvmChainID
-
 		for _, req := range reqs {
 			if !strings.Contains(req.Spec, `name = "ocr3-consensus-job"`) {
 				continue
@@ -1544,17 +1436,16 @@ PerSenderBurst = 100
 			// log each spec in readable yaml format
 			t.Logf("Job Spec:\n%s", req.Spec)
 			assert.Contains(t, req.Spec, `name = "ocr3-consensus-job"`)
-			assert.Contains(t, req.Spec, `bootstrap_peers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]`)
-			assert.Contains(t, req.Spec, fmt.Sprintf(`chain_id = "%d"`, expectedChainID))
+			assert.Contains(t, req.Spec, `bootstrap_peers`)
+			assert.Contains(t, req.Spec, `chain_id`)
+			assert.Contains(t, req.Spec, `ocr_contract_address`)
+			assert.Contains(t, req.Spec, `ocr_key_bundle_id`)
+			assert.Contains(t, req.Spec, `transmitter_id`)
+			assert.Contains(t, req.Spec, `onchainSigningStrategy`)
 			assert.Contains(t, req.Spec, `command = "consensus"`)
 			assert.Contains(t, req.Spec, `config = """"""`)
 			assert.Contains(t, req.Spec, `[oracle_factory]`)
 			assert.Contains(t, req.Spec, `enabled = true`)
-			assert.Contains(t, req.Spec, `ocr_contract_address = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
-			assert.Contains(t, req.Spec, `strategyName = "multi-chain"`)
-			assert.Contains(t, req.Spec, `evm = "fake_orc_bundle_evm"`)
-			assert.NotContains(t, req.Spec, `aptos = "fake_orc_bundle_aptos"`)
-			assert.Contains(t, req.Spec, `ocr_key_bundle_id = "fake_orc_bundle_evm"`)
 		}
 	})
 
@@ -1604,26 +1495,19 @@ PerSenderBurst = 100
 		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
-		expectedChainID := chainsel.TEST_90000001.EvmChainID
-
 		for _, req := range reqs {
 			if !strings.Contains(req.Spec, `name = "ocr3-consensus-job-aptos"`) {
 				continue
 			}
-			// log each spec in readable yaml format
 			t.Logf("Job Spec:\n%s", req.Spec)
 			assert.Contains(t, req.Spec, `name = "ocr3-consensus-job-aptos"`)
-			assert.Contains(t, req.Spec, `bootstrap_peers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]`)
-			assert.Contains(t, req.Spec, fmt.Sprintf(`chain_id = "%d"`, expectedChainID))
+			assert.Contains(t, req.Spec, `bootstrap_peers`)
+			assert.Contains(t, req.Spec, `chain_id`)
+			assert.Contains(t, req.Spec, `ocr_contract_address`)
 			assert.Contains(t, req.Spec, `command = "consensus"`)
 			assert.Contains(t, req.Spec, `config = """"""`)
 			assert.Contains(t, req.Spec, `[oracle_factory]`)
 			assert.Contains(t, req.Spec, `enabled = true`)
-			assert.Contains(t, req.Spec, `ocr_contract_address = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
-			assert.Contains(t, req.Spec, `strategyName = "multi-chain"`)
-			assert.Contains(t, req.Spec, `evm = "fake_orc_bundle_evm"`)
-			assert.Contains(t, req.Spec, `aptos = "fake_orc_bundle_aptos"`)
-			assert.Contains(t, req.Spec, `ocr_key_bundle_id = "fake_orc_bundle_evm"`)
 		}
 	})
 

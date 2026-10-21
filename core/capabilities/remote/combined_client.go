@@ -20,6 +20,7 @@ type CombinedClient interface {
 	SetExecutableClient(method string, client capabilities.ExecutableCapability)
 	GetTriggerSubscriber(method string) capabilities.TriggerCapability
 	GetExecutableClient(method string) capabilities.ExecutableCapability
+	SetInfo(info capabilities.CapabilityInfo)
 }
 
 type combinedClient struct {
@@ -32,6 +33,8 @@ type combinedClient struct {
 var _ CombinedClient = &combinedClient{}
 
 func (c *combinedClient) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.info, nil
 }
 
@@ -95,15 +98,25 @@ func NewCombinedClient(info capabilities.CapabilityInfo) *combinedClient {
 	}
 }
 
+// SetTriggerSubscriber removes the method when subscriber is nil.
 func (c *combinedClient) SetTriggerSubscriber(method string, subscriber capabilities.TriggerCapability) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if subscriber == nil {
+		delete(c.triggerSubscribers, method)
+		return
+	}
 	c.triggerSubscribers[method] = subscriber
 }
 
+// SetExecutableClient removes the method when client is nil.
 func (c *combinedClient) SetExecutableClient(method string, client capabilities.ExecutableCapability) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if client == nil {
+		delete(c.executableClients, method)
+		return
+	}
 	c.executableClients[method] = client
 }
 
@@ -117,4 +130,10 @@ func (c *combinedClient) GetExecutableClient(method string) capabilities.Executa
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.executableClients[method]
+}
+
+func (c *combinedClient) SetInfo(info capabilities.CapabilityInfo) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.info = info
 }

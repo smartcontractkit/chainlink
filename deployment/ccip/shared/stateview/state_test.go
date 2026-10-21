@@ -24,6 +24,7 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
@@ -41,10 +42,10 @@ func TestLoadChainState_MultipleFeeQuoters(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	fq1 := utils.RandomAddress().Hex()
 	fq2 := utils.RandomAddress().Hex()
-	state, err := stateview.LoadChainState(t.Context(), tenv.Env.BlockChains.EVMChains()[tenv.HomeChainSel], map[string]cldf.TypeAndVersion{
+	state, err := stateview.LoadChainState(t.Context(), tenv.Env.BlockChains.EVMChains()[tenv.HomeChainSel], stateview.TypeVersionsToSlices(map[string]cldf.TypeAndVersion{
 		fq1: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_0_0),
 		fq2: cldf.NewTypeAndVersion(shared.FeeQuoter, deployment.Version1_2_0),
-	})
+	}))
 	require.NoError(t, err)
 
 	require.Equal(t, fq2, state.FeeQuoter.Address().Hex(), "expected latest fee quoter to be selected")
@@ -132,10 +133,10 @@ func TestLoadChainState_LegacyV15EVM2EVMDatastoreKeys(t *testing.T) {
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	evm2evmAddrs := map[string]cldf.TypeAndVersion{
+	evm2evmAddrs := stateview.TypeVersionsToSlices(map[string]cldf.TypeAndVersion{
 		onRamp.Address().Hex():  cldf.NewTypeAndVersion(shared.EVM2EVMOnRamp, deployment.Version1_5_0),
 		offRamp.Address().Hex(): cldf.NewTypeAndVersion(shared.EVM2EVMOffRamp, deployment.Version1_5_0),
-	}
+	})
 
 	legacyDisabled, err := stateview.LoadChainState(t.Context(), chain, evm2evmAddrs)
 	require.NoError(t, err)
@@ -151,10 +152,10 @@ func TestLoadChainState_LegacyV15EVM2EVMDatastoreKeys(t *testing.T) {
 	require.Equal(t, evm_2_evm_onramp.EVM2EVMOnRampABI, lcs.ABIByAddress[onRamp.Address().Hex()])
 	require.Equal(t, evm_2_evm_offramp.EVM2EVMOffRampABI, lcs.ABIByAddress[offRamp.Address().Hex()])
 
-	legacyNamesAddrs := map[string]cldf.TypeAndVersion{
+	legacyNamesAddrs := stateview.TypeVersionsToSlices(map[string]cldf.TypeAndVersion{
 		onRamp.Address().Hex():  cldf.NewTypeAndVersion(shared.OnRamp, deployment.Version1_5_0),
 		offRamp.Address().Hex(): cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_5_0),
-	}
+	})
 	byLegacyKeys, err := stateview.LoadChainState(t.Context(), chain, legacyNamesAddrs, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 	require.Equal(t, onRamp.Address(), byLegacyKeys.EVM2EVMOnRamp[dstSel].Address())
@@ -268,11 +269,11 @@ func TestLoadChainState_LegacyEVM2EVMAndV16OnRampCoexist(t *testing.T) {
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	combined := map[string]cldf.TypeAndVersion{
+	combined := stateview.TypeVersionsToSlices(map[string]cldf.TypeAndVersion{
 		evmOnRamp.Address().Hex():  cldf.NewTypeAndVersion(shared.EVM2EVMOnRamp, deployment.Version1_5_0),
 		evmOffRamp.Address().Hex(): cldf.NewTypeAndVersion(shared.EVM2EVMOffRamp, deployment.Version1_5_0),
 		v16Addr.Hex():              cldf.NewTypeAndVersion(shared.OnRamp, deployment.Version1_6_0),
-	}
+	})
 
 	withoutLegacy, err := stateview.LoadChainState(t.Context(), chain, combined)
 	require.NoError(t, err)
@@ -309,6 +310,22 @@ func TestMCMSState(t *testing.T) {
 	addr := utils.RandomAddress()
 	require.NoError(t, addressbook.Save(tenv.HomeChainSel, addr.String(), newTv))
 	require.NoError(t, tenv.Env.ExistingAddresses.Merge(addressbook))
+	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(tenv.Env.DataStore))
+	for _, mcmsType := range []cldf.ContractType{
+		types.ProposerManyChainMultisig,
+		types.CancellerManyChainMultisig,
+		types.BypasserManyChainMultisig,
+	} {
+		version := newTv.Version
+		require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: tenv.HomeChainSel,
+			Address:       addr.String(),
+			Type:          datastore.ContractType(mcmsType),
+			Version:       &version,
+		}))
+	}
+	tenv.Env.DataStore = ds.Seal()
 	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].BypasserMcm.Address().String())
@@ -436,7 +453,9 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			evmChains := rt.Environment().BlockChains.EVMChains()
 
 			if test.DeployCCIPHome {
-				_, err = cldf.DeployContract(lggr, evmChains[homeChainSelector], rt.State().AddressBook,
+				ds := datastore.NewMemoryDataStore()
+				_, err = shared.DeployContractAndRecord(lggr, evmChains[homeChainSelector], rt.State().AddressBook, ds,
+					cldf.NewTypeAndVersion(shared.CCIPHome, deployment.Version1_6_0), "",
 					func(chain cldf_evm.Chain) cldf.ContractDeploy[*ccip_home.CCIPHome] {
 						address, tx2, contract, err2 := ccip_home.DeployCCIPHome(
 							chain.DeployerKey,
@@ -448,10 +467,13 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 						}
 					})
 				require.NoError(t, err, "failed to deploy CCIP home")
+				require.NoError(t, rt.State().MergeChangesetOutput("test-deploy-ccip-home", cldf.ChangesetOutput{DataStore: ds}))
 			}
 
 			if test.DeployCapReg {
-				_, err = cldf.DeployContract(lggr, evmChains[homeChainSelector], rt.State().AddressBook,
+				ds := datastore.NewMemoryDataStore()
+				_, err = shared.DeployContractAndRecord(lggr, evmChains[homeChainSelector], rt.State().AddressBook, ds,
+					cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0), "",
 					func(chain cldf_evm.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 						address, tx2, contract, err2 := capabilities_registry.DeployCapabilitiesRegistry(
 							chain.DeployerKey,
@@ -462,6 +484,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 						}
 					})
 				require.NoError(t, err, "failed to deploy capability registry")
+				require.NoError(t, rt.State().MergeChangesetOutput("test-deploy-cap-reg", cldf.ChangesetOutput{DataStore: ds}))
 			}
 
 			if test.DeployMCMS {

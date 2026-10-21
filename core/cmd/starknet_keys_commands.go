@@ -24,7 +24,7 @@ func (p StarkNetKeyPresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *StarkNetKeyPresenter) ToRow() []string {
+func (p StarkNetKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.StarkKey,
@@ -38,7 +38,7 @@ type StarkNetKeyPresenters []StarkNetKeyPresenter
 // RenderTable implements TableRenderer
 func (ps StarkNetKeyPresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Stark Public Key"}
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

@@ -19,18 +19,18 @@ func TestTxDBDriver(t *testing.T) {
 	}
 	// clean up, if previous tests failed
 	err := dropTable()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, err = db.Exec(`CREATE TABLE txdb_test (id TEXT NOT NULL)`)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		_ = dropTable()
 	})
 	_, err = db.Exec(`INSERT INTO txdb_test VALUES ($1)`, uuid.New().String())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	ensureValuesPresent := func(t *testing.T, db *sqlx.DB) {
 		var ids []string
 		err = db.Select(&ids, `SELECT id from txdb_test`)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, ids, 1)
 	}
 
@@ -49,7 +49,7 @@ func TestTxDBDriver(t *testing.T) {
 	t.Run("Cancel of tx's context does not trigger rollback of driver's tx", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		_, err := db.BeginTx(ctx, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		cancel()
 		// BeginTx spawns separate goroutine that rollbacks the tx and tries to close underlying connection, unless
 		// db driver says that connection is still active.

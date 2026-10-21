@@ -7,12 +7,10 @@ import (
 	"math"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -213,7 +211,7 @@ func ToP2PToCapabilities(
 	t.Helper()
 	out := make(map[p2pkey.PeerID][][32]byte)
 	for p2pID := range in {
-		out[p2pID] = mustCapabilityIds(t, registry, caps)
+		out[p2pID] = mustCapabilityIDs(t, registry, caps)
 	}
 	return out
 }
@@ -309,7 +307,7 @@ func addDons(
 	}
 }
 
-func defaultCapConfig(t *testing.T, cap capabilities_registry.CapabilitiesRegistryCapability) []byte {
+func defaultCapConfig(t *testing.T, c capabilities_registry.CapabilitiesRegistryCapability) []byte {
 	empty := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
 	}
@@ -321,13 +319,13 @@ func defaultCapConfig(t *testing.T, cap capabilities_registry.CapabilitiesRegist
 // CapabilityCache tracks registered capabilities by name
 type CapabilityCache struct {
 	t        *testing.T
-	nameToId map[string][32]byte
+	nameToID map[string][32]byte
 }
 
 func NewCapabilityCache(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry) *CapabilityCache {
 	cache := &CapabilityCache{
 		t:        t,
-		nameToId: make(map[string][32]byte),
+		nameToID: make(map[string][32]byte),
 	}
 	caps, err := registry.GetCapabilities(nil)
 	require.NoError(t, err)
@@ -339,12 +337,12 @@ func NewCapabilityCache(t *testing.T, registry *capabilities_registry.Capabiliti
 		}
 		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, c.LabelledName, c.Version)
 		require.NoError(t, err)
-		cache.nameToId[internal.CapabilityID(c)] = id
+		cache.nameToID[internal.CapabilityID(c)] = id
 	}
 	return cache
 }
 func (cc *CapabilityCache) Get(c capabilities_registry.CapabilitiesRegistryCapability) ([32]byte, bool) {
-	id, exists := cc.nameToId[internal.CapabilityID(c)]
+	id, exists := cc.nameToID[internal.CapabilityID(c)]
 	return id, exists
 }
 
@@ -358,7 +356,7 @@ func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain cldf_evm.Chain
 	seen := make(map[capabilities_registry.CapabilitiesRegistryCapability]struct{})
 	var toRegister []capabilities_registry.CapabilitiesRegistryCapability
 	for _, c := range capabilities {
-		id, cached := cc.nameToId[internal.CapabilityID(c)]
+		id, cached := cc.nameToID[internal.CapabilityID(c)]
 		if cached {
 			out = append(out, internal.RegisteredCapability{
 				CapabilitiesRegistryCapability: c,
@@ -394,7 +392,7 @@ func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain cldf_evm.Chain
 			Config:                         GetDefaultCapConfig(t, capb),
 		})
 		// cache the id
-		cc.nameToId[internal.CapabilityID(capb)] = id
+		cc.nameToID[internal.CapabilityID(capb)] = id
 	}
 	return out
 }
@@ -408,7 +406,7 @@ func testChain(t *testing.T) cldf_evm.Chain {
 	return chains[0].(cldf_evm.Chain)
 }
 
-func capabilityIds(registry *capabilities_registry.CapabilitiesRegistry, rcs []internal.RegisteredCapability) ([][32]byte, error) {
+func capabilityIDs(registry *capabilities_registry.CapabilitiesRegistry, rcs []internal.RegisteredCapability) ([][32]byte, error) {
 	out := make([][32]byte, len(rcs))
 	for i := range rcs {
 		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, rcs[i].LabelledName, rcs[i].Version)
@@ -420,9 +418,9 @@ func capabilityIds(registry *capabilities_registry.CapabilitiesRegistry, rcs []i
 	return out, nil
 }
 
-func mustCapabilityIds(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry, rcs []internal.RegisteredCapability) [][32]byte {
+func mustCapabilityIDs(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry, rcs []internal.RegisteredCapability) [][32]byte {
 	t.Helper()
-	out, err := capabilityIds(registry, rcs)
+	out, err := capabilityIDs(registry, rcs)
 	require.NoError(t, err)
 	return out
 }
@@ -438,24 +436,6 @@ func GetDefaultCapConfig(t *testing.T, capability capabilities_registry.Capabili
 	t.Helper()
 	defaultCfg := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-	}
-	switch capability.CapabilityType {
-	case uint8(0): // trigger
-		defaultCfg.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh:     durationpb.New(20 * time.Second),
-				RegistrationExpiry:      durationpb.New(60 * time.Second),
-				MinResponsesToAggregate: uint32(10),
-			},
-		}
-	case uint8(3): // target
-		defaultCfg.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
-			RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
-				RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
-			},
-		}
-	case uint8(2): // consensus
-	default:
 	}
 	return defaultCfg
 }

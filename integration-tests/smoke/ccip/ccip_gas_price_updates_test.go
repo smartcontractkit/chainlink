@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -23,11 +23,11 @@ func Test_CCIPGasPriceUpdatesWriteFrequency(t *testing.T) {
 	ctx := testhelpers.Context(t)
 	callOpts := &bind.CallOpts{Context: ctx}
 
-	var gasPriceExpiry = 5 * time.Second
+	gasPriceExpiry := 5 * time.Second
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			if params.CommitOffChainConfig != nil {
-				params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(gasPriceExpiry)
+				params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *commonconfig.MustNewDuration(gasPriceExpiry)
 			}
 			return params
 		}),
@@ -143,11 +143,11 @@ func Test_CCIPGasPriceUpdatesDeviation(t *testing.T) {
 	callOpts := &bind.CallOpts{Context: ctx}
 
 	// Big expiry time to make sure that the update was due to price deviation
-	var gasPriceExpiry = 30 * time.Minute
+	gasPriceExpiry := 30 * time.Minute
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			if params.CommitOffChainConfig != nil {
-				params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(gasPriceExpiry)
+				params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *commonconfig.MustNewDuration(gasPriceExpiry)
 			}
 			return params
 		}),

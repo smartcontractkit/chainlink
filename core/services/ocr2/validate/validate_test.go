@@ -20,7 +20,7 @@ import (
 )
 
 func TestValidateOracleSpec(t *testing.T) {
-	var tt = []struct {
+	tt := []struct {
 		name      string
 		toml      string
 		overrides func(c *chainlink.Config, s *chainlink.Secrets)
@@ -446,7 +446,8 @@ evm = ""
 				require.Error(t, err)
 				require.ErrorContains(t, err, "must provide plugin name")
 			},
-		}, {
+		},
+		{
 			name: "Generic plugin config validation - ocr version",
 			toml: `
 type = "offchainreporting2"
@@ -547,7 +548,8 @@ Command="some random command"
 				require.Error(t, err)
 				require.ErrorContains(t, err, "failed to find binary")
 			},
-		}, {
+		},
+		{
 			name: "minimal OCR2 oracle spec with JuelsPerFeeCoinCache",
 			toml: `
 type               = "offchainreporting2"

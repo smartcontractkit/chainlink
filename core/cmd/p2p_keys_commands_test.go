@@ -70,7 +70,7 @@ func TestShell_ListP2PKeys(t *testing.T) {
 
 	client, r := app.NewShellAndRenderer()
 
-	assert.NoError(t, client.ListP2PKeys(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListP2PKeys(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 1)
 	keys := *r.Renders[0].(*cmd.P2PKeyPresenters)
 	assert.Equal(t, key.PublicKeyHex(), keys[0].PubKey)

@@ -39,7 +39,8 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 		BlockChains: cldf_chain.NewBlockChains(
 			map[uint64]cldf_chain.BlockChain{
 				chainSel: resp.Chain,
-			}),
+			},
+		),
 	}
 
 	addr := "0xc0ffee254729296a45a3885639AC7E10F9d54979"

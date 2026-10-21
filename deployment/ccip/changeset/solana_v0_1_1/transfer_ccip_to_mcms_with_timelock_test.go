@@ -221,7 +221,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 
 	// Fund account for fees
 	testutils.FundAccounts(env.GetContext(), []solana.PrivateKey{*solChain.DeployerKey}, solChain.Client, t)
-	err = testhelpers.SavePreloadedSolAddresses(*env, solChainSel)
+	err = testhelpers.SavePreloadedSolAddresses(env, solChainSel)
 	require.NoError(t, err)
 	solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
 

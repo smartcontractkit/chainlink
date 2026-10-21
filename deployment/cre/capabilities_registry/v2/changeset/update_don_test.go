@@ -130,12 +130,6 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 	// Initial DON config (workflow type used for both variants)
 	cfg := map[string]any{
 		"defaultConfig": map[string]any{},
-		"remoteTriggerConfig": map[string]any{
-			"registrationRefresh":     "20s",
-			"registrationExpiry":      "60s",
-			"minResponsesToAggregate": 2,
-			"messageExpiry":           "120s",
-		},
 	}
 	donName := "upd-don-v2"
 
@@ -232,13 +226,8 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 
 	// New config to apply
 	newCfg := map[string]any{
-		"defaultConfig": map[string]any{},
-		"remoteTriggerConfig": map[string]any{
-			"registrationRefresh":     "25s", // changed value to detect update
-			"registrationExpiry":      "60s",
-			"minResponsesToAggregate": 2,
-			"messageExpiry":           "120s",
-		},
+		"defaultConfig":  map[string]any{},
+		"restrictedKeys": []any{"updated"}, // changed value to detect update
 	}
 	wantProto, err := pkg.CapabilityConfig(newCfg).MarshalProto()
 	require.NoError(t, err)
@@ -286,13 +275,8 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 
 	// New config to apply
 	newCfg := map[string]any{
-		"defaultConfig": map[string]any{},
-		"remoteTriggerConfig": map[string]any{
-			"registrationRefresh":     "25s", // changed value to detect update
-			"registrationExpiry":      "60s",
-			"minResponsesToAggregate": 2,
-			"messageExpiry":           "120s",
-		},
+		"defaultConfig":  map[string]any{},
+		"restrictedKeys": []any{"updated"}, // changed value to detect update
 	}
 
 	newName := fx.donName + "-renamed"
@@ -379,6 +363,104 @@ func TestUpdateDONChangeset_VerifyPreconditions_EmptyName(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "must provide a non-empty DONName")
+}
+
+// A capability already assigned to a different on-chain DON in the same family cannot be
+// assigned to another DON in that family.
+func TestUpdateDONChangeset_VerifyPreconditions_RejectsCapabilityAlreadyOnAnotherDON(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, false)
+
+	otherDONName := fx.donName + "-other"
+	err := fx.rt.Exec(
+		runtime.ChangesetTask(changeset.ConfigureCapabilitiesRegistry{}, changeset.ConfigureCapabilitiesRegistryInput{
+			ChainSelector:               fx.selector,
+			CapabilitiesRegistryAddress: fx.address,
+			DONs: []changeset.CapabilitiesRegistryNewDONParams{
+				{
+					Name:        otherDONName,
+					DonFamilies: []string{"upd-family"}, // same family as fx.donName
+					Config:      map[string]any{"defaultConfig": map[string]any{}},
+					Nodes:       []string{p2pID1, p2pID2},
+					F:           1,
+					IsPublic:    true,
+				},
+			},
+		}),
+	)
+	require.NoError(t, err)
+
+	var cs changeset.UpdateDON
+	err = cs.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           otherDONName,
+		CapabilityConfigs: []contracts.CapabilityConfig{
+			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}}, // already assigned to fx.donName
+		},
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "already assigned to on-chain DON")
+	require.ErrorContains(t, err, fx.donName)
+
+	// Re-applying to the DON that already has the capability is not a conflict.
+	err = cs.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           fx.donName,
+		CapabilityConfigs: []contracts.CapabilityConfig{
+			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}},
+		},
+	})
+	require.NoError(t, err)
+
+	// With validation explicitly skipped (e.g. mainline tiering migrations), the same assignment is allowed.
+	err = cs.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
+		RegistryQualifier:                 fx.qualifier,
+		RegistryChainSel:                  fx.selector,
+		DONName:                           otherDONName,
+		SkipDuplicateCapabilityValidation: true,
+		CapabilityConfigs: []contracts.CapabilityConfig{
+			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}},
+		},
+	})
+	require.NoError(t, err)
+}
+
+// The same capability may be assigned to DONs in different families (e.g. zone-a and zone-b).
+func TestUpdateDONChangeset_VerifyPreconditions_AllowsCapabilityOnDONInDifferentFamily(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, false)
+
+	otherDONName := fx.donName + "-other-zone"
+	err := fx.rt.Exec(
+		runtime.ChangesetTask(changeset.ConfigureCapabilitiesRegistry{}, changeset.ConfigureCapabilitiesRegistryInput{
+			ChainSelector:               fx.selector,
+			CapabilitiesRegistryAddress: fx.address,
+			DONs: []changeset.CapabilitiesRegistryNewDONParams{
+				{
+					Name:        otherDONName,
+					DonFamilies: []string{"other-family"}, // disjoint from fx.donName's "upd-family"
+					Config:      map[string]any{"defaultConfig": map[string]any{}},
+					Nodes:       []string{p2pID1, p2pID2},
+					F:           1,
+					IsPublic:    true,
+				},
+			},
+		}),
+	)
+	require.NoError(t, err)
+
+	var cs changeset.UpdateDON
+	err = cs.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           otherDONName,
+		CapabilityConfigs: []contracts.CapabilityConfig{
+			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}}, // already assigned to fx.donName, but in another family
+		},
+	})
+	require.NoError(t, err)
 }
 
 // Chain not found: Apply should fail early with a clear message.

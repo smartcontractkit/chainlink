@@ -4,17 +4,18 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	pkgerrors "github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -23,22 +24,28 @@ import (
 type orm struct {
 	ds              sqlutil.DataSource
 	sessionDuration time.Duration
-	lggr            logger.Logger
-	auditLogger     audit.AuditLogger
+	lggr            logger.SugaredLogger
+	auditLogger     audit.Logger
 }
 
 // orm implements sessions.AuthenticationProvider and sessions.BasicAdminUsersORM interfaces
-var _ sessions.AuthenticationProvider = (*orm)(nil)
-var _ sessions.BasicAdminUsersORM = (*orm)(nil)
+var (
+	_ sessions.AuthenticationProvider = (*orm)(nil)
+	_ sessions.BasicAdminUsersORM     = (*orm)(nil)
+)
 
-func NewORM(ds sqlutil.DataSource, sd time.Duration, lggr logger.Logger, auditLogger audit.AuditLogger) sessions.AuthenticationProvider {
+func NewORM(ds sqlutil.DataSource, sd time.Duration, lggr logger.Logger, auditLogger audit.Logger) sessions.AuthenticationProvider {
 	return &orm{
 		ds:              ds,
 		sessionDuration: sd,
-		lggr:            lggr.Named("LocalAuthAuthenticationProviderORM"),
+		lggr:            logger.Sugared(lggr).Named("LocalAuthAuthenticationProviderORM"),
 		auditLogger:     auditLogger,
 	}
 }
+
+// ErrMFAFailed is returned when any step of the MFA/WebAuthn login flow fails.
+// The generic message deliberately avoids leaking why MFA failed.
+var ErrMFAFailed = errors.New("MFA error")
 
 // FindUser will attempt to return an API user by email.
 func (o *orm) FindUser(ctx context.Context, email string) (sessions.User, error) {
@@ -49,27 +56,27 @@ func (o *orm) FindUser(ctx context.Context, email string) (sessions.User, error)
 func (o *orm) FindUserByAPIToken(ctx context.Context, apiToken string) (user sessions.User, err error) {
 	sql := "SELECT * FROM users WHERE token_key = $1"
 	err = o.ds.GetContext(ctx, &user, sql, apiToken)
-	return
+	return user, err
 }
 
 func (o *orm) findUser(ctx context.Context, email string) (user sessions.User, err error) {
 	sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
 	err = o.ds.GetContext(ctx, &user, sql, email)
-	return
+	return user, err
 }
 
 // ListUsers will load and return all user rows from the db.
 func (o *orm) ListUsers(ctx context.Context) (users []sessions.User, err error) {
 	sql := "SELECT * FROM users ORDER BY email ASC;"
 	err = o.ds.SelectContext(ctx, &users, sql)
-	return
+	return users, err
 }
 
 // findValidSession finds an unexpired session by its ID and returns the associated email.
 func (o *orm) findValidSession(ctx context.Context, sessionID string) (email string, err error) {
 	if err := o.ds.GetContext(ctx, &email, "SELECT email FROM sessions WHERE id = $1 AND last_used + $2 >= now() FOR UPDATE", sessionID, o.sessionDuration); err != nil {
 		o.lggr.Infof("query result: %v", email)
-		return email, pkgerrors.Wrap(err, "no matching user for provided session token")
+		return email, fmt.Errorf("no matching user for provided session token: %w", err)
 	}
 	return email, nil
 }
@@ -153,12 +160,12 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 	// for MFA tokens leaking if an account has MFA tokens or not.
 	if !constantTimeEmailCompare(strings.ToLower(sr.Email), strings.ToLower(user.Email)) {
 		o.auditLogger.Audit(audit.AuthLoginFailedEmail, map[string]any{"email": sr.Email})
-		return "", pkgerrors.New("Invalid email")
+		return "", errors.New("invalid email")
 	}
 
 	if !utils.CheckPasswordHash(sr.Password, string(user.HashedPassword)) {
 		o.auditLogger.Audit(audit.AuthLoginFailedPassword, map[string]any{"email": sr.Email})
-		return "", pkgerrors.New("Invalid password")
+		return "", errors.New("invalid password")
 	}
 
 	// Load all valid MFA tokens associated with user's email
@@ -166,7 +173,7 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 	if err != nil {
 		// There was an error with the database query
 		lggr.Errorf("Could not fetch user's MFA data: %v", err)
-		return "", pkgerrors.New("MFA Error")
+		return "", ErrMFAFailed
 	}
 
 	// No webauthn tokens registered for the current user, so normal authentication is now complete
@@ -186,28 +193,27 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 		options, webauthnError := sessions.BeginWebAuthnLogin(user, uwas, sr)
 		if webauthnError != nil {
 			lggr.Errorf("Could not begin WebAuthn verification: %v", webauthnError)
-			return "", pkgerrors.New("MFA Error")
+			return "", ErrMFAFailed
 		}
 
 		j, jsonError := json.Marshal(options)
 		if jsonError != nil {
 			lggr.Errorf("Could not serialize WebAuthn challenge: %v", jsonError)
-			return "", pkgerrors.New("MFA Error")
+			return "", ErrMFAFailed
 		}
 
-		return "", pkgerrors.New(string(j))
+		return "", errors.New(string(j))
 	}
 
 	// The user is at the final stage of logging in with MFA. We have an
 	// attestation back from the user, we now need to verify that it is
 	// correct.
 	err = sessions.FinishWebAuthnLogin(user, uwas, sr)
-
 	if err != nil {
 		// The user does have WebAuthn enabled but failed the check
 		o.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]any{"email": sr.Email, "error": err})
 		lggr.Errorf("User sent an invalid attestation: %v", err)
-		return "", pkgerrors.New("MFA Error")
+		return "", ErrMFAFailed
 	}
 
 	lggr.Infof("User passed MFA authentication and login will proceed")
@@ -261,13 +267,13 @@ func (o *orm) UpdateRole(ctx context.Context, email, newRole string) (sessions.U
 	var userToEdit sessions.User
 
 	if newRole == "" {
-		return userToEdit, pkgerrors.New("user role must be specified")
+		return userToEdit, errors.New("user role must be specified")
 	}
 
 	err := sqlutil.TransactDataSource(ctx, o.ds, nil, func(tx sqlutil.DataSource) error {
 		// First, attempt to load specified user by email
 		if err := tx.GetContext(ctx, &userToEdit, "SELECT * FROM users WHERE lower(email) = lower($1)", email); err != nil {
-			return pkgerrors.New("no matching user for provided email")
+			return errors.New("no matching user for provided email")
 		}
 
 		// Patch validated role
@@ -280,13 +286,13 @@ func (o *orm) UpdateRole(ctx context.Context, email, newRole string) (sessions.U
 		_, err = tx.ExecContext(ctx, "DELETE FROM sessions WHERE email = lower($1)", email)
 		if err != nil {
 			o.lggr.Errorw("Failed to purge user sessions for UpdateRole", "err", err)
-			return pkgerrors.New("error updating API user")
+			return errors.New("error updating API user")
 		}
 
 		sql := "UPDATE users SET role = $1, updated_at = now() WHERE lower(email) = lower($2) RETURNING *"
 		if err := tx.GetContext(ctx, &userToEdit, sql, userToEdit.Role, email); err != nil {
 			o.lggr.Errorw("Error updating API user", "err", err)
-			return pkgerrors.New("error updating API user")
+			return errors.New("error updating API user")
 		}
 
 		return nil
@@ -306,13 +312,13 @@ func (o *orm) SetPassword(ctx context.Context, user *sessions.User, newPassword 
 }
 
 // TestPassword checks plaintext user provided password with hashed database password, returns nil if matched
-func (o *orm) TestPassword(ctx context.Context, email string, password string) error {
+func (o *orm) TestPassword(ctx context.Context, email, password string) error {
 	var hashedPassword string
 	if err := o.ds.GetContext(ctx, &hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
-		return pkgerrors.New("no matching user for provided email")
+		return errors.New("no matching user for provided email")
 	}
 	if !utils.CheckPasswordHash(password, hashedPassword) {
-		return pkgerrors.New("passwords don't match")
+		return errors.New("passwords don't match")
 	}
 	return nil
 }
@@ -333,7 +339,7 @@ func (o *orm) SetAuthToken(ctx context.Context, user *sessions.User, token *auth
 	salt := utils.NewSecret(utils.DefaultSecretSize)
 	hashedSecret, err := auth.HashedSecret(token, salt)
 	if err != nil {
-		return pkgerrors.Wrap(err, "user")
+		return fmt.Errorf("user: %w", err)
 	}
 	sql := "UPDATE users SET token_salt = $1, token_key = $2, token_hashed_secret = $3, updated_at = now() WHERE email = $4 RETURNING *"
 	return o.ds.GetContext(ctx, user, sql, salt, token.AccessKey, hashedSecret, user.Email)
@@ -356,9 +362,9 @@ func (o *orm) SaveWebAuthn(ctx context.Context, token *sessions.WebAuthn) error 
 func (o *orm) Sessions(ctx context.Context, offset, limit int) (sessions []sessions.Session, err error) {
 	sql := `SELECT * FROM sessions ORDER BY created_at, id LIMIT $1 OFFSET $2;`
 	if err = o.ds.SelectContext(ctx, &sessions, sql, limit, offset); err != nil {
-		return
+		return sessions, err
 	}
-	return
+	return sessions, err
 }
 
 // NOTE: this is duplicated from the bridges ORM to appease the AuthStorer interface

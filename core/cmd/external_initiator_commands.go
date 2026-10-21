@@ -33,9 +33,10 @@ type ExternalInitiatorPresenter struct {
 
 func (eip *ExternalInitiatorPresenter) RenderTable(rt RendererTable) error {
 	table := rt.newTable([]string{"ID", "Name", "URL", "AccessKey", "OutgoingToken", "CreatedAt", "UpdatedAt"})
-	table.Append(eip.ToRow())
-	render("External Initiator:", table)
-	return nil
+	if err := table.Append(eip.ToRow()); err != nil {
+		return err
+	}
+	return render("External Initiator:", table)
 }
 
 func (eip *ExternalInitiatorPresenter) ToRow() []string {
@@ -59,10 +60,11 @@ type ExternalInitiatorPresenters []ExternalInitiatorPresenter
 func (eips *ExternalInitiatorPresenters) RenderTable(rt RendererTable) error {
 	table := rt.newTable([]string{"ID", "Name", "URL", "AccessKey", "OutgoingToken", "CreatedAt", "UpdatedAt"})
 	for _, eip := range *eips {
-		table.Append(eip.ToRow())
+		if err := table.Append(eip.ToRow()); err != nil {
+			return err
+		}
 	}
-	render("External Initiators:", table)
-	return nil
+	return render("External Initiators:", table)
 }
 
 // IndexExternalInitiators lists external initiators

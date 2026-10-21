@@ -25,11 +25,12 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	evm_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -71,7 +72,7 @@ const (
 
 // DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
 // Afterward, we call DeployHomeChainChangeset changeset with nodeinfo ( the peer id and all)
-func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64, feedChainSel uint64) (deployment.CapabilityRegistryConfig, cldf.AddressBook, error) {
+func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64) (deployment.CapabilityRegistryConfig, cldf.AddressBook, error) {
 	lggr.Info("Deploying home chain contracts...")
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -299,8 +300,8 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 			//nolint:gosec // this should always be less than max uint8
 			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
+				GasPriceDeviationPPB:    ccipocr3.BigInt{Int: big.NewInt(1000)},
+				DAGasPriceDeviationPPB:  ccipocr3.BigInt{Int: big.NewInt(1_000_000)},
 				OptimisticConfirmations: 1,
 			},
 		}
@@ -320,8 +321,8 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 				// #nosec G115 - Overflow is not a concern in this test scenario
 				FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 				EncodableChainConfig: chainconfig.ChainConfig{
-					GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
-					DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+					GasPriceDeviationPPB:    ccipocr3.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+					DAGasPriceDeviationPPB:  ccipocr3.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
 					OptimisticConfirmations: globals.OptimisticConfirmations,
 				},
 			}
@@ -417,7 +418,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		)
 
 		lggr.Info("Starting changeset deployment, this will take long on first run due to anchor build for solana programs")
-		solCs, err := testhelpers.DeployChainContractsToSolChainCS(deployedEnv, solChainSelectors[0], false, &buildConfig)
+		solCs, err := testhelpers.DeployChainContractsToSolChainCS(&deployedEnv, solChainSelectors[0], false, &buildConfig)
 		if err != nil {
 			return *e, err
 		}
@@ -604,7 +605,7 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 		rpcClient := e.BlockChains.SolanaChains()[solChainSel].Client
 		router := state.SolChains[solChainSel].Router
 		tokenProgram := solana.TokenProgramID
-		wSOL := solana.SolMint
+		wSOL := solana.WrappedSol
 		// token transfer enablement changesets
 		ixAtaUser, accountWSOLAta, err := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, sourceAccount.PublicKey(), sourceAccount.PublicKey())
 		if err != nil {
@@ -642,7 +643,8 @@ func setupSolLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 			link,
 			billingSignerPDA,
 			sourceAccount.PublicKey(),
-			[]solana.PublicKey{})
+			[]solana.PublicKey{},
+		)
 		if err != nil {
 			return *e, fmt.Errorf("failed to create approve instruction: %w", err)
 		}
@@ -978,7 +980,7 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, la
 	return *e, err
 }
 
-func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (cldf.Environment, error) {
+func mustOCR(e *cldf.Environment, homeChainSel, feedChainSel uint64, newDons, rmnEnabled bool) (cldf.Environment, error) {
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	solSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
 	// need to have extra definition here for golint
@@ -989,7 +991,7 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 	execOCRConfigPerSelector := make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
 	chainType := v1_6.Default
-	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.BlockChains.EVMChains()[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
+	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, datastore.NewMemoryDataStore(), e.BlockChains.EVMChains()[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
 	if err != nil {
 		return *e, fmt.Errorf("failed to deploy feeds: %w", err)
 	}
@@ -1010,10 +1012,10 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 
 	for _, selector := range solSelectors {
 		// TODO: this is a workaround for tokenConfig.GetTokenInfo
-		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
-		tokenInfo[cciptypes.UnknownEncodedAddress(state.SolChains[selector].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
+		tokenInfo := map[ccipocr3.UnknownEncodedAddress]ccipocr3.TokenInfo{}
+		tokenInfo[ccipocr3.UnknownEncodedAddress(state.SolChains[selector].LinkToken.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
 		// TODO: point this to proper SOL feed, apparently 0 signified SOL
-		tokenInfo[cciptypes.UnknownEncodedAddress(solana.SolMint.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
+		tokenInfo[ccipocr3.UnknownEncodedAddress(solana.WrappedSol.String())] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, tokenInfo,
 			func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 				params.OCRParameters.MaxDurationQuery = 100 * time.Millisecond
@@ -1045,10 +1047,8 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 			// Add the DONs and candidate commit OCR instances for the chain
 			cldf.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
 			v1_6.AddDonAndSetCandidateChangesetConfig{
-				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-					HomeChainSelector: homeChainSel,
-					FeedChainSelector: feedChainSel,
-				},
+				HomeChainSelector: homeChainSel,
+				FeedChainSelector: feedChainSel,
 				PluginInfo: v1_6.SetCandidatePluginInfo{
 					OCRConfigPerRemoteChainSelector: commitOCRConfigPerSelector,
 					PluginType:                      types.PluginTypeCCIPCommit,
@@ -1060,10 +1060,8 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 			// Update commit OCR instances for existing chains
 			cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 			v1_6.SetCandidateChangesetConfig{
-				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-					HomeChainSelector: homeChainSel,
-					FeedChainSelector: feedChainSel,
-				},
+				HomeChainSelector: homeChainSel,
+				FeedChainSelector: feedChainSel,
 				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{
 						OCRConfigPerRemoteChainSelector: commitOCRConfigPerSelector,
@@ -1078,10 +1076,8 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 		// Add the exec OCR instances for the new chains
 		cldf.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
 		v1_6.SetCandidateChangesetConfig{
-			SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
-				HomeChainSelector: homeChainSel,
-				FeedChainSelector: feedChainSel,
-			},
+			HomeChainSelector: homeChainSel,
+			FeedChainSelector: feedChainSel,
 			PluginInfo: []v1_6.SetCandidatePluginInfo{
 				{
 					OCRConfigPerRemoteChainSelector: execOCRConfigPerSelector,
@@ -1169,7 +1165,7 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 	bitmap := new(big.Int)
 	for i, node := range nodes {
 		rmnNodes[i] = rmn_home.RMNHomeNode{
-			PeerId:            node.PeerId,
+			PeerId:            node.PeerID,
 			OffchainPublicKey: node.OffchainPublicKey,
 		}
 		bitmap.SetBit(bitmap, i, 1)
@@ -1286,15 +1282,13 @@ func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyIm
 		}
 
 		rmnNodeConfigs[i] = RMNNodeConfig{
-			RMNNopConfig: v1_6.RMNNopConfig{
-				NodeIndex:           uint64(i),
-				OffchainPublicKey:   [32]byte(keys.OffchainPublicKey),
-				EVMOnChainPublicKey: keys.EVMOnchainPublicKey,
-				PeerId:              newPeerID,
-			},
-			RageProxyKeystore: rawKeystore,
-			RMNKeystore:       rawRMNKeystore,
-			Passphrase:        afnPassphrase,
+			NodeIndex:           uint64(i),
+			OffchainPublicKey:   [32]byte(keys.OffchainPublicKey),
+			EVMOnChainPublicKey: keys.EVMOnchainPublicKey,
+			PeerID:              newPeerID,
+			RageProxyKeystore:   rawKeystore,
+			RMNKeystore:         rawRMNKeystore,
+			Passphrase:          afnPassphrase,
 		}
 	}
 	return rmnNodeConfigs, nil

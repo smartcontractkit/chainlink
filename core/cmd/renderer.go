@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/renderer"
+	"github.com/olekukonko/tablewriter/tw"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -71,19 +73,20 @@ func (rt RendererTable) Render(v any, headers ...string) error {
 func (rt RendererTable) renderLogPkgConfig(serviceLevelLog webpresenters.ServiceLogConfigResource) error {
 	table := rt.newTable([]string{"ID", "Service", "LogLevel"})
 	for i, svcName := range serviceLevelLog.ServiceName {
-		table.Append([]string{
+		if err := table.Append([]string{
 			serviceLevelLog.ID,
 			svcName,
 			serviceLevelLog.LogLevel[i],
-		})
+		}); err != nil {
+			return err
+		}
 	}
 
-	render("ServiceLogConfig", table)
-	return nil
+	return render("ServiceLogConfig", table)
 }
 
 func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
-	var rows [][]string
+	rows := make([][]string, 0, len(keys))
 
 	for _, key := range keys {
 		rows = append(rows, []string{
@@ -98,14 +101,20 @@ func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
 	return nil
 }
 
-func render(name string, table *tablewriter.Table) {
-	table.SetRowLine(true)
-	table.SetColumnSeparator("║")
-	table.SetRowSeparator("═")
-	table.SetCenterSeparator("╬")
+func render(name string, table *tablewriter.Table) error {
+	symbols := tw.NewSymbolCustom("double-line").
+		WithColumn("║").
+		WithRow("═").
+		WithCenter("╬")
 
 	fmt.Println("╔ " + name)
-	table.Render()
+	return table.Options(
+		tablewriter.WithRenderer(
+			renderer.NewBlueprint(
+				tw.Rendition{Symbols: symbols},
+			),
+		),
+	).Render()
 }
 
 func renderList(fields []string, items [][]string, writer io.Writer) {
@@ -115,10 +124,10 @@ func renderList(fields []string, items [][]string, writer io.Writer) {
 			maxLabelLength = len(field)
 		}
 	}
-	var itemsRendered []string
+	itemsRendered := make([]string, 0, len(items))
 	var maxLineLength int
 	for _, row := range items {
-		var lines []string
+		lines := make([]string, 0, len(fields))
 		for i, field := range fields {
 			diff := maxLabelLength - len(field)
 			spaces := strings.Repeat(" ", diff)
@@ -143,21 +152,22 @@ func renderList(fields []string, items [][]string, writer io.Writer) {
 
 func (rt RendererTable) renderExternalInitiatorAuthentication(eia webpresenters.ExternalInitiatorAuthentication) error {
 	table := rt.newTable([]string{"Name", "URL", "AccessKey", "Secret", "OutgoingToken", "OutgoingSecret"})
-	table.Append([]string{
+	if err := table.Append([]string{
 		eia.Name,
 		eia.URL.String(),
 		eia.AccessKey,
 		eia.Secret,
 		eia.OutgoingToken,
 		eia.OutgoingSecret,
-	})
-	render("External Initiator Credentials:", table)
-	return nil
+	}); err != nil {
+		return err
+	}
+	return render("External Initiator Credentials:", table)
 }
 
 func (rt RendererTable) newTable(headers []string) *tablewriter.Table {
 	table := tablewriter.NewWriter(rt)
-	table.SetHeader(headers)
+	table.Header(headers)
 	return table
 }
 
@@ -174,8 +184,9 @@ func (rt RendererTable) renderPipelineRun(run webpresenters.PipelineRunResource)
 		run.CreatedAt.String(),
 		finishedAt,
 	}
-	table.Append(row)
+	if err := table.Append(row); err != nil {
+		return err
+	}
 
-	render("Pipeline Run", table)
-	return nil
+	return render("Pipeline Run", table)
 }

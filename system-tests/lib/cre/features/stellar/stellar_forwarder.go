@@ -8,7 +8,6 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	stellarfwd "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"

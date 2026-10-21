@@ -211,7 +211,7 @@ func TestChipIngressAgent_SendLog(t *testing.T) {
 		mockTelemService := new(MockChipIngressService)
 		lggr := logger.TestLogger(t)
 		contractID := "0xabcdef"
-		telemType := synchronization.OCR3Automation
+		telemType := synchronization.OCR3Mercury
 		telemetryLog := []byte("test data")
 
 		adapter, err := NewChipIngressAgent(mockTelemService, "EVM", "137", contractID, telemType, lggr)

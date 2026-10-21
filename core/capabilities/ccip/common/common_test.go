@@ -5,7 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -16,9 +17,10 @@ import (
 
 func Test_HashedCapabilityId(t *testing.T) {
 	transactor := testutils.MustNewSimTransactor(t)
-	sb := backends.NewSimulatedBackend(core.GenesisAlloc{
+	b := simulated.NewBackend(types.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},
-	}, 30e6)
+	}, simulated.WithBlockGasLimit(30e6))
+	sb := &backends.SimulatedBackend{Backend: b, Client: b.Client()}
 
 	crAddress, _, _, err := kcr.DeployCapabilitiesRegistry(transactor, sb)
 	require.NoError(t, err)

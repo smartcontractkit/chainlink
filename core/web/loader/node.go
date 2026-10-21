@@ -34,7 +34,7 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 	// Generate a map of nodes to chainIDs
 	nodesForChain := map[string][]types.NodeStatus{}
 	for _, n := range allNodes {
-		nodesForChain[n.ChainID] = append(nodesForChain[n.ChainID], n)
+		nodesForChain[n.ChainID] = append(nodesForChain[n.ChainID], n.NodeStatus)
 	}
 
 	// Construct the output array of dataloader results

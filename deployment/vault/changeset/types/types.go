@@ -1,7 +1,10 @@
 package types
 
 import (
+	"encoding/json"
+	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -265,4 +268,127 @@ type EthBalMonAcceptOwnershipInput struct {
 	Chains []uint64 `json:"chains"`
 	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
 	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+}
+
+// ---------------------------------------------- //
+//  CCIP native / wrapped-native bridge input     //
+// ---------------------------------------------- //
+
+// CCIP bridge token-type values for CCIPBridgeConfig.TokenType.
+const (
+	// TokenTypeNative: the source Timelock holds native (ETH); the changeset wraps via WETH
+	// deposit() before the CCIP send.
+	TokenTypeNative = "native"
+	// TokenTypeWrappedNative: the source Timelock already holds WETH; no wrap, approve + send only.
+	TokenTypeWrappedNative = "wrappedNative"
+)
+
+// CCIPBridgeTransfer is a single destination for a native/wrapped-native bridge from the source Timelock.
+type CCIPBridgeTransfer struct {
+	// ToChainSelector is the CCIP destination chain selector.
+	ToChainSelector uint64 `json:"to_chain_selector"`
+	// Amount is the value to bridge, in wei (WETH units).
+	Amount *big.Int `json:"amount"`
+	// DestinationAddress is the final native recipient address on the destination chain.
+	DestinationAddress string `json:"destination_address"`
+	// MaxCCIPFee optionally caps the buffered native fee actually sent for this transfer (wei).
+	MaxCCIPFee *big.Int `json:"max_ccip_fee,omitempty"`
+}
+
+// UnmarshalJSON lets Amount and MaxCCIPFee be supplied as either a JSON number or a quoted decimal
+// string. Quoting is REQUIRED for values above int64 max (~9.2e18 wei ≈ 9.2 ETH): an unquoted YAML
+// integer overflows int64 before it ever reaches here, so large transfers (e.g. 50 - 100 ETH) must be
+// written as strings, e.g. amount: "50000000000000000000". Smaller values may use either form.
+func (t *CCIPBridgeTransfer) UnmarshalJSON(data []byte) error {
+	var r struct {
+		ToChainSelector    uint64          `json:"to_chain_selector"`
+		Amount             json.RawMessage `json:"amount"`
+		DestinationAddress string          `json:"destination_address"`
+		MaxCCIPFee         json.RawMessage `json:"max_ccip_fee"`
+	}
+	if err := json.Unmarshal(data, &r); err != nil {
+		return err
+	}
+	amount, err := parseWeiBigInt(r.Amount)
+	if err != nil {
+		return fmt.Errorf("amount: %w", err)
+	}
+	maxFee, err := parseWeiBigInt(r.MaxCCIPFee)
+	if err != nil {
+		return fmt.Errorf("max_ccip_fee: %w", err)
+	}
+	t.ToChainSelector = r.ToChainSelector
+	t.DestinationAddress = r.DestinationAddress
+	t.Amount = amount
+	t.MaxCCIPFee = maxFee
+	return nil
+}
+
+// parseWeiBigInt parses a base-10 wei value from a JSON number or a quoted decimal string. It returns
+// nil for an absent, null, or empty value so an omitted optional field stays nil.
+func parseWeiBigInt(raw json.RawMessage) (*big.Int, error) {
+	s := strings.TrimSpace(string(raw))
+	if s == "" || s == "null" {
+		return nil, nil
+	}
+	s = strings.Trim(s, `"`)
+	if s == "" {
+		return nil, nil
+	}
+	v, ok := new(big.Int).SetString(s, 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid integer %q", s)
+	}
+	return v, nil
+}
+
+// CCIPBridgeSource is one source chain's bridge: what its Timelock holds and the destinations it
+// sends to. Each source resolves its own Timelock/MCM/WETH/Router from the datastore.
+type CCIPBridgeSource struct {
+	// FromChainSelector is the source chain whose Timelock holds the funds and executes the batch.
+	FromChainSelector uint64 `json:"from_chain_selector"`
+	// TokenType is TokenTypeNative or TokenTypeWrappedNative; it describes what this source holds.
+	TokenType string `json:"token_type"`
+	// Transfers is the list of destinations bridged from this source.
+	Transfers []CCIPBridgeTransfer `json:"transfers"`
+}
+
+// CCIPBridgeConfig configures a CCIP bridge of native/wrapped-native value from one or more source
+// Timelocks to destination chains, delivering native value via an EtherSenderReceiver. Listing
+// several sources produces a single multi-chain MCMS proposal so signers sign once.
+type CCIPBridgeConfig struct {
+	// Sources lists the source chains to bridge from. Preferred form; multiple sources are bundled
+	// into one proposal. When empty, the single-source fields below are used instead.
+	Sources []CCIPBridgeSource `json:"sources,omitempty"`
+
+	// Single-source shorthand (used only when Sources is empty) - kept for backward compatibility.
+	FromChainSelector uint64               `json:"from_chain_selector,omitempty"`
+	TokenType         string               `json:"token_type,omitempty"`
+	Transfers         []CCIPBridgeTransfer `json:"transfers,omitempty"`
+
+	// TestNeeded, when true, splits every transfer into a test proposal (TestBridgeAmount) and a
+	// remainder proposal (amount - TestBridgeAmount), each spanning all sources.
+	TestNeeded bool `json:"test_needed"`
+	// GasLimit is the destination execution gas limit encoded in CCIP extraArgs (default used if 0).
+	GasLimit uint64 `json:"gas_limit,omitempty"`
+	// MCMSConfig is the timelock/MCMS configuration; injected by the pipeline.
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config"`
+	// Description for the generated MCMS proposal(s).
+	Description string `json:"description"`
+}
+
+// NormalizedSources returns Sources, or a single source built from the shorthand fields when Sources
+// is empty. It returns nil when neither form is set.
+func (c CCIPBridgeConfig) NormalizedSources() []CCIPBridgeSource {
+	if len(c.Sources) > 0 {
+		return c.Sources
+	}
+	if c.FromChainSelector == 0 && len(c.Transfers) == 0 {
+		return nil
+	}
+	return []CCIPBridgeSource{{
+		FromChainSelector: c.FromChainSelector,
+		TokenType:         c.TokenType,
+		Transfers:         c.Transfers,
+	}}
 }

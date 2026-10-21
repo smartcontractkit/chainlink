@@ -95,7 +95,7 @@ func FromJSONRPCErrorCode(errorCode int64) ErrorCode {
 }
 
 // See https://go.dev/src/net/http/status.go
-func ToHttpErrorCode(errorCode ErrorCode) int {
+func ToHTTPErrorCode(errorCode ErrorCode) int {
 	gatewayErrorToHTTPError := map[ErrorCode]int{
 		NoError:                  200, // OK
 		UserMessageParseError:    400, // Bad Request

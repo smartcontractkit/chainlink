@@ -15,47 +15,8 @@ export ETH_CHAIN_ID=
 export ACCOUNT_KEY=
 ```
 5. execute from `core/scripts/common/vrf/setup-envs` folder
-   * `--vrf-version` - "v2" or "v2plus"
+   * `--vrf-version` - "v2plus"
 
-#### VRF V2
-```
-go run . \
---vrf-version="v2" \
---vrf-primary-node-url=http://localhost:6610 \
---vrf-primary-creds-file <path_to_file_with_creds> \
---vrf-backup-node-url=http://localhost:6611 \
---vrf-bk-creds-file <path_to_file_with_creds> \
---bhs-node-url=http://localhost:6612 \
---bhs-creds-file <path_to_file_with_creds> \
---bhs-backup-node-url=http://localhost:6613 \
---bhs-bk-creds-file <path_to_file_with_creds> \
---bhf-node-url=http://localhost:6614 \
---bhf-creds-file <path_to_file_with_creds> \
---num-eth-keys=1 \
---num-vrf-keys=1 \
---num-bhs-sending-keys= 1 \
---num-bhf-sending-keys=1 \
---sending-key-funding-amount="1e17" \
---deploy-contracts-and-create-jobs="true" \
---subscription-balance="1e19" \
---subscription-balance-native="1e18" \
---batch-fulfillment-enabled="true" \
---batch-fulfillment-gas-multiplier=1.1 \
---estimate-gas-multiplier=1.1 \
---poll-period="5s" \
---request-timeout="30m0s" \
---reverts-pipeline-enabled="true" \
---min-confs=3 \
---simulation-block="latest" \
---bhs-job-wait-blocks=30 \
---bhs-job-look-back-blocks=200 \
---bhs-job-poll-period="1s" \
---bhs-job-run-timeout="1m" \
---register-vrf-key-against-address=<vrf key will be registered against this address 
-in order to call oracleWithdraw from this address> \
---deploy-vrfv2-owner="true" \
---use-test-coordinator="true"
-```
 #### VRF V2 Plus
 * does not need to register VRF key against address 
 * does not need to deploy VRFV2Owner contract
@@ -121,7 +82,7 @@ WIP - Not working yet:
 1. If the CL nodes do not have needed amount of ETH and VRF keys, you need to create them first:
 ```
 go run . \
---vrf-version="v2" \
+--vrf-version="v2plus" \
 --vrf-primary-node-url=<url> \
 --vrf-primary-creds-file <path_to_file_with_creds> \
 --bhs-node-url=<url> \
@@ -144,7 +105,7 @@ GasEstimator.PriceMax = '30 gwei'
 NOTE - nodes will be funded at least to the amount specified in `--sending-key-funding-amount` parameter.
 ```
 go run . \
---vrf-version="v2" \
+--vrf-version="v2plus" \
 --vrf-primary-node-url=<url> \
 --vrf-primary-creds-file <path_to_file_with_creds> \
 --bhs-node-url=<url> \
@@ -168,7 +129,7 @@ go run . \
    After previous script was done, we should see the command to run in the console:
 
    e.g. to trigger rand request:
-      1. navigate to `core/scripts/vrfv2plus/testnet` or `core/scripts/vrfv2/testnet` folder
+      1. navigate to `core/scripts/vrfv2plus/testnet` folder
       2. set needed env variables
          ```
          export ETH_URL=

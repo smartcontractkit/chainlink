@@ -45,7 +45,7 @@ type Eth interface {
 	Create(ctx context.Context, chainIDs ...*big.Int) (ethkey.KeyV2, error)
 	Delete(ctx context.Context, id string) (ethkey.KeyV2, error)
 	Import(ctx context.Context, keyJSON []byte, password string, chainIDs ...*big.Int) (ethkey.KeyV2, error)
-	Export(ctx context.Context, id string, password string) ([]byte, error)
+	Export(ctx context.Context, id, password string) ([]byte, error)
 
 	Enable(ctx context.Context, address common.Address, chainID *big.Int) error
 	Disable(ctx context.Context, address common.Address, chainID *big.Int) error
@@ -88,7 +88,7 @@ func (e *EthSigner) Accounts(ctx context.Context) (accounts []string, err error)
 	for _, a := range as {
 		accounts = append(accounts, a.String())
 	}
-	return
+	return accounts, err
 }
 
 func (e *EthSigner) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
@@ -160,7 +160,7 @@ func (ks *eth) getAll(ctx context.Context) (keys []ethkey.KeyV2) {
 		keys = append(keys, key)
 	}
 	sort.Slice(keys, func(i, j int) bool { return keys[i].Cmp(keys[j]) < 0 })
-	return
+	return keys
 }
 
 // Create generates a fresh new key and enables it for the given chain IDs
@@ -232,7 +232,7 @@ func (ks *eth) Import(ctx context.Context, keyJSON []byte, password string, chai
 	return key, nil
 }
 
-func (ks *eth) Export(ctx context.Context, id string, password string) ([]byte, error) {
+func (ks *eth) Export(ctx context.Context, id, password string) ([]byte, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -263,7 +263,7 @@ func (ks *eth) addKey(ctx context.Context, ds sqlutil.DataSource, address common
 	}
 	state := new(ethkey.State)
 	sql := `INSERT INTO evm.key_states (address, disabled, evm_chain_id, created_at, updated_at)
-			VALUES ($1, false, $2, NOW(), NOW()) 
+			VALUES ($1, false, $2, NOW(), NOW())
 			RETURNING *;`
 
 	if err := ds.GetContext(ctx, state, sql, address, chainID.String()); err != nil {
@@ -408,14 +408,15 @@ func (ks *eth) GetRoundRobinAddress(ctx context.Context, chainID *big.Int, white
 
 	if len(keys) == 0 {
 		var err error
-		if chainID == nil && len(whitelist) == 0 {
+		switch {
+		case chainID == nil && len(whitelist) == 0:
 			err = errors.New("no sending keys available")
-		} else if chainID == nil {
+		case chainID == nil:
 			err = errors.Errorf("no sending keys available that match whitelist: %v", whitelist)
-		} else if len(whitelist) == 0 {
+		case len(whitelist) == 0:
 			err = errors.Errorf("no sending keys available for chain %s", chainID.String())
-		} else {
-			err = errors.Errorf("no sending keys available for chain %s that match whitelist: %v", chainID, whitelist)
+		default:
+			err = errors.Errorf("no sending keys available for chain %s that match whitelist: %v", chainID.String(), whitelist)
 		}
 		return common.Address{}, err
 	}
@@ -498,7 +499,7 @@ func (ks *eth) GetStatesForKeys(ctx context.Context, keys []ethkey.KeyV2) (state
 		}
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].KeyID() < states[j].KeyID() })
-	return
+	return states, err
 }
 
 // Useful to fetch the ChainID for a given key
@@ -511,7 +512,7 @@ func (ks *eth) GetStateForKey(ctx context.Context, key ethkey.KeyV2) (state ethk
 		}
 	}
 	err = fmt.Errorf("no state found for key with id %s", key.ID())
-	return
+	return state, err
 }
 
 func (ks *eth) EnabledAddressesForChain(ctx context.Context, chainID *big.Int) (addresses []common.Address, err error) {
@@ -529,7 +530,7 @@ func (ks *eth) EnabledAddressesForChain(ctx context.Context, chainID *big.Int) (
 			addresses = append(addresses, evmAddress)
 		}
 	}
-	return
+	return addresses, err
 }
 
 // XXXTestingOnlySetState is only used in tests to manually update a key's state
@@ -586,7 +587,7 @@ func (ks *eth) enabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2) {
 func (ks *eth) listKeys(chainID *big.Int, sortBy KeySortBy) (keys []ethkey.KeyV2) {
 	states := ks.keyStates.ChainIDKeyID[chainID.String()]
 	if states == nil {
-		return
+		return keys
 	}
 
 	type keyWithState struct {
@@ -626,7 +627,7 @@ func (ks *eth) listKeys(chainID *big.Int, sortBy KeySortBy) (keys []ethkey.KeyV2
 func (ks *eth) keysForChain(chainID *big.Int, includeDisabled bool) (keys []ethkey.KeyV2) {
 	states := ks.keyStates.ChainIDKeyID[chainID.String()]
 	if states == nil {
-		return
+		return keys
 	}
 	for keyID, state := range states {
 		if includeDisabled || !state.Disabled {

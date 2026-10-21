@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, feedId [32]byte) *nodeclient.OCR2TaskJobSpec {
-	hash := common.BytesToHash(feedId[:])
+func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, feedID [32]byte) *nodeclient.OCR2TaskJobSpec {
+	hash := common.BytesToHash(feedID[:])
 	return &nodeclient.OCR2TaskJobSpec{
 		Name:    "bootstrap-" + uuid.NewString(),
 		JobType: "bootstrap",
@@ -36,8 +36,8 @@ func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, feedId [32]b
 
 func BuildOCRSpec(
 	verifierAddr common.Address, chainID int64, fromBlock uint64,
-	feedId [32]byte, bridges []nodeclient.BridgeTypeAttributes,
-	csaPubKey string, msRemoteUrl string, msPubKey string,
+	feedID [32]byte, bridges []nodeclient.BridgeTypeAttributes,
+	csaPubKey string, msRemoteURL string, msPubKey string,
 	nodeOCRKey string, p2pV2Bootstrapper string, allowedFaults int) *nodeclient.OCR2TaskJobSpec {
 	tmpl, err := template.New("os").Parse(`
 {{range $i, $b := .Bridges}}
@@ -87,7 +87,7 @@ ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];
 	}
 	observationSource := buf.String()
 
-	hash := common.BytesToHash(feedId[:])
+	hash := common.BytesToHash(feedID[:])
 	return &nodeclient.OCR2TaskJobSpec{
 		Name:              "ocr2-" + uuid.NewString(),
 		JobType:           "offchainreporting2",
@@ -96,7 +96,7 @@ ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			PluginType: "mercury",
 			PluginConfig: map[string]any{
-				"serverURL":    fmt.Sprintf("\"%s\"", msRemoteUrl),
+				"serverURL":    fmt.Sprintf("\"%s\"", msRemoteURL),
 				"serverPubKey": fmt.Sprintf("\"%s\"", msPubKey),
 			},
 			Relay: "evm",
@@ -116,7 +116,7 @@ ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];
 }
 
 func BuildBridges(eaUrls []*url.URL) []nodeclient.BridgeTypeAttributes {
-	var bridges []nodeclient.BridgeTypeAttributes
+	bridges := make([]nodeclient.BridgeTypeAttributes, 0, len(eaUrls))
 	for _, url := range eaUrls {
 		bridges = append(bridges, nodeclient.BridgeTypeAttributes{
 			Name:        "bridge_" + uuid.NewString()[0:6],

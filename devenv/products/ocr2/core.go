@@ -56,7 +56,6 @@ type OracleSpec struct {
 	ID                                int32                `toml:"-"`
 	ContractConfigConfirmations       uint16               `toml:"contractConfigConfirmations"`
 	CaptureEATelemetry                bool                 `toml:"captureEATelemetry"`
-	CaptureAutomationCustomTelemetry  bool                 `toml:"captureAutomationCustomTelemetry"`
 	AllowNoBootstrappers              bool                 `toml:"allowNoBootstrappers"`
 }
 

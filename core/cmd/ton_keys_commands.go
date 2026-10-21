@@ -24,7 +24,7 @@ func (p TONKeyPresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *TONKeyPresenter) ToRow() []string {
+func (p TONKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.PubKey,
@@ -40,7 +40,7 @@ type TONKeyPresenters []TONKeyPresenter
 // RenderTable implements TableRenderer
 func (ps TONKeyPresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "TON Public Key", "Base64 Address", "Raw Address"}
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

@@ -97,9 +97,9 @@ func (cc *LogController) Patch(c *gin.Context) {
 
 	if request.Level == "debug" {
 		if request.SQLEnabled != nil && *request.SQLEnabled {
-			cc.App.GetAuditLogger().Audit(audit.ConfigSqlLoggingEnabled, map[string]any{})
+			cc.App.GetAuditLogger().Audit(audit.ConfigSQLLoggingEnabled, map[string]any{})
 		} else {
-			cc.App.GetAuditLogger().Audit(audit.ConfigSqlLoggingDisabled, map[string]any{})
+			cc.App.GetAuditLogger().Audit(audit.ConfigSQLLoggingDisabled, map[string]any{})
 		}
 	}
 

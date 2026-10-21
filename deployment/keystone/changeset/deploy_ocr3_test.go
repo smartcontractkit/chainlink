@@ -236,7 +236,8 @@ func TestConfigureOCR3(t *testing.T) {
 		// Deploy a new OCR3 contract
 		resp, err := changeset.DeployOCR3V2(te.Env, &changeset.DeployRequestV2{
 			ChainSel:  registrySel,
-			Qualifier: "test-ocr-contract"})
+			Qualifier: "test-ocr-contract",
+		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook))

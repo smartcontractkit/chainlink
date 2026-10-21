@@ -100,7 +100,7 @@ func TestShell_ListETHKeys(t *testing.T) {
 	)
 	client, r := app.NewShellAndRenderer()
 
-	assert.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 1)
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
@@ -125,7 +125,7 @@ func TestShell_ListETHKeys_Error(t *testing.T) {
 	)
 	client, r := app.NewShellAndRenderer()
 
-	assert.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 1)
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
@@ -149,7 +149,7 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 	require.Len(t, keys, 1)
 	k := keys[0]
 
-	assert.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 1)
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)

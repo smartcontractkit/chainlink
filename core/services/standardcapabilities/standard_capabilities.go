@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -31,7 +32,7 @@ type StandardCapabilities struct {
 	config               string
 	pluginRegistrar      plugins.RegistrarConfig
 	store                core.KeyValueStore
-	CapabilitiesRegistry core.CapabilitiesRegistry
+	CapabilitiesRegistry registry.CapabilitiesRegistry
 	relayerSet           core.RelayerSet
 	keystore             core.Keystore
 	oracleFactory        core.OracleFactory
@@ -47,6 +48,10 @@ type StandardCapabilities struct {
 	capabilityDonID uint32
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
+	// loopID is the ID this service holds in the plugin registrar. It is set
+	// once RegisterLOOP succeeds and cleared by unregisterLOOP, so the same ID can be
+	// registered again when the capability is restarted (e.g. on a config change).
+	loopID string
 
 	wg           sync.WaitGroup
 	readyChan    chan struct{}
@@ -125,17 +130,20 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse capabilities env file: %w", err)
 		}
+		loopID := s.log.Name()
 		cmdFn, opts, err := s.pluginRegistrar.RegisterLOOP(plugins.CmdConfig{
-			ID:  s.log.Name(),
+			ID:  loopID,
 			Cmd: s.command,
 			Env: envVars,
 		})
 		if err != nil {
 			return fmt.Errorf("error registering loop: %w", err)
 		}
+		s.loopID = loopID
 
 		s.capabilitiesLoop = loop.NewStandardCapabilitiesService(s.log, opts, cmdFn)
 		if err = s.capabilitiesLoop.Start(ctx); err != nil {
+			s.unregisterLOOP()
 			return fmt.Errorf("error starting standard capabilities service: %w", err)
 		}
 
@@ -226,6 +234,9 @@ func (s *StandardCapabilities) Await(ctx context.Context) error {
 func (s *StandardCapabilities) Close() error {
 	close(s.stopChan)
 	s.wg.Wait()
+	// Release the LOOP registration after the LOOP is stopped, even if StopOnce
+	// fails, so that a new instance with the same ID can register it again.
+	defer s.unregisterLOOP()
 	return s.StopOnce("StandardCapabilities", func() error {
 		if s.capabilitiesLoop != nil {
 			return s.capabilitiesLoop.Close()
@@ -233,4 +244,12 @@ func (s *StandardCapabilities) Close() error {
 
 		return nil
 	})
+}
+
+func (s *StandardCapabilities) unregisterLOOP() {
+	if s.loopID == "" {
+		return
+	}
+	s.pluginRegistrar.UnregisterLOOP(s.loopID)
+	s.loopID = ""
 }

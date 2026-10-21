@@ -24,7 +24,7 @@ func (p SuiKeyPresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *SuiKeyPresenter) ToRow() []string {
+func (p SuiKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.PubKey,
@@ -38,7 +38,7 @@ type SuiKeyPresenters []SuiKeyPresenter
 // RenderTable implements TableRenderer
 func (ps SuiKeyPresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Sui Public Key"}
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

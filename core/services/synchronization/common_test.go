@@ -28,12 +28,6 @@ func TestTelemetryTypeToDomainAndEntity(t *testing.T) {
 			expectedEntity: "offchainreporting2.TelemetryWrapper",
 		},
 		{
-			name:           "OCR2Automation",
-			telemType:      OCR2Automation,
-			expectedDomain: "automations.telemetry.ocr2-automation",
-			expectedEntity: "offchainreporting2.TelemetryWrapper",
-		},
-		{
 			name:           "OCR2CCIPCommit",
 			telemType:      OCR2CCIPCommit,
 			expectedDomain: "ccip.telemetry.ocr2",
@@ -50,12 +44,6 @@ func TestTelemetryTypeToDomainAndEntity(t *testing.T) {
 			telemType:      OCR2Functions,
 			expectedDomain: "functions.telemetry.ocr2-functions",
 			expectedEntity: "offchainreporting2.TelemetryWrapper",
-		},
-		{
-			name:           "OCR3Automation",
-			telemType:      OCR3Automation,
-			expectedDomain: "automations.telemetry.ocr3-automation",
-			expectedEntity: "offchainreporting3.TelemetryWrapper",
 		},
 		{
 			name:           "OCR3Mercury",
@@ -106,10 +94,10 @@ func TestTelemetryTypeToDomainAndEntity(t *testing.T) {
 			expectedEntity: "telem.LLOOutcomeTelemetry",
 		},
 		{
-			name:           "AutomationCustom",
-			telemType:      AutomationCustom,
-			expectedDomain: "automations.telemetry.automation-custom",
-			expectedEntity: "telem.AutomationTelemWrapper",
+			name:           "LLOAttributedObservation",
+			telemType:      LLOAttributedObservation,
+			expectedDomain: "data-streams.telemetry.llo-attributed-observation",
+			expectedEntity: "telem.LLOAttributedObservationTelemetry",
 		},
 		{
 			name:           "FunctionsRequests",

@@ -237,7 +237,7 @@ func discoverTopologies() ([]discoveredTopology, error) {
 		}
 		ok, err := isTopologyConfig(path)
 		if err != nil || !ok {
-			return nil
+			return nil //nolint:nilerr // skip invalid or non-topology files during directory walk
 		}
 		candidates = append(candidates, path)
 		return nil

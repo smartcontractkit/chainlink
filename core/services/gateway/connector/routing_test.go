@@ -11,14 +11,14 @@ func TestGatewayConnector_GatewayIDsForDon(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		gateways []ConnectorGatewayConfig
+		gateways []GatewayConfig
 		donID    string
 		want     []string
 		wantErr  string
 	}{
 		{
 			name: "legacy empty donID returns all gateways",
-			gateways: []ConnectorGatewayConfig{
+			gateways: []GatewayConfig{
 				{ID: "gateway_a", URL: "ws://localhost:8081/a"},
 				{ID: "gateway_b", URL: "ws://localhost:8081/b"},
 			},
@@ -27,7 +27,7 @@ func TestGatewayConnector_GatewayIDsForDon(t *testing.T) {
 		},
 		{
 			name: "legacy non-empty donID returns no matches",
-			gateways: []ConnectorGatewayConfig{
+			gateways: []GatewayConfig{
 				{ID: "gateway_a", URL: "ws://localhost:8081/a"},
 			},
 			donID: "gateway_don_us",
@@ -35,7 +35,7 @@ func TestGatewayConnector_GatewayIDsForDon(t *testing.T) {
 		},
 		{
 			name: "multi-DON filters by gateway DON",
-			gateways: []ConnectorGatewayConfig{
+			gateways: []GatewayConfig{
 				{ID: "gateway_us_1", DonID: "gateway_don_us", URL: "ws://localhost:8081/us-1"},
 				{ID: "gateway_us_2", DonID: "gateway_don_us", URL: "ws://localhost:8081/us-2"},
 				{ID: "gateway_eu_1", DonID: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
@@ -45,7 +45,7 @@ func TestGatewayConnector_GatewayIDsForDon(t *testing.T) {
 		},
 		{
 			name: "multi-DON empty donID returns all gateways",
-			gateways: []ConnectorGatewayConfig{
+			gateways: []GatewayConfig{
 				{ID: "gateway_us_1", DonID: "gateway_don_us", URL: "ws://localhost:8081/us-1"},
 				{ID: "gateway_eu_1", DonID: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
 			},
@@ -58,9 +58,9 @@ func TestGatewayConnector_GatewayIDsForDon(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			connector, _, _ := newTestConnector(t, &ConnectorConfig{
+			connector, _, _ := newTestConnector(t, &Config{
 				NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
-				DonId:       "example_don",
+				DonID:       "example_don",
 				Gateways:    tt.gateways,
 			})
 
@@ -82,10 +82,10 @@ func TestGatewayConnector_DonIDForGateway(t *testing.T) {
 	t.Run("legacy gateway", func(t *testing.T) {
 		t.Parallel()
 
-		connector, _, _ := newTestConnector(t, &ConnectorConfig{
+		connector, _, _ := newTestConnector(t, &Config{
 			NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
-			DonId:       "example_don",
-			Gateways: []ConnectorGatewayConfig{
+			DonID:       "example_don",
+			Gateways: []GatewayConfig{
 				{ID: "gateway_legacy", URL: "ws://localhost:8081/legacy"},
 			},
 		})
@@ -98,10 +98,10 @@ func TestGatewayConnector_DonIDForGateway(t *testing.T) {
 	t.Run("multi-DON gateway", func(t *testing.T) {
 		t.Parallel()
 
-		connector, _, _ := newTestConnector(t, &ConnectorConfig{
+		connector, _, _ := newTestConnector(t, &Config{
 			NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
-			DonId:       "example_don",
-			Gateways: []ConnectorGatewayConfig{
+			DonID:       "example_don",
+			Gateways: []GatewayConfig{
 				{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 			},
 		})
@@ -125,10 +125,10 @@ func TestGatewayConnector_DonIDForGateway(t *testing.T) {
 func TestGatewayConnector_PrimaryDonIDNotImplemented(t *testing.T) {
 	t.Parallel()
 
-	connector, _, _ := newTestConnector(t, &ConnectorConfig{
+	connector, _, _ := newTestConnector(t, &Config{
 		NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
-		DonId:       "example_don",
-		Gateways: []ConnectorGatewayConfig{
+		DonID:       "example_don",
+		Gateways: []GatewayConfig{
 			{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 		},
 	})
@@ -141,10 +141,10 @@ func TestGatewayConnector_PrimaryDonIDNotImplemented(t *testing.T) {
 func TestGatewayConnector_DonIDReturnsSourceDON(t *testing.T) {
 	t.Parallel()
 
-	connector, _, _ := newTestConnector(t, &ConnectorConfig{
+	connector, _, _ := newTestConnector(t, &Config{
 		NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
-		DonId:       "workflow_don",
-		Gateways: []ConnectorGatewayConfig{
+		DonID:       "workflow_don",
+		Gateways: []GatewayConfig{
 			{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 		},
 	})

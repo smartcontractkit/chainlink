@@ -182,8 +182,8 @@ func TestPlugin_ThroughputAnalysis(t *testing.T) {
 			Request: &vaultcommon.Observation_CreateSecretsRequest{
 				CreateSecretsRequest: &vaultcommon.CreateSecretsRequest{
 					RequestId:        reqID,
-					OrgId:            strings.Repeat("o", maxIdentifierBytes),
-					WorkflowOwner:    strings.Repeat("w", maxIdentifierBytes),
+					OrgId:            strings.Repeat("o", maxIdentifierBytes), //nolint:staticcheck // SA1019: testing deprecated field
+					WorkflowOwner:    strings.Repeat("w", maxIdentifierBytes), //nolint:staticcheck // SA1019: testing deprecated field
 					EncryptedSecrets: secrets,
 				},
 			},
@@ -263,8 +263,8 @@ func TestPlugin_ThroughputAnalysis(t *testing.T) {
 	}
 	getSecretsPendingItemSize := pendingItemSizeFor(&vaultcommon.GetSecretsRequest{
 		Requests:      getSecretsReqs,
-		OrgId:         strings.Repeat("o", maxIdentifierBytes),
-		WorkflowOwner: strings.Repeat("w", maxIdentifierBytes),
+		OrgId:         strings.Repeat("o", maxIdentifierBytes), //nolint:staticcheck // SA1019: testing deprecated field
+		WorkflowOwner: strings.Repeat("w", maxIdentifierBytes), //nolint:staticcheck // SA1019: testing deprecated field
 	})
 
 	// Max-size CreateSecretsRequest pending queue item
@@ -274,8 +274,8 @@ func TestPlugin_ThroughputAnalysis(t *testing.T) {
 	}
 	createSecretsPendingItemSize := pendingItemSizeFor(&vaultcommon.CreateSecretsRequest{
 		RequestId:        strings.Repeat("r", 36),
-		OrgId:            strings.Repeat("o", maxIdentifierBytes),
-		WorkflowOwner:    strings.Repeat("w", maxIdentifierBytes),
+		OrgId:            strings.Repeat("o", maxIdentifierBytes), //nolint:staticcheck // SA1019: testing deprecated field
+		WorkflowOwner:    strings.Repeat("w", maxIdentifierBytes), //nolint:staticcheck // SA1019: testing deprecated field
 		EncryptedSecrets: createSecrets,
 	})
 

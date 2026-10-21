@@ -19,6 +19,7 @@ import (
 // for a MCMSWithTimelock contract deployment.
 // It is public for use in product specific packages.
 // Either all fields are nil or all fields are non-nil.
+//
 // Deprecated: use MCMSWithTimelockState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
 type MCMSWithTimelockState struct {
@@ -33,6 +34,7 @@ type MCMSWithTimelockState struct {
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
+//
 // Deprecated: use MaybeLoadMCMSWithTimelockChainState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
 func MaybeLoadMCMSWithTimelockChainState(

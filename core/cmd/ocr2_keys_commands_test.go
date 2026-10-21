@@ -88,7 +88,7 @@ func TestShell_OCR2Keys(t *testing.T) {
 		key, err := app.GetKeyStore().OCR2().Create(ctx, "evm")
 		require.NoError(t, err)
 		requireOCR2KeyCount(t, app, 1)
-		assert.NoError(t, client.ListOCR2KeyBundles(cltest.EmptyCLIContext()))
+		require.NoError(t, client.ListOCR2KeyBundles(cltest.EmptyCLIContext()))
 		require.Len(t, r.Renders, 1)
 		output := *r.Renders[0].(*cmd.OCR2KeyBundlePresenters)
 		require.Equal(t, key.ID(), output[0].ID)

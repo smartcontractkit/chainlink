@@ -8,11 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/bigint"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 )
@@ -166,7 +165,7 @@ var (
 		LinkSymbol: MockLinkAggregatorDescription,
 		WethSymbol: MockWETHAggregatorDescription,
 	}
-	TestDeviationPPB = ccipocr3.NewBigIntFromInt64(1e9)
+	TestDeviationPPB = ccipocr3common.NewBigIntFromInt64(1e9)
 
 	TokenSymbolSubstitute = map[string]string{
 		"wS": WSSymbol.String(),
@@ -176,27 +175,27 @@ var (
 // TokenConfig mapping between token Symbol (e.g. LinkSymbol, WethSymbol)
 // and the respective token info.
 type TokenConfig struct {
-	TokenSymbolToInfo map[TokenSymbol]pluginconfig.TokenInfo
+	TokenSymbolToInfo map[TokenSymbol]ccipocr3common.TokenInfo
 }
 
 func NewTokenConfig() TokenConfig {
 	return TokenConfig{
-		TokenSymbolToInfo: make(map[TokenSymbol]pluginconfig.TokenInfo),
+		TokenSymbolToInfo: make(map[TokenSymbol]ccipocr3common.TokenInfo),
 	}
 }
 
 func NewTestTokenConfig(feeds map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface) TokenConfig {
 	tc := NewTokenConfig()
 	tc.UpsertTokenInfo(LinkSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: ccipocr3.UnknownEncodedAddress(feeds[LinkSymbol].Address().String()),
+		ccipocr3common.TokenInfo{
+			AggregatorAddress: ccipocr3common.UnknownEncodedAddress(feeds[LinkSymbol].Address().String()),
 			Decimals:          LinkDecimals,
 			DeviationPPB:      TestDeviationPPB,
 		},
 	)
 	tc.UpsertTokenInfo(WethSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: ccipocr3.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
+		ccipocr3common.TokenInfo{
+			AggregatorAddress: ccipocr3common.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
 			Decimals:          WethDecimals,
 			DeviationPPB:      TestDeviationPPB,
 		},
@@ -206,7 +205,7 @@ func NewTestTokenConfig(feeds map[TokenSymbol]*aggregator_v3_interface.Aggregato
 
 func (tc *TokenConfig) UpsertTokenInfo(
 	symbol TokenSymbol,
-	info pluginconfig.TokenInfo,
+	info ccipocr3common.TokenInfo,
 ) {
 	tc.TokenSymbolToInfo[symbol] = info
 }
@@ -216,13 +215,13 @@ func (tc *TokenConfig) GetTokenInfo(
 	lggr logger.Logger,
 	linkTokenAddr,
 	wethTokenAddr common.Address,
-) map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo {
-	tokenToAggregate := make(map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo)
+) map[ccipocr3common.UnknownEncodedAddress]ccipocr3common.TokenInfo {
+	tokenToAggregate := make(map[ccipocr3common.UnknownEncodedAddress]ccipocr3common.TokenInfo)
 	if _, ok := tc.TokenSymbolToInfo[LinkSymbol]; !ok {
 		lggr.Debugw("Link aggregator not found, deploy without mapping link token")
 	} else {
 		lggr.Debugw("Mapping LinkToken to Link aggregator")
-		acc := ccipocr3.UnknownEncodedAddress(linkTokenAddr.String())
+		acc := ccipocr3common.UnknownEncodedAddress(linkTokenAddr.String())
 		tokenToAggregate[acc] = tc.TokenSymbolToInfo[LinkSymbol]
 	}
 
@@ -230,7 +229,7 @@ func (tc *TokenConfig) GetTokenInfo(
 		lggr.Debugw("Weth aggregator not found, deploy without mapping link token")
 	} else {
 		lggr.Debugw("Mapping WethToken to Weth aggregator")
-		acc := ccipocr3.UnknownEncodedAddress(wethTokenAddr.String())
+		acc := ccipocr3common.UnknownEncodedAddress(wethTokenAddr.String())
 		tokenToAggregate[acc] = tc.TokenSymbolToInfo[WethSymbol]
 	}
 

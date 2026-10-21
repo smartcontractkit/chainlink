@@ -73,7 +73,7 @@ func TestTestJWTIssuer_WorksWithVaultJWTBasedAuth(t *testing.T) {
 		IssuerURL: issuer.LocalIssuerURL(),
 		Audience:  "https://api.test.chain.link",
 		TenantID:  1,
-	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t), vaultcap.WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
+	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	authResult, err := auth.AuthorizeRequest(t.Context(), req)

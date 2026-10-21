@@ -67,7 +67,7 @@ func TestDirectHTTPAction_RequestHeaders(t *testing.T) {
 		input := &customhttp.Request{
 			Url:     srv.URL,
 			Method:  "GET",
-			Headers: map[string]string{"Authorization": "Basic legacy-auth"},
+			Headers: map[string]string{"Authorization": "Basic legacy-auth"}, //nolint:staticcheck // SA1019
 		}
 		metadata := commonCap.RequestMetadata{}
 

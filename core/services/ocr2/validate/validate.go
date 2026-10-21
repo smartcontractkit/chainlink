@@ -30,7 +30,7 @@ import (
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf InsecureConfig, tomlString string, rc plugins.RegistrarConfig) (job.Job, error) {
-	var jb = job.Job{}
+	jb := job.Job{}
 	var spec job.OCR2OracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
@@ -109,8 +109,6 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 		if spec.Pipeline.Source == "" {
 			return errors.New("no pipeline specified")
 		}
-	case types.OCR2Keeper:
-		return validateOCR2KeeperSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.Functions:
 		// TODO validator for DR-OCR spec: https://smartcontract-it.atlassian.net/browse/FUN-112
 		return nil
@@ -168,14 +166,12 @@ type OCR2GenericPluginConfig struct {
 }
 
 func (o *OCR2GenericPluginConfig) UnmarshalJSON(data []byte) error {
-	err := json.Unmarshal(data, &o.innerConfig)
-	if err != nil {
-		return nil
-	}
+	// innerConfig is best-effort: ignore a type mismatch so the raw PluginConfig
+	// map below is always populated.
+	_ = json.Unmarshal(data, &o.innerConfig)
 
 	m := map[string]any{}
-	err = json.Unmarshal(data, &m)
-	if err != nil {
+	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 
@@ -297,10 +293,6 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 	defer plugin.Close()
 
 	return plugin.ValidateConfig(ctx, spec.PluginConfig)
-}
-
-func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
-	return nil
 }
 
 func validateDonTimePluginSpec(jsonConfig job.JSONConfig) error {

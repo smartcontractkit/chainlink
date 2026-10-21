@@ -1,6 +1,7 @@
 package testhelpers
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -11,21 +12,27 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/block-vision/sui-go-sdk/models"
+	suirpcv2 "github.com/block-vision/sui-go-sdk/pb/sui/rpc/v2"
 	suitx "github.com/block-vision/sui-go-sdk/transaction"
+	agbinary "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
+	solLatestFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
+	suicodec "github.com/smartcontractkit/chainlink-sui/codec"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
@@ -33,7 +40,6 @@ import (
 	burnminttokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_burn_mint_token_pool"
 	lockreleasetokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_lock_release_token_pool"
 	managedtokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_managed_token_pool"
-	managedtokenops "github.com/smartcontractkit/chainlink-sui/deployment/ops/managed_token"
 	suiofframp_helper "github.com/smartcontractkit/chainlink-sui/relayer/chainwriter/ptb/offramp"
 	cslclient "github.com/smartcontractkit/chainlink-sui/relayer/client"
 
@@ -163,28 +169,42 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	// getValidatedFee
 	msg := cfg.Message.(SuiSendRequest)
 
-	// Update Prices on FeeQuoter with minted LinkToken
-	feePriceReport, err := operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
-		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
-			CCIPPackageId:         ccipPackageID,
-			CCIPObjectRef:         ccipObjectRefID,
-			OwnerCapObjectId:      ccipOwnerCapID,
-			SourceTokens:          []string{linkTokenObjectMetadataID},
-			SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
-			GasDestChainSelectors: []uint64{cfg.DestChain},
-			GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
-		})
-	if err != nil {
-		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
+	// Update Prices on FeeQuoter with minted LinkToken. This EOA update uses the deployer's
+	// CCIPOwnerCapObjectId, which is consumed (moved into the MCMS registry) once Sui CCIP is
+	// transferred to MCMS — as the lanes-based Sui<->Solana setup does, seeding prices via MCMS
+	// proposals instead. Auto-detect which regime we are in by probing the OwnerCap object: if
+	// the deployer still address-owns it, run the EOA update (legacy deployer-owned Sui tests); if
+	// it has moved into the MCMS registry (owner kind no longer Address) or is unreadable, skip it
+	// — prices were already seeded by lane setup, and the EOA op would fail on the consumed cap.
+	deployerOwnsOwnerCap := false
+	if ccipOwnerCapID != "" {
+		if ownerCapObj, readErr := suiChain.Client.ReadObjectId(ctx, ccipOwnerCapID); readErr == nil && ownerCapObj != nil && ownerCapObj.Owner != nil {
+			deployerOwnsOwnerCap = ownerCapObj.Owner.GetKind() == suirpcv2.Owner_ADDRESS
+		}
 	}
+	if deployerOwnsOwnerCap {
+		feePriceReport, err := operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
+			ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
+				CCIPPackageId:         ccipPackageID,
+				CCIPObjectRef:         ccipObjectRefID,
+				OwnerCapObjectId:      ccipOwnerCapID,
+				SourceTokens:          []string{linkTokenObjectMetadataID},
+				SourceUsdPerToken:     []*big.Int{bigIntSourceUsdPerToken},
+				GasDestChainSelectors: []uint64{cfg.DestChain},
+				GasUsdPerUnitGas:      []*big.Int{bigIntGasUsdPerUnitGas},
+			})
+		if err != nil {
+			return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
+		}
 
-	// This tx mutates the signer's gas coin. The following PTB (ccip_send) selects that
-	// coin via owned-object refs; without waiting for fullnode indexing, the next submit
-	// can race (stale object version) even when each individual binding call used
-	// WaitForExecution (see bind.WaitForTransactionIndexed / WaitForSuiFullnodeTransaction).
-	if d := feePriceReport.Output.Digest; d != "" {
-		if waitErr := WaitForSuiFullnodeTransaction(ctx, suiChain.Client, d); waitErr != nil {
-			return &ccipclient.AnyMsgSentEvent{}, fmt.Errorf("fee quoter price update tx not visible on fullnode: %w", waitErr)
+		// This tx mutates the signer's gas coin. The following PTB (ccip_send) selects that
+		// coin via owned-object refs; without waiting for fullnode indexing, the next submit
+		// can race (stale object version) even when each individual binding call used
+		// WaitForExecution (see bind.WaitForTransactionIndexed / WaitForSuiFullnodeTransaction).
+		if d := feePriceReport.Output.Digest; d != "" {
+			if waitErr := WaitForSuiFullnodeTransaction(ctx, suiChain.Client, d); waitErr != nil {
+				return &ccipclient.AnyMsgSentEvent{}, fmt.Errorf("fee quoter price update tx not visible on fullnode: %w", waitErr)
+			}
 		}
 	}
 
@@ -378,32 +398,32 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		switch msg.TokenAmounts[0].TokenPoolType {
 		case sui_deployment.TokenPoolTypeBurnMint:
 			paramValuesLockBurn = []any{
-				suiBind.Object{Id: ccipObjectRefID}, // ref
-				createTokenTransferParamsResult,     // token_params
-				splitCoinArg,                        // exact-amount coin to send to EVM
+				suicodec.Object{Id: ccipObjectRefID}, // ref
+				createTokenTransferParamsResult,      // token_params
+				splitCoinArg,                         // exact-amount coin to send to EVM
 				cfg.DestChain,
-				suiBind.Object{Id: "0x6"},                  // clock
-				suiBind.Object{Id: tokenPoolStateObjectID}, // BM TP state object id
+				suicodec.Object{Id: "0x6"},                  // clock
+				suicodec.Object{Id: tokenPoolStateObjectID}, // BM TP state object id
 			}
 		case sui_deployment.TokenPoolTypeManaged:
 			paramValuesLockBurn = []any{
-				suiBind.Object{Id: ccipObjectRefID}, // ref
-				createTokenTransferParamsResult,     // token_params
-				splitCoinArg,                        // exact-amount coin to send to EVM
+				suicodec.Object{Id: ccipObjectRefID}, // ref
+				createTokenTransferParamsResult,      // token_params
+				splitCoinArg,                         // exact-amount coin to send to EVM
 				cfg.DestChain,
-				suiBind.Object{Id: "0x6"},   // clock
-				suiBind.Object{Id: "0x403"}, // deny list
-				suiBind.Object{Id: state.SuiChains[cfg.SourceChain].ManagedTokens[TokenSymbolLINK].StateObjectId}, // Managed token state object id
-				suiBind.Object{Id: tokenPoolStateObjectID},                                                        // Managed TP state object id
+				suicodec.Object{Id: "0x6"},   // clock
+				suicodec.Object{Id: "0x403"}, // deny list
+				suicodec.Object{Id: state.SuiChains[cfg.SourceChain].ManagedTokens[TokenSymbolLINK].StateObjectId}, // Managed token state object id
+				suicodec.Object{Id: tokenPoolStateObjectID},                                                        // Managed TP state object id
 			}
 		case sui_deployment.TokenPoolTypeLockRelease:
 			paramValuesLockBurn = []any{
-				suiBind.Object{Id: ccipObjectRefID}, // ref
-				createTokenTransferParamsResult,     // token_params
-				splitCoinArg,                        // exact-amount coin to lock for EVM
+				suicodec.Object{Id: ccipObjectRefID}, // ref
+				createTokenTransferParamsResult,      // token_params
+				splitCoinArg,                         // exact-amount coin to lock for EVM
 				cfg.DestChain,
-				suiBind.Object{Id: "0x6"},                  // clock
-				suiBind.Object{Id: tokenPoolStateObjectID}, // LnR TP state object id
+				suicodec.Object{Id: "0x6"},                  // clock
+				suicodec.Object{Id: tokenPoolStateObjectID}, // LnR TP state object id
 			}
 		default:
 			return nil, fmt.Errorf("unsupported token pool type: %s", msg.TokenAmounts[0].TokenPoolType)
@@ -444,15 +464,15 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		}
 
 		paramValuesCCIPSend := []any{
-			suiBind.Object{Id: ccipObjectRefID},
-			suiBind.Object{Id: onRampStateObjectID},
-			suiBind.Object{Id: "0x6"},
+			suicodec.Object{Id: ccipObjectRefID},
+			suicodec.Object{Id: onRampStateObjectID},
+			suicodec.Object{Id: "0x6"},
 			cfg.DestChain,
 			msg.Receiver, // receiver
 			msg.Data,
-			createTokenTransferParamsResult,               // tokenParams from the original create_token_transfer_params
-			suiBind.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
-			suiBind.Object{Id: msg.FeeToken},
+			createTokenTransferParamsResult,                // tokenParams from the original create_token_transfer_params
+			suicodec.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
+			suicodec.Object{Id: msg.FeeToken},
 			msg.ExtraArgs, // extraArgs
 		}
 
@@ -582,15 +602,15 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	typeArgsList = []string{linkTokenPkgID + "::link::LINK"}
 	typeParamsList = []string{}
 	paramValues = []any{
-		suiBind.Object{Id: ccipObjectRefID},
-		suiBind.Object{Id: onRampStateObjectID},
-		suiBind.Object{Id: "0x6"},
+		suicodec.Object{Id: ccipObjectRefID},
+		suicodec.Object{Id: onRampStateObjectID},
+		suicodec.Object{Id: "0x6"},
 		cfg.DestChain,
 		msg.Receiver, // receiver (TODO: replace this with sender Address use environment.NormalizeTo32Bytes(ethereumAddress) from sui repo)
 		msg.Data,
-		extractedAny2SuiMessageResult,                 // tokenParams
-		suiBind.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
-		suiBind.Object{Id: msg.FeeToken},
+		extractedAny2SuiMessageResult,                  // tokenParams
+		suicodec.Object{Id: linkTokenObjectMetadataID}, // feeTokenMetadata
+		suicodec.Object{Id: msg.FeeToken},
 		msg.ExtraArgs, // extraArgs
 	}
 
@@ -659,33 +679,74 @@ func MakeSuiExtraArgs(gasLimit uint64, allowOOO bool, receiverObjectIDs [][32]by
 	return extraArgs
 }
 
-// // suiExtraArgsV1Tag is the 4-byte SuiExtraArgsV1 tag 0x21ea4ca9 (big-endian), shared by the
-// // Solana and EVM fee-quoters. It is inlined here because the ccipsolana codec keeps it
-// // unexported. The Solana fee-quoter prepends these bytes to the Borsh payload in
-// // SuiExtraArgsV1::serialize_with_tag.
-// var suiExtraArgsV1Tag = []byte{0x21, 0xea, 0x4c, 0xa9}
+// svmExtraArgsV1Tag is the 4-byte SVMExtraArgsV1 tag 0x1f3b3aba
+// (bytes4(keccak256("CCIP SVMExtraArgsV1"))). It is inlined here because the ccipsolana and
+// ccipaptos codecs keep it unexported. A Sui source emits this tag followed by the BCS-encoded
+// SVMExtraArgsV1 struct (client.move:encode_svm_extra_args_v1) when the destination is Solana.
+var svmExtraArgsV1Tag = []byte{0x1f, 0x3b, 0x3a, 0xba}
 
-// // MakeSolanaSuiExtraArgsV1 builds SuiExtraArgsV1 extra args for a Solana source the way the
-// // Solana fee-quoter serializes them: the 4-byte tag followed by the Borsh-encoded struct. This
-// // is the Solana-source counterpart of MakeSuiExtraArgs, which uses the EVM ABI encoding for an
-// // EVM source. The Solana OnRamp validates these bytes through its Sui family branch
-// // (fee-quoter process_extra_args -> parse_and_validate_sui_extra_args), and the relayer's
-// // ccipsolana ExtraDataDecoder decodes them back into the lowercase keys the Sui commit/execute
-// // path expects (gasLimit, allowOutOfOrderExecution, tokenReceiver, receiverObjectIds).
-// func MakeSolanaSuiExtraArgsV1(gasLimit uint64, allowOOO bool, receiverObjectIDs [][32]byte, tokenReceiver [32]byte) []byte {
-// 	extraArgs := solLatestFeeQuoter.SuiExtraArgsV1{
-// 		GasLimit:                 agbinary.Uint128{Lo: gasLimit, Hi: 0},
-// 		AllowOutOfOrderExecution: allowOOO,
-// 		TokenReceiver:            tokenReceiver,
-// 		ReceiverObjectIds:        receiverObjectIDs,
-// 	}
-// 	var buf bytes.Buffer
-// 	encoder := agbinary.NewBorshEncoder(&buf)
-// 	if err := extraArgs.MarshalWithEncoder(encoder); err != nil {
-// 		panic(err)
-// 	}
-// 	return append(suiExtraArgsV1Tag, buf.Bytes()...)
-// }
+// MakeSuiSourceSVMExtraArgsV1 builds SVMExtraArgsV1 extra args the way a Sui source must emit
+// them for a Solana destination: the 4-byte SVMExtraArgsV1 tag followed by the BCS-encoded
+// struct. This is the Sui-source counterpart of MakeSuiExtraArgs (which uses EVM ABI encoding
+// for an EVM destination) — the encoding is dictated by the SOURCE family's conventions, and Sui
+// (like Aptos) serializes via BCS, not Borsh/ABI.
+//
+// Field order and types match ccipaptos.decodeSvmExtraArgsV1 (the decoder the Solana dest
+// MessageHasher reaches via the source-family-dispatching codec bundle) and the golden vector in
+// ccipaptos/extradatadecoder_test.go:
+//
+//	computeUnits (uint32, little-endian)
+//	accountIsWritableBitmap (uint64, little-endian)
+//	allowOutOfOrderExecution (bool, 1 byte)
+//	tokenReceiver (vector<u8>, ULEB128 length 0x20 + 32 bytes)
+//	accounts (vector<vector<u8>>, ULEB128 count + per-account ULEB128 length 0x20 + 32 bytes)
+//
+// tokenReceiver and each account are Move vector<u8> with a runtime assert!(length==32), so they
+// MUST be length-prefixed via bcs.Serializer.WriteBytes — NOT FixedBytes, which would drop the
+// ULEB128 length byte and make the on-chain fee-quoter/OnRamp reject the message.
+func MakeSuiSourceSVMExtraArgsV1(computeUnits uint32, writableBitmap uint64, allowOOO bool, tokenReceiver [32]byte, accounts [][32]byte) []byte {
+	s := &bcs.Serializer{}
+	s.FixedBytes(svmExtraArgsV1Tag) // tag: no length prefix
+	s.U32(computeUnits)
+	s.U64(writableBitmap)
+	s.Bool(allowOOO)
+	s.WriteBytes(tokenReceiver[:]) // vector<u8>: ULEB128(32) + 32 bytes
+	bcs.SerializeSequenceWithFunction(accounts, s, func(serial *bcs.Serializer, acct [32]byte) {
+		serial.WriteBytes(acct[:]) // each account: vector<u8> of length 32
+	})
+	if err := s.Error(); err != nil {
+		panic(fmt.Errorf("encode Sui-source SVMExtraArgsV1: %w", err))
+	}
+	return s.ToBytes()
+}
+
+// suiExtraArgsV1Tag is the 4-byte SuiExtraArgsV1 tag 0x21ea4ca9 (big-endian), shared by the
+// Solana and EVM fee-quoters. It is inlined here because the ccipsolana codec keeps it
+// unexported. The Solana fee-quoter prepends these bytes to the Borsh payload in
+// SuiExtraArgsV1::serialize_with_tag.
+var suiExtraArgsV1Tag = []byte{0x21, 0xea, 0x4c, 0xa9}
+
+// MakeSolanaSuiExtraArgsV1 builds SuiExtraArgsV1 extra args for a Solana source the way the
+// Solana fee-quoter serializes them: the 4-byte tag followed by the Borsh-encoded struct. This
+// is the Solana-source counterpart of MakeSuiExtraArgs, which uses the EVM ABI encoding for an
+// EVM source. The Solana OnRamp validates these bytes through its Sui family branch
+// (fee-quoter process_extra_args -> parse_and_validate_sui_extra_args), and the relayer's
+// ccipsolana ExtraDataDecoder decodes them back into the lowercase keys the Sui commit/execute
+// path expects (gasLimit, allowOutOfOrderExecution, tokenReceiver, receiverObjectIds).
+func MakeSolanaSuiExtraArgsV1(gasLimit uint64, allowOOO bool, receiverObjectIDs [][32]byte, tokenReceiver [32]byte) []byte {
+	extraArgs := solLatestFeeQuoter.SuiExtraArgsV1{
+		GasLimit:                 agbinary.Uint128{Lo: gasLimit, Hi: 0},
+		AllowOutOfOrderExecution: allowOOO,
+		TokenReceiver:            tokenReceiver,
+		ReceiverObjectIds:        receiverObjectIDs,
+	}
+	var buf bytes.Buffer
+	encoder := agbinary.NewBorshEncoder(&buf)
+	if err := extraArgs.MarshalWithEncoder(encoder); err != nil {
+		panic(err)
+	}
+	return append(suiExtraArgsV1Tag, buf.Bytes()...)
+}
 
 // HandleTokenAndBurnMintTokenPoolDeploymentForSUI deploys a transferrable token and a burn mint token pool on the EVM chain.
 // It also deploys a burn mint token pool on the SUI chain and configures it to work with the transferrable token on the EVM chain.
@@ -706,7 +767,11 @@ func HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e cldf.Environment, suiChai
 	linkTokenTreasuryCapID := state.SuiChains[suiChainSel].LinkTokenTreasuryCapId
 
 	// Deploy transferrable token on EVM
-	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, ds, "TOKEN")
+	if err := mergeDataStoreIntoEnv(&e, ds); err != nil {
+		return cldf.Environment{}, nil, nil, err
+	}
 	if err != nil {
 		return cldf.Environment{}, nil, nil, errors.New("failed to deploy transfer token for evm chain " + err.Error())
 	}
@@ -842,9 +907,13 @@ func HandleMaliciousBurnMintTokenPoolDeploymentForSUI(
 	linkTokenTreasuryCapID := state.SuiChains[suiChainSel].LinkTokenTreasuryCapId
 
 	// EVM: deploy transferrable token + burn-mint pool, attach to the registry.
-	evmToken, evmPool, err = deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err = deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, ds, "TOKEN")
 	if err != nil {
 		return cldf.Environment{}, nil, nil, "", "", errors.New("failed to deploy transfer token for evm chain " + err.Error())
+	}
+	if err := mergeDataStoreIntoEnv(&e, ds); err != nil {
+		return cldf.Environment{}, nil, nil, "", "", err
 	}
 
 	err = attachTokenToTheRegistry(evmChain, state.MustGetEVMChainState(evmChain.Selector), evmDeployerKey, evmToken.Address(), evmPool.Address())
@@ -927,14 +996,12 @@ func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChain
 	// Deploy & Configure Managed Token on SUI
 	e, _, err = commoncs.ApplyChangesets(&testing.T{}, e, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.DeployManagedToken{}, sui_cs.DeployManagedTokenConfig{
-			DeployAndInitManagedTokenInput: managedtokenops.DeployAndInitManagedTokenInput{
-				CoinObjectTypeArg:   linkTokenPkgID + "::link::LINK",
-				TreasuryCapObjectId: linkTokenTreasuryCapID,
-				MinterAddress:       deployerAddr,
-				Allowance:           0,
-				IsUnlimited:         true,
-			},
-			ChainSelector: suiChainSel,
+			CoinObjectTypeArg:   linkTokenPkgID + "::link::LINK",
+			TreasuryCapObjectId: linkTokenTreasuryCapID,
+			MinterAddress:       deployerAddr,
+			Allowance:           0,
+			IsUnlimited:         true,
+			ChainSelector:       suiChainSel,
 		}),
 	})
 	if err != nil {
@@ -942,7 +1009,11 @@ func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChain
 	}
 
 	// Deploy transferrable token on EVM
-	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, ds, "TOKEN")
+	if err := mergeDataStoreIntoEnv(&e, ds); err != nil {
+		return cldf.Environment{}, nil, nil, err
+	}
 	if err != nil {
 		return cldf.Environment{}, nil, nil, errors.New("failed to deploy transfer token for evm chain " + err.Error())
 	}
@@ -1046,7 +1117,11 @@ func HandleTokenAndLockReleaseTokenPoolDeploymentForSUI(e cldf.Environment, suiC
 	linkTokenTreasuryCapID := state.SuiChains[suiChainSel].LinkTokenTreasuryCapId
 
 	// Deploy transferrable token on EVM
-	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
+	ds := datastore.NewMemoryDataStore()
+	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, ds, "TOKEN")
+	if err := mergeDataStoreIntoEnv(&e, ds); err != nil {
+		return cldf.Environment{}, nil, nil, err
+	}
 	if err != nil {
 		return cldf.Environment{}, nil, nil, errors.New("failed to deploy transfer token for evm chain " + err.Error())
 	}
@@ -1193,7 +1268,7 @@ func UpgradeContractDirect(
 	}
 
 	paramValues := []any{
-		suiBind.Object{Id: upgradeCapID},
+		suicodec.Object{Id: upgradeCapID},
 		policy,
 		digest,
 	}
@@ -1239,7 +1314,7 @@ func UpgradeContractDirect(
 	}
 
 	paramValuesCommit := []any{
-		suiBind.Object{Id: upgradeCapID},
+		suicodec.Object{Id: upgradeCapID},
 		upgradeReceiptArg,
 	}
 
@@ -1276,4 +1351,20 @@ func extractFields[T any](configs []TokenPoolRateLimiterConfig, selector func(To
 		result[i] = selector(config)
 	}
 	return result
+}
+
+// mergeDataStoreIntoEnv merges ds into the environment's datastore (the env's datastore is
+// sealed, so rebuild and reassign).
+func mergeDataStoreIntoEnv(e *cldf.Environment, ds datastore.MutableDataStore) error {
+	merged := datastore.NewMemoryDataStore()
+	if e.DataStore != nil {
+		if err := merged.Merge(e.DataStore); err != nil {
+			return err
+		}
+	}
+	if err := merged.Merge(ds.Seal()); err != nil {
+		return err
+	}
+	e.DataStore = merged.Seal()
+	return nil
 }

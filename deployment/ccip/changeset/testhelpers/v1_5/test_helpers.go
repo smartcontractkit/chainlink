@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -22,9 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	ccipcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
 	deploycciptesthelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -41,12 +43,12 @@ import (
 type jsonCommitOffchainConfig struct {
 	SourceFinalityDepth      uint32
 	DestFinalityDepth        uint32
-	GasPriceHeartBeat        config.Duration
+	GasPriceHeartBeat        commonconfig.Duration
 	DAGasPriceDeviationPPB   uint32
 	ExecGasPriceDeviationPPB uint32
-	TokenPriceHeartBeat      config.Duration
+	TokenPriceHeartBeat      commonconfig.Duration
 	TokenPriceDeviationPPB   uint32
-	InflightCacheExpiry      config.Duration
+	InflightCacheExpiry      commonconfig.Duration
 	PriceReportingDisabled   bool
 }
 
@@ -89,10 +91,10 @@ type jsonExecOffchainConfig struct {
 	DestFinalityDepth           uint32
 	BatchGasLimit               uint32
 	RelativeBoostPerWaitHour    float64
-	InflightCacheExpiry         config.Duration
-	RootSnoozeTime              config.Duration
+	InflightCacheExpiry         commonconfig.Duration
+	RootSnoozeTime              commonconfig.Duration
 	BatchingStrategyID          uint32
-	MessageVisibilityInterval   config.Duration
+	MessageVisibilityInterval   commonconfig.Duration
 }
 
 func (c jsonExecOffchainConfig) Validate() error {
@@ -137,12 +139,12 @@ func linkUSDWei(amount int64) *big.Int {
 }
 
 func encodeCommitOffchainBytes(
-	gasPriceHeartBeat config.Duration,
+	gasPriceHeartBeat commonconfig.Duration,
 	daGasPriceDeviationPPB uint32,
 	execGasPriceDeviationPPB uint32,
-	tokenPriceHeartBeat config.Duration,
+	tokenPriceHeartBeat commonconfig.Duration,
 	tokenPriceDeviationPPB uint32,
-	inflightCacheExpiry config.Duration,
+	inflightCacheExpiry commonconfig.Duration,
 	priceReportingDisabled bool,
 ) ([]byte, error) {
 	j := jsonCommitOffchainConfig{
@@ -164,10 +166,10 @@ func encodeExecOffchainBytes(
 	destOptimisticConfirmations uint32,
 	batchGasLimit uint32,
 	relativeBoostPerWaitHour float64,
-	inflightCacheExpiry config.Duration,
-	rootSnoozeTime config.Duration,
+	inflightCacheExpiry commonconfig.Duration,
+	rootSnoozeTime commonconfig.Duration,
 	batchingStrategyID uint32,
-	messageVisibilityInterval config.Duration,
+	messageVisibilityInterval commonconfig.Duration,
 ) ([]byte, error) {
 	j := jsonExecOffchainConfig{
 		DestOptimisticConfirmations: destOptimisticConfirmations,
@@ -285,19 +287,22 @@ func DeployLanesChangeset(env cldf.Environment, c DeployLanesConfig) (cldf.Chang
 		}
 	}
 	newAddresses := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 	for _, cfg := range c.Configs {
-		if err := deployLane(env, state, newAddresses, cfg); err != nil {
+		if err := deployLane(env, state, newAddresses, ds, cfg); err != nil {
 			return cldf.ChangesetOutput{
 				AddressBook: newAddresses,
+				DataStore:   ds,
 			}, err
 		}
 	}
 	return cldf.ChangesetOutput{
 		AddressBook: newAddresses,
+		DataStore:   ds,
 	}, nil
 }
 
-func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.AddressBook, cfg DeployLaneConfig) error {
+func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.AddressBook, ds datastore.MutableDataStore, cfg DeployLaneConfig) error {
 	// update prices on the source price registry
 	sourceChainState := state.MustGetEVMChainState(cfg.SourceChainSelector)
 	destChainState := state.MustGetEVMChainState(cfg.DestinationChainSelector)
@@ -321,7 +326,8 @@ func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.Ad
 	// Deploy onRamp on source chain
 	onRamp, onRampExists := sourceChainState.EVM2EVMOnRamp[cfg.DestinationChainSelector]
 	if !onRampExists {
-		onRampC, err := cldf.DeployContract(e.Logger, sourceChain, ab,
+		onRampC, err := shared.DeployContractAndRecord(e.Logger, sourceChain, ab, ds,
+			cldf.NewTypeAndVersion(shared.OnRamp, deployment.Version1_5_0), strconv.FormatUint(cfg.DestinationChainSelector, 10),
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp] {
 				onRampAddress, tx2, onRampC, err2 := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
 					sourceChain.DeployerKey,
@@ -352,7 +358,8 @@ func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.Ad
 	// Deploy commit store on source chain
 	commitStore, commitStoreExists := destChainState.CommitStore[cfg.SourceChainSelector]
 	if !commitStoreExists {
-		commitStoreC, err := cldf.DeployContract(e.Logger, destChain, ab,
+		commitStoreC, err := shared.DeployContractAndRecord(e.Logger, destChain, ab, ds,
+			cldf.NewTypeAndVersion(shared.CommitStore, deployment.Version1_5_0), strconv.FormatUint(cfg.SourceChainSelector, 10),
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*commit_store.CommitStore] {
 				commitStoreAddress, tx2, commitStoreC, err2 := commit_store.DeployCommitStore(
 					destChain.DeployerKey,
@@ -383,7 +390,8 @@ func deployLane(e cldf.Environment, state stateview.CCIPOnChainState, ab cldf.Ad
 	// Deploy offRamp on destination chain
 	offRamp, offRampExists := destChainState.EVM2EVMOffRamp[cfg.SourceChainSelector]
 	if !offRampExists {
-		offRampC, err := cldf.DeployContract(e.Logger, destChain, ab,
+		offRampC, err := shared.DeployContractAndRecord(e.Logger, destChain, ab, ds,
+			cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_5_0), strconv.FormatUint(cfg.SourceChainSelector, 10),
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
 				offRampAddress, tx2, offRampC, err2 := evm_2_evm_offramp.DeployEVM2EVMOffRamp(
 					destChain.DeployerKey,
@@ -497,12 +505,12 @@ type CommitOCR2ConfigParams struct {
 	DestinationChainSelector uint64
 	SourceChainSelector      uint64
 	OCR2ConfigParams         confighelper.PublicConfig
-	GasPriceHeartBeat        config.Duration
+	GasPriceHeartBeat        commonconfig.Duration
 	DAGasPriceDeviationPPB   uint32
 	ExecGasPriceDeviationPPB uint32
-	TokenPriceHeartBeat      config.Duration
+	TokenPriceHeartBeat      commonconfig.Duration
 	TokenPriceDeviationPPB   uint32
-	InflightCacheExpiry      config.Duration
+	InflightCacheExpiry      commonconfig.Duration
 	PriceReportingDisabled   bool
 }
 
@@ -560,10 +568,10 @@ type ExecuteOCR2ConfigParams struct {
 	DestOptimisticConfirmations uint32
 	BatchGasLimit               uint32
 	RelativeBoostPerWaitHour    float64
-	InflightCacheExpiry         config.Duration
-	RootSnoozeTime              config.Duration
+	InflightCacheExpiry         commonconfig.Duration
+	RootSnoozeTime              commonconfig.Duration
 	BatchingStrategyID          uint32
-	MessageVisibilityInterval   config.Duration
+	MessageVisibilityInterval   commonconfig.Duration
 	ExecOnchainConfig           evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig
 	OCR2ConfigParams            confighelper.PublicConfig
 }
@@ -685,7 +693,8 @@ func SetOCR2ConfigForTestChangeset(env cldf.Environment, c OCR2Config) (cldf.Cha
 	for _, exec := range c.ExecConfigs {
 		if err := exec.PopulateOffChainAndOnChainCfg(
 			state.MustGetEVMChainState(exec.DestinationChainSelector).Router.Address(),
-			state.MustGetEVMChainState(exec.DestinationChainSelector).PriceRegistry.Address()); err != nil {
+			state.MustGetEVMChainState(exec.DestinationChainSelector).PriceRegistry.Address(),
+		); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate offchain and onchain config for offramp: %w", err)
 		}
 		finalCfg, err := deriveOCR2Config(env, exec.DestinationChainSelector, exec.OCR2ConfigParams)
@@ -736,12 +745,10 @@ func deriveOCR2Config(
 			return FinalOCR2Config{}, fmt.Errorf("no OCR config for chain %d", chainSel)
 		}
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
-			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  cfg.OnchainPublicKey,
-				TransmitAccount:   cfg.TransmitAccount,
-				OffchainPublicKey: cfg.OffchainPublicKey,
-				PeerID:            cfg.PeerID.Raw(),
-			},
+			OnchainPublicKey:          cfg.OnchainPublicKey,
+			TransmitAccount:           cfg.TransmitAccount,
+			OffchainPublicKey:         cfg.OffchainPublicKey,
+			PeerID:                    cfg.PeerID.Raw(),
 			ConfigEncryptionPublicKey: cfg.ConfigEncryptionPublicKey,
 		})
 	}
@@ -924,12 +931,12 @@ func LaneConfigsForChains(t *testing.T, env cldf.Environment, state stateview.CC
 			SourceChainSelector:      src,
 			DestinationChainSelector: dest,
 			OCR2ConfigParams:         DefaultOCRParams(),
-			GasPriceHeartBeat:        *config.MustNewDuration(10 * time.Second),
+			GasPriceHeartBeat:        *commonconfig.MustNewDuration(10 * time.Second),
 			DAGasPriceDeviationPPB:   1,
 			ExecGasPriceDeviationPPB: 1,
-			TokenPriceHeartBeat:      *config.MustNewDuration(10 * time.Second),
+			TokenPriceHeartBeat:      *commonconfig.MustNewDuration(10 * time.Second),
 			TokenPriceDeviationPPB:   1,
-			InflightCacheExpiry:      *config.MustNewDuration(5 * time.Second),
+			InflightCacheExpiry:      *commonconfig.MustNewDuration(5 * time.Second),
 			PriceReportingDisabled:   false,
 		})
 		execOCR2Configs = append(execOCR2Configs, ExecuteOCR2ConfigParams{
@@ -938,10 +945,10 @@ func LaneConfigsForChains(t *testing.T, env cldf.Environment, state stateview.CC
 			DestOptimisticConfirmations: 1,
 			BatchGasLimit:               5_000_000,
 			RelativeBoostPerWaitHour:    0.07,
-			InflightCacheExpiry:         *config.MustNewDuration(1 * time.Minute),
-			RootSnoozeTime:              *config.MustNewDuration(1 * time.Minute),
+			InflightCacheExpiry:         *commonconfig.MustNewDuration(1 * time.Minute),
+			RootSnoozeTime:              *commonconfig.MustNewDuration(1 * time.Minute),
 			BatchingStrategyID:          0,
-			MessageVisibilityInterval:   config.Duration{},
+			MessageVisibilityInterval:   commonconfig.Duration{},
 			ExecOnchainConfig: evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig{
 				PermissionLessExecutionThresholdSeconds: uint32(24 * time.Hour.Seconds()),
 				MaxDataBytes:                            1e5,
@@ -1118,7 +1125,8 @@ func WaitForExecute(
 			it, err := offRamp.FilterExecutionStateChanged(
 				&bind.FilterOpts{
 					Start: blockNum,
-				}, seqNrs, [][32]byte{})
+				}, seqNrs, [][32]byte{},
+			)
 			require.NoError(t, err)
 			for it.Next() {
 				t.Logf("Execution state changed for sequence number=%d current state=%d", it.Event.SequenceNumber, it.Event.State)

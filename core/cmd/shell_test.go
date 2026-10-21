@@ -18,8 +18,9 @@ import (
 	"github.com/urfave/cli"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
-	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -58,10 +59,10 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 			tca := cmd.NewSessionCookieAuthenticator(cmd.ClientOpts{}, store, logger.TestLogger(t))
 			cookie, err := tca.Authenticate(ctx, sr)
 
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Nil(t, cookie)
 			cookie, err = store.Retrieve()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Nil(t, cookie)
 		})
 	}
@@ -93,18 +94,18 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 			cookie, err := tca.Authenticate(ctx, sr)
 
 			if test.wantError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Nil(t, cookie)
 
 				cookie, err = store.Retrieve()
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Nil(t, cookie)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.NotNil(t, cookie)
 
 				retrievedCookie, err := store.Retrieve()
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, cookie, retrievedCookie)
 			}
 		})
@@ -125,7 +126,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 	t.Run("missing cookie file", func(t *testing.T) {
 		store := cmd.DiskCookieStore{Config: cfg}
 		cookie, err := store.Retrieve()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Nil(t, cookie)
 	})
 
@@ -133,7 +134,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 		cfg.rootdir = "../internal/fixtures/badcookie"
 		store := cmd.DiskCookieStore{Config: cfg}
 		cookie, err := store.Retrieve()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, cookie)
 	})
 
@@ -141,7 +142,7 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 		cfg.rootdir = "../internal/fixtures"
 		store := cmd.DiskCookieStore{Config: cfg}
 		cookie, err := store.Retrieve()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, cookie)
 	})
 }
@@ -179,11 +180,11 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			if test.isError {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, len(test.enteredStrings), mock.Count)
 
 				persistedUser, err := orm.FindUser(ctx, email)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				assert.Equal(t, user.Email, persistedUser.Email)
 				assert.Equal(t, user.HashedPassword, persistedUser.HashedPassword)
@@ -212,7 +213,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 
 	// If there is an existing user, and we are in the Terminal prompt, no input prompts required
 	user, err := tai.Initialize(ctx, orm, lggr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 0, mock.Count)
 
 	assert.Equal(t, initialUser.Email, user.Email)
@@ -246,10 +247,10 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			if test.wantError {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, cltest.APIEmailAdmin, user.Email)
 				persistedUser, err := orm.FindUser(ctx, user.Email)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, persistedUser.Email, user.Email)
 			}
 		})
@@ -278,7 +279,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 			if test.wantError {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, cltest.APIEmailAdmin, user.Email)
 			}
 		})
@@ -452,17 +453,17 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 			{
 				"ChainID":   "starknet-id-1",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": commonconfig.MustParseURL("https://feeder.url"),
 			},
 			{
 				"ChainID":   "starknet-id-2",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": commonconfig.MustParseURL("https://feeder.url"),
 			},
 			{
 				"ChainID":   "disabled-starknet-id-1",
 				"Enabled":   new(false),
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": commonconfig.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -472,7 +473,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 			{
 				"ChainID":   "starknet-id-3",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": commonconfig.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -498,12 +499,12 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 			{
 				"ChainID":   "dupe",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": commonconfig.MustParseURL("https://feeder.url"),
 			},
 			{
 				"ChainID":   "dupe",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": commonconfig.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -581,7 +582,7 @@ func getFuncName(i any) string {
 }
 
 func TestShell_emitNodeConfig(t *testing.T) {
-	// t.Parallel() // beholder tester uses t.SetEnv and cannot use t.Parallel
+	t.Parallel()
 
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
@@ -590,16 +591,17 @@ func TestShell_emitNodeConfig(t *testing.T) {
 		// use defaults
 	})
 
+	rec := beholdertest.NewRecorder()
 	shell := &cmd.Shell{
-		Config: gcfg,
-		Logger: lggr,
+		Config:         gcfg,
+		Logger:         lggr,
+		BeholderClient: &beholder.Client{Emitter: rec},
 	}
 
-	beholderObserver := beholdertest.NewObserver(t)
 	shell.EmitNodeConfig(ctx)
 
 	// Verify that a BaseMessage was emitted
-	msgs := beholderObserver.Messages(t, "beholder_entity", "BaseMessage")
+	msgs := rec.Messages(t, "beholder_entity", "BaseMessage")
 	require.Len(t, msgs, 1, "Expected exactly one BaseMessage to be emitted")
 
 	// Verify the message content

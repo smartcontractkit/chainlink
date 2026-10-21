@@ -12,7 +12,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/abihelpers"
 )
@@ -142,44 +141,44 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 	return e.executeReportMethodInputs.PackValues([]any{&evmReport})
 }
 
-func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte) (cciptypes.ExecutePluginReport, error) {
+func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte) (ccipocr3.ExecutePluginReport, error) {
 	unpacked, err := e.executeReportMethodInputs.Unpack(encodedReport)
 	if err != nil {
-		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)
+		return ccipocr3.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)
 	}
 	if len(unpacked) != 1 {
-		return cciptypes.ExecutePluginReport{}, errors.New("unpacked report is empty")
+		return ccipocr3.ExecutePluginReport{}, errors.New("unpacked report is empty")
 	}
 
 	evmReportRaw := abi.ConvertType(unpacked[0], new([]offramp.InternalExecutionReport))
 	evmReportPtr, is := evmReportRaw.(*[]offramp.InternalExecutionReport)
 	if !is {
-		return cciptypes.ExecutePluginReport{}, fmt.Errorf("got an unexpected report type %T", unpacked[0])
+		return ccipocr3.ExecutePluginReport{}, fmt.Errorf("got an unexpected report type %T", unpacked[0])
 	}
 	if evmReportPtr == nil {
-		return cciptypes.ExecutePluginReport{}, errors.New("evm report is nil")
+		return ccipocr3.ExecutePluginReport{}, errors.New("evm report is nil")
 	}
 
 	evmReport := *evmReportPtr
-	executeReport := cciptypes.ExecutePluginReport{
-		ChainReports: make([]cciptypes.ExecutePluginReportSingleChain, 0, len(evmReport)),
+	executeReport := ccipocr3.ExecutePluginReport{
+		ChainReports: make([]ccipocr3.ExecutePluginReportSingleChain, 0, len(evmReport)),
 	}
 
 	for _, evmChainReport := range evmReport {
-		proofs := make([]cciptypes.Bytes32, 0, len(evmChainReport.Proofs))
+		proofs := make([]ccipocr3.Bytes32, 0, len(evmChainReport.Proofs))
 		for _, proof := range evmChainReport.Proofs {
 			proofs = append(proofs, proof)
 		}
 
-		messages := make([]cciptypes.Message, 0, len(evmChainReport.Messages))
+		messages := make([]ccipocr3.Message, 0, len(evmChainReport.Messages))
 		for _, evmMessage := range evmChainReport.Messages {
-			tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(evmMessage.TokenAmounts))
+			tokenAmounts := make([]ccipocr3.RampTokenAmount, 0, len(evmMessage.TokenAmounts))
 			for _, tokenAmount := range evmMessage.TokenAmounts {
 				destData, err := abiEncodeUint32(tokenAmount.DestGasAmount)
 				if err != nil {
-					return cciptypes.ExecutePluginReport{}, fmt.Errorf("abi encode dest gas amount: %w", err)
+					return ccipocr3.ExecutePluginReport{}, fmt.Errorf("abi encode dest gas amount: %w", err)
 				}
-				tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
+				tokenAmounts = append(tokenAmounts, ccipocr3.RampTokenAmount{
 					// from https://github.com/smartcontractkit/chainlink/blob/e036012d5b562f5c30c5a87898239ba59aeb2f7b/contracts/src/v0.8/ccip/pools/TokenPool.sol#L84
 					// remote pool addresses are abi-encoded addresses if the remote chain is EVM.
 					// its unclear as of writing how we will handle non-EVM chains and their addresses.
@@ -188,38 +187,38 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 					// TODO: should this be abi-encoded?
 					DestTokenAddress: tokenAmount.DestTokenAddress.Bytes(),
 					ExtraData:        tokenAmount.ExtraData,
-					Amount:           cciptypes.NewBigInt(tokenAmount.Amount),
+					Amount:           ccipocr3.NewBigInt(tokenAmount.Amount),
 					DestExecData:     destData,
 				})
 			}
 
-			message := cciptypes.Message{
-				Header: cciptypes.RampMessageHeader{
+			message := ccipocr3.Message{
+				Header: ccipocr3.RampMessageHeader{
 					MessageID:           evmMessage.Header.MessageId,
-					SourceChainSelector: cciptypes.ChainSelector(evmMessage.Header.SourceChainSelector),
-					DestChainSelector:   cciptypes.ChainSelector(evmMessage.Header.DestChainSelector),
-					SequenceNumber:      cciptypes.SeqNum(evmMessage.Header.SequenceNumber),
+					SourceChainSelector: ccipocr3.ChainSelector(evmMessage.Header.SourceChainSelector),
+					DestChainSelector:   ccipocr3.ChainSelector(evmMessage.Header.DestChainSelector),
+					SequenceNumber:      ccipocr3.SeqNum(evmMessage.Header.SequenceNumber),
 					Nonce:               evmMessage.Header.Nonce,
-					MsgHash:             cciptypes.Bytes32{},        // todo: info not available, but not required atm
-					OnRamp:              cciptypes.UnknownAddress{}, // todo: info not available, but not required atm
+					MsgHash:             ccipocr3.Bytes32{},        // todo: info not available, but not required atm
+					OnRamp:              ccipocr3.UnknownAddress{}, // todo: info not available, but not required atm
 				},
 				Sender:         evmMessage.Sender,
 				Data:           evmMessage.Data,
 				Receiver:       evmMessage.Receiver.Bytes(),
-				ExtraArgs:      cciptypes.Bytes{},          // <-- todo: info not available, but not required atm
-				FeeToken:       cciptypes.UnknownAddress{}, // <-- todo: info not available, but not required atm
-				FeeTokenAmount: cciptypes.BigInt{},         // <-- todo: info not available, but not required atm
+				ExtraArgs:      ccipocr3.Bytes{},          // <-- todo: info not available, but not required atm
+				FeeToken:       ccipocr3.UnknownAddress{}, // <-- todo: info not available, but not required atm
+				FeeTokenAmount: ccipocr3.BigInt{},         // <-- todo: info not available, but not required atm
 				TokenAmounts:   tokenAmounts,
 			}
 			messages = append(messages, message)
 		}
 
-		chainReport := cciptypes.ExecutePluginReportSingleChain{
-			SourceChainSelector: cciptypes.ChainSelector(evmChainReport.SourceChainSelector),
+		chainReport := ccipocr3.ExecutePluginReportSingleChain{
+			SourceChainSelector: ccipocr3.ChainSelector(evmChainReport.SourceChainSelector),
 			Messages:            messages,
 			OffchainTokenData:   evmChainReport.OffchainTokenData,
 			Proofs:              proofs,
-			ProofFlagBits:       cciptypes.NewBigInt(evmChainReport.ProofFlagBits),
+			ProofFlagBits:       ccipocr3.NewBigInt(evmChainReport.ProofFlagBits),
 		}
 
 		executeReport.ChainReports = append(executeReport.ChainReports, chainReport)
@@ -229,4 +228,4 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 }
 
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface
-var _ cciptypes.ExecutePluginCodec = (*ExecutePluginCodecV1)(nil)
+var _ ccipocr3.ExecutePluginCodec = (*ExecutePluginCodecV1)(nil)

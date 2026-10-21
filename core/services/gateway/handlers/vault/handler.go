@@ -34,15 +34,13 @@ import (
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	gwhandlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	handlerscommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
 const (
-	defaultCleanUpPeriod                    = 5 * time.Second
-	defaultPublicKeyGetCacheDurationSeconds = 300
+	defaultCleanUpPeriod = 5 * time.Second
 )
 
 var (
@@ -134,10 +132,10 @@ type aggregator interface {
 type handler struct {
 	services.StateMachine
 	methodConfig     Config
-	donConfig        *config.DONConfig
-	don              gwhandlers.DON
+	donID            string
+	shards           []*gwhandlers.ShardEndpoint
 	lggr             logger.Logger
-	codec            api.JsonRPCCodec
+	codec            api.JSONRPCCodec
 	mu               sync.RWMutex
 	stopCh           services.StopChan
 	authorizer       vaultcap.Authorizer
@@ -147,10 +145,9 @@ type handler struct {
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
 
-	writeMethodsEnabled            limits.GateLimiter
-	signedResponseRequestIDEnabled limits.GateLimiter
-	activeRequests                 map[string]*activeRequest
-	metrics                        *metrics
+	writeMethodsEnabled limits.GateLimiter
+	activeRequests      map[string]*activeRequest
+	metrics             *metrics
 
 	aggregator aggregator
 
@@ -183,7 +180,7 @@ type Config struct {
 }
 
 // NewHandler creates the gateway-side Vault handler with internal auth wiring.
-func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+func NewHandler(methodConfig json.RawMessage, dons *gwhandlers.ShardedDONs, capabilitiesRegistry capabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -206,10 +203,10 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	}
 	authorizer := vaultcap.NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)
 
-	return newHandlerWithAuthorizer(methodConfig, donConfig, don, capabilitiesRegistry, authorizer, jwtAuth, lggr, clock, limitsFactory)
+	return newHandlerWithAuthorizer(methodConfig, dons, capabilitiesRegistry, authorizer, jwtAuth, lggr, clock, limitsFactory)
 }
 
-func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, authorizer vaultcap.Authorizer, jwtAuth services.Service, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+func newHandlerWithAuthorizer(methodConfig json.RawMessage, dons *gwhandlers.ShardedDONs, capabilitiesRegistry capabilitiesRegistry, authorizer vaultcap.Authorizer, jwtAuth services.Service, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -218,6 +215,24 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 	if cfg.RequestTimeoutSec == 0 {
 		cfg.RequestTimeoutSec = 30
 	}
+
+	shards, _, err := dons.BuildShardEndpoints()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(shards) == 0 {
+		return nil, errors.New("vault handler requires at least one shard")
+	}
+	// TODO: sharding Vault requires refactoring the aggregator; the logic depends
+	// on how secrets are split across shards. Until then only the first shard of the
+	// first DON is used (extra shards only occur in tests where Vault is colocated
+	// with a sharded workflow DON).
+	if len(shards) > 1 {
+		lggr.Warnw("Vault handler does not support sharding, using the first shard only", "don", shards[0].DonName, "shards", len(shards))
+		shards = shards[:1]
+	}
+	defaultDonID := shards[0].DonName
 
 	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
 	if err != nil {
@@ -244,32 +259,25 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		return nil, fmt.Errorf("failed to create gateway vault request processor: %w", err)
 	}
 
-	signedResponseRequestIDEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultSignedResponseRequestIDEnabled)
-	if err != nil {
-		return nil, fmt.Errorf("could not create VaultSignedResponseRequestIDEnabled limiter: %w", err)
-	}
-
 	return &handler{
-		methodConfig:                   cfg,
-		donConfig:                      donConfig,
-		don:                            don,
-		lggr:                           logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
-		requestTimeout:                 time.Duration(cfg.RequestTimeoutSec) * time.Second,
-		nodeRateLimiter:                nodeRateLimiter,
-		writeMethodsEnabled:            writeMethodsEnabled,
-		signedResponseRequestIDEnabled: signedResponseRequestIDEnabled,
-		activeRequests:                 make(map[string]*activeRequest),
-		mu:                             sync.RWMutex{},
-		authorizer:                     authorizer,
-		jwtAuth:                        jwtAuth,
-		stopCh:                         make(services.StopChan),
-		metrics:                        metrics,
+		methodConfig:        cfg,
+		donID:               defaultDonID,
+		shards:              shards,
+		lggr:                logger.Named(lggr, "VaultHandler:"+defaultDonID),
+		requestTimeout:      time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeRateLimiter:     nodeRateLimiter,
+		writeMethodsEnabled: writeMethodsEnabled,
+		activeRequests:      make(map[string]*activeRequest),
+		mu:                  sync.RWMutex{},
+		authorizer:          authorizer,
+		jwtAuth:             jwtAuth,
+		stopCh:              make(services.StopChan),
+		metrics:             metrics,
 		aggregator: &baseAggregator{
-			capabilitiesRegistry:        capabilitiesRegistry,
-			metrics:                     metrics,
-			donID:                       donConfig.DonId,
-			vaultHandlerDonID:           donConfig.DonId,
-			signedResponseRequestIDGate: signedResponseRequestIDEnabled,
+			capabilitiesRegistry: capabilitiesRegistry,
+			metrics:              metrics,
+			donID:                defaultDonID,
+			vaultHandlerDonID:    defaultDonID,
 		},
 		clock:            clock,
 		requestProcessor: requestProcessor,
@@ -319,7 +327,6 @@ func (h *handler) Close() error {
 			jwtAuthErr,
 			h.writeMethodsEnabled.Close(),
 			h.requestProcessor.Close(),
-			h.signedResponseRequestIDEnabled.Close(),
 		)
 	})
 }
@@ -346,7 +353,9 @@ func (h *handler) fetchVaultPublicKey(ctx context.Context) {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to create new activeRequest", "error", err)
 		return
 	}
-	err = h.handlePublicKeyGet(ctx, ar)
+	// Skip the cache and forward directly to the vault nodes.
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
+	err = h.fanOutToVaultNodes(ctx, l, ar)
 	if err != nil {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
 		return
@@ -356,8 +365,8 @@ func (h *handler) fetchVaultPublicKey(ctx context.Context) {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "error", err)
 		return
 	}
-	httpStatus := api.ToHttpErrorCode(response.ErrorCode)
-	jsonCodec := api.JsonRPCCodec{}
+	httpStatus := api.ToHTTPErrorCode(response.ErrorCode)
+	jsonCodec := api.JSONRPCCodec{}
 	jsonResp, _ := jsonCodec.DecodeRawRequest(response.RawResponse, "")
 	if httpStatus != http.StatusOK {
 		h.lggr.Errorw("fetchVaultPublicKey: failed to fetch vault public key", "request", getPublicKeyRequest, "httpStatusCode", httpStatus, "rawResponse", jsonResp)
@@ -503,6 +512,18 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	}
 
+	if resp.Result != nil && resp.Error != nil {
+		l.Errorw("node response contains both a result and an error, dropping", "nodeAddr", nodeAddr)
+		h.recordInvalidNodeResponseEnvelope(ctx, "node_response_result_and_error")
+		return nil //nolint:nilerr // tampered envelope is intentionally dropped; handling succeeded so there is no error to report
+	}
+
+	if resp.Method != ar.req.Method {
+		l.Errorw("node response method does not match request method, dropping", "nodeAddr", nodeAddr, "responseMethod", resp.Method, "requestMethod", ar.req.Method)
+		h.recordInvalidNodeResponseEnvelope(ctx, "node_response_method_mismatch")
+		return nil
+	}
+
 	ok := ar.addResponseForNode(nodeAddr, resp)
 	if !ok {
 		l.Errorw("duplicate response from node, ignoring", "nodeAddr", nodeAddr)
@@ -528,6 +549,13 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	return h.sendSuccessResponse(ctx, l, ar, resp)
+}
+
+func (h *handler) recordInvalidNodeResponseEnvelope(ctx context.Context, reason string) {
+	h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("don_id", h.donID),
+		attribute.String("error", reason),
+	))
 }
 
 func (h *handler) unmarshal(r io.Reader, to any) error {
@@ -660,7 +688,7 @@ func (h *handler) sendImmediateUserResponse(
 	switch errorCode {
 	case api.InvalidParamsError, api.UnsupportedMethodError, api.UserMessageParseError:
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donID),
 		))
 	default:
 	}
@@ -707,7 +735,7 @@ func (h *handler) handlePublicKeyGetSynchronously(ctx context.Context, req jsonr
 	rawResponse, err := jsonrpc.EncodeResponse(&resp)
 	if err != nil {
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donID),
 			attribute.String("error", api.NodeReponseEncodingError.String()),
 		))
 		h.lggr.Errorw("failed to encode response", "error", err)
@@ -718,22 +746,27 @@ func (h *handler) handlePublicKeyGetSynchronously(ctx context.Context, req jsonr
 		ErrorCode:   api.NoError,
 	}
 	h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
-		attribute.String("don_id", h.donConfig.DonId),
+		attribute.String("don_id", h.donID),
 	))
 	return callback.SendResponse(successResp)
 }
 
 func (h *handler) fanOutToVaultNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
 	var nodeErrors []error
-	for _, node := range h.donConfig.Members {
-		err := h.don.SendToNode(ctx, node.Address, &ar.req)
-		if err != nil {
-			nodeErrors = append(nodeErrors, err)
-			l.Errorw("error sending request to node", "node", node.Address, "error", err)
+	totalMembers := 0
+	// Currently this is guaranteed to be a single shard.
+	for _, shard := range h.shards {
+		totalMembers += len(shard.Members)
+		for _, node := range shard.Members {
+			err := shard.ConnMgr.SendToNode(ctx, node.Address, &ar.req)
+			if err != nil {
+				nodeErrors = append(nodeErrors, err)
+				l.Errorw("error sending request to node", "node", node.Address, "error", err)
+			}
 		}
 	}
 
-	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
+	if len(nodeErrors) == totalMembers && totalMembers > 0 {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes"), nil))
 	}
 
@@ -754,11 +787,7 @@ func (h *handler) errorResponse(
 		// Intentionally hide the error from the user
 		err = errors.New(errorCode.String())
 	case api.InvalidParamsError:
-		paramsStr := ""
-		if req.Params != nil {
-			paramsStr = string(*req.Params)
-		}
-		h.lggr.Errorw("invalid params", "requestID", req.ID, "params", paramsStr)
+		h.lggr.Errorw("invalid params", "requestID", req.ID, "error", err.Error())
 		err = errors.New("invalid params error: " + err.Error())
 	case api.UnsupportedMethodError:
 		h.lggr.Errorw("unsupported method", "requestID", req.ID, "method", req.Method, "error", err.Error())
@@ -804,7 +833,7 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 	case api.ConflictError:
 	case api.LimitExceededError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donID),
 			attribute.String("error", resp.ErrorCode.String()),
 		))
 	case api.InvalidParamsError:
@@ -812,11 +841,11 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 	case api.UserMessageParseError:
 	case api.UnsupportedDONIdError:
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donID),
 		))
 	case api.NoError:
 		h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donID),
 		))
 	}
 

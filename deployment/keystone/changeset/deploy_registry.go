@@ -17,7 +17,7 @@ import (
 
 var _ cldf.ChangeSet[*DeployRequestV2] = DeployCapabilityRegistryV2
 
-// Depreciated: use DeployCapabilityRegistryV2 instead
+// Deprecated: use DeployCapabilityRegistryV2 instead.
 func DeployCapabilityRegistry(env cldf.Environment, registrySelector uint64) (cldf.ChangesetOutput, error) {
 	return DeployCapabilityRegistryV2(env, &DeployRequestV2{
 		ChainSel: registrySelector,

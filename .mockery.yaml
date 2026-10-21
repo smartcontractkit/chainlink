@@ -156,7 +156,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/keystore:
     interfaces:
       Aptos:
-      Cosmos:
       CSA:
       Eth:
       Master:
@@ -178,9 +177,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/ocr:
     interfaces:
       OCRContractTrackerDB:
-  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v20:
-    interfaces:
-      Registry:
   github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper:
     interfaces:
       PrometheusBackend:

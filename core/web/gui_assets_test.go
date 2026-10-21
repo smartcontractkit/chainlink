@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
@@ -46,6 +46,7 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)
+			defer resp.Body.Close()
 			cltest.AssertServerResponse(t, resp, http.StatusOK)
 		})
 	}
@@ -78,6 +79,7 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)
+			defer resp.Body.Close()
 			cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 		})
 	}
@@ -100,6 +102,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
+		_ = resp.Body.Close()
 	}
 
 	// Last request fails
@@ -107,6 +110,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	require.NoError(t, err)
 	resp, err := client.Do(req)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
 }
 
@@ -114,7 +118,7 @@ func TestGuiAssets_AssetsFS(t *testing.T) {
 	t.Parallel()
 
 	efs := web.NewEmbedFileSystem(testFs, "fixtures/operator_ui")
-	handler := web.ServeGzippedAssets("/fixtures/operator_ui/", efs, logger.TestLogger(t))
+	handler := web.ServeGzippedAssets("/fixtures/operator_ui/", efs, logger.Test(t))
 
 	t.Run("it get exact assets if Accept-Encoding is not specified", func(t *testing.T) {
 		t.Parallel()

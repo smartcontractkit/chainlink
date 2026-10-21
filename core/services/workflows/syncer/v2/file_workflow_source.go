@@ -107,7 +107,7 @@ func (f *FileWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 
 	// Build a set of DON families for efficient lookup
 	donFamilySet := make(map[string]bool)
-	for _, family := range don.Families {
+	for _, family := range ExpandWorkflowFamilies(don.Families) {
 		donFamilySet[family] = true
 	}
 

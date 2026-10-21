@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type PipelineParamUnmarshaler interface {
+type PipelineParamUnmarshaler interface { //nolint:revive // stutter is required by existing mockery config
 	UnmarshalPipelineParam(val any) error
 }
 
@@ -526,6 +526,16 @@ func (s *SliceParam) UnmarshalPipelineParam(val any) error {
 		return nil
 	case []any:
 		*s = v
+		return nil
+	case []Sample:
+		ssp := make([]any, len(v))
+		for i, x := range v {
+			ssp[i] = x
+		}
+		*s = ssp
+		return nil
+	case Sample:
+		*s = []any{v}
 		return nil
 	case string:
 		return s.UnmarshalPipelineParam([]byte(v))

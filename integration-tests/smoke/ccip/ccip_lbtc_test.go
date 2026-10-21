@@ -66,7 +66,7 @@ func TestLBTCTokenTransfer(t *testing.T) {
 		ownerChainA,
 		ownerChainC,
 		state,
-		e.ExistingAddresses, //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
+		&tenv.Env,
 		"MY_TOKEN",
 	)
 	require.NoError(t, err)
@@ -120,11 +120,12 @@ func TestLBTCTokenTransfer(t *testing.T) {
 				{
 					Token:  cChainLBTC.Address(),
 					Amount: tinyOneCoin,
-				}},
+				},
+			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{Token: aChainLBTC.Address().Bytes(), Amount: tinyOneCoin},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		{
 			Name:        "multiple LBTC tokens within the same message",
@@ -145,7 +146,7 @@ func TestLBTCTokenTransfer(t *testing.T) {
 				// 2 coins because of the same Receiver
 				{Token: aChainLBTC.Address().Bytes(), Amount: new(big.Int).Add(tinyOneCoin, tinyOneCoin)},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		{
 			Name:        "LBTC token together with another token transferred to EOA",
@@ -166,7 +167,7 @@ func TestLBTCTokenTransfer(t *testing.T) {
 				{Token: cChainLBTC.Address().Bytes(), Amount: tinyOneCoin},
 				{Token: cChainToken.Address().Bytes(), Amount: new(big.Int).Mul(tinyOneCoin, big.NewInt(10))},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		{
 			Name:        "LBTC programmable token transfer to valid contract receiver",
@@ -183,7 +184,7 @@ func TestLBTCTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{Token: cChainLBTC.Address().Bytes(), Amount: tinyOneCoin},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 		{
 			Name:        "LBTC programmable token transfer with too little gas",
@@ -201,7 +202,7 @@ func TestLBTCTokenTransfer(t *testing.T) {
 				{Token: bChainLBTC.Address().Bytes(), Amount: new(big.Int).SetUint64(0)},
 			},
 			ExtraArgs:      testhelpers.MakeEVMExtraArgsV2(1, false),
-			ExpectedStatus: testhelpers.EXECUTION_STATE_FAILURE,
+			ExpectedStatus: testhelpers.ExecutionStateFailure,
 		},
 		{
 			Name:        "LBTC token transfer from a different source chain",
@@ -218,12 +219,11 @@ func TestLBTCTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{Token: cChainLBTC.Address().Bytes(), Amount: tinyOneCoin},
 			},
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.ExecutionStateSuccess,
 		},
 	}
 
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
-		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,

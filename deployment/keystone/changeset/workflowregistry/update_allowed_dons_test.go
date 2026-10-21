@@ -38,7 +38,8 @@ func TestUpdateAllowedDons(t *testing.T) {
 		BlockChains: cldf_chain.NewBlockChains(
 			map[uint64]cldf_chain.BlockChain{
 				chainSel: resp.Chain,
-			}),
+			},
+		),
 	}
 
 	_, err = workflowregistry.UpdateAllowedDons(

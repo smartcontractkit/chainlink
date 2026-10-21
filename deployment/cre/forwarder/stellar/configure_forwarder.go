@@ -8,6 +8,8 @@ import (
 	"github.com/Masterminds/semver/v3"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
@@ -36,6 +38,11 @@ type ConfigureForwarderRequest struct {
 	Chains    map[uint64]struct{}
 	Qualifier string
 	Version   string
+
+	// MCMS, when set, builds a governed set_config timelock proposal instead
+	// of sending directly with the deployer key. Required once the forwarder
+	// is owned by the MCMS timelock. Its Qualifier selects the MCMS instance.
+	MCMS *cldf.MCMSTimelockProposalInput
 }
 
 func (cs ConfigureForwarders) VerifyPreconditions(env cldf.Environment, req *ConfigureForwarderRequest) error {
@@ -57,6 +64,11 @@ func (cs ConfigureForwarders) VerifyPreconditions(env cldf.Environment, req *Con
 	version, err := semver.NewVersion(req.Version)
 	if err != nil {
 		return fmt.Errorf("invalid forwarder version %q: %w", req.Version, err)
+	}
+	if req.MCMS != nil {
+		if err := req.MCMS.Validate(); err != nil {
+			return fmt.Errorf("invalid MCMS timelock proposal input: %w", err)
+		}
 	}
 
 	chains := req.Chains
@@ -100,6 +112,8 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 		return out, fmt.Errorf("no stellar signers found for DON %q", req.DON.Name)
 	}
 
+	var batchOps []mcmstypes.BatchOperation
+
 	for sel := range chains {
 		ch, ok := env.BlockChains.StellarChains()[sel]
 		if !ok {
@@ -110,6 +124,24 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 		addrRef, err := env.DataStore.Addresses().Get(refKey)
 		if err != nil {
 			return out, fmt.Errorf("failed to get stellar forwarder for ref key %s: %w", refKey, err)
+		}
+
+		// The governed path only reads (owner check) and encodes; it must not
+		// require the deployer signing key.
+		if req.MCMS != nil {
+			if err := requireTimelockOwnership(env.GetContext(), env, ch, addrRef.Address, *req.MCMS); err != nil {
+				return out, err
+			}
+
+			batchOp, err := forwarderSetConfigBatchOp(sel, addrRef.Address, req.DON.ID, req.DON.Version, uint32(req.DON.F), signers)
+			if err != nil {
+				return out, fmt.Errorf("failed to build set_config batch operation for stellar forwarder %s on chain selector %d: %w", addrRef.Address, sel, err)
+			}
+			batchOps = append(batchOps, batchOp)
+
+			env.Logger.Infow("Built governed Stellar forwarder set_config operation", "chainSelector", sel, "forwarder", addrRef.Address, "donID", req.DON.ID, "f", req.DON.F, "signersLen", len(signers))
+
+			continue
 		}
 
 		deployer, err := stellardeployment.NewDeployerFromChain(ch)
@@ -130,6 +162,12 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 		}
 
 		env.Logger.Infow("Configured Stellar CRE forwarder", "chainSelector", sel, "forwarder", addrRef.Address, "donID", req.DON.ID, "f", req.DON.F, "signersLen", len(signers))
+	}
+
+	if req.MCMS != nil {
+		return cldf.NewOutputBuilder(env, nil).
+			WithTimelockProposal(*req.MCMS, batchOps).
+			Build()
 	}
 
 	return out, nil

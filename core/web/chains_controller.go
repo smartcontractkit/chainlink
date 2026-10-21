@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -52,7 +52,6 @@ func (cc *chainsController) Index(c *gin.Context, size, page, offset int) {
 	}
 
 	chains, count, err := chainStats.ChainStatuses(c.Request.Context(), offset, size)
-
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return

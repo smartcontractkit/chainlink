@@ -54,7 +54,7 @@ func (t *Transmitter) Transmit(ctx context.Context, _ types.ConfigDigest, _ uint
 	if applyRoutes {
 		flat := make(map[string]uint32, len(outcome.Routes))
 		for wfID, route := range outcome.Routes {
-			flat[wfID] = route.Shard
+			flat[wfID] = route.DonId
 		}
 		t.ringStore.SyncRoutes(flat)
 		t.lggr.Debugw("Synced workflow shard mappings", "count", len(flat))

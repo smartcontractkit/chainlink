@@ -372,7 +372,13 @@ func TestConcurrencyLimitedClient_BlocksWhenSaturated(t *testing.T) {
 
 	// First request takes the only slot and blocks inside Do.
 	done := make(chan struct{})
-	go func() { defer close(done); _, _ = wrapped.Do(req) }()
+	go func() {
+		defer close(done)
+		resp, err2 := wrapped.Do(req)
+		if err2 == nil {
+			resp.Body.Close()
+		}
+	}()
 	<-entered
 
 	avail, err := wrapped.limiter.Available(context.Background())
@@ -382,8 +388,11 @@ func TestConcurrencyLimitedClient_BlocksWhenSaturated(t *testing.T) {
 	// Second request is denied once its (short) context expires.
 	ctx2, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	_, err = wrapped.Do(req.Clone(ctx2))
+	resp, err := wrapped.Do(req.Clone(ctx2))
 	require.ErrorIs(t, err, ErrBlockedRequest)
+	if resp != nil {
+		resp.Body.Close()
+	}
 	require.Contains(t, err.Error(), "mtls concurrency limit exceeded")
 
 	// Releasing the first request frees the slot.

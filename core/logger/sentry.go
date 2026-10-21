@@ -247,19 +247,14 @@ func (s *sentryLogger) Helper(add int) Logger {
 
 func toMap(args []any) (m map[string]any) {
 	m = make(map[string]any, len(args)/2)
-	for i := 0; i < len(args); {
-		// Make sure this element isn't a dangling key
-		if i == len(args)-1 {
-			break
-		}
-
-		// Consume this value and the next, treating them as a key-value pair. If the
-		// key isn't a string ignore it
+	// Consume this value and the next, treating them as a key-value pair. If the
+	// key isn't a string ignore it. The `i+1 < len(args)` guard skips any dangling
+	// trailing key on odd-length input.
+	for i := 0; i+1 < len(args); i += 2 {
 		key, val := args[i], args[i+1]
 		if keyStr, ok := key.(string); ok {
 			m[keyStr] = val
 		}
-		i += 2
 	}
 	return m
 }

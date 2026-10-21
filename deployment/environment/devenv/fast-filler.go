@@ -83,16 +83,14 @@ func (f *CCIPFastFiller) Start(ctx context.Context, t *testing.T) error {
 	}
 
 	req := testcontainers.GenericContainerRequest{
-		ContainerRequest: testcontainers.ContainerRequest{
-			Networks:   f.networks,
-			Image:      f.image,
-			WaitingFor: wait.ForLog("Relayer started"),
-			Files: []testcontainers.ContainerFile{
-				{
-					Reader:            bytes.NewReader(configContent),
-					ContainerFilePath: "/app/config.json",
-					FileMode:          0644,
-				},
+		Networks:   f.networks,
+		Image:      f.image,
+		WaitingFor: wait.ForLog("Relayer started"),
+		Files: []testcontainers.ContainerFile{
+			{
+				Reader:            bytes.NewReader(configContent),
+				ContainerFilePath: "/app/config.json",
+				FileMode:          0o644,
 			},
 		},
 		Logger:  l,

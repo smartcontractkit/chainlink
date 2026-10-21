@@ -31,6 +31,7 @@ type srMetrics struct {
 	executeCount         metric.Int64Counter
 	executeRequestCount  metric.Int64Counter
 	executeResponseCount metric.Int64Counter
+	executeOrgIDCount    metric.Int64Counter
 }
 
 func (s *srMetrics) recordExecutionDuration(ctx context.Context, d time.Duration, success bool) {
@@ -56,6 +57,12 @@ func (s *srMetrics) countExecution(ctx context.Context, success bool) {
 func (s *srMetrics) countExecutionRequest(ctx context.Context) {
 	s.executeRequestCount.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID),
+	))
+}
+
+func (s *srMetrics) countExecutionOrgID(ctx context.Context, hasOrgID bool) {
+	s.executeOrgIDCount.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID), attribute.String("hasOrgID", strconv.FormatBool(hasOrgID)),
 	))
 }
 
@@ -92,6 +99,11 @@ func newSrMetrics(capabilityID string, callingDonID uint32) (*srMetrics, error) 
 		return nil, err
 	}
 
+	eoc, err := beholder.GetMeter().Int64Counter("platform_executable_capability_server_execute_org_id_count")
+	if err != nil {
+		return nil, err
+	}
+
 	return &srMetrics{
 		capabilityID:         capabilityID,
 		callingDonID:         strconv.FormatUint(uint64(callingDonID), 10),
@@ -99,6 +111,7 @@ func newSrMetrics(capabilityID string, callingDonID uint32) (*srMetrics, error) 
 		executeCount:         ec,
 		executeRequestCount:  erc,
 		executeResponseCount: erspc,
+		executeOrgIDCount:    eoc,
 	}, nil
 }
 
@@ -231,7 +244,7 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 			e.stateMux.Unlock()
 			success := false
 			start := time.Now()
-			responsePayload, responseErr := executeCapabilityRequest(ctxWithTimeout, e.lggr, e.capability, msg.Payload, e.callingDon.ID, e.workflowDONBindingGate)
+			responsePayload, responseErr := executeCapabilityRequest(ctxWithTimeout, e.lggr, e.capability, msg.Payload, e.callingDon.ID, e.workflowDONBindingGate, e.metrics)
 
 			e.stateMux.Lock()
 			// Cancel may have already set a timeout error response; never overwrite an
@@ -383,7 +396,7 @@ func (e *ServerRequest) sendResponse(ctx context.Context, requester p2ptypes.Pee
 	return nil
 }
 
-func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capability capabilities.ExecutableCapability, payload []byte, callingDonID uint32, workflowDONBindingGate limits.GateLimiter) ([]byte, error) {
+func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capability capabilities.ExecutableCapability, payload []byte, callingDonID uint32, workflowDONBindingGate limits.GateLimiter, metrics *srMetrics) ([]byte, error) {
 	capabilityRequest, err := pb.UnmarshalCapabilityRequest(payload)
 	if err != nil {
 		lggr.Errorw("failed to unmarshal capability request", "err", err)
@@ -391,12 +404,13 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 		// Do not include the unmarshal error in the response as it may contain sensitive information
 		return nil, errors.New("failed to unmarshal capability request")
 	}
+	metrics.countExecutionOrgID(ctx, capabilityRequest.Metadata.OrgID != "")
 
 	// When enabled, bind the caller-supplied WorkflowDonID to the authenticated
 	// calling DON so it cannot be spoofed. All F+1 aggregated requests share this
 	// payload (WorkflowDonID is part of the request hash), so a single check here
 	// covers the quorum. The gate is guaranteed non-nil by NewServerRequest.
-	enabled, gerr := workflowDONBindingGate.Limit(ctx)
+	enabled, gerr := workflowDONBindingGate.IsOpen(ctx)
 	if gerr != nil {
 		lggr.Errorw("failed to evaluate workflow DON binding gate", "err", gerr)
 		return nil, errors.New("failed to evaluate workflow DON binding gate")

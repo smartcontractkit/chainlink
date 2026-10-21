@@ -13,9 +13,9 @@ import (
 func TestMessage_Validate(t *testing.T) {
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: "abcd",
+			MessageID: "abcd",
 			Method:    "request",
-			DonId:     "donA",
+			DonID:     "donA",
 			Receiver:  "0x0000000000000000000000000000000000000000",
 			Payload:   []byte("datadata"),
 		},
@@ -29,21 +29,21 @@ func TestMessage_Validate(t *testing.T) {
 	require.NoError(t, msg.Validate())
 
 	// missing message ID
-	msg.Body.MessageId = ""
+	msg.Body.MessageID = ""
 	require.Error(t, msg.Validate())
 	// message ID ending with null bytes
-	msg.Body.MessageId = "myid\x00\x00"
+	msg.Body.MessageID = "myid\x00\x00"
 	require.Error(t, msg.Validate())
-	msg.Body.MessageId = "abcd"
+	msg.Body.MessageID = "abcd"
 	require.NoError(t, msg.Validate())
 
 	// missing DON ID
-	msg.Body.DonId = ""
+	msg.Body.DonID = ""
 	require.Error(t, msg.Validate())
 	// DON ID ending with null bytes
-	msg.Body.DonId = "mydon\x00\x00"
+	msg.Body.DonID = "mydon\x00\x00"
 	require.Error(t, msg.Validate())
-	msg.Body.DonId = "donA"
+	msg.Body.DonID = "donA"
 	require.NoError(t, msg.Validate())
 
 	// method name too long
@@ -74,9 +74,9 @@ func TestMessage_MessageSignAndValidateSignature(t *testing.T) {
 
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: "abcd",
+			MessageID: "abcd",
 			Method:    "request",
-			DonId:     "donA",
+			DonID:     "donA",
 			Receiver:  "0x33",
 			Payload:   []byte("datadata"),
 		},
@@ -96,7 +96,7 @@ func TestMessage_MessageSignAndValidateSignature(t *testing.T) {
 	require.True(t, bytes.Equal(address, signer))
 
 	// invalid
-	msg.Body.MessageId = "dbca"
+	msg.Body.MessageID = "dbca"
 	signer, err = msg.ExtractSigner()
 	require.NoError(t, err)
 	require.False(t, bytes.Equal(address, signer))

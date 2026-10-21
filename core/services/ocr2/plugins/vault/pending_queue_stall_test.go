@@ -135,7 +135,6 @@ func TestObservationQuorum_PendingQueueStallSignal(t *testing.T) {
 
 	r := newTestReportingPlugin(t,
 		withOnchainCfg(4, 1),
-		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 	rdr := &kv{m: make(map[string]response)}
 	writeDeleteSecretsPendingQueueItems(t, rdr, "request-1")

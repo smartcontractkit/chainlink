@@ -18,10 +18,10 @@ func TestAuditLoggerConfig(t *testing.T) {
 	require.True(t, auditConfig.Enabled())
 	require.Equal(t, "event", auditConfig.JsonWrapperKey())
 
-	fUrl, err := auditConfig.ForwardToUrl()
+	fURL, err := auditConfig.ForwardToUrl()
 	require.NoError(t, err)
-	require.Equal(t, "http", fUrl.Scheme)
-	require.Equal(t, "localhost:9898", fUrl.Host)
+	require.Equal(t, "http", fURL.Scheme)
+	require.Equal(t, "localhost:9898", fURL.Host)
 
 	headers, err := auditConfig.Headers()
 	require.NoError(t, err)

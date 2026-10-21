@@ -2,6 +2,7 @@ package confidentialrelay
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -256,6 +257,54 @@ func TestBundler_unknownMethod(t *testing.T) {
 	summary, err := b.Bundle(req, map[string]jsonrpc.Response[json.RawMessage]{}, lggr)
 	require.Nil(t, summary)
 	require.ErrorIs(t, err, errUnknownMethod)
+}
+
+func TestBundleSummary_UserError(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil when every error is system-level", func(t *testing.T) {
+		t.Parallel()
+		s := newBundleSummary(2)
+		s.addError("n0", &jsonrpc.WireError{Code: jsonrpc.ErrInternal, Message: "boom"})
+		s.addError("n1", nil)
+		require.Nil(t, s.UserError())
+	})
+
+	t.Run("captures one user error among system errors", func(t *testing.T) {
+		t.Parallel()
+		s := newBundleSummary(3)
+		s.addError("n0", &jsonrpc.WireError{Code: jsonrpc.ErrInternal, Message: "boom"})
+		s.addError("n1", &jsonrpc.WireError{Code: jsonrpc.ErrInvalidParams, Message: "key does not exist"})
+		s.addError("n2", &jsonrpc.WireError{Code: jsonrpc.ErrInternal, Message: "boom"})
+		got := s.UserError()
+		require.NotNil(t, got)
+		require.Equal(t, jsonrpc.ErrInvalidParams, got.Code)
+		require.Equal(t, "key does not exist", got.Message)
+	})
+
+	t.Run("keeps the first user error", func(t *testing.T) {
+		t.Parallel()
+		s := newBundleSummary(2)
+		s.addError("n0", &jsonrpc.WireError{Code: jsonrpc.ErrInvalidParams, Message: "first"})
+		s.addError("n1", &jsonrpc.WireError{Code: jsonrpc.ErrInvalidParams, Message: "second"})
+		require.Equal(t, "first", s.UserError().Message)
+	})
+
+	t.Run("captured past the logged-sample cap", func(t *testing.T) {
+		t.Parallel()
+		s := newBundleSummary(maxLoggedNodeErrors + 1)
+		for i := range maxLoggedNodeErrors {
+			s.addError(fmt.Sprintf("n%d", i), &jsonrpc.WireError{Code: jsonrpc.ErrInternal, Message: "boom"})
+		}
+		s.addError("last", &jsonrpc.WireError{Code: jsonrpc.ErrInvalidParams, Message: "key does not exist"})
+		require.NotNil(t, s.UserError(), "the cap limits logged samples, not user-error detection")
+	})
+
+	t.Run("nil summary", func(t *testing.T) {
+		t.Parallel()
+		var s *BundleSummary
+		require.Nil(t, s.UserError())
+	})
 }
 
 func TestSanitizeNodeErrorMessage_Truncates(t *testing.T) {

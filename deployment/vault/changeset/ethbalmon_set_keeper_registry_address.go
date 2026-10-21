@@ -229,11 +229,9 @@ var SetKeeperRegistryOperation = operations.NewOperation(
 			ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
 			Transactions: []mcmstypes.Transaction{
 				{
-					OperationMetadata: mcmstypes.OperationMetadata{
-						ContractType: vaulttypes.EthBalMonContractType,
-						Tags: []string{
-							"setKeeperRegistryAddress",
-						},
+					ContractType: vaulttypes.EthBalMonContractType,
+					Tags: []string{
+						"setKeeperRegistryAddress",
 					},
 					To:               ethBalMonAddr,
 					Data:             setKeeperRegistryTx.Data(),

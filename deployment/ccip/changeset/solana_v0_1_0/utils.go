@@ -16,10 +16,12 @@ import (
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 )
 
@@ -32,7 +34,7 @@ func ValidateMCMSConfigSolana(
 	tokenPoolMetadata string,
 	contractsToValidate map[cldf.ContractType]bool) error {
 	if mcms != nil {
-		if err := mcms.ValidateSolana(e, chain.Selector); err != nil {
+		if err := stateview.ValidateSolanaTimelockConfig(e, chain.Selector, mcms); err != nil {
 			return fmt.Errorf("failed to validate MCMS config: %w", err)
 		}
 	}

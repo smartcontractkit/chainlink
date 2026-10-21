@@ -48,6 +48,7 @@ type triggerPublisher struct {
 	bqMu             sync.Mutex // protects batchingQueue
 	stopCh           services.StopChan
 	wg               sync.WaitGroup
+	closeOnce        sync.Once
 	ackExecutor      *ParallelExecutor
 	registerExecutor *ParallelExecutor
 	lggr             logger.Logger
@@ -56,6 +57,7 @@ type triggerPublisher struct {
 
 type triggerPublisherMetrics struct {
 	registerTriggerCounter      metric.Int64Counter
+	registerTriggerOrgIDCounter metric.Int64Counter
 	unregisterTriggerCounter    metric.Int64Counter
 	ackEventCounter             metric.Int64Counter
 	registerTriggerDurationMs   metric.Int64Histogram
@@ -103,8 +105,10 @@ type TriggerPublisher interface {
 	SetConfig(config *commoncap.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON) error
 }
 
-var _ TriggerPublisher = &triggerPublisher{}
-var _ types.ReceiverService = &triggerPublisher{}
+var (
+	_ TriggerPublisher      = &triggerPublisher{}
+	_ types.ReceiverService = &triggerPublisher{}
+)
 
 const (
 	minAllowedBatchCollectionPeriod = 10 * time.Millisecond
@@ -112,7 +116,7 @@ const (
 	defaultMaxParallelRegisters     = 100 // TODO: make this configurable https://smartcontract-it.atlassian.net/browse/PLEX-3266
 )
 
-func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+func NewTriggerPublisher(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
 	slotUsageAttrs := []attribute.KeyValue{
 		attribute.String("capabilityID", capabilityID),
 		attribute.String("capMethodName", capMethodName),
@@ -185,6 +189,10 @@ func (p *triggerPublisher) initMetrics() error {
 	p.metrics.registerTriggerCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_publisher_register_trigger_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_total: %w", err)
+	}
+	p.metrics.registerTriggerOrgIDCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_publisher_register_trigger_org_id_total")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_org_id_total: %w", err)
 	}
 	p.metrics.unregisterTriggerCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_publisher_unregister_trigger_total")
 	if err != nil {
@@ -314,10 +322,20 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.lggr.Errorw("sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
+		if !validation.IsValidID(req.TriggerID) {
+			p.lggr.Errorw("received trigger request with invalid trigger ID", "triggerID", SanitizeLogString(req.TriggerID))
+			return
+		}
 		if err = validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
 			p.lggr.Errorw("received trigger request with invalid workflow ID", "workflowId", SanitizeLogString(req.Metadata.WorkflowID), "err", err)
 			return
 		}
+		p.metrics.registerTriggerOrgIDCounter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("capabilityID", p.capabilityID),
+			attribute.String("capMethodName", p.capMethodName),
+			attribute.String("callerDonID", strconv.FormatUint(uint64(msg.CallerDonId), 10)),
+			attribute.String("hasOrgID", strconv.FormatBool(req.Metadata.OrgID != "")),
+		))
 		p.lggr.Debugw("received trigger registration", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "sender", sender)
 		key := registrationKey{msg.CallerDonId, req.Metadata.WorkflowID, req.TriggerID}
 		nowMs := time.Now().UnixMilli()
@@ -375,6 +393,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.lggr.Errorw("failed to unmarshal request", "err", unmarshalErr)
 			return
 		}
+		p.messageCache.MarkDelivered(key)
 		p.mu.Unlock()
 
 		capAttrs := metric.WithAttributes(
@@ -486,12 +505,13 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.lggr.Debugw("unregister trigger", "workflowID", key.workflowID, "triggerID", key.triggerID,
 			"callerDonId", msg.CallerDonId, "minRequired", minRequired, "sender", sender)
 		delete(p.registrations, key)
+		p.unregisterCache.MarkDelivered(key)
 		p.unregisterCache.Delete(key)
 		p.messageCache.Delete(key)
 		p.mu.Unlock()
 
-		ctx, cancel := p.stopCh.NewCtx()
-		err = p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request)
+		unregisterCtx, cancel := p.stopCh.NewCtx()
+		err = p.cfg.Load().underlying.UnregisterTrigger(unregisterCtx, reg.request)
 		if err != nil {
 			unregisterOutcome = "error"
 			p.lggr.Errorw("failed to unregister trigger on underlying", "workflowID", key.workflowID, "triggerID", key.triggerID, "err", err)
@@ -637,11 +657,16 @@ func (p *triggerPublisher) cacheCleanupLoop() {
 			// no longer want a registration respond to MethodTriggerRegistrationCheck
 			// with MethodUnregisterTrigger, which is handled in Receive.
 			p.mu.Lock()
-			deleted := p.ackCache.DeleteOlderThan(now - cfg.remoteConfig.MessageExpiry.Milliseconds())
+			ts := now - cfg.remoteConfig.MessageExpiry.Milliseconds()
+			ackDel := p.ackCache.DeleteOlderThan(ts)
+			msgDel := p.messageCache.DeleteOlderThan(ts)
 			p.mu.Unlock()
 
-			if deleted > 0 {
-				p.lggr.Debugw("cleaned expired AckCache entries", "deleted", deleted)
+			if ackDel > 0 {
+				p.lggr.Debugw("cleaned expired AckCache entries", "deleted", ackDel)
+			}
+			if msgDel > 0 {
+				p.lggr.Debugw("cleaned expired message entries", "deleted", msgDel)
 			}
 		}
 	}
@@ -916,22 +941,27 @@ func (p *triggerPublisher) batchingLoop() {
 }
 
 func (p *triggerPublisher) Close() error {
-	close(p.stopCh)
+	var err error
+	p.closeOnce.Do(func() {
+		close(p.stopCh)
 
-	if p.ackExecutor != nil {
-		if err := p.ackExecutor.Close(); err != nil {
-			return fmt.Errorf("failed to close ack executor: %w", err)
+		if p.ackExecutor != nil {
+			if e := p.ackExecutor.Close(); e != nil {
+				err = fmt.Errorf("failed to close ack executor: %w", e)
+				return
+			}
 		}
-	}
-	if p.registerExecutor != nil {
-		if err := p.registerExecutor.Close(); err != nil {
-			return fmt.Errorf("failed to close register executor: %w", err)
+		if p.registerExecutor != nil {
+			if e := p.registerExecutor.Close(); e != nil {
+				err = fmt.Errorf("failed to close register executor: %w", e)
+				return
+			}
 		}
-	}
 
-	p.wg.Wait()
-	p.lggr.Info("TriggerPublisher closed")
-	return nil
+		p.wg.Wait()
+		p.lggr.Info("TriggerPublisher closed")
+	})
+	return err
 }
 
 func (p *triggerPublisher) Ready() error {

@@ -4,24 +4,24 @@ import (
 	"time"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 )
 
 // Returns an instantiated ldapAuthenticator struct without validation for testing
 func NewTestLDAPAuthenticator(
 	ds sqlutil.DataSource,
-	ldapCfg config.LDAP,
+	ldapCfg coreconfig.LDAP,
 	lggr logger.Logger,
-	auditLogger audit.AuditLogger,
+	auditLogger audit.Logger,
 ) (*ldapAuthenticator, error) {
 	ldapAuth := ldapAuthenticator{
 		ds:          ds,
 		ldapClient:  newLDAPClient(ldapCfg),
 		config:      ldapCfg,
-		lggr:        lggr.Named("LDAPAuthenticationProvider"),
+		lggr:        logger.Sugared(lggr).Named("LDAPAuthenticationProvider"),
 		auditLogger: auditLogger,
 	}
 
@@ -41,9 +41,8 @@ func (l *ldapAuthenticator) SetLDAPClient(newClient LDAPClient) {
 	l.ldapClient = newClient
 }
 
-// Implements config.LDAP
-type TestConfig struct {
-}
+// Implements coreconfig.LDAP
+type TestConfig struct{}
 
 func (t *TestConfig) ServerAddress() string {
 	return "ldaps://MOCK"
@@ -113,7 +112,7 @@ func (t *TestConfig) ReadUserGroupCN() string {
 	return NodeReadOnlyGroupCN
 }
 
-func (t *TestConfig) UserApiTokenEnabled() bool {
+func (t *TestConfig) UserApiTokenEnabled() bool { //nolint:revive // method name required by interface
 	return true
 }
 

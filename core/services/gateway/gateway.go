@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -66,22 +67,25 @@ type gateway struct {
 }
 
 func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger, lf limits.Factory) (Gateway, error) {
-	codec := &api.JsonRPCCodec{}
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid gateway config: %w", err)
+	}
+	if len(cfg.Services) == 0 || len(cfg.ShardedDONs) == 0 {
+		return nil, errors.New("no services or DONs configured - Gateway has to use service-based configuration")
+	}
+
+	codec := &api.JSONRPCCodec{}
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	if err != nil {
 		return nil, fmt.Errorf("error creating gateway metrics: %w", err)
-	}
-	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, lggr, lf)
-	if err != nil {
-		return nil, err
 	}
 	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), gMetrics, lggr, lf)
 	if err != nil {
 		return nil, err
 	}
-
-	if len(cfg.Services) == 0 || len(cfg.ShardedDONs) == 0 {
-		return nil, errors.New("no services or DONs configured - Gateway has to use service-based configuration")
+	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, connMgr.ReadyForTraffic, lggr, lf)
+	if err != nil {
+		return nil, err
 	}
 
 	lggr.Infow("setting up gateway from config", "nServices", len(cfg.Services), "nShardedDONs", len(cfg.ShardedDONs))
@@ -129,7 +133,7 @@ func setupFromNewConfig(
 
 			var shardConnMgrs []handlers.DON
 			for shardIdx := range donCfg.Shards {
-				donID := config.ShardDONID(donName, shardIdx)
+				donID := config.GatewayDONIDForShard(donName, shardIdx)
 				donConnMgr := connMgr.DONConnectionManager(donID)
 				if donConnMgr == nil {
 					return nil, fmt.Errorf("connection manager for DON %s shard %d not found", donName, shardIdx)
@@ -149,7 +153,7 @@ func setupFromNewConfig(
 		// Set (multi)handler on all associated DON connection managers, keyed by service name
 		for i, donName := range svc.DONs {
 			for shardIdx := range shardsConnMgrs[i] {
-				donID := config.ShardDONID(donName, shardIdx)
+				donID := config.GatewayDONIDForShard(donName, shardIdx)
 				donConnMgr := connMgr.DONConnectionManager(donID)
 				if donConnMgr == nil {
 					return nil, fmt.Errorf("connection manager for DON %s shard %d not found", donName, shardIdx)
@@ -210,7 +214,7 @@ func (g *gateway) Close() error {
 		for _, handler := range g.serviceToMultiHandler {
 			err = errors.Join(err, handler.Close())
 		}
-		return
+		return err
 	})
 }
 
@@ -229,10 +233,10 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 		// Arbitrary limit to prevent abuse
 		return newError(jsonRequest.ID, api.UserMessageParseError, "request ID is too long: "+strconv.Itoa(len(jsonRequest.ID))+". max is 200 characters")
 	}
-	var isLegacyRequest = false
+	isLegacyRequest := false
 	var h handlers.Handler
 	var handlerKey string
-	if msg == nil || msg.Body.DonId == "" {
+	if msg == nil || msg.Body.DonID == "" {
 		serviceName := jsonRequest.ServiceName()
 		if handler, ok := g.serviceToMultiHandler[serviceName]; ok {
 			h = handler
@@ -253,7 +257,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 		if err = msg.Validate(); err != nil {
 			return newError(jsonRequest.ID, api.UserMessageParseError, err.Error())
 		}
-		handlerKey = msg.Body.DonId
+		handlerKey = msg.Body.DonID
 		var ok bool
 		h, ok = g.handlers[handlerKey]
 		if !ok {
@@ -288,7 +292,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 
 	g.lggr.Debugw("received response from handler", "handler", handlerKey, "response", response, "requestID", jsonRequest.ID)
 	promRequest.WithLabelValues(response.ErrorCode.String()).Inc()
-	return response.RawResponse, api.ToHttpErrorCode(response.ErrorCode)
+	return response.RawResponse, api.ToHTTPErrorCode(response.ErrorCode)
 }
 
 func newError(id string, errCode api.ErrorCode, errMsg string) ([]byte, int) {
@@ -306,7 +310,7 @@ func newError(id string, errCode api.ErrorCode, errMsg string) ([]byte, int) {
 		rawResponse = []byte("fatal error" + err.Error())
 	}
 	promRequest.WithLabelValues(errCode.String()).Inc()
-	return rawResponse, api.ToHttpErrorCode(errCode)
+	return rawResponse, api.ToHTTPErrorCode(errCode)
 }
 
 func (g *gateway) GetUserPort() int {

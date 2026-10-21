@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -43,17 +44,32 @@ var NodeOne = config.NodeConfig{
 	Address: "0x1234",
 }
 
+// shardedDONsForTest builds a single-DON, single-shard ShardedDONs around don,
+// mirroring a legacy (unsharded) gateway config.
+func shardedDONsForTest(t *testing.T, donName string, members []config.NodeConfig, don handlers.DON) *handlers.ShardedDONs {
+	t.Helper()
+	shardedDONs := []config.ShardedDONConfig{
+		{
+			DonName: donName,
+			Shards:  []config.Shard{{Nodes: members}},
+		},
+	}
+	dons, err := handlers.NewShardedDONs(shardedDONs, [][]handlers.DON{{don}})
+	require.NoError(t, err)
+	return dons
+}
+
 func setupHandler(t *testing.T) (handlers.Handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
 	return setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
 }
 
 func setupHandlerWithLimitsFactory(t *testing.T, limitsFactory limits.Factory) (handlers.Handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
-	lggr := logger.Test(t)
+	return setupHandlerWithLogger(t, logger.Test(t), limitsFactory)
+}
+
+func setupHandlerWithLogger(t *testing.T, lggr logger.Logger, limitsFactory limits.Factory) (handlers.Handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
 	don := mocks.NewDON(t)
-	donConfig := &config.DONConfig{
-		DonId:   "test_don_id",
-		Members: []config.NodeConfig{NodeOne},
-	}
+	dons := shardedDONsForTest(t, "test_don_id", []config.NodeConfig{NodeOne}, don)
 	handlerConfig := Config{
 		RequestTimeoutSec: 30,
 		NodeRateLimiter: ratelimit.RateLimiterConfig{
@@ -68,7 +84,7 @@ func setupHandlerWithLimitsFactory(t *testing.T, limitsFactory limits.Factory) (
 
 	clock := clockwork.NewFakeClock()
 	authorizer := vaultcap.NewAuthorizer(&stubAllowListBasedAuth{clock: clock}, nil, lggr)
-	handler, err := newHandlerWithAuthorizer(methodConfig, donConfig, don, nil, authorizer, nil, lggr, clock, limitsFactory)
+	handler, err := newHandlerWithAuthorizer(methodConfig, dons, nil, authorizer, nil, lggr, clock, limitsFactory)
 	require.NoError(t, err)
 	handler.aggregator = &mockAggregator{}
 	cb := common.NewCallback()
@@ -228,14 +244,19 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
 		response := jsonrpc.Response[json.RawMessage]{
 			ID:     expectedRequestID,
+			Method: vaulttypes.MethodSecretsCreate,
 			Result: (*json.RawMessage)(&resultBytes),
 		}
 		wg.Go(func() {
 			resp, err2 := callback.Wait(t.Context())
-			assert.NoError(t, err2)
+			if !assert.NoError(t, err2) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
 			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err2)
+			if !assert.NoError(t, err2) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Len(t, secretsResponse.Result.Responses, 1, "Should have one encrypted secret in response")
 			assert.Equal(t, createSecretsRequest.EncryptedSecrets[0].Id.Key, secretsResponse.Result.Responses[0].Id.Key, "Secret ID should match")
@@ -253,10 +274,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	t.Run("sets authorized request_id on forwarded create", func(t *testing.T) {
 		lggr := logger.Test(t)
 		don := mocks.NewDON(t)
-		donConfig := &config.DONConfig{
-			DonId:   "test_don_id",
-			Members: []config.NodeConfig{NodeOne},
-		}
+		dons := shardedDONsForTest(t, "test_don_id", []config.NodeConfig{NodeOne}, don)
 		handlerConfig := Config{
 			RequestTimeoutSec: 30,
 			NodeRateLimiter: ratelimit.RateLimiterConfig{
@@ -273,8 +291,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
 		h, err := newHandlerWithAuthorizer(
 			methodConfig,
-			donConfig,
-			don,
+			dons,
 			nil,
 			&stubAuthorizer{result: vaultcap.NewAuthResult("org-1", "0xworkflow", "digest-1", clock.Now().Add(time.Minute).Unix())},
 			nil,
@@ -472,10 +489,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		wg.Go(func() {
 			resp, err2 := callback.Wait(t.Context())
-			assert.NoError(t, err2)
+			if !assert.NoError(t, err2) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
 			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err2)
+			if !assert.NoError(t, err2) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Contains(t, secretsResponse.Error.Message, "encrypted secret must not be nil at index 1")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
@@ -514,10 +535,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		wg.Go(func() {
 			resp, err2 := callback.Wait(t.Context())
-			assert.NoError(t, err2)
+			if !assert.NoError(t, err2) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
 			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err2)
+			if !assert.NoError(t, err2) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Contains(t, secretsResponse.Error.Message, "key cannot be empty")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
@@ -574,10 +599,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		wg.Go(func() {
 			resp, err2 := callback.Wait(t.Context())
-			assert.NoError(t, err2)
+			if !assert.NoError(t, err2) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
 			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err2)
+			if !assert.NoError(t, err2) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.True(t, proto.Equal(secretsResponse.Result, responseData), "Response data should match")
 		})
@@ -612,10 +641,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		wg.Go(func() {
 			resp, err2 := callback.Wait(t.Context())
-			assert.NoError(t, err2)
+			if !assert.NoError(t, err2) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
 			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err2)
+			if !assert.NoError(t, err2) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Contains(t, secretsResponse.Error.Message, "secret ID must not be nil at index 1")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
@@ -769,10 +802,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		wg.Go(func() {
 			resp, err2 := callback.Wait(t.Context())
-			assert.NoError(t, err2)
+			if !assert.NoError(t, err2) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			var secretsResponse jsonrpc.Response[vaultcommon.ListSecretIdentifiersResponse]
 			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err2)
+			if !assert.NoError(t, err2) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Equal(t, response.Error, secretsResponse.Error, "Response error should match")
 		})
@@ -798,10 +835,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		wg.Go(func() {
 			resp, err := callback.Wait(t.Context())
-			assert.NoError(t, err)
+			if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
 			err = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err)
+			if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			assert.Equal(t, unsupportedMethodRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Contains(t, secretsResponse.Error.Message, "unsupported method(vault.unsupported.method)")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.UnsupportedMethodError), secretsResponse.Error.Code, "Error code should match")
@@ -826,10 +867,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		wg.Go(func() {
 			resp, err := callback.Wait(t.Context())
-			assert.NoError(t, err)
+			if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
 			err = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err)
+			if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			assert.Equal(t, emptyParamsRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Contains(t, secretsResponse.Error.Message, "invalid params error: failed to validate create secrets request")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
@@ -855,10 +900,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		wg.Go(func() {
 			resp, err := callback.Wait(t.Context())
-			assert.NoError(t, err)
+			if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
 			err = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err)
+			if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			assert.Equal(t, invalidParamsRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Equal(t, "invalid params error: failed to validate create secrets request: request batch must contain at least 1 item", secretsResponse.Error.Message, "Error message should match")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
@@ -922,10 +971,14 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 		wg.Go(func() {
 			resp, err := callback.Wait(t.Context())
-			assert.NoError(t, err)
+			if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
 			err = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err)
+			if !assert.NoError(t, err) { //nolint:testifylint // require illegal inside wg.Go goroutine
+				return
+			}
 			assert.Equal(t, jsonRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Contains(t, secretsResponse.Error.Message, "invalid params error: failed to validate create secrets request", "Error message should match")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
@@ -968,6 +1021,51 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 }
 
+func TestVaultHandler_InvalidParamsDoesNotLogRawParams(t *testing.T) {
+	t.Parallel()
+
+	// Observed at Info level so the pre-existing whole-request Debug log is excluded.
+	lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
+	h, callback, don, _ := setupHandlerWithLogger(t, lggr, limits.Factory{Settings: cresettings.DefaultGetter})
+	// Don't expect SendToNode to be called for invalid params
+	don.AssertNotCalled(t, "SendToNode")
+
+	const marker = "SENSITIVE_MARKER_123"
+	invalidParams := json.RawMessage(`{"request_id":"req-1","injected":"` + marker + `"}`)
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "invalid-params-logs",
+		Method: vaulttypes.MethodSecretsCreate,
+		Params: &invalidParams,
+	}
+
+	// The invalid-params response is sent synchronously, so no goroutine is needed.
+	err := h.HandleJSONRPCUserMessage(t.Context(), req, callback)
+	require.NoError(t, err)
+
+	resp, err := callback.Wait(t.Context())
+	require.NoError(t, err)
+	var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+	require.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+	assert.Equal(t, req.ID, secretsResponse.ID, "Request ID should match")
+	assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
+
+	invalidParamsLogs := logs.FilterMessage("invalid params")
+	entries := invalidParamsLogs.All()
+	require.Len(t, entries, 1, "expected exactly one 'invalid params' log entry")
+	assert.Equal(t, zapcore.ErrorLevel, entries[0].Level)
+	assert.Equal(t, req.ID, entries[0].ContextMap()["requestID"])
+	assert.NotContains(t, entries[0].ContextMap(), "params", "raw params must not be logged")
+
+	for _, e := range logs.All() {
+		assert.NotContains(t, e.Message, marker)
+		for k, v := range e.ContextMap() {
+			if s, ok := v.(string); ok {
+				assert.NotContains(t, s, marker, "log field %q must not contain raw request params", k)
+			}
+		}
+	}
+}
+
 func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknownFields(t *testing.T) {
 	h, callback, _, _ := setupHandler(t)
 
@@ -982,9 +1080,8 @@ func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknow
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
-		capabilitiesRegistry:        mcr,
-		vaultHandlerDonID:           h.(*handler).donConfig.DonId,
-		signedResponseRequestIDGate: limits.NewGateLimiter(true),
+		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    h.(*handler).donID,
 	}
 
 	ocrContext, err := hex.DecodeString("000ec4f6a2ba011e909eccf64628855b848e08876a1edd938a1372a9e51adff100000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000")
@@ -1047,6 +1144,176 @@ func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknow
 	require.Nil(t, cachedPublicKey, "expected the master public key not to be cached")
 }
 
+func setupSignedResponseHandler(t *testing.T, requestID string) (handlers.Handler, *common.Callback, jsonrpc.Response[json.RawMessage]) {
+	t.Helper()
+	h, callback, _, _ := setupHandler(t)
+
+	signedResp, nodes := makeSignedCreateSecretsResponse(t, requestID, 4)
+	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
+	h.(*handler).aggregator = &baseAggregator{
+		capabilitiesRegistry: mcr,
+		metrics:              h.(*handler).metrics,
+		vaultHandlerDonID:    h.(*handler).donID,
+	}
+
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     requestID,
+		Method: vaulttypes.MethodSecretsCreate,
+	}
+	_, err := h.(*handler).newActiveRequest(req, callback)
+	require.NoError(t, err)
+
+	return h, callback, signedResp
+}
+
+func TestVaultHandler_HandleNodeMessage_DropsTamperedOuterError(t *testing.T) {
+	t.Parallel()
+	const requestID = "req-a2-error"
+	h, callback, signedResp := setupSignedResponseHandler(t, requestID)
+
+	poisoned := signedResp
+	poisoned.Error = &jsonrpc.WireError{
+		Code:    api.ToJSONRPCErrorCode(api.InvalidParamsError),
+		Message: "forged node error",
+	}
+	require.NoError(t, h.HandleNodeMessage(t.Context(), &poisoned, NodeOne.Address))
+
+	assert.NotNil(t, h.(*handler).getActiveRequest(requestID), "tampered response must not finalize the request")
+
+	clean := signedResp
+	require.NoError(t, h.HandleNodeMessage(t.Context(), &clean, "0xhonest1"))
+
+	resp, err := callback.Wait(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, api.NoError, resp.ErrorCode)
+
+	var secretsResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
+	require.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+	assert.Nil(t, secretsResponse.Error, "user response must not carry the forged outer error")
+	assert.Empty(t, secretsResponse.Result.Error, "user response must not carry a forged inner error")
+	assert.Equal(t, vaulttypes.MethodSecretsCreate, secretsResponse.Method)
+	assert.Equal(t, requestID, secretsResponse.ID)
+
+	payloadRequestID, err := vaultutils.SignedPayloadRequestID(secretsResponse.Method, secretsResponse.Result.Payload)
+	require.NoError(t, err)
+	assert.Equal(t, requestID, payloadRequestID)
+	assert.Nil(t, h.(*handler).getActiveRequest(requestID), "request must be finalized only after the honest response")
+}
+
+func TestVaultHandler_HandleNodeMessage_DropsMethodRelabeledResponse(t *testing.T) {
+	t.Parallel()
+	const requestID = "req-a2-method"
+	h, callback, signedResp := setupSignedResponseHandler(t, requestID)
+
+	relabeled := signedResp
+	relabeled.Method = vaulttypes.MethodSecretsList
+	require.NoError(t, h.HandleNodeMessage(t.Context(), &relabeled, NodeOne.Address))
+
+	assert.NotNil(t, h.(*handler).getActiveRequest(requestID), "relabeled response must not finalize the request")
+
+	clean := signedResp
+	require.NoError(t, h.HandleNodeMessage(t.Context(), &clean, "0xhonest1"))
+
+	resp, err := callback.Wait(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, api.NoError, resp.ErrorCode)
+
+	var secretsResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
+	require.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+	assert.Nil(t, secretsResponse.Error)
+	assert.Equal(t, vaulttypes.MethodSecretsCreate, secretsResponse.Method, "relabeled method must not reach the user")
+	assert.Equal(t, requestID, secretsResponse.ID)
+}
+
+func TestVaultHandler_HandleNodeMessage_StillAcceptsErrorOnlyResponses(t *testing.T) {
+	t.Parallel()
+	h, callback, _, _ := setupHandler(t)
+
+	signers := []string{
+		"d6da96fe596705b32bc3a0e11cdefad77feaad79000000000000000000000000",
+		"327aa349c9718cd36c877d1e90458fe1929768ad000000000000000000000000",
+		"e9bf394856d73402b30e160d0e05c847796f0e29000000000000000000000000",
+		"efd5bdb6c3256f04489a6ca32654d547297f48b9000000000000000000000000",
+	}
+	nodes := makeNodes(t, signers)
+	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
+	h.(*handler).aggregator = &baseAggregator{
+		capabilitiesRegistry: mcr,
+		metrics:              h.(*handler).metrics,
+		vaultHandlerDonID:    h.(*handler).donID,
+	}
+
+	const requestID = "req-a2-err-only"
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     requestID,
+		Method: vaulttypes.MethodSecretsCreate,
+	}
+	_, err := h.(*handler).newActiveRequest(req, callback)
+	require.NoError(t, err)
+
+	errorResp := jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      requestID,
+		Method:  vaulttypes.MethodSecretsCreate,
+		Error: &jsonrpc.WireError{
+			Code:    api.ToJSONRPCErrorCode(api.InvalidParamsError),
+			Message: "invalid params error: secret ID must not be nil",
+		},
+	}
+	for _, nodeAddr := range []string{"0xn0", "0xn1", "0xn2"} {
+		r := errorResp
+		require.NoError(t, h.HandleNodeMessage(t.Context(), &r, nodeAddr))
+	}
+
+	resp, err := callback.Wait(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, api.InvalidParamsError, resp.ErrorCode)
+
+	var errResponse jsonrpc.Response[json.RawMessage]
+	require.NoError(t, json.Unmarshal(resp.RawResponse, &errResponse))
+	assert.Nil(t, errResponse.Result)
+	require.NotNil(t, errResponse.Error)
+	assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), errResponse.Error.Code)
+	assert.Nil(t, h.(*handler).getActiveRequest(requestID))
+}
+
+func TestVaultHandler_fetchVaultPublicKey_BypassesCache(t *testing.T) {
+	t.Parallel()
+
+	// The periodic background refresh must always forward to the nodes, even when a
+	// value is already cached. Otherwise it short-circuits on the cache and never
+	// refreshes the key, leaving the gateway serving a stale key indefinitely.
+	h, _, don, _ := setupHandler(t)
+
+	// Pre-warm the cache so a cache-first path would skip the nodes entirely.
+	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	cacheVaultPublicKeyForTest(t, h.(*handler), pk)
+
+	pkBytes, err := pk.Marshal()
+	require.NoError(t, err)
+	resultBytes, err := json.Marshal(&vaultcommon.GetPublicKeyResponse{PublicKey: hex.EncodeToString(pkBytes)})
+	require.NoError(t, err)
+
+	// Reply as a node as soon as the request is forwarded, so the refresh completes
+	// promptly instead of blocking on its internal deadline.
+	don.On("SendToNode", mock.Anything, NodeOne.Address, mock.Anything).
+		Run(func(args mock.Arguments) {
+			req := args.Get(2).(*jsonrpc.Request[json.RawMessage])
+			resp := jsonrpc.Response[json.RawMessage]{
+				ID:     req.ID,
+				Method: req.Method,
+				Result: (*json.RawMessage)(&resultBytes),
+			}
+			require.NoError(t, h.HandleNodeMessage(t.Context(), &resp, NodeOne.Address))
+		}).Return(nil)
+
+	h.(*handler).fetchVaultPublicKey(t.Context())
+
+	// Despite the warm cache, the request must have been fanned out to the nodes.
+	don.AssertCalled(t, "SendToNode", mock.Anything, NodeOne.Address, mock.Anything)
+}
+
 func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	h, callback, don, _ := setupHandler(t)
 	signers := []string{
@@ -1058,9 +1325,8 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
-		capabilitiesRegistry:        mcr,
-		vaultHandlerDonID:           h.(*handler).donConfig.DonId,
-		signedResponseRequestIDGate: limits.NewGateLimiter(true),
+		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    h.(*handler).donID,
 	}
 
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -1129,10 +1395,7 @@ func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
 
 	lggr := logger.Test(t)
 	don := mocks.NewDON(t)
-	donConfig := &config.DONConfig{
-		DonId:   "test_don_id",
-		Members: []config.NodeConfig{NodeOne},
-	}
+	dons := shardedDONsForTest(t, "test_don_id", []config.NodeConfig{NodeOne}, don)
 	handlerConfig := Config{
 		RequestTimeoutSec: 30,
 		NodeRateLimiter: ratelimit.RateLimiterConfig{
@@ -1150,8 +1413,7 @@ func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
 
 	h, err := newHandlerWithAuthorizer(
 		methodConfig,
-		donConfig,
-		don,
+		dons,
 		nil,
 		mockAuthorizer,
 		nil,
@@ -1174,9 +1436,13 @@ func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
 
 		wg.Go(func() {
 			resp, waitErr := callback.Wait(t.Context())
-			assert.NoError(t, waitErr)
+			if !assert.NoError(t, waitErr) {
+				return
+			}
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
-			assert.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+			if !assert.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse)) {
+				return
+			}
 			assert.Equal(t, req.ID, secretsResponse.ID)
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code)
 			assert.Contains(t, secretsResponse.Error.Message, "request params must not be nil")
@@ -1202,9 +1468,13 @@ func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
 
 		wg.Go(func() {
 			resp, waitErr := callback.Wait(t.Context())
-			assert.NoError(t, waitErr)
+			if !assert.NoError(t, waitErr) {
+				return
+			}
 			var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
-			assert.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+			if !assert.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse)) {
+				return
+			}
 			assert.Equal(t, req.ID, secretsResponse.ID)
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code)
 			assert.Contains(t, secretsResponse.Error.Message, "request batch must contain at least 1 item")
@@ -1216,4 +1486,53 @@ func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
 	})
 
 	mockAuthorizer.AssertNotCalled(t, "AuthorizeRequest", mock.Anything, mock.Anything)
+}
+
+func TestVaultHandler_NewHandler_Shards(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	methodConfig, err := json.Marshal(Config{
+		RequestTimeoutSec: 30,
+		NodeRateLimiter:   ratelimit.RateLimiterConfig{GlobalRPS: 100, GlobalBurst: 100, PerSenderRPS: 10, PerSenderBurst: 10},
+	})
+	require.NoError(t, err)
+	authorizer := vaultcap.NewAuthorizer(&stubAllowListBasedAuth{clock: clockwork.NewFakeClock()}, nil, lggr)
+	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
+
+	t.Run("uses shard 0 only when DON has multiple shards", func(t *testing.T) {
+		t.Parallel()
+		don0, don1 := mocks.NewDON(t), mocks.NewDON(t)
+		dons, err := handlers.NewShardedDONs(
+			[]config.ShardedDONConfig{{
+				DonName: "test_don_id",
+				Shards:  []config.Shard{{Nodes: []config.NodeConfig{NodeOne}}, {Nodes: []config.NodeConfig{{Name: "two", Address: "0x5678"}}}},
+			}},
+			[][]handlers.DON{{don0, don1}},
+		)
+		require.NoError(t, err)
+
+		h, err := newHandlerWithAuthorizer(methodConfig, dons, nil, authorizer, nil, lggr, clockwork.NewFakeClock(), limitsFactory)
+		require.NoError(t, err)
+		require.Len(t, h.shards, 1)
+		assert.Equal(t, "test_don_id", h.donID)
+		assert.Equal(t, []config.NodeConfig{NodeOne}, h.shards[0].Members)
+	})
+
+	t.Run("uses first DON when there are multiple DONs", func(t *testing.T) {
+		t.Parallel()
+		dons, err := handlers.NewShardedDONs(
+			[]config.ShardedDONConfig{
+				{DonName: "a", Shards: []config.Shard{{Nodes: []config.NodeConfig{NodeOne}}}},
+				{DonName: "b", Shards: []config.Shard{{Nodes: []config.NodeConfig{{Name: "two", Address: "0x5678"}}}}},
+			},
+			[][]handlers.DON{{mocks.NewDON(t)}, {mocks.NewDON(t)}},
+		)
+		require.NoError(t, err)
+
+		h, err := newHandlerWithAuthorizer(methodConfig, dons, nil, authorizer, nil, lggr, clockwork.NewFakeClock(), limitsFactory)
+		require.NoError(t, err)
+		require.Len(t, h.shards, 1)
+		assert.Equal(t, "a", h.donID)
+	})
 }

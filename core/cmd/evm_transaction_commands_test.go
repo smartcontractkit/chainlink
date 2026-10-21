@@ -44,7 +44,7 @@ func TestShell_IndexTransactions(t *testing.T) {
 
 	c := cli.NewContext(nil, set, nil)
 	require.Equal(t, 1, c.Int("page"))
-	assert.NoError(t, client.IndexTransactions(c))
+	require.NoError(t, client.IndexTransactions(c))
 
 	renderedTxs := *r.Renders[0].(*cmd.EthTxPresenters)
 	assert.Len(t, renderedTxs, 1)
@@ -58,7 +58,7 @@ func TestShell_IndexTransactions(t *testing.T) {
 
 	c = cli.NewContext(nil, set, nil)
 	require.Equal(t, 2, c.Int("page"))
-	assert.NoError(t, client.IndexTransactions(c))
+	require.NoError(t, client.IndexTransactions(c))
 
 	renderedTxs = *r.Renders[1].(*cmd.EthTxPresenters)
 	assert.Empty(t, renderedTxs)
@@ -122,7 +122,7 @@ func TestShell_IndexTxAttempts(t *testing.T) {
 
 	c = cli.NewContext(nil, set, nil)
 	require.Equal(t, 2, c.Int("page"))
-	assert.NoError(t, client.IndexTxAttempts(c))
+	require.NoError(t, client.IndexTxAttempts(c))
 
 	renderedAttempts = *r.Renders[1].(*cmd.EthTxPresenters)
 	assert.Empty(t, renderedAttempts)
@@ -168,7 +168,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	cliapp := cli.NewApp()
 	c := cli.NewContext(cliapp, set, nil)
 
-	assert.NoError(t, client.SendEther(c))
+	require.NoError(t, client.SendEther(c))
 
 	evmTxes, err := txStore.GetAllTxes(t.Context())
 	require.NoError(t, err)
@@ -238,7 +238,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	cliapp := cli.NewApp()
 	c := cli.NewContext(cliapp, set, nil)
 
-	assert.NoError(t, client.SendEther(c))
+	require.NoError(t, client.SendEther(c))
 
 	evmTxes, err := txStore.GetAllTxes(t.Context())
 	require.NoError(t, err)

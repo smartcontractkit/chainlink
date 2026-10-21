@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 func (s *scheduler) newMemoryTaskRun(task Task, vars Vars) *memoryTaskRun {
@@ -55,7 +55,7 @@ type scheduler struct {
 	waiting      uint
 	results      map[int]TaskRunResult
 	vars         Vars
-	logger       logger.Logger
+	logger       logger.SugaredLogger
 
 	pending bool
 	exiting bool
@@ -65,7 +65,7 @@ type scheduler struct {
 }
 
 func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *scheduler {
-	lggr = lggr.Named("Scheduler")
+	sugaredLggr := logger.Sugared(lggr).Named("Scheduler")
 	dependencies := make(map[int]uint, len(p.Tasks))
 
 	for id, task := range p.Tasks {
@@ -78,7 +78,7 @@ func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *schedul
 		dependencies: dependencies,
 		results:      make(map[int]TaskRunResult, len(p.Tasks)),
 		vars:         vars,
-		logger:       lggr,
+		logger:       sugaredLggr,
 
 		// taskCh should never block
 		taskCh:   make(chan *memoryTaskRun, len(dependencies)),
@@ -102,7 +102,7 @@ func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *schedul
 
 		run := s.newMemoryTaskRun(task, s.vars.Copy())
 
-		lggr.Tracew("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
+		sugaredLggr.Tracew("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
 
 		s.taskCh <- run
 		s.waiting++

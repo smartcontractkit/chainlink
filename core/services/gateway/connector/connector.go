@@ -11,7 +11,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/attribute"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -52,7 +54,7 @@ type gatewayConnector struct {
 
 	services.StateMachine
 
-	config      *ConnectorConfig
+	config      *Config
 	clock       clockwork.Clock
 	nodeAddress []byte
 	csaKey      string
@@ -60,7 +62,7 @@ type gatewayConnector struct {
 	handlersMu  sync.RWMutex
 	handlers    map[string]core.GatewayConnectorHandler
 	gateways    map[string]*gatewayState
-	urlToId     map[string]string
+	urlToID     map[string]string
 	closeWait   sync.WaitGroup
 	shutdownCh  services.StopChan
 	lggr        logger.Logger
@@ -82,7 +84,7 @@ type gatewayState struct {
 	signalCh chan struct{}
 
 	conn     network.WSConnectionWrapper
-	config   ConnectorGatewayConfig
+	config   GatewayConfig
 	url      *url.URL
 	wsClient network.WebSocketClient
 }
@@ -102,7 +104,7 @@ func (gs *gatewayState) awaitConn(ctx context.Context) error {
 	}
 }
 
-func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork.Clock, lggr logger.Logger, csaKey string) (*gatewayConnector, error) {
+func NewGatewayConnector(config *Config, signer Signer, clock clockwork.Clock, lggr logger.Logger, csaKey string) (*gatewayConnector, error) {
 	if config == nil || signer == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
@@ -117,6 +119,10 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gateway connector metrics: %w", err)
 	}
+	wsMetrics, err := network.NewWSConnectionMetrics(beholder.GetMeter())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create websocket connection metrics: %w", err)
+	}
 	connector := &gatewayConnector{
 		config:      config,
 		clock:       clock,
@@ -129,12 +135,12 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 		metrics:     metrics,
 	}
 	gateways := make(map[string]*gatewayState)
-	urlToId := make(map[string]string)
+	urlToID := make(map[string]string)
 	for _, gw := range config.Gateways {
 		if _, exists := gateways[gw.ID]; exists {
 			return nil, fmt.Errorf("duplicate Gateway ID %s", gw.ID)
 		}
-		if _, exists := urlToId[gw.URL]; exists {
+		if _, exists := urlToID[gw.URL]; exists {
 			return nil, fmt.Errorf("duplicate Gateway URL %s", gw.URL)
 		}
 		parsedURL, err := url.Parse(gw.URL)
@@ -143,17 +149,17 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 		}
 		l := logger.With(lggr, "URL", parsedURL)
 		gateway := &gatewayState{
-			conn:     network.NewWSConnectionWrapper(l),
+			conn:     network.NewWSConnectionWrapperWithObserver(l, wsMetrics.Observer(attribute.String("gateway_id", gw.ID))),
 			config:   gw,
 			url:      parsedURL,
 			wsClient: network.NewWebSocketClient(config.WsClientConfig, connector, lggr),
 			signalCh: make(chan struct{}),
 		}
 		gateways[gw.ID] = gateway
-		urlToId[gw.URL] = gw.ID
+		urlToID[gw.URL] = gw.ID
 	}
 	connector.gateways = gateways
-	connector.urlToId = urlToId
+	connector.urlToID = urlToID
 	return connector, nil
 }
 
@@ -262,7 +268,7 @@ func (c *gatewayConnector) allGatewayIDs() []string {
 }
 
 func (c *gatewayConnector) DonID(context.Context) (string, error) {
-	return c.config.DonId, nil
+	return c.config.DonID, nil
 }
 
 func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
@@ -350,7 +356,7 @@ func (c *gatewayConnector) Start(ctx context.Context) error {
 
 // recordGatewaysPerDon emits one gauge sample per DON ID configured on this
 // connector, labeled with the node's CSA key. In multi-DON mode each gateway's
-// DonID is used; in single-DON mode the top-level DonId is used. Recording is
+// DonID is used; in single-DON mode the top-level DonID is used. Recording is
 // skipped when the CSA key is empty or metrics are unavailable.
 func (c *gatewayConnector) recordGatewaysPerDon(ctx context.Context) {
 	if c.metrics == nil || c.csaKey == "" {
@@ -360,7 +366,7 @@ func (c *gatewayConnector) recordGatewaysPerDon(ctx context.Context) {
 	for _, gw := range c.config.Gateways {
 		donID := gw.DonID
 		if donID == "" {
-			donID = c.config.DonId
+			donID = c.config.DonID
 		}
 		counts[donID]++
 	}
@@ -383,14 +389,14 @@ func (c *gatewayConnector) Close() error {
 }
 
 func (c *gatewayConnector) NewAuthHeader(ctx context.Context, url *url.URL) ([]byte, error) {
-	gatewayId, found := c.urlToId[url.String()]
+	gatewayID, found := c.urlToID[url.String()]
 	if !found {
 		return nil, network.ErrAuthInvalidGateway
 	}
 	authHeaderElems := &network.AuthHeaderElems{
-		Timestamp: uint32(c.clock.Now().Unix()),
-		DonId:     c.config.DonId,
-		GatewayId: gatewayId,
+		Timestamp: uint32(c.clock.Now().Unix()), //nolint:gosec // G115: uint32 timestamp is intentional per the auth handshake protocol
+		DonID:     c.config.DonID,
+		GatewayID: gatewayID,
 	}
 	packedElems := network.PackAuthHeader(authHeaderElems)
 	signature, err := c.signer.Sign(ctx, packedElems)
@@ -408,11 +414,11 @@ func (c *gatewayConnector) ChallengeResponse(ctx context.Context, url *url.URL, 
 	if len(challengeElems.ChallengeBytes) < c.config.AuthMinChallengeLen {
 		return nil, network.ErrChallengeTooShort
 	}
-	gatewayId, found := c.urlToId[url.String()]
-	if !found || challengeElems.GatewayId != gatewayId {
+	gatewayID, found := c.urlToID[url.String()]
+	if !found || challengeElems.GatewayID != gatewayID {
 		return nil, network.ErrAuthInvalidGateway
 	}
-	nowTs := uint32(c.clock.Now().Unix())
+	nowTs := uint32(c.clock.Now().Unix()) //nolint:gosec // G115: uint32 timestamp is intentional per the auth handshake protocol
 	ts := challengeElems.Timestamp
 	if ts < nowTs-c.config.AuthTimestampToleranceSec || nowTs+c.config.AuthTimestampToleranceSec < ts {
 		return nil, network.ErrAuthInvalidTimestamp

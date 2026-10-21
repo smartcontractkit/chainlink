@@ -73,15 +73,16 @@ type EthTxPresenter struct {
 // RenderTable implements TableRenderer
 func (p *EthTxPresenter) RenderTable(rt RendererTable) error {
 	table := rt.newTable([]string{"From", "Nonce", "To", "State"})
-	table.Append([]string{
+	if err := table.Append([]string{
 		p.From.Hex(),
 		p.Nonce,
 		p.To.Hex(),
 		p.State,
-	})
+	}); err != nil {
+		return err
+	}
 
-	render(fmt.Sprintf("Ethereum Transaction %v", p.Hash.Hex()), table)
-	return nil
+	return render(fmt.Sprintf("Ethereum Transaction %v", p.Hash.Hex()), table)
 }
 
 type EthTxPresenters []EthTxPresenter
@@ -90,18 +91,19 @@ type EthTxPresenters []EthTxPresenter
 func (ps EthTxPresenters) RenderTable(rt RendererTable) error {
 	table := rt.newTable([]string{"Hash", "Nonce", "From", "GasPrice", "SentAt", "State"})
 	for _, p := range ps {
-		table.Append([]string{
+		if err := table.Append([]string{
 			p.Hash.Hex(),
 			p.Nonce,
 			p.From.Hex(),
 			p.GasPrice,
 			p.SentAt,
 			p.State,
-		})
+		}); err != nil {
+			return err
+		}
 	}
 
-	render("Ethereum Transactions", table)
-	return nil
+	return render("Ethereum Transactions", table)
 }
 
 // IndexTransactions returns the list of transactions in descending order,
@@ -144,7 +146,8 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 		value, err = stringutils.ToInt64(c.Args().Get(0))
 		if err != nil {
 			return s.errorOut(errors.Join(
-				errors.New("while parsing WEI transfer amount"), err))
+				errors.New("while parsing WEI transfer amount"), err,
+			))
 		}
 
 		amount = assets.NewEthValue(value)
@@ -152,7 +155,8 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 		amount, err = assets.NewEthValueS(c.Args().Get(0))
 		if err != nil {
 			return s.errorOut(errors.Join(
-				errors.New("while parsing ETH transfer amount"), err))
+				errors.New("while parsing ETH transfer amount"), err,
+			))
 		}
 	}
 
@@ -161,7 +165,8 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 	if err != nil {
 		return s.errorOut(errors.Join(
 			fmt.Errorf("while parsing withdrawal source address %v",
-				unparsedFromAddress), err))
+				unparsedFromAddress), err,
+		))
 	}
 
 	unparsedDestinationAddress := c.Args().Get(2)
@@ -169,7 +174,8 @@ func (s *Shell) SendEther(c *cli.Context) (err error) {
 	if err != nil {
 		return s.errorOut(errors.Join(
 			fmt.Errorf("while parsing withdrawal destination address %v",
-				unparsedDestinationAddress), err))
+				unparsedDestinationAddress), err,
+		))
 	}
 
 	var evmChainID *big.Int

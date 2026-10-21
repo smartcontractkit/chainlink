@@ -8,7 +8,7 @@
 # Stage: deps-base — module downloads, no source tree.
 # Stages that don't need the full source (remote plugins, delve) branch from
 # here so that source-only changes never invalidate their layer cache.
-FROM golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36 AS deps-base
+FROM golang:1.27.1-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195 AS deps-base
 # Build-only tooling; never shipped, so versions are intentionally unpinned.
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends jq && rm -rf /var/lib/apt/lists/*
@@ -73,10 +73,10 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     mkdir -p /gobins "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
     GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-public && \
     if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
-        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
     fi && \
     if [ "${CL_INSTALL_TESTING_PLUGINS}" = "true" ]; then \
-        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
     fi && \
     mkdir -p /tmp/lib && \
     ./plugins/scripts/copy_loopinstall_libs.sh \
@@ -101,10 +101,10 @@ RUN --mount=type=cache,id=go-mod-cache,target=/go/pkg/mod \
     --mount=type=cache,id=go-build-cache,target=/root/.cache/go-build \
     mkdir -p /gobins && \
     if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
-          GOBIN=/gobins make install-chainlink-dev; \
-      else \
-          GOBIN=/gobins make install-chainlink; \
-      fi
+    GOBIN=/gobins make install-chainlink-dev; \
+    else \
+    GOBIN=/gobins make install-chainlink; \
+    fi
 
 ##
 # Final Image
@@ -137,14 +137,14 @@ RUN echo "apt cache bust: ${APT_CACHE_BUST}" \
     && echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
         >/etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends postgresql-client-17 \
+    && apt-get install -y --no-install-recommends postgresql-client-18 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Prod images (CHAINLINK_USER=chainlink) run as UID:GID 14933:14933 for deterministic ownership.
 RUN if [ ${CHAINLINK_USER} != root ]; then \
-      groupadd --gid 14933 ${CHAINLINK_USER} && \
-      useradd --uid 14933 --gid 14933 --create-home ${CHAINLINK_USER}; \
+    groupadd --gid 14933 ${CHAINLINK_USER} && \
+    useradd --uid 14933 --gid 14933 --create-home ${CHAINLINK_USER}; \
     fi
 USER ${CHAINLINK_USER}
 

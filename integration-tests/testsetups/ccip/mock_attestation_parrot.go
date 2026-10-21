@@ -1,7 +1,7 @@
 package ccip
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 
 	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata/lbtc"
@@ -18,7 +18,7 @@ const (
 // The CCIP USDC client issues GET {AttestationAPI}/v1/attestations/{messageHash}.
 func SetMockServerWithUSDCAttestation(p *ctftestenv.Parrot, isUSDCAttestationMissing bool) error {
 	if p == nil || p.Client == nil {
-		return fmt.Errorf("parrot mock adapter is not initialized")
+		return errors.New("parrot mock adapter is not initialized")
 	}
 	// Re-registering the same route fails on Parrot; allow repeated setup.
 	_ = p.Client.DeleteRoute(&parrot.Route{Method: http.MethodGet, Path: usdcAttestationWildcardPath})
@@ -45,7 +45,7 @@ func SetMockServerWithUSDCAttestation(p *ctftestenv.Parrot, isUSDCAttestationMis
 // The CCIP LBTC client issues POST {AttestationAPI}/bridge/v1/deposits/getByHash with JSON body {"messageHash":[...]}.
 func SetMockServerWithLBTCAttestation(p *ctftestenv.Parrot, isAttestationMissing bool) error {
 	if p == nil || p.Client == nil {
-		return fmt.Errorf("parrot mock adapter is not initialized")
+		return errors.New("parrot mock adapter is not initialized")
 	}
 	_ = p.Client.DeleteRoute(&parrot.Route{Method: http.MethodPost, Path: lbtcAttestationPath})
 

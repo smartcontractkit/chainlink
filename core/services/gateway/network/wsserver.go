@@ -65,6 +65,9 @@ type webSocketServer struct {
 
 func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAcceptor, lggr logger.Logger, lf limits.Factory) (WebSocketServer, error) {
 	config.applyDefaults()
+	if config.Path == HealthCheckPath {
+		return nil, fmt.Errorf("WebSocket request path %q conflicts with health check path", config.Path)
+	}
 	if err := config.ensureLimiters(lf); err != nil {
 		return nil, err
 	}
@@ -81,6 +84,7 @@ func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAccept
 		lggr:              logger.Named(lggr, "WebSocketServer"),
 	}
 	mux := http.NewServeMux()
+	mux.Handle(HealthCheckPath, http.HandlerFunc(server.handleHealthCheck))
 	mux.Handle(config.Path, http.HandlerFunc(server.handleRequest))
 	server.server = &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", config.Host, config.Port),
@@ -91,6 +95,13 @@ func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAccept
 		WriteTimeout:      time.Duration(config.WriteTimeoutMillis) * time.Millisecond,
 	}
 	return server, nil
+}
+
+func (s *webSocketServer) handleHealthCheck(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte(HealthCheckResponse)); err != nil {
+		s.lggr.Debugw("error writing health response", "err", err)
+	}
 }
 
 func (s *webSocketServer) GetPort() int {
@@ -110,7 +121,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	attemptId, challenge, err := s.acceptor.StartHandshake(authBytes)
+	attemptID, challenge, err := s.acceptor.StartHandshake(authBytes)
 	if err != nil {
 		s.lggr.Debugw("received invalid auth header", "err", err)
 		w.WriteHeader(http.StatusUnauthorized)
@@ -126,7 +137,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 		if conn != nil {
 			conn.Close()
 		}
-		s.acceptor.AbortHandshake(attemptId)
+		s.acceptor.AbortHandshake(attemptID)
 		return
 	}
 
@@ -141,14 +152,14 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	if err != nil || msgType != websocket.BinaryMessage {
 		s.lggr.Errorw("invalid handshake message", "msgType", msgType, "err", err, "remoteAddr", conn.RemoteAddr())
 		conn.Close()
-		s.acceptor.AbortHandshake(attemptId)
+		s.acceptor.AbortHandshake(attemptID)
 		return
 	}
 
-	if err = s.acceptor.FinalizeHandshake(attemptId, response, conn); err != nil {
+	if err = s.acceptor.FinalizeHandshake(attemptID, response, conn); err != nil {
 		s.lggr.Errorw("unable to finalize handshake", "err", err)
 		conn.Close()
-		s.acceptor.AbortHandshake(attemptId)
+		s.acceptor.AbortHandshake(attemptID)
 		return
 	}
 }
@@ -156,7 +167,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 func (s *webSocketServer) Start(ctx context.Context) error {
 	return s.StartOnce("GatewayWebSocketServer", func() error {
 		s.lggr.Info("starting gateway WebSocket server")
-		return s.runServer()
+		return s.runServer(ctx)
 	})
 }
 
@@ -166,29 +177,31 @@ func (s *webSocketServer) Close() error {
 		s.cancelBaseContext()
 		err = s.server.Shutdown(context.Background())
 		<-s.doneCh
-		return
+		return err
 	})
 }
 
-func (s *webSocketServer) runServer() (err error) {
-	s.listener, err = net.Listen("tcp", s.server.Addr)
+func (s *webSocketServer) runServer(ctx context.Context) error {
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "tcp", s.server.Addr)
 	if err != nil {
-		return
+		return err
 	}
+	s.listener = listener
 	tlsEnabled := s.config.TLSEnabled
 	go func() {
 		if tlsEnabled {
-			err := s.server.ServeTLS(s.listener, s.config.TLSCertPath, s.config.TLSKeyPath)
-			if err != http.ErrServerClosed {
-				s.lggr.Error("gateway WS server closed with error:", err)
+			serveErr := s.server.ServeTLS(s.listener, s.config.TLSCertPath, s.config.TLSKeyPath)
+			if serveErr != http.ErrServerClosed {
+				s.lggr.Error("gateway WS server closed with error:", serveErr)
 			}
 		} else {
-			err := s.server.Serve(s.listener)
-			if err != http.ErrServerClosed {
-				s.lggr.Error("gateway WS server closed with error:", err)
+			serveErr := s.server.Serve(s.listener)
+			if serveErr != http.ErrServerClosed {
+				s.lggr.Error("gateway WS server closed with error:", serveErr)
 			}
 		}
 		s.doneCh <- struct{}{}
 	}()
-	return
+	return nil
 }

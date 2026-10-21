@@ -14,19 +14,16 @@ import (
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
-
 	evm_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
 	evm_write_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
 	evm_logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
 // regression
@@ -224,12 +221,10 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 
 		testLogger.Info().Msg("Creating EVM Read Fail workflow configuration...")
 		workflowConfig := evm_negative_config.Config{
-			ChainSelector:  bcOutput.ChainSelector(),
-			FunctionToTest: evmNegativeTest.functionToTest,
-			InvalidInput:   evmNegativeTest.invalidInput,
-			BalanceReader: evm_negative_config.BalanceReader{
-				BalanceReaderAddress: readBalancesAddress,
-			},
+			ChainSelector:        bcOutput.ChainSelector(),
+			FunctionToTest:       evmNegativeTest.functionToTest,
+			InvalidInput:         evmNegativeTest.invalidInput,
+			BalanceReaderAddress: readBalancesAddress,
 		}
 
 		if evmNegativeTest.functionToTest == estimateGasInvalidToAddress && evmNegativeTest.name == "invalid call data" {
@@ -401,13 +396,11 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 
 		testLogger.Info().Msg("Creating EVM Write Regression workflow configuration...")
 		workflowConfig := evm_write_negative_config.Config{
-			FeedID:         feedID,
-			ChainSelector:  bcOutput.ChainSelector(),
-			FunctionToTest: evmNegativeTest.functionToTest,
-			InvalidInput:   evmNegativeTest.invalidInput,
-			DataFeedsCache: evm_write_negative_config.DataFeedsCache{
-				DataFeedsCacheAddress: dataFeedsCacheAddress,
-			},
+			FeedID:                feedID,
+			ChainSelector:         bcOutput.ChainSelector(),
+			FunctionToTest:        evmNegativeTest.functionToTest,
+			InvalidInput:          evmNegativeTest.invalidInput,
+			DataFeedsCacheAddress: dataFeedsCacheAddress,
 		}
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
@@ -425,7 +418,7 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 	}
 }
 
-func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, chainID uint64, creEnvironment *cre.Environment, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) common.Address {
+func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, chainSelector, chainID uint64, creEnvironment *cre.Environment, workflowOwner common.Address, uniqueWorkflowName, feedID string, forwarderAddress common.Address) common.Address {
 	testLogger.Info().Msgf("Deploying additional contracts to chain %d (%d)", chainID, chainSelector)
 	dfAddress, dfErr := contracts.DeployDataFeedsCacheContract(testLogger, chainSelector, creEnvironment)
 	require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)

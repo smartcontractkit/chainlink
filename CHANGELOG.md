@@ -1,5 +1,131 @@
 # Changelog Chainlink Core
 
+## 2.70.0
+
+### Minor Changes
+
+- [#23982](https://github.com/smartcontractkit/chainlink/pull/23982) [`e20e6a5`](https://github.com/smartcontractkit/chainlink/commit/e20e6a5b6231a4ee885e032e45aacfb671912be6) - Minor bump to start next version
+
+- [#23824](https://github.com/smartcontractkit/chainlink/pull/23824) [`7996394`](https://github.com/smartcontractkit/chainlink/commit/79963940158af5bdc717195f9f13e478335043d8) - #added Offchain capabilities registry: `cresettings` jobs accept `config_type = "capabilities_registry"` in their `settings` TOML, with the versioned `OffchainCapabilitiesRegistry` proto-JSON payload under `offchain_config` (`domain`, `env`, `version`, and per-DON `capabilities` keyed by on-chain DON name; only `spec_config` is supported). Unknown payload fields are rejected and versions must increase. With `[Capabilities.Local] UseOffchainRegistry = true` (default `false`), each capability is launched with the offchain `spec_config` for its (DON, capability) only; the on-chain `spec_config` is ignored (a capability with no offchain entry gets an empty config), and local capabilities are not reconciled until a payload is applied. Offchain-only updates reconfigure affected capabilities. At most one `capabilities_registry` job may be active; deleting it keeps the last payload applied. Emits `platform_cap_config_applied_version`, `platform_cap_config_validation_errors_total` and `platform_offchain_registry_divergences`.
+
+- [#23913](https://github.com/smartcontractkit/chainlink/pull/23913) [`11943e5`](https://github.com/smartcontractkit/chainlink/commit/11943e57b2800365c81addc0d5f691ce73e597aa) - #added Offchain capabilities registry `method_configs` cutover: with `[Capabilities.Local] UseOffchainRegistry = true`, each capability's Don2Don `method_configs` replace the complete on-chain method map when that capability is present offchain (omitted methods are removed; capabilities/DONs absent offchain are unchanged). Payloads carrying `method_configs` are validated at ingestion, and the cross-validation `mismatch` divergence now also covers method_configs changes. Gate off (default) or no payload: behavior unchanged.
+  #fixed Fixed a lost-wakeup race in the workflow DON notifier (`donNotifier.Subscribe`): a `NotifyDonSet` arriving between a subscriber's initial value check and its channel registration was missed entirely, leaving the subscriber (workflow engines, shard failover manager, or `WaitForDon` callers) blocked indefinitely. The subscriber channel is now registered before the current value is read, so a concurrent notify is either delivered by the broadcast or observed by the read.
+
+### Patch Changes
+
+- [#23958](https://github.com/smartcontractkit/chainlink/pull/23958) [`eade466`](https://github.com/smartcontractkit/chainlink/commit/eade4663b30c31c9b72c0d21e9e426b2c322c216) - #bugfix Standard capabilities and registry-launched OCR2 plugins (DON Time) launched with a Capabilities Registry OCR config now match multichain signers covering several chain families (e.g. EVM + Solana + Aptos), signing with every matched family's OCR key bundle and using the transmitter paired with the node's signer.
+
+- [#23916](https://github.com/smartcontractkit/chainlink/pull/23916) [`8555f50`](https://github.com/smartcontractkit/chainlink/commit/8555f50d2c907f23811c3b772a15c506eeaff670) - #bugfix wrap duplicate-key Import errors with ErrKeyExists for the Solana, Stellar, Starknet, Sui, TON and Tron keystores, so nodes that import those keys from config can restart against a persisted keystore
+
+- [#23996](https://github.com/smartcontractkit/chainlink/pull/23996) [`4251278`](https://github.com/smartcontractkit/chainlink/commit/4251278afbac3464086c3076850c70796180fc10) - #bugfix Offchain capabilities registry: a workflow DON that is also a capability DON no longer loses its offchain `spec_config` as an ambiguous DON name.
+
+- [#24011](https://github.com/smartcontractkit/chainlink/pull/24011) [`a3110c7`](https://github.com/smartcontractkit/chainlink/commit/a3110c740e528bc6edc64391eeb584cce5459d42) - #bugfix Sharded workflow DON failover now replays cached trigger events with the workflow's CRE tenant on the context, so replays no longer fail with `missing tenant for scope: workflow`.
+
+## 2.69.0
+
+### Minor Changes
+
+- [#23931](https://github.com/smartcontractkit/chainlink/pull/23931) [`29695ba`](https://github.com/smartcontractkit/chainlink/commit/29695ba94b9b1274eff068767d6a436fff5e1def) - Remove VRF v2 support including the v2 coordinator, VRFOwner force-fulfillment and custom reverted-txns pipeline, the legacy `vrfv2` pipeline task, and the v2 blockhash store / block header feeder coordinators. Migrate to VRF v2 Plus. #removed #breaking_change
+
+- [#23918](https://github.com/smartcontractkit/chainlink/pull/23918) [`10ffbd7`](https://github.com/smartcontractkit/chainlink/commit/10ffbd7327faa00d194e09779a3ccb23d9a623b7) - Minor bump to start next version
+
+- [#23927](https://github.com/smartcontractkit/chainlink/pull/23927) [`81a8d1b`](https://github.com/smartcontractkit/chainlink/commit/81a8d1b3ef12b4fdb0304baa64db05d622fd71ca) - #added `[Capabilities.Local] UseOffchainRegistry` config flag (default `false`), gating the offchain capabilities registry cutover. #removed the `[Capabilities.Local.Capabilities.<id>]` per-capability TOML table entirely, including the `Config` key/value overrides and `BinaryPathOverride`; capability config now comes from the on-chain registry (and, with the gate, the offchain registry), and the capability binary is always resolved from the capability ID.
+
+### Patch Changes
+
+- [#23956](https://github.com/smartcontractkit/chainlink/pull/23956) [`2bb6b97`](https://github.com/smartcontractkit/chainlink/commit/2bb6b975360ef69f71fe6af822c64acd345ba656) - #bugfix Registry-launched OCR instances now take their default bootstrappers from `[P2P.V2].DefaultBootstrappers` instead of `[Capabilities.Peering.V2].DefaultBootstrappers`. The confidential relay now signs responses with the key for `[P2P].PeerID` and no longer reads `[Capabilities.Peering].PeerID`.
+
+## 2.68.0
+
+### Minor Changes
+
+- [#23860](https://github.com/smartcontractkit/chainlink/pull/23860) [`baf06c4`](https://github.com/smartcontractkit/chainlink/commit/baf06c43e2b1de17429cee0a27399672941e206a) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23898](https://github.com/smartcontractkit/chainlink/pull/23898) [`edb5ba6`](https://github.com/smartcontractkit/chainlink/commit/edb5ba6687a0dbac4a0607b20a36ad3c25d71460) - #added `stellar` encoder to the CRE fake consensus (simulator), signing Stellar reports with ed25519 keys over the Stellar forwarder's digest
+
+- [#23902](https://github.com/smartcontractkit/chainlink/pull/23902) [`861c3d6`](https://github.com/smartcontractkit/chainlink/commit/861c3d68e006ad5c31c55f4cfd1ec66de3eabe33) - Gateway: DON IDs for shards N>0 of a sharded DON now use the format `<DonName>_shard-<N>` (previously `<DonName>_<N>`), matching the naming used for shard DONs elsewhere. Shard 0 still uses the bare DON name. Nodes in shards N>0 must set `GatewayConnector.DonID` accordingly. #changed
+
+- [#23908](https://github.com/smartcontractkit/chainlink/pull/23908) [`5003526`](https://github.com/smartcontractkit/chainlink/commit/5003526baf940259b4a15555ad93451e262ecc07) - #bugfix Standard capabilities now unregister their LOOP on close, so restarting a capability after a config change no longer fails with "plugin already registered"
+
+- [#23899](https://github.com/smartcontractkit/chainlink/pull/23899) [`351ef60`](https://github.com/smartcontractkit/chainlink/commit/351ef605e032bfa5687e31f4881063443d34ead8) - #bugfix Operator UI nodes page failing with "not found" when non-EVM (e.g. Aptos, Stellar) nodes are configured
+
+- [#23893](https://github.com/smartcontractkit/chainlink/pull/23893) [`d6016cf`](https://github.com/smartcontractkit/chainlink/commit/d6016cfaff550821e0d8de2ac262470a874df478) - Removed obsolete `Capabilities.WorkflowRegistry.MaxEncryptedSecretsSize`, `Capabilities.Dispatcher.SupportedVersion` and `Capabilities.Dispatcher.SendToSharedPeer` config fields. #removed
+
+## 2.67.0
+
+### Minor Changes
+
+- [#23854](https://github.com/smartcontractkit/chainlink/pull/23854) [`abf0837`](https://github.com/smartcontractkit/chainlink/commit/abf08375e7630761d012366e2522ca496657f294) - Added feature to the EVM BalanceMonitor to allow tracking balance of ERC-20 type fee tokens #added
+
+- [#23762](https://github.com/smartcontractkit/chainlink/pull/23762) [`5e84e21`](https://github.com/smartcontractkit/chainlink/commit/5e84e21688d668b32e858f945013677a35d6df28) - postgres: adding support for v18, removing support for v14 #nops
+
+- [#23799](https://github.com/smartcontractkit/chainlink/pull/23799) [`5a5156a`](https://github.com/smartcontractkit/chainlink/commit/5a5156a9230f06974e719aa5185515e8b445f6c5) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23797](https://github.com/smartcontractkit/chainlink/pull/23797) [`e33d885`](https://github.com/smartcontractkit/chainlink/commit/e33d885589671852c40999501946b834b886313e) - #updated observation cache TTL and bridge cache-fallback test coverage
+
+## 2.66.0
+
+### Minor Changes
+
+- [#23751](https://github.com/smartcontractkit/chainlink/pull/23751) [`5a65b1d`](https://github.com/smartcontractkit/chainlink/commit/5a65b1d26d7dce35596330fb56bc8c70b02a202c) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23734](https://github.com/smartcontractkit/chainlink/pull/23734) [`fa897c3`](https://github.com/smartcontractkit/chainlink/commit/fa897c3d55f584de6ece6255c061b8ef6904d0d5) - Removing deprecated Cosmos support #nops #removed
+
+- [#23695](https://github.com/smartcontractkit/chainlink/pull/23695) [`ea1ed53`](https://github.com/smartcontractkit/chainlink/commit/ea1ed53b9b16645c4a5da40baeaac30760f58292) - #added add bridge-cache fallback for UseConnectionManager bridge tasks
+
+## 2.65.0
+
+### Minor Changes
+
+- [#23682](https://github.com/smartcontractkit/chainlink/pull/23682) [`dc29377`](https://github.com/smartcontractkit/chainlink/commit/dc293777e108c6ab9fca62a4c64544d29fa56507) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23723](https://github.com/smartcontractkit/chainlink/pull/23723) [`174ffeb`](https://github.com/smartcontractkit/chainlink/commit/174ffeb23a2d3c73601767dd4d25131884023fa3) - #internal Label the `enclave_execution_failures` counter with `error_type` ("user" or "system") so alerts on confidential-workflow enclave failures can exclude user-caused ones, such as a workflow that exceeds its enclave execution budget.
+
+## 2.64.0
+
+### Minor Changes
+
+- [#23620](https://github.com/smartcontractkit/chainlink/pull/23620) [`c7a3dc3`](https://github.com/smartcontractkit/chainlink/commit/c7a3dc34ed5eefd19f4e0d01289f1b387d04038e) - #added Adding new experimental tasks in pipeline package. Anchor, Normalize, Sample, Staleness, WeightedMean.
+
+- [#23613](https://github.com/smartcontractkit/chainlink/pull/23613) [`401091a`](https://github.com/smartcontractkit/chainlink/commit/401091a044de1523e91dda081a0fbe77317c7090) - Minor bump to start next version
+
+- [#23485](https://github.com/smartcontractkit/chainlink/pull/23485) [`940eb99`](https://github.com/smartcontractkit/chainlink/commit/940eb99f13731ea8f6592804927b71dbc1b63f6b) - #added Durable caching of OrgResolver owner->orgID mappings (backed by Postgres, `CRE.Linking.DurableCacheEnabled`, enabled by default).
+
+- [#23605](https://github.com/smartcontractkit/chainlink/pull/23605) [`29db7e9`](https://github.com/smartcontractkit/chainlink/commit/29db7e9612f0aac3e2c783be976a045854bdbe2a) - Remove Chainlink Automation from the node.
+
+  The `ocr2automation` OCR2 plugin type is no longer supported: job specs with
+  `pluginType = "ocr2automation"` will now fail validation. The
+  `OCR2.CaptureAutomationCustomTelemetry` config field has been removed, and the
+  `automation-custom`, `ocr2-automation` and `ocr3-automation` telemetry types no
+  longer exist. The `evm_upkeep_states` table is dropped by migration 0305. The
+  `chaincli` tool and the devenv automation and log poller E2E suites are removed.
+
+  #removed #breaking_change
+
+## 2.63.0
+
+### Minor Changes
+
+- [#23536](https://github.com/smartcontractkit/chainlink/pull/23536) [`b0206b4`](https://github.com/smartcontractkit/chainlink/commit/b0206b4691845a7c26be789a98dc80a80f483df7) - Minor bump to start next version
+
+## 2.62.0
+
+### Minor Changes
+
+- [#23445](https://github.com/smartcontractkit/chainlink/pull/23445) [`22f4d8a`](https://github.com/smartcontractkit/chainlink/commit/22f4d8a0b17dc311b20ef42a94de0cef6135c9d4) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23472](https://github.com/smartcontractkit/chainlink/pull/23472) [`3aaa5fb`](https://github.com/smartcontractkit/chainlink/commit/3aaa5fbcccaefd0db2915ae3b176c213e8ffd0b0) - Bump chainlink-ccip to latest main
+
 ## 2.61.0
 
 ### Minor Changes

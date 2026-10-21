@@ -109,7 +109,7 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 
 	// Helper vars
 	evmAddr := utils.RandomAddress().String()
-	solAddr := solana.SolMint.String()
+	solAddr := solana.WrappedSol.String()
 
 	// Configure MCMS on Solana
 	_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &env.Env, solSrc, true,

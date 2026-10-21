@@ -9,8 +9,8 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type db struct {
@@ -76,11 +76,11 @@ LIMIT 1`, d.oracleSpecID)
 		c.Transmitters = append(c.Transmitters, transmitter)
 	}
 
-	return
+	return c, err
 }
 
 func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
-	var signers [][]byte
+	signers := make([][]byte, 0, len(c.Signers))
 	for _, s := range c.Signers {
 		signers = append(signers, []byte(s))
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,11 +23,11 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	llodatasource "github.com/smartcontractkit/chainlink-data-streams/llo/datasource"
 	llov31 "github.com/smartcontractkit/chainlink-data-streams/llo/dev/v31"
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/pluginconfig"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
-	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/observation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
@@ -68,8 +69,10 @@ type DelegateConfig struct {
 	JobName                     null.String
 	CaptureEATelemetry          bool
 	CaptureObservationTelemetry bool
-	CaptureOutcomeTelemetry     bool
-	CaptureReportTelemetry      bool
+	// CaptureOutcomeTelemetry and CaptureReportTelemetry apply to v30 instances.
+	// v31 instances read their plugin telemetry flags from V31Config.
+	CaptureOutcomeTelemetry bool
+	CaptureReportTelemetry  bool
 
 	// LLO
 	ChannelDefinitionCache   llotypes.ChannelDefinitionCache
@@ -96,15 +99,69 @@ type DelegateConfig struct {
 	LocalConfig            ocr2types.LocalConfig
 	NewOCR3DB              func(pluginID int32) ocr3types.Database
 
-	// OCR3.1 (only required when OCR31 is true; see chainlink-data-streams
-	// llo/config.PluginConfig.OCRVersion)
-	OCR31 bool
+	// PluginVersions selects the plugin per protocol instance, positionally
+	// aligned with ContractConfigTrackers (see chainlink-data-streams
+	// llo/pluginconfig.PluginConfig.PluginVersions). The two entries differ only
+	// during blue/green handover across different plugin versions , where one
+	// instance hands over to the other in a different version.
+	PluginVersions []lloconfig.PluginVersion
+	// V31Config carries the v31 plugin knobs from the job's plugin config. Only
+	// read by v31 instances; zero fields fall through to the plugin defaults.
+	V31Config lloconfig.V31Config
 	// BinaryNetworkEndpoint2Factory is the OCR3.1 ("2") network endpoint factory
-	// (peerWrapper.Peer3_1). Required when OCR31 is true.
+	// (peerWrapper.Peer3_1). Required when any instance is v31.
 	BinaryNetworkEndpoint2Factory ocr2types.BinaryNetworkEndpoint2Factory
 	// KeyValueDatabaseFactory provides the replicated per-configDigest key-value
-	// store the OCR3.1 protocol requires. Required when OCR31 is true.
+	// store the OCR3.1 protocol requires. One factory serves both instances: it
+	// keys the database by config digest, so they get separate keyspaces.
+	// Required when any instance is v31.
 	KeyValueDatabaseFactory ocr3_1types.KeyValueDatabaseFactory
+}
+
+// telemeterParams creates a telemetry channel when either plugin version needs
+// it. Each factory is only handed the channels its own version enables.
+func (cfg DelegateConfig) telemeterParams(lggr logger.Logger) telem.TelemeterParams {
+	return telem.TelemeterParams{
+		Logger:                                lggr,
+		MonitoringEndpoint:                    cfg.PluginMonitoringEndpoint,
+		DonID:                                 cfg.DonID,
+		CaptureEATelemetry:                    cfg.CaptureEATelemetry,
+		CaptureObservationTelemetry:           cfg.CaptureObservationTelemetry,
+		CaptureOutcomeTelemetry:               cfg.CaptureOutcomeTelemetry || cfg.V31Config.CaptureOutcomeTelemetry,
+		CaptureReportTelemetry:                cfg.CaptureReportTelemetry || cfg.V31Config.CaptureReportTelemetry,
+		CaptureAttributedObservationTelemetry: cfg.V31Config.CaptureAttributedObservationTelemetry,
+		SampleTelemetry:                       cfg.SampleTelemetry,
+	}
+}
+
+// anyV31 reports whether any protocol instance runs the v31 plugin. The
+// OCR3.1-only dependencies are per job, so one v31 instance requires them.
+func (cfg DelegateConfig) anyV31() bool {
+	return slices.Contains(cfg.PluginVersions, lloconfig.PluginVersionV31)
+}
+
+// validateInstances checks the per-instance plugin selection and the
+// dependencies it implies.
+func (cfg DelegateConfig) validateInstances() error {
+	if len(cfg.PluginVersions) != len(cfg.ContractConfigTrackers) {
+		return fmt.Errorf("expected one PluginVersions entry per ContractConfigTracker, got %d entries for %d trackers", len(cfg.PluginVersions), len(cfg.ContractConfigTrackers))
+	}
+	for i, v := range cfg.PluginVersions {
+		switch v {
+		case lloconfig.PluginVersionV30, lloconfig.PluginVersionV31:
+		default:
+			return fmt.Errorf("unsupported plugin version for instance %d: %q", i, v)
+		}
+	}
+	if cfg.anyV31() {
+		if cfg.KeyValueDatabaseFactory == nil {
+			return errors.New("KeyValueDatabaseFactory must not be nil when running OCR3.1")
+		}
+		if cfg.BinaryNetworkEndpoint2Factory == nil {
+			return errors.New("BinaryNetworkEndpoint2Factory must not be nil when running OCR3.1")
+		}
+	}
+	return nil
 }
 
 func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
@@ -113,10 +170,10 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 		return nil, errors.New("DataSource must not be nil")
 	}
 	if cfg.Runner == nil {
-		return nil, errors.New("Runner must not be nil")
+		return nil, errors.New("runner must not be nil")
 	}
 	if cfg.Registry == nil {
-		return nil, errors.New("Registry must not be nil")
+		return nil, errors.New("registry must not be nil")
 	}
 	if cfg.RetirementReportCache == nil {
 		return nil, errors.New("RetirementReportCache must not be nil")
@@ -124,32 +181,18 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	if cfg.ShouldRetireCache == nil {
 		return nil, errors.New("ShouldRetireCache must not be nil")
 	}
-	if cfg.OCR31 {
-		if cfg.KeyValueDatabaseFactory == nil {
-			return nil, errors.New("KeyValueDatabaseFactory must not be nil when running OCR3.1")
-		}
-		if cfg.BinaryNetworkEndpoint2Factory == nil {
-			return nil, errors.New("BinaryNetworkEndpoint2Factory must not be nil when running OCR3.1")
-		}
+	if err := cfg.validateInstances(); err != nil {
+		return nil, err
 	}
 	var codecLggr logger.Logger
 	if cfg.ReportingPluginConfig.VerboseLogging {
 		codecLggr = logger.Named(lggr, "ReportCodecs")
 	} else {
-		codecLggr = corelogger.NullLogger
+		codecLggr = logger.Nop()
 	}
 	reportCodecs := NewReportCodecs(codecLggr, cfg.DonID)
 
-	t := telem.NewTelemeterService(telem.TelemeterParams{
-		Logger:                      lggr,
-		MonitoringEndpoint:          cfg.PluginMonitoringEndpoint,
-		DonID:                       cfg.DonID,
-		CaptureEATelemetry:          cfg.CaptureEATelemetry,
-		CaptureObservationTelemetry: cfg.CaptureObservationTelemetry,
-		CaptureOutcomeTelemetry:     cfg.CaptureOutcomeTelemetry,
-		CaptureReportTelemetry:      cfg.CaptureReportTelemetry,
-		SampleTelemetry:             cfg.SampleTelemetry,
-	})
+	t := telem.NewTelemeterService(cfg.telemeterParams(lggr))
 
 	ds := observation.NewDataSource(logger.Named(lggr, "DataSource"), cfg.Registry, t)
 
@@ -189,11 +232,15 @@ func (d *delegate) Start(ctx context.Context) error {
 				// This is a performance optimization
 			})
 
+			// NewDelegate rejected any version this switch does not handle, so
+			// a new one added upstream fails at startup rather than silently
+			// running v30.
 			var oracle ocr2plus.Oracle
 			var err error
-			if d.cfg.OCR31 {
+			switch version := d.cfg.PluginVersions[i]; version {
+			case lloconfig.PluginVersionV31:
 				oracle, err = d.newOracleV31(i, configTracker, lggr, ocrLogger, psrrc)
-			} else {
+			default:
 				oracle, err = d.newOracleV30(i, configTracker, lggr, ocrLogger, psrrc)
 			}
 			if err != nil {
@@ -224,22 +271,7 @@ func (d *delegate) newOracleV30(i int, configTracker ocr2types.ContractConfigTra
 		OffchainKeyring:              d.cfg.OffchainKeyring,
 		OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(d.cfg.OnchainKeyring),
 		ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
-			llov30.NewPluginFactory(
-				llov30.PluginFactoryParams{
-					Config:                           d.cfg.ReportingPluginConfig,
-					PredecessorRetirementReportCache: psrrc,
-					ShouldRetireCache:                d.src,
-					RetirementReportCodec:            d.cfg.RetirementReportCodec,
-					ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
-					DataSource:                       d.ds,
-					Logger:                           logger.Named(lggr, "ReportingPlugin"),
-					OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
-					ReportCodecs:                     d.reportCodecs,
-					OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
-					ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
-					DonID:                            d.cfg.DonID,
-				},
-			),
+			llov30.NewPluginFactory(d.v30FactoryParams(lggr, psrrc)),
 			lggr,
 			"",
 			d.cfg.ChainID,
@@ -249,26 +281,67 @@ func (d *delegate) newOracleV30(i int, configTracker ocr2types.ContractConfigTra
 	})
 }
 
+// v30FactoryParams assembles the v30 plugin factory params.
+func (d *delegate) v30FactoryParams(lggr logger.Logger, psrrc lloprotocol.PredecessorRetirementReportCache) llov30.PluginFactoryParams {
+	return llov30.PluginFactoryParams{
+		Config:                           d.cfg.ReportingPluginConfig,
+		PredecessorRetirementReportCache: psrrc,
+		ShouldRetireCache:                d.src,
+		RetirementReportCodec:            d.cfg.RetirementReportCodec,
+		ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
+		DataSource:                       d.ds,
+		Logger:                           logger.Named(lggr, "ReportingPlugin"),
+		OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
+		ReportCodecs:                     d.reportCodecs,
+		OutcomeTelemetryCh:               enabledCh(d.cfg.CaptureOutcomeTelemetry, d.telem.GetOutcomeTelemetryCh()),
+		ReportTelemetryCh:                enabledCh(d.cfg.CaptureReportTelemetry, d.telem.GetReportTelemetryCh()),
+		DonID:                            d.cfg.DonID,
+	}
+}
+
+// enabledCh returns ch when enabled and nil otherwise, so a protocol instance only
+// emits the plugin telemetry its own version enables.
+func enabledCh[T any](enabled bool, ch chan<- T) chan<- T {
+	if !enabled {
+		return nil
+	}
+	return ch
+}
+
+// v31FactoryParams assembles the v31 plugin factory params, mapping the job's
+// V31Config knobs onto it. Knobs left at zero are forwarded as zero, which the
+// factory reads as "apply the plugin default".
+func (d *delegate) v31FactoryParams(lggr logger.Logger, psrrc lloprotocol.PredecessorRetirementReportCache) llov31.PluginFactoryParams {
+	return llov31.PluginFactoryParams{
+		VerboseLogging:                   d.cfg.ReportingPluginConfig.VerboseLogging || d.cfg.V31Config.VerboseLogging,
+		CaptureStagingTelemetry:          d.cfg.V31Config.CaptureStagingTelemetry,
+		PredecessorRetirementReportCache: psrrc,
+		ShouldRetireCache:                d.src,
+		RetirementReportCodec:            d.cfg.RetirementReportCodec,
+		ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
+		DataSource:                       d.ds,
+		Logger:                           logger.Named(lggr, "ReportingPlugin"),
+		OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
+		ReportCodecs:                     d.reportCodecs,
+		OutcomeTelemetryCh:               enabledCh(d.cfg.V31Config.CaptureOutcomeTelemetry, d.telem.GetOutcomeTelemetryCh()),
+		ReportTelemetryCh:                enabledCh(d.cfg.V31Config.CaptureReportTelemetry, d.telem.GetReportTelemetryCh()),
+		AttributedObservationTelemetryCh: enabledCh(d.cfg.V31Config.CaptureAttributedObservationTelemetry, d.telem.GetAttributedObservationTelemetryCh()),
+		DonID:                            d.cfg.DonID,
+		MaxSnapshotRounds:                d.cfg.V31Config.MaxSnapshotRounds,
+		BlobLifetimeRounds:               d.cfg.V31Config.BlobLifetimeRounds,
+		MaxDurationBlobObservation:       d.cfg.V31Config.MaxDurationBlobObservation.Duration(),
+		BlobInFlightWaitFactor:           d.cfg.V31Config.BlobInFlightWaitFactor,
+		MaxBlobSnapshotAge:               d.cfg.V31Config.MaxBlobSnapshotAge.Duration(),
+		MaxRoundPeriod:                   d.cfg.V31Config.MaxRoundPeriod.Duration(),
+	}
+}
+
 // newOracleV31 builds an OCR3.1 oracle running the llo/v31 reporting plugin. It
 // differs from v30 by the OCR3.1 oracle args (OCR3_1OracleArgs2), the "2"
 // network endpoint factory, and the required replicated KeyValueDatabaseFactory.
 func (d *delegate) newOracleV31(i int, configTracker ocr2types.ContractConfigTracker, lggr logger.Logger, ocrLogger ocrcommontypes.Logger, psrrc lloprotocol.PredecessorRetirementReportCache) (ocr2plus.Oracle, error) {
 	factory := promwrapper31.NewReportingPluginFactory(
-		llov31.NewPluginFactory(llov31.PluginFactoryParams{
-			Config:                           llov31.Config{VerboseLogging: d.cfg.ReportingPluginConfig.VerboseLogging},
-			PredecessorRetirementReportCache: psrrc,
-			ShouldRetireCache:                d.src,
-			RetirementReportCodec:            d.cfg.RetirementReportCodec,
-			ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
-			DataSource:                       d.ds,
-			Logger:                           logger.Named(lggr, "ReportingPlugin"),
-			OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
-			ReportCodecs:                     d.reportCodecs,
-			OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
-			ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
-			DonID:                            d.cfg.DonID,
-			BlobThreshold:                    0, // 0 => llov31.DefaultBlobThreshold
-		}),
+		llov31.NewPluginFactory(d.v31FactoryParams(lggr, psrrc)),
 		lggr,
 		"",
 		d.cfg.ChainID,
