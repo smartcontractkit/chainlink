@@ -20,7 +20,7 @@ COPY . .
 RUN apt-get update && apt-get install -y jq
 
 # Install Delve for debugging
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
+RUN go install github.com/go-delve/delve/cmd/dlv@v1.24.2
 
 # Build the golang binaries
 RUN make GO_GCFLAGS="${GO_GCFLAGS}" install-chainlink
