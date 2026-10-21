@@ -12,6 +12,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -74,18 +75,18 @@ func NewAggregator(req *vaultcommon.GetSecretsRequest, n, f int) *Aggregator {
 func (a *Aggregator) OnResponse(_ p2ptypes.PeerID, resp commoncap.CapabilityResponse) (*commoncap.CapabilityResponse, error) {
 	gsr := &vaultcommon.GetSecretsResponse{}
 	if resp.Payload == nil {
-		return a.OnError(p2ptypes.PeerID{}, "empty response payload")
+		return a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, "empty response payload")
 	}
 	if err := resp.Payload.UnmarshalTo(gsr); err != nil {
-		return a.OnError(p2ptypes.PeerID{}, "failed to unmarshal GetSecretsResponse: "+err.Error())
+		return a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, "failed to unmarshal GetSecretsResponse: "+err.Error())
 	}
 	// Vault nodes answer each requested secret in request order.
 	if len(gsr.Responses) != a.numSecrets {
-		return a.OnError(p2ptypes.PeerID{}, fmt.Sprintf("expected %d secret responses, got %d", a.numSecrets, len(gsr.Responses)))
+		return a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, fmt.Sprintf("expected %d secret responses, got %d", a.numSecrets, len(gsr.Responses)))
 	}
 	for i, sr := range gsr.Responses {
 		if !a.idMatchesRequest(i, sr.GetId()) {
-			return a.OnError(p2ptypes.PeerID{}, fmt.Sprintf("secret %d: response identifier does not match the requested identifier", i))
+			return a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, fmt.Sprintf("secret %d: response identifier does not match the requested identifier", i))
 		}
 	}
 
@@ -100,10 +101,16 @@ func (a *Aggregator) OnResponse(_ p2ptypes.PeerID, resp commoncap.CapabilityResp
 	return a.decide()
 }
 
-func (a *Aggregator) OnError(_ p2ptypes.PeerID, errMsg string) (*commoncap.CapabilityResponse, error) {
+func (a *Aggregator) OnError(_ p2ptypes.PeerID, _ types.Error, errMsg string) (*commoncap.CapabilityResponse, error) {
 	a.replies++
 	a.peerErrors[errMsg]++
 	return a.decide()
+}
+
+// OnUnmarshalable counts the failure as an error reply so the aggregator can
+// conclude once every peer has replied.
+func (a *Aggregator) OnUnmarshalable(_ p2ptypes.PeerID, err error) (*commoncap.CapabilityResponse, error) {
+	return a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, "failed to unmarshal capability response: "+err.Error())
 }
 
 // Shares only combine within one DKG instance, so data votes include the key.

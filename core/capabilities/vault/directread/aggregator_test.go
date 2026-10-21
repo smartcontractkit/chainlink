@@ -11,6 +11,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -241,9 +242,9 @@ func TestAggregator_PeerErrors(t *testing.T) {
 		a := NewAggregator(newReq(idA), n, f)
 		msg := caperrors.NewPublicUserError(assert.AnError, caperrors.InvalidArgument).SerializeToString()
 
-		_, err := a.OnError(p2ptypes.PeerID{}, msg)
+		_, err := a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, msg)
 		require.NoError(t, err)
-		_, err = a.OnError(p2ptypes.PeerID{}, msg)
+		_, err = a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, msg)
 		require.Error(t, err, "success is no longer possible")
 		var capErr caperrors.Error
 		require.ErrorAs(t, err, &capErr)
@@ -256,9 +257,9 @@ func TestAggregator_PeerErrors(t *testing.T) {
 
 		_, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "ctA", 0)))
 		require.NoError(t, err)
-		_, err = a.OnError(p2ptypes.PeerID{}, "vault direct read path is not ready")
+		_, err = a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, "vault direct read path is not ready")
 		require.NoError(t, err)
-		_, err = a.OnError(p2ptypes.PeerID{}, "some other error")
+		_, err = a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, "some other error")
 		require.ErrorIs(t, err, ErrNotEnoughMatchingResponses)
 		assert.NotErrorIs(t, err, vaultcommon.ErrSecretVersionSkew)
 	})

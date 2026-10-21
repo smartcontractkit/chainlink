@@ -42,9 +42,13 @@ func (a *countingAggregator) OnResponse(peer p2ptypes.PeerID, _ commoncap.Capabi
 	return a.decide()
 }
 
-func (a *countingAggregator) OnError(_ p2ptypes.PeerID, errMsg string) (*commoncap.CapabilityResponse, error) {
+func (a *countingAggregator) OnError(_ p2ptypes.PeerID, _ types.Error, errMsg string) (*commoncap.CapabilityResponse, error) {
 	a.errMsgs = append(a.errMsgs, errMsg)
 	return a.decide()
+}
+
+func (a *countingAggregator) OnUnmarshalable(peer p2ptypes.PeerID, err error) (*commoncap.CapabilityResponse, error) {
+	return a.OnError(peer, types.Error_INTERNAL_ERROR, "failed to unmarshal capability response: "+err.Error())
 }
 
 func Test_ClientRequest_WithAggregator(t *testing.T) {
