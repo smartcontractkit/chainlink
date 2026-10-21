@@ -68,19 +68,19 @@ func (s *Capability) handleGetSecretsDirect(ctx context.Context, requestID strin
 }
 
 // waitForDirectReader polls the lazy reader until the running reporting plugin
-// instance's directReader is available
+// instance's directReader is available or the deadline passes.
 func (s *Capability) waitForDirectReader(ctx context.Context, deadline time.Time) (DirectSecretsReader, error) {
+	deadlineCh := s.clock.After(deadline.Sub(s.clock.Now()))
 	for {
-		if reader := s.directReader.Get(); reader != nil {
-			return reader, nil
-		}
-		if !s.clock.Now().Before(deadline) {
-			return nil, ErrDirectReadNotReady
-		}
 		select {
+		case <-deadlineCh:
+			return nil, ErrDirectReadNotReady
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-s.clock.After(directReadWaitPollInterval):
+			if reader := s.directReader.Get(); reader != nil {
+				return reader, nil
+			}
 		}
 	}
 }

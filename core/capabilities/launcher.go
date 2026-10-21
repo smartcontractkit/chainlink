@@ -727,6 +727,8 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 // Vault direct GetSecrets responses carry a different share from each node, so
 // they can't use the identical-response quorum.
 func executableClientOpts(capID, method string) []executable.ClientOpt {
+	// NewAggregatorFactory checks if the request has GetSecretsDirectly set so the new aggregator
+	// is behind a feature flag
 	if capID == vaultcommon.CapabilityID && method == vaulttypes.MethodSecretsGet {
 		return []executable.ClientOpt{executable.WithAggregatorFactory(directread.NewAggregatorFactory())}
 	}

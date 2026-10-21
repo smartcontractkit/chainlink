@@ -53,7 +53,8 @@ func (d *getSecretsHandler) GetSecretsDirect(ctx context.Context, req *vaultcomm
 		return nil, err
 	}
 
-	// Shares are generated after the transaction is discarded; it should only be held for reads.
+	// Per the libocr recommendation, transactions should be open for as little time as possible
+	// Shares are therefore generated after the transaction is discarded
 	resps := make([]*vaultcommon.SecretResponse, 0, len(req.Requests))
 	for i, secretRequest := range req.Requests {
 		read := reads[i]
