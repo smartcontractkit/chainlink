@@ -35,6 +35,8 @@ func NewAggregatorFactory() request.AggregatorFactory {
 // accepts a secret once 2F+1 nodes return the same identifier, ciphertext and
 // vault public key
 type Aggregator struct {
+	requestIDs []*vaultcommon.SecretIdentifier // per requested secret, from the original request
+
 	numSecrets int
 	n          int
 	f          int
@@ -53,7 +55,12 @@ func NewAggregator(req *vaultcommon.GetSecretsRequest, n, f int) *Aggregator {
 	for i := range votes {
 		votes[i] = map[string][]*vaultcommon.SecretResponse{}
 	}
+	requestIDs := make([]*vaultcommon.SecretIdentifier, len(req.Requests))
+	for i, r := range req.Requests {
+		requestIDs[i] = r.GetId()
+	}
 	return &Aggregator{
+		requestIDs:  requestIDs,
 		numSecrets:  len(req.Requests),
 		n:           n,
 		f:           f,
@@ -75,6 +82,11 @@ func (a *Aggregator) OnResponse(_ p2ptypes.PeerID, resp commoncap.CapabilityResp
 	// Vault nodes answer each requested secret in request order.
 	if len(gsr.Responses) != a.numSecrets {
 		return a.OnError(p2ptypes.PeerID{}, fmt.Sprintf("expected %d secret responses, got %d", a.numSecrets, len(gsr.Responses)))
+	}
+	for i, sr := range gsr.Responses {
+		if !a.idMatchesRequest(i, sr.GetId()) {
+			return a.OnError(p2ptypes.PeerID{}, fmt.Sprintf("secret %d: response identifier does not match the requested identifier", i))
+		}
 	}
 
 	a.replies++
@@ -104,6 +116,13 @@ func voteKey(sr *vaultcommon.SecretResponse, publicKey string) string {
 		return id + "|data|" + publicKey + "|" + sr.GetData().GetEncryptedValue()
 	}
 	return id + "|error|" + sr.GetError()
+}
+
+func (a *Aggregator) idMatchesRequest(i int, id *vaultcommon.SecretIdentifier) bool {
+	if id == nil || a.requestIDs[i] == nil {
+		return false
+	}
+	return vaulttypes.KeyFor(id) == vaulttypes.KeyFor(a.requestIDs[i])
 }
 
 func (a *Aggregator) decide() (*commoncap.CapabilityResponse, error) {
@@ -168,7 +187,7 @@ func (a *Aggregator) merge(winners []string) (*commoncap.CapabilityResponse, err
 		if pk, ok := a.votePKs[k]; ok {
 			out.RawVaultPublicKey = pk
 		}
-		out.Responses = append(out.Responses, mergeSecretResponses(a.secretVotes[i][k]))
+		out.Responses = append(out.Responses, mergeSecretResponses(a.requestIDs[i], a.secretVotes[i][k]))
 	}
 	payload, err := anypb.New(out)
 	if err != nil {
@@ -177,10 +196,12 @@ func (a *Aggregator) merge(winners []string) (*commoncap.CapabilityResponse, err
 	return &commoncap.CapabilityResponse{Payload: payload}, nil
 }
 
-func mergeSecretResponses(rs []*vaultcommon.SecretResponse) *vaultcommon.SecretResponse {
+// mergeSecretResponses combines the shares of every response in the winning
+// bucket, labelling the result with the identifier from the original request.
+func mergeSecretResponses(id *vaultcommon.SecretIdentifier, rs []*vaultcommon.SecretResponse) *vaultcommon.SecretResponse {
 	first := rs[0]
 	if first.GetData() == nil {
-		return &vaultcommon.SecretResponse{Id: first.GetId(), Result: &vaultcommon.SecretResponse_Error{Error: first.GetError()}}
+		return &vaultcommon.SecretResponse{Id: id, Result: &vaultcommon.SecretResponse_Error{Error: first.GetError()}}
 	}
 
 	var entries []*vaultcommon.EncryptedShares
@@ -199,7 +220,7 @@ func mergeSecretResponses(rs []*vaultcommon.SecretResponse) *vaultcommon.SecretR
 	}
 
 	return &vaultcommon.SecretResponse{
-		Id: first.GetId(),
+		Id: id,
 		Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
 			EncryptedValue:               first.GetData().GetEncryptedValue(),
 			EncryptedDecryptionKeyShares: entries,

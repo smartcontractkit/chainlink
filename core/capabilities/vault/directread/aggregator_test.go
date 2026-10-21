@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -189,6 +190,48 @@ func TestAggregator_IdentifierIsPartOfTheVote(t *testing.T) {
 	resp, err = a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "ctA", 3)))
 	require.NoError(t, err)
 	assert.Equal(t, idA.Key, decode(t, resp).Responses[0].GetId().GetKey())
+}
+
+func TestAggregator_MergedResponseIsLabelledWithRequestedIdentifier(t *testing.T) {
+	t.Parallel()
+	a := NewAggregator(newReq(idA), n, f)
+
+	// A faulty node answers first with a blank namespace. KeyFor normalizes it to
+	// "main", so its answer joins the honest vote bucket and counts toward quorum.
+	blankNS := &vaultcommon.SecretIdentifier{Owner: "0xowner", Namespace: "", Key: "a"}
+	resp, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(blankNS, "ctA", 9)))
+	require.NoError(t, err)
+	require.Nil(t, resp)
+
+	for node := range byte(3) {
+		resp, err = a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "ctA", node)))
+		require.NoError(t, err)
+	}
+
+	out := decode(t, resp)
+	require.Len(t, out.Responses, 1)
+	assert.True(t, proto.Equal(idA, out.Responses[0].GetId()), "merged response must carry the requested identifier, not the first responder's")
+}
+
+func TestAggregator_RejectsResponseWithDifferentIdentifier(t *testing.T) {
+	t.Parallel()
+	a := NewAggregator(newReq(idA), n, f)
+
+	otherNS := &vaultcommon.SecretIdentifier{Owner: "0xowner", Namespace: "other", Key: "a"}
+	_, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(otherNS, "ctA", 0)))
+	require.NoError(t, err)
+
+	var resp *commoncap.CapabilityResponse
+	for node := range byte(3) {
+		var err2 error
+		resp, err2 = a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "ctA", node)))
+		require.NoError(t, err2)
+	}
+
+	out := decode(t, resp)
+	require.Len(t, out.Responses, 1)
+	assert.True(t, proto.Equal(idA, out.Responses[0].GetId()))
+	assert.Equal(t, "ctA", out.Responses[0].GetData().GetEncryptedValue())
 }
 
 func TestAggregator_PeerErrors(t *testing.T) {
