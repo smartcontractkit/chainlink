@@ -11,6 +11,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
 type mockLimiter[T any] struct {
@@ -34,6 +35,7 @@ func TestEngine_emitUserLogs_ProcessesLogsWhenContextCancelled(t *testing.T) {
 			cfg: &EngineConfig{
 				DebugMode:     true,
 				LocalLimiters: limiters,
+				EventEmitter:  workflowEvents.DefaultEmitter(),
 			},
 		}
 		e.setLogger(logger.Sugared(logger.Test(t)))
@@ -89,6 +91,7 @@ func TestEngine_emitUserLogs_DrainsUntilTimeout(t *testing.T) {
 			cfg: &EngineConfig{
 				DebugMode:     true,
 				LocalLimiters: limiters,
+				EventEmitter:  workflowEvents.DefaultEmitter(),
 			},
 		}
 		e.setLogger(logger.Sugared(logger.Test(t)))
@@ -143,6 +146,7 @@ func TestEngine_emitUserLogs_TeardownOnChannelClose(t *testing.T) {
 			cfg: &EngineConfig{
 				DebugMode:     true,
 				LocalLimiters: limiters,
+				EventEmitter:  workflowEvents.DefaultEmitter(),
 			},
 		}
 		e.setLogger(logger.Sugared(logger.Test(t)))

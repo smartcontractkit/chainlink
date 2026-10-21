@@ -207,13 +207,6 @@ func TestEmit(t *testing.T) {
 	})
 }
 
-func TestEmitter_NilReceiverUsesGlobals(t *testing.T) {
-	t.Parallel()
-
-	var e *events.Emitter
-	require.NoError(t, e.EmitUserMetric(t.Context(), map[string]string{}, &eventsv2.WorkflowUserMetric{}))
-}
-
 func TestEmitter_WithDurableEmit(t *testing.T) {
 	t.Parallel()
 
