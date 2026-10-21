@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/core/scripts
 
-go 1.27.1
+go 1.27.3
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
@@ -29,7 +29,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.112
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20261001213322-a2d686f610ca
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261021123635-a5504c52b7c0
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261021163652-e1f8d64a0069
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d
 	github.com/smartcontractkit/chainlink-deployments-framework v0.123.3
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20261015161422-ea52d84d2f7a
