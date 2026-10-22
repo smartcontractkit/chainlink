@@ -43,7 +43,7 @@ func TestRunnerSpot_CLI_Human(t *testing.T) {
 	var out bytes.Buffer
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&out)
-	rootCmd.SetArgs([]string{"runner", "spot", "--event", "push", "--ref", "refs/heads/develop"})
+	rootCmd.SetArgs([]string{"runner", "spot", "--event", "push", "--ref", "refs/heads/develop", "--ref-name", "develop", "--ref-type", "branch"})
 
 	err := rootCmd.ExecuteContext(context.Background())
 	require.NoError(t, err)
