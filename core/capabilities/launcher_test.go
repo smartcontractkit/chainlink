@@ -1547,7 +1547,7 @@ func TestWithoutLocallyHostedCapabilities(t *testing.T) {
 // keep serving its local capability and must not try to add a remote shim for the duplicate.
 func TestLauncher_OnNewRegistry_PrefersLocalCapabilityOverDuplicateInFamily(t *testing.T) {
 	t.Parallel()
-	lggr := logger.Test(t)
+	lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
 	reg := regpkg.NewRegistry(lggr)
 	fullTriggerCapID := "streams-trigger@1.0.0"
 	mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
@@ -1606,11 +1606,16 @@ func TestLauncher_OnNewRegistry_PrefersLocalCapabilityOverDuplicateInFamily(t *t
 	require.NoError(t, err)
 	servicetest.Run(t, launcher)
 
-	// Only the local publisher is set up. A receiver for the duplicate on capDonID would fail the mock.
-	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, misconfiguredDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerPublisher")).Return(nil).Once()
+	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, mock.Anything, "StreamsTrigger", mock.Anything).Return(nil).Maybe()
+	dispatcher.On("RemoveReceiverForMethod", fullTriggerCapID, mock.Anything, "StreamsTrigger").Return().Maybe()
 
 	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
 
+	// addRemoteCapabilities swallows registry.Add failures (OnNewRegistry still returns nil), so check the
+	// logged error: a duplicate remote shim fails with "capability already exists" in the registry.
+	assert.Empty(t, observedLogs.FilterMessage("failed to add remote capability ").All(),
+		"adding a remote shim for a locally hosted capability must not even be attempted")
+	assert.Empty(t, observedLogs.FilterLevelExact(zapcore.ErrorLevel).All())
 	assert.Empty(t, launcher.cachedShims.combinedClients, "no remote shim for a locally hosted capability")
 	assert.Len(t, launcher.cachedShims.triggerPublishers, 1)
 
