@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	tron_addr "github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk/pkg/address"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -18,6 +17,7 @@ import (
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	tronprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	tron_addr "github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk/pkg/address"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"

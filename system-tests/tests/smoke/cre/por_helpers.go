@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk/pkg/address"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk/pkg/address"
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	tron_df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/tron"
