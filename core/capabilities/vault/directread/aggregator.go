@@ -2,6 +2,7 @@
 package directread
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,6 +12,9 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -19,7 +23,7 @@ import (
 
 var ErrNotEnoughMatchingResponses = errors.New("not enough matching vault responses")
 
-func NewAggregatorFactory() request.AggregatorFactory {
+func NewAggregatorFactory(shareSizeLimit limits.BoundLimiter[commonconfig.Size]) request.AggregatorFactory {
 	return func(req commoncap.CapabilityRequest, remoteDON commoncap.DON) request.ResponseAggregator {
 		if req.Method != vaulttypes.MethodSecretsGet || req.Payload == nil {
 			return nil
@@ -28,7 +32,7 @@ func NewAggregatorFactory() request.AggregatorFactory {
 		if err := req.Payload.UnmarshalTo(gsr); err != nil || !gsr.GetSecretsDirectly {
 			return nil
 		}
-		return NewAggregator(gsr, len(remoteDON.Members), int(remoteDON.F))
+		return NewAggregator(gsr, len(remoteDON.Members), int(remoteDON.F), shareSizeLimit)
 	}
 }
 
@@ -36,12 +40,15 @@ func NewAggregatorFactory() request.AggregatorFactory {
 // accepts a secret once 2F+1 nodes return the same identifier, ciphertext and
 // vault public key
 type Aggregator struct {
-	requestIDs []*vaultcommon.SecretIdentifier // per requested secret, from the original request
+	requests []*vaultcommon.SecretRequest // per requested secret, from the original request
 
 	numSecrets int
 	n          int
 	f          int
 	quorum     int
+
+	// shareSizeLimit caps the size of each decryption share in a response.
+	shareSizeLimit limits.BoundLimiter[commonconfig.Size]
 
 	replies     int
 	peerErrors  map[string]int
@@ -51,21 +58,22 @@ type Aggregator struct {
 
 var _ request.ResponseAggregator = (*Aggregator)(nil)
 
-func NewAggregator(req *vaultcommon.GetSecretsRequest, n, f int) *Aggregator {
+func NewAggregator(req *vaultcommon.GetSecretsRequest, n, f int, shareSizeLimit limits.BoundLimiter[commonconfig.Size]) *Aggregator {
 	votes := make([]map[string][]*vaultcommon.SecretResponse, len(req.Requests))
 	for i := range votes {
 		votes[i] = map[string][]*vaultcommon.SecretResponse{}
 	}
-	requestIDs := make([]*vaultcommon.SecretIdentifier, len(req.Requests))
-	for i, r := range req.Requests {
-		requestIDs[i] = r.GetId()
-	}
+	requests := make([]*vaultcommon.SecretRequest, len(req.Requests))
+	copy(requests, req.Requests)
 	return &Aggregator{
-		requestIDs:  requestIDs,
-		numSecrets:  len(req.Requests),
-		n:           n,
-		f:           f,
-		quorum:      2*f + 1,
+		requests:   requests,
+		numSecrets: len(req.Requests),
+		n:          n,
+		f:          f,
+		quorum:     2*f + 1,
+
+		shareSizeLimit: shareSizeLimit,
+
 		peerErrors:  map[string]int{},
 		secretVotes: votes,
 		votePKs:     map[string]string{},
@@ -87,6 +95,9 @@ func (a *Aggregator) OnResponse(_ p2ptypes.PeerID, resp commoncap.CapabilityResp
 	for i, sr := range gsr.Responses {
 		if !a.idMatchesRequest(i, sr.GetId()) {
 			return a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, fmt.Sprintf("secret %d: response identifier does not match the requested identifier", i))
+		}
+		if err := a.validateSecretResponseShares(i, sr); err != nil {
+			return a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, fmt.Sprintf("secret %d: invalid shares in response: %s", i, err))
 		}
 	}
 
@@ -126,10 +137,10 @@ func voteKey(sr *vaultcommon.SecretResponse, publicKey string) string {
 }
 
 func (a *Aggregator) idMatchesRequest(i int, id *vaultcommon.SecretIdentifier) bool {
-	if id == nil || a.requestIDs[i] == nil {
+	if id == nil || a.requests[i].GetId() == nil {
 		return false
 	}
-	return vaulttypes.KeyFor(id) == vaulttypes.KeyFor(a.requestIDs[i])
+	return vaulttypes.KeyFor(id) == vaulttypes.KeyFor(a.requests[i].GetId())
 }
 
 func (a *Aggregator) decide() (*commoncap.CapabilityResponse, error) {
@@ -194,7 +205,7 @@ func (a *Aggregator) merge(winners []string) (*commoncap.CapabilityResponse, err
 		if pk, ok := a.votePKs[k]; ok {
 			out.RawVaultPublicKey = pk
 		}
-		out.Responses = append(out.Responses, mergeSecretResponses(a.requestIDs[i], a.secretVotes[i][k]))
+		out.Responses = append(out.Responses, mergeSecretResponses(a.requests[i].GetId(), a.secretVotes[i][k]))
 	}
 	payload, err := anypb.New(out)
 	if err != nil {
@@ -233,4 +244,92 @@ func mergeSecretResponses(id *vaultcommon.SecretIdentifier, rs []*vaultcommon.Se
 			EncryptedDecryptionKeyShares: entries,
 		}},
 	}
+}
+
+// validateSecretResponseShares checks that a response carries exactly one
+// decryption share per requested encryption key, each within the size limit.
+func (a *Aggregator) validateSecretResponseShares(i int, sr *vaultcommon.SecretResponse) error {
+	data := sr.GetData()
+	if data == nil {
+		return nil
+	}
+	secretReq := a.requests[i]
+	if secretReq == nil {
+		return errors.New("share data returned for a nil request")
+	}
+	if err := validateShareKeyLabels(secretReq, data); err != nil {
+		return err
+	}
+	ctx := contexts.WithCRE(context.Background(), contexts.CRE{Owner: sr.GetId().GetOwner()})
+	for _, es := range data.GetEncryptedDecryptionKeyShares() {
+		if err := validateEncryptedSharesEntry(es); err != nil {
+			return err
+		}
+		shareSize, err := encryptedShareSizeForLimit(es)
+		if err != nil {
+			return err
+		}
+		if err := a.shareSizeLimit.Check(ctx, commonconfig.Size(shareSize)*commonconfig.Byte); err != nil {
+			if _, ok := errors.AsType[limits.ErrorBoundLimited[commonconfig.Size]](err); ok {
+				return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
+			}
+			return errors.New("failed to check share size")
+		}
+	}
+	return nil
+}
+
+func validateShareKeyLabels(secretReq *vaultcommon.SecretRequest, data *vaultcommon.SecretData) error {
+	if len(data.EncryptedDecryptionKeyShares) != len(secretReq.EncryptionKeys) {
+		return fmt.Errorf("expected %d encrypted share entries, got %d", len(secretReq.EncryptionKeys), len(data.EncryptedDecryptionKeyShares))
+	}
+
+	allowed := make(map[string]struct{}, len(secretReq.EncryptionKeys))
+	for _, pk := range secretReq.EncryptionKeys {
+		allowed[pk] = struct{}{}
+	}
+
+	seen := make(map[string]bool, len(secretReq.EncryptionKeys))
+	for _, es := range data.EncryptedDecryptionKeyShares {
+		if es == nil {
+			return errors.New("nil encrypted share entry")
+		}
+		if _, ok := allowed[es.EncryptionKey]; !ok {
+			return fmt.Errorf("unexpected encryption key in response: %s", es.EncryptionKey)
+		}
+		if seen[es.EncryptionKey] {
+			return fmt.Errorf("duplicate encryption key in response: %s", es.EncryptionKey)
+		}
+		seen[es.EncryptionKey] = true
+	}
+
+	for _, pk := range secretReq.EncryptionKeys {
+		if !seen[pk] {
+			return fmt.Errorf("missing encryption key in response: %s", pk)
+		}
+	}
+
+	return nil
+}
+
+func validateEncryptedSharesEntry(es *vaultcommon.EncryptedShares) error {
+	nBinary := len(es.BinaryShares)
+	nString := len(es.Shares)
+	if nBinary == 1 && nString == 0 {
+		return nil
+	}
+	if nString == 1 && nBinary == 0 {
+		return nil
+	}
+	return errors.New("response must have exactly 1 share per encryption key")
+}
+
+func encryptedShareSizeForLimit(es *vaultcommon.EncryptedShares) (int, error) {
+	if len(es.BinaryShares) == 1 {
+		return len(es.BinaryShares[0]), nil
+	}
+	if len(es.Shares) == 1 {
+		return len(es.Shares[0]), nil
+	}
+	return 0, errors.New("no share to measure")
 }

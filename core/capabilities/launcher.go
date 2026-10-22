@@ -76,6 +76,9 @@ type launcher struct {
 
 	propagateOrgIDGate limits.GateLimiter
 
+	// vaultShareSizeLimit caps the size of each decryption share in direct GetSecrets responses.
+	vaultShareSizeLimit limits.BoundLimiter[commonconfig.Size]
+
 	muSubServices sync.Mutex
 	subServices   []services.Service
 
@@ -158,6 +161,10 @@ func NewLauncher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create propagate org ID gate limiter: %w", err)
 	}
+	vaultShareSizeLimit, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultShareSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vault share size limit limiter: %w", err)
+	}
 	return &launcher{
 		lggr:       logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		dispatcher: dispatcher,
@@ -176,6 +183,7 @@ func NewLauncher(
 		workflowDONBindingGate: workflowDONBindingGate,
 		workflowTagHashFlag:    workflowTagHashFlag,
 		propagateOrgIDGate:     propagateOrgIDGate,
+		vaultShareSizeLimit:    vaultShareSizeLimit,
 		shardingEnabled:        shardingEnabled,
 		shardIndex:             shardIndex,
 		stopCh:                 make(services.StopChan),
@@ -272,6 +280,11 @@ func (w *launcher) Close() error {
 		if w.propagateOrgIDGate != nil {
 			if err := w.propagateOrgIDGate.Close(); err != nil {
 				w.lggr.Errorw("failed to close propagate org ID gate limiter", "error", err)
+			}
+		}
+		if w.vaultShareSizeLimit != nil {
+			if err := w.vaultShareSizeLimit.Close(); err != nil {
+				w.lggr.Errorw("failed to close vault share size limit limiter", "error", err)
 			}
 		}
 		return nil
@@ -689,7 +702,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		} else { // executable
 			client, alreadyExists := w.cachedShims.executableClients[key]
 			if !alreadyExists {
-				client = executable.NewClient(info.ID, method, w.dispatcher, w.lggr, executableClientOpts(capID, method)...)
+				client = executable.NewClient(info.ID, method, w.dispatcher, w.lggr, w.executableClientOpts(capID, method)...)
 				cc.SetExecutableClient(method, client)
 				// add to cachedShims later, only after startNewShim succeeds
 			}
@@ -726,11 +739,11 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 
 // Vault direct GetSecrets responses carry a different share from each node, so
 // they can't use the identical-response quorum.
-func executableClientOpts(capID, method string) []executable.ClientOpt {
+func (w *launcher) executableClientOpts(capID, method string) []executable.ClientOpt {
 	// NewAggregatorFactory checks if the request has GetSecretsDirectly set so the new aggregator
 	// is behind a feature flag
 	if capID == vaultcommon.CapabilityID && method == vaulttypes.MethodSecretsGet {
-		return []executable.ClientOpt{executable.WithAggregatorFactory(directread.NewAggregatorFactory())}
+		return []executable.ClientOpt{executable.WithAggregatorFactory(directread.NewAggregatorFactory(w.vaultShareSizeLimit))}
 	}
 	return nil
 }

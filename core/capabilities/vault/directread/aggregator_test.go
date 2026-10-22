@@ -11,12 +11,28 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 const n, f = 4, 1 // quorum 3
+
+// shareSizeLimit matches the limit the launcher wires into the aggregator factory.
+var shareSizeLimit = func() limits.BoundLimiter[commonconfig.Size] {
+	l, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, cresettings.Default.VaultShareSizeLimit)
+	if err != nil {
+		panic(err)
+	}
+	return l
+}()
+
+func newAggregator(req *vaultcommon.GetSecretsRequest, n, f int) *Aggregator {
+	return NewAggregator(req, n, f, shareSizeLimit)
+}
 
 var (
 	idA = &vaultcommon.SecretIdentifier{Owner: "0xowner", Namespace: "main", Key: "a"}
@@ -66,7 +82,7 @@ func decode(t *testing.T, resp *commoncap.CapabilityResponse) *vaultcommon.GetSe
 
 func TestAggregator_SucceedsAtQuorumAndMergesShares(t *testing.T) {
 	t.Parallel()
-	a := NewAggregator(newReq(idA, idB), n, f)
+	a := newAggregator(newReq(idA, idB), n, f)
 
 	for node := range byte(2) {
 		resp, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "ctA", node), itemErr(idB, "key does not exist")))
@@ -89,7 +105,7 @@ func TestAggregator_SucceedsAtQuorumAndMergesShares(t *testing.T) {
 
 func TestAggregator_ToleratesFFaultyResponses(t *testing.T) {
 	t.Parallel()
-	a := NewAggregator(newReq(idA), n, f)
+	a := newAggregator(newReq(idA), n, f)
 
 	resp, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "forged", 9)))
 	require.NoError(t, err)
@@ -105,7 +121,7 @@ func TestAggregator_ToleratesFFaultyResponses(t *testing.T) {
 
 func TestAggregator_SplitVersionsIsSkew(t *testing.T) {
 	t.Parallel()
-	a := NewAggregator(newReq(idA), n, f)
+	a := newAggregator(newReq(idA), n, f)
 
 	_, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "v1", 0)))
 	require.NoError(t, err)
@@ -122,7 +138,7 @@ func TestAggregator_SplitVersionsIsSkew(t *testing.T) {
 
 func TestAggregator_ReturnsVaultPublicKey(t *testing.T) {
 	t.Parallel()
-	a := NewAggregator(newReq(idA), n, f)
+	a := newAggregator(newReq(idA), n, f)
 
 	var resp *commoncap.CapabilityResponse
 	for node := range byte(3) {
@@ -135,7 +151,7 @@ func TestAggregator_ReturnsVaultPublicKey(t *testing.T) {
 
 func TestAggregator_DifferentVaultPublicKeysAreSkew(t *testing.T) {
 	t.Parallel()
-	a := NewAggregator(newReq(idA), n, f)
+	a := newAggregator(newReq(idA), n, f)
 
 	for node, pk := range []string{"old", "old", "new"} {
 		resp, err := a.OnResponse(p2ptypes.PeerID{}, capRespWithKey(t, pk, data(idA, "ctA", byte(node))))
@@ -148,7 +164,7 @@ func TestAggregator_DifferentVaultPublicKeysAreSkew(t *testing.T) {
 
 func TestAggregator_ItemErrorsIgnoreVaultPublicKey(t *testing.T) {
 	t.Parallel()
-	a := NewAggregator(newReq(idA), n, f)
+	a := newAggregator(newReq(idA), n, f)
 
 	var resp *commoncap.CapabilityResponse
 	for _, pk := range []string{"old", "new", "new"} {
@@ -163,7 +179,7 @@ func TestAggregator_ItemErrorsIgnoreVaultPublicKey(t *testing.T) {
 
 func TestAggregator_SkewFailsEarly(t *testing.T) {
 	t.Parallel()
-	a := NewAggregator(newReq(idA), 7, 2) // quorum 5
+	a := newAggregator(newReq(idA), 7, 2) // quorum 5
 
 	for i, ct := range []string{"v1", "v2", "v1"} {
 		_, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, ct, byte(i))))
@@ -178,7 +194,7 @@ func TestAggregator_SkewFailsEarly(t *testing.T) {
 
 func TestAggregator_IdentifierIsPartOfTheVote(t *testing.T) {
 	t.Parallel()
-	a := NewAggregator(newReq(idA), n, f)
+	a := newAggregator(newReq(idA), n, f)
 	other := &vaultcommon.SecretIdentifier{Owner: "0xowner", Namespace: "main", Key: "other"}
 
 	_, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(other, "ctA", 0)))
@@ -195,7 +211,7 @@ func TestAggregator_IdentifierIsPartOfTheVote(t *testing.T) {
 
 func TestAggregator_MergedResponseIsLabelledWithRequestedIdentifier(t *testing.T) {
 	t.Parallel()
-	a := NewAggregator(newReq(idA), n, f)
+	a := newAggregator(newReq(idA), n, f)
 
 	// A faulty node answers first with a blank namespace. KeyFor normalizes it to
 	// "main", so its answer joins the honest vote bucket and counts toward quorum.
@@ -216,7 +232,7 @@ func TestAggregator_MergedResponseIsLabelledWithRequestedIdentifier(t *testing.T
 
 func TestAggregator_RejectsResponseWithDifferentIdentifier(t *testing.T) {
 	t.Parallel()
-	a := NewAggregator(newReq(idA), n, f)
+	a := newAggregator(newReq(idA), n, f)
 
 	otherNS := &vaultcommon.SecretIdentifier{Owner: "0xowner", Namespace: "other", Key: "a"}
 	_, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(otherNS, "ctA", 0)))
@@ -239,7 +255,7 @@ func TestAggregator_PeerErrors(t *testing.T) {
 	t.Parallel()
 	t.Run("identical request errors are returned", func(t *testing.T) {
 		t.Parallel()
-		a := NewAggregator(newReq(idA), n, f)
+		a := newAggregator(newReq(idA), n, f)
 		msg := caperrors.NewPublicUserError(assert.AnError, caperrors.InvalidArgument).SerializeToString()
 
 		_, err := a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, msg)
@@ -253,7 +269,7 @@ func TestAggregator_PeerErrors(t *testing.T) {
 
 	t.Run("mixed failures without disagreement", func(t *testing.T) {
 		t.Parallel()
-		a := NewAggregator(newReq(idA), n, f)
+		a := newAggregator(newReq(idA), n, f)
 
 		_, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "ctA", 0)))
 		require.NoError(t, err)
@@ -266,7 +282,7 @@ func TestAggregator_PeerErrors(t *testing.T) {
 
 	t.Run("malformed responses count as errors", func(t *testing.T) {
 		t.Parallel()
-		a := NewAggregator(newReq(idA, idB), n, f)
+		a := newAggregator(newReq(idA, idB), n, f)
 
 		_, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "ctA", 0))) // missing idB
 		require.NoError(t, err)
@@ -277,7 +293,7 @@ func TestAggregator_PeerErrors(t *testing.T) {
 
 func TestAggregatorFactory(t *testing.T) {
 	t.Parallel()
-	factory := NewAggregatorFactory()
+	factory := NewAggregatorFactory(shareSizeLimit)
 	don := commoncap.DON{Members: make([]p2ptypes.PeerID, n), F: f}
 
 	direct, err := anypb.New(newReq(idA))
@@ -290,4 +306,143 @@ func TestAggregatorFactory(t *testing.T) {
 
 	assert.Nil(t, factory(commoncap.CapabilityRequest{Method: "other", Payload: direct}, don))
 	assert.Nil(t, factory(commoncap.CapabilityRequest{Method: vaulttypes.MethodSecretsGet}, don))
+}
+
+// Padded share entries are rejected; the honest nodes still reach quorum.
+func TestAggregator_RejectsPaddedShareEntries(t *testing.T) {
+	t.Parallel()
+	padded := func(id *vaultcommon.SecretIdentifier, ct string, entry *vaultcommon.EncryptedShares) *vaultcommon.SecretResponse {
+		return &vaultcommon.SecretResponse{Id: id, Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+			EncryptedValue: ct,
+			EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+				entry,
+				{EncryptionKey: "k2", BinaryShares: [][]byte{{2, 9}}},
+			},
+		}}}
+	}
+
+	tests := map[string]*vaultcommon.EncryptedShares{
+		"multiple binary shares":   {EncryptionKey: "k1", BinaryShares: [][]byte{{1, 9}, {1, 9}, {1, 9}}},
+		"binary and legacy shares": {EncryptionKey: "k1", BinaryShares: [][]byte{{1, 9}}, Shares: []string{"01"}},
+		"multiple legacy shares":   {EncryptionKey: "k1", Shares: []string{"01", "02", "03"}},
+		"no share at all":          {EncryptionKey: "k1"},
+	}
+	for name, entry := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			a := newAggregator(newReq(idA), n, f)
+
+			resp, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, padded(idA, "ctA", entry)))
+			require.NoError(t, err, "the padded response counts as an error reply, not a failure")
+			require.Nil(t, resp, "the padded response joins no vote bucket")
+
+			// The honest nodes still reach quorum without the padded shares.
+			var out *commoncap.CapabilityResponse
+			for node := range byte(3) {
+				out, err = a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "ctA", node)))
+				require.NoError(t, err)
+			}
+			res := decode(t, out)
+			assert.Equal(t, "ctA", res.Responses[0].GetData().GetEncryptedValue())
+			shares := res.Responses[0].GetData().GetEncryptedDecryptionKeyShares()
+			require.Len(t, shares, 2, "one entry per encryption key")
+			assert.Equal(t, [][]byte{{1, 0}, {1, 1}, {1, 2}}, shares[0].BinaryShares, "only the honest nodes' shares are merged")
+		})
+	}
+}
+
+func TestAggregator_RejectsOversizedShares(t *testing.T) {
+	t.Parallel()
+	a := newAggregator(newReq(idA), n, f)
+
+	oversized := &vaultcommon.SecretResponse{Id: idA, Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+		EncryptedValue: "ctA",
+		EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+			// One share above the VaultShareSizeLimit default of 600 bytes.
+			{EncryptionKey: "k1", BinaryShares: [][]byte{make([]byte, 601)}},
+			{EncryptionKey: "k2", BinaryShares: [][]byte{{2, 9}}},
+		},
+	}}}
+
+	resp, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, oversized))
+	require.NoError(t, err)
+	require.Nil(t, resp, "the oversized response counts as an error reply, not a failure")
+
+	var out *commoncap.CapabilityResponse
+	for node := range byte(3) {
+		out, err = a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "ctA", node)))
+		require.NoError(t, err)
+	}
+	res := decode(t, out)
+	assert.Equal(t, "ctA", res.Responses[0].GetData().GetEncryptedValue())
+	assert.Equal(t, [][]byte{{1, 0}, {1, 1}, {1, 2}}, res.Responses[0].GetData().GetEncryptedDecryptionKeyShares()[0].BinaryShares)
+}
+
+func TestAggregator_RejectsInvalidShareKeys(t *testing.T) {
+	t.Parallel()
+	tests := map[string][]*vaultcommon.EncryptedShares{
+		"unexpected key": {
+			{EncryptionKey: "k1", BinaryShares: [][]byte{{1, 9}}},
+			{EncryptionKey: "k3", BinaryShares: [][]byte{{2, 9}}},
+		},
+		"duplicate key": {
+			{EncryptionKey: "k1", BinaryShares: [][]byte{{1, 9}}},
+			{EncryptionKey: "k1", BinaryShares: [][]byte{{2, 9}}},
+		},
+		"missing requested key": {
+			{EncryptionKey: "k1", BinaryShares: [][]byte{{1, 9}}},
+		},
+		"nil entry": {
+			{EncryptionKey: "k1", BinaryShares: [][]byte{{1, 9}}},
+			nil,
+		},
+	}
+	for name, entries := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			a := newAggregator(newReq(idA), n, f)
+
+			bad := &vaultcommon.SecretResponse{Id: idA, Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+				EncryptedValue:               "ctA",
+				EncryptedDecryptionKeyShares: entries,
+			}}}
+
+			resp, err := a.OnResponse(p2ptypes.PeerID{}, capResp(t, bad))
+			require.NoError(t, err)
+			require.Nil(t, resp, "the invalid response counts as an error reply, not a failure")
+
+			var out *commoncap.CapabilityResponse
+			for node := range byte(3) {
+				out, err = a.OnResponse(p2ptypes.PeerID{}, capResp(t, data(idA, "ctA", node)))
+				require.NoError(t, err)
+			}
+			assert.Equal(t, "ctA", decode(t, out).Responses[0].GetData().GetEncryptedValue())
+		})
+	}
+}
+
+func TestAggregator_AcceptsLegacyHexShares(t *testing.T) {
+	t.Parallel()
+	a := newAggregator(newReq(idA), n, f)
+
+	legacy := func(id *vaultcommon.SecretIdentifier, ct string, node string) *vaultcommon.SecretResponse {
+		return &vaultcommon.SecretResponse{Id: id, Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+			EncryptedValue: ct,
+			EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+				{EncryptionKey: "k1", Shares: []string{node}},
+				{EncryptionKey: "k2", Shares: []string{node}},
+			},
+		}}}
+	}
+
+	var resp *commoncap.CapabilityResponse
+	var err error
+	for _, node := range []string{"aa", "bb", "cc"} {
+		resp, err = a.OnResponse(p2ptypes.PeerID{}, capResp(t, legacy(idA, "ctA", node)))
+		require.NoError(t, err)
+	}
+	out := decode(t, resp)
+	shares := out.Responses[0].GetData().GetEncryptedDecryptionKeyShares()
+	require.Len(t, shares, 2)
+	assert.Equal(t, []string{"aa", "bb", "cc"}, shares[0].Shares, "legacy hex shares are merged one per node")
 }
