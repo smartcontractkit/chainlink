@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/v2/tools/ci
 
-go 1.26.6
+go 1.27.1
 
 require (
 	github.com/sethvargo/go-githubactions v1.4.0

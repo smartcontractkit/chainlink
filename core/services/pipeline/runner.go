@@ -356,8 +356,6 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			task.(*ETHCallTask).config = r.config
 			task.(*ETHCallTask).specGasLimit = spec.GasLimit
 			task.(*ETHCallTask).jobType = spec.JobType
-		case TaskTypeVRFV2:
-			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2Plus:
 			task.(*VRFTaskV2Plus).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:

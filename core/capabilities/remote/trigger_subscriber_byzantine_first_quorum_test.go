@@ -11,6 +11,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
@@ -58,7 +59,7 @@ func TestTriggerSubscriber_ByzantineFirstQuorumSuppressesLaterHonestAggregation(
 					MinResponsesToAggregate: tc.minResponses,
 					MessageExpiry:           100 * time.Second,
 				}
-				subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
+				subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
 				agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
 				require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
 				require.NoError(t, subscriber.Start(t.Context()))

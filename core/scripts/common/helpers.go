@@ -45,9 +45,9 @@ func DeployLinkToken(e Environment) common.Address {
 }
 
 func DeployLinkEthFeed(e Environment, linkAddress string, weiPerUnitLink *big.Int) common.Address {
-	_, tx, _, err :=
-		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-			e.Owner, e.Ec, 18, weiPerUnitLink)
+	_, tx, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+		e.Owner, e.Ec, 18, weiPerUnitLink,
+	)
 	PanicErr(err)
 	return ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
@@ -217,7 +217,7 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 	default: // Unknown chain, return prefix as-is
 		prefix = ""
 	}
-	return
+	return prefix
 }
 
 // ExplorerLink creates a block explorer link for the given transaction hash. If the chain ID is
@@ -248,7 +248,7 @@ func TenderlySimLink(simID string) string {
 func ConfirmTXMined(context context.Context, client *ethclient.Client, transaction *types.Transaction, chainID int64, txInfo ...string) (receipt *types.Receipt) {
 	if transaction == nil {
 		fmt.Println("No transaction to confirm")
-		return
+		return receipt
 	}
 
 	fmt.Println("Executing TX", ExplorerLink(chainID, transaction.Hash()), txInfo)
@@ -257,7 +257,7 @@ func ConfirmTXMined(context context.Context, client *ethclient.Client, transacti
 	fmt.Println("TX", receipt.TxHash, "mined. \nBlock Number:", receipt.BlockNumber,
 		"\nGas Used: ", receipt.GasUsed,
 		"\nBlock hash: ", receipt.BlockHash.String())
-	return
+	return receipt
 }
 
 // ConfirmContractDeployed confirms that the given contract deployment transaction completed and prints useful execution information.
@@ -321,7 +321,7 @@ func ParseAddressSlice(arg string) (ret []common.Address) {
 	for _, part := range parts {
 		ret = append(ret, common.HexToAddress(part))
 	}
-	return
+	return ret
 }
 
 // ParseHashSlice parses the given comma-separated string of hashes into a slice of
@@ -332,7 +332,7 @@ func ParseHashSlice(arg string) (ret []common.Hash) {
 	for _, part := range parts {
 		ret = append(ret, common.HexToHash(part))
 	}
-	return
+	return ret
 }
 
 func ParseHexSlice(arg string) (ret [][]byte) {
@@ -340,7 +340,7 @@ func ParseHexSlice(arg string) (ret [][]byte) {
 	for part := range parts {
 		ret = append(ret, hexutil.MustDecode(part))
 	}
-	return
+	return ret
 }
 
 func FundNodes(e Environment, transmitters []string, fundingAmount *big.Int) {
@@ -380,7 +380,8 @@ func FundNode(e Environment, address string, fundingAmount *big.Int) {
 			To:       &toAddress,
 			Value:    fundingAmount,
 			Data:     nil,
-		})
+		},
+	)
 
 	signedTx, err := e.Owner.Signer(e.Owner.From, tx)
 	PanicErr(err)
@@ -506,7 +507,7 @@ func getRlpHeaders[HEADER Hashable](env Environment, blockNumbers []*big.Int, of
 		hashes[i] = h.Hash().String()
 		headers[i] = rlpHeader
 	}
-	return
+	return headers, hashes, err
 }
 
 // batchCallContext is a wrapper around rpc.Client.BatchCallContext that deals with RPC node batch size limitations.

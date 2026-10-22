@@ -45,9 +45,14 @@ type TargetDONMember struct {
 }
 
 type TargetDON struct {
-	ID       string
-	F        int
-	Members  []TargetDONMember
+	ID string
+	F  int
+	// Members is used in legacy (don-centric) format. In service-centric format it is
+	// only a fallback emitted as a single shard when Shards is empty.
+	Members []TargetDONMember
+	// Shards holds the members of each shard, ordered by shard index. Used only in
+	// service-centric format; a non-sharded DON has a single shard.
+	Shards   [][]TargetDONMember
 	Handlers []string // used only in legacy (don-centric) format
 }
 
@@ -280,14 +285,22 @@ func (g GatewayJob) buildLegacyDons() ([]legacyDON, error) {
 func (g GatewayJob) buildServicesAndShardedDONs() ([]shardedDON, []service, error) {
 	shardedDONs := make([]shardedDON, len(g.DONs))
 	for i, don := range g.DONs {
-		nodes := make([]member, len(don.Members))
-		for j, mem := range don.Members {
-			nodes[j] = member(mem)
+		shardMembers := don.Shards
+		if len(shardMembers) == 0 {
+			shardMembers = [][]TargetDONMember{don.Members}
+		}
+		shards := make([]shard, len(shardMembers))
+		for j, members := range shardMembers {
+			nodes := make([]member, len(members))
+			for k, mem := range members {
+				nodes[k] = member(mem)
+			}
+			shards[j] = shard{Nodes: nodes}
 		}
 		shardedDONs[i] = shardedDON{
 			DonName: don.ID,
 			F:       don.F,
-			Shards:  []shard{{Nodes: nodes}},
+			Shards:  shards,
 		}
 	}
 

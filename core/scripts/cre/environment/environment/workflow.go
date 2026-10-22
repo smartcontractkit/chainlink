@@ -43,24 +43,6 @@ func workflowCmds() *cobra.Command {
 	return workflowCmd
 }
 
-func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress string, contractsVersion *semver.Version) error {
-	sethClient, err := newSethClient(rpcURL)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("\n⚙️ Deleting all workflows from the workflow registry\n\n")
-
-	deleteErr := creworkflow.DeleteAllWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddress), contractsVersion)
-	if deleteErr != nil {
-		return errors.Wrapf(deleteErr, "❌ failed to delete all workflows from the registry %s", workflowRegistryAddress)
-	}
-
-	fmt.Printf("\n✅ All workflows deleted from the workflow registry\n\n")
-
-	return nil
-}
-
 func compileWorkflowCmd() *cobra.Command {
 	var (
 		workflowFilePathFlag string
@@ -511,28 +493,6 @@ func deployWorkflow(
 	}
 
 	return nil
-}
-
-func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, workflowDonNameFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL string, workflowRegistryVersion, capabilitiesRegistryVersion *semver.Version, donIDFlag uint32, donFamily string) error {
-	compressedWorkflowWasmPath, compileErr := compileWorkflow(ctx, workflowFilePathFlag, workflowNameFlag)
-	if compileErr != nil {
-		return errors.Wrap(compileErr, "❌ failed to compile workflow")
-	}
-
-	resolver, resolverErr := TryLoadLocalCREStateResolver()
-	if resolverErr != nil {
-		return errors.Wrap(resolverErr, "failed to load local CRE state")
-	}
-	donSelector := workflowDONSelector{
-		ExplicitName: workflowDonNameFlag,
-		DonFamily:    donFamily,
-	}
-	nodeDBPort, nodeCount, nodeInfoErr := resolveWorkflowDONNodeInfo(resolver, donSelector)
-	if nodeInfoErr != nil {
-		return nodeInfoErr
-	}
-
-	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, donFamily, true, nodeDBPort, nodeCount)
 }
 
 // newSethClient creates a Seth client for rpcURL, ensuring PRIVATE_KEY is set in the
