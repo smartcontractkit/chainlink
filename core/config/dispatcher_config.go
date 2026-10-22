@@ -1,5 +1,7 @@
 package config
 
+// Deprecated: has no effect. Rate limiting is now configured via cresettings
+// DispatcherGlobalRate/DispatcherPerSenderRate instead.
 type DispatcherRateLimit interface {
 	GlobalRPS() float64
 	GlobalBurst() int
@@ -9,5 +11,7 @@ type DispatcherRateLimit interface {
 
 type Dispatcher interface {
 	ReceiverBufferSize() int
+	// Deprecated: has no effect. Rate limiting is now configured via cresettings
+	// DispatcherGlobalRate/DispatcherPerSenderRate instead.
 	RateLimit() DispatcherRateLimit
 }

@@ -17,11 +17,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
-var _ services.Service = (*ManualHTTPTriggerService)(nil)
-var _ httpserver.HTTPCapability = (*ManualHTTPTriggerService)(nil)
+var (
+	_ services.Service          = (*ManualHTTPTriggerService)(nil)
+	_ httpserver.HTTPCapability = (*ManualHTTPTriggerService)(nil)
+)
 
-const HTTPTriggerServiceName = "HttpTriggerService"
-const HTTPTriggerID = "http-trigger@1.0.0-alpha"
+const (
+	HTTPTriggerServiceName = "HttpTriggerService"
+	HTTPTriggerID          = "http-trigger@1.0.0-alpha"
+)
 
 var manualHTTPTriggerInfo = capabilities.MustNewCapabilityInfo(
 	HTTPTriggerID,
@@ -32,8 +36,9 @@ var manualHTTPTriggerInfo = capabilities.MustNewCapabilityInfo(
 type ManualHTTPTriggerService struct {
 	capabilities.CapabilityInfo
 
-	lggr    logger.Logger
-	gateway *gateway.LocalGateway
+	lggr         logger.Logger
+	gateway      *gateway.LocalGateway
+	eventEmitter *events.Emitter
 
 	callbackCh  map[string]chan capabilities.TriggerAndId[*httptypedapi.Payload]
 	workflowIDs map[string]string // triggerID -> workflowID mapping
@@ -47,12 +52,19 @@ func NewManualHTTPTriggerService(parentLggr logger.Logger, gatewayConfig gateway
 	return &ManualHTTPTriggerService{
 		CapabilityInfo: manualHTTPTriggerInfo,
 
-		lggr:    lggr,
-		gateway: localGateway,
+		lggr:         lggr,
+		gateway:      localGateway,
+		eventEmitter: events.DefaultEmitter(),
 
 		callbackCh:  make(map[string]chan capabilities.TriggerAndId[*httptypedapi.Payload]),
 		workflowIDs: make(map[string]string),
 		inputs:      make(map[string]*httptypedapi.Config),
+	}
+}
+
+func (f *ManualHTTPTriggerService) SetEventEmitter(e *events.Emitter) {
+	if e != nil {
+		f.eventEmitter = e
 	}
 }
 
@@ -68,7 +80,7 @@ func (f *ManualHTTPTriggerService) UnregisterTrigger(ctx context.Context, trigge
 	return nil
 }
 
-func (f *ManualHTTPTriggerService) AckEvent(ctx context.Context, triggerID string, eventID string, method string) caperrors.Error {
+func (f *ManualHTTPTriggerService) AckEvent(ctx context.Context, triggerID, eventID, method string) caperrors.Error {
 	return nil
 }
 
@@ -110,7 +122,7 @@ func (f *ManualHTTPTriggerService) ManualTrigger(ctx context.Context, triggerID 
 		f.lggr.Errorw("failed to generate execution ID", "err", err)
 		workflowExecutionID = ""
 	}
-	err = events.EmitTriggerExecutionStarted(ctx, map[string]string{}, triggerEventID, workflowExecutionID)
+	err = f.eventEmitter.EmitTriggerExecutionStarted(ctx, map[string]string{}, triggerEventID, workflowExecutionID)
 	if err != nil {
 		f.lggr.Errorw("failed to emit trigger execution started event", "err", err)
 	}

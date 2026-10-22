@@ -1931,6 +1931,8 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 }
 
 func TestEngine_WASMBinary_With_Config(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -1983,7 +1985,9 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		giveName:   giveName,
 		giveNumber: giveNum,
 	}
-	beholderObserver := beholdertest.NewObserver(t)
+	rec := beholdertest.NewRecorder()
+	cfg.EventEmitter = workflowEvents.NewEmitter(rec, workflowEvents.WithNoDurableEmit())
+	cfg.BeholderEmitter = custmsg.NewLabelerWithEmitter(rec)
 
 	t.Run("OK received expected config", func(t *testing.T) {
 		t.Parallel()
@@ -2022,7 +2026,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 
 		require.Equal(t, execID, <-executionFinishedCh)
 
-		requireUserLogs(t, beholderObserver, []string{
+		requireUserLogs(t, rec, []string{
 			"onTrigger called",
 		})
 
@@ -3234,9 +3238,9 @@ func beholderBaseMessages(t *testing.T, rec *beholdertest.Recorder) []beholder.M
 	return rec.Messages(t, "beholder_entity", beholderEntityBaseMessage)
 }
 
-func beholderUserLogMessages(t *testing.T, observer beholdertest.Observer) []beholder.Message {
+func beholderUserLogMessages(t *testing.T, rec *beholdertest.Recorder) []beholder.Message {
 	t.Helper()
-	return observer.Messages(t, "beholder_entity", fmt.Sprintf("%s.%s", workflowEvents.ProtoPkg, workflowEvents.UserLogs))
+	return rec.Messages(t, "beholder_entity", fmt.Sprintf("%s.%s", workflowEvents.ProtoPkg, workflowEvents.UserLogs))
 }
 
 // eventLabelsMatchStatus returns observed BaseMessages and the label set still being
@@ -3367,8 +3371,7 @@ func userLogMatchStatus(msgs []beholder.Message, expectedSubstrings []string) (o
 	return observed, expectedSubstrings[nextToFind:]
 }
 
-// requireUserLogs fails the test if the expected user log messages are not eventually found in the beholder observer.
-func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expectedSubstrings []string) {
+func requireUserLogs(t *testing.T, rec *beholdertest.Recorder, expectedSubstrings []string) {
 	t.Helper()
 	if len(expectedSubstrings) == 0 {
 		return
@@ -3376,7 +3379,7 @@ func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expec
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		observed, missing := userLogMatchStatus(
-			beholderUserLogMessages(t, beholderObserver),
+			beholderUserLogMessages(t, rec),
 			expectedSubstrings,
 		)
 		if len(missing) > 0 {

@@ -377,6 +377,17 @@ type CCIPBridgeConfig struct {
 	Description string `json:"description"`
 }
 
+type CCIPUnwrapTokenChainConfig struct {
+	ExternalAddressTransfer string `json:"external_address_transfer,omitempty"`
+}
+
+type CCIPUnwrapTokenConfig struct {
+	Chains      map[uint64]CCIPUnwrapTokenChainConfig `json:"chains"`
+	TestEnabled bool                                  `json:"test_enabled"`
+
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config"`
+}
+
 // NormalizedSources returns Sources, or a single source built from the shorthand fields when Sources
 // is empty. It returns nil when neither form is set.
 func (c CCIPBridgeConfig) NormalizedSources() []CCIPBridgeSource {

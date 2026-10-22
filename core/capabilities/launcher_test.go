@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -1521,6 +1522,60 @@ func TestLauncher_ShardIdentityFromConfig(t *testing.T) {
 		require.Zero(t, l.shardIndex)
 		require.NoError(t, l.Start(t.Context()))
 		require.NoError(t, l.Close())
+	})
+}
+
+func TestConsensusSignersFor(t *testing.T) {
+	t.Parallel()
+
+	ocrCapConfig := func(t *testing.T, signers ...[]byte) regpkg.CapabilityConfiguration {
+		cfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
+				capabilitiespb.OCR3ConfigDefaultKey: {Signers: signers},
+			},
+		})
+		require.NoError(t, err)
+		return regpkg.CapabilityConfiguration{Config: cfg}
+	}
+	localRegistry := &regpkg.RegistryMetadata{
+		IDsToCapabilities: map[string]regpkg.Capability{
+			"consensus@1.0.0":    {ID: "consensus@1.0.0", CapabilityType: capabilities.CapabilityTypeConsensus},
+			"consensus@2.0.0":    {ID: "consensus@2.0.0", CapabilityType: capabilities.CapabilityTypeConsensus},
+			"dontime@1.0.0":      {ID: "dontime@1.0.0", CapabilityType: capabilities.CapabilityTypeAction},
+			"cron-trigger@1.0.0": {ID: "cron-trigger@1.0.0", CapabilityType: capabilities.CapabilityTypeTrigger},
+		},
+	}
+
+	t.Run("returns signers of the consensus capability", func(t *testing.T) {
+		t.Parallel()
+		don := regpkg.DON{CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{
+			"consensus@1.0.0":    ocrCapConfig(t, []byte("signer0"), []byte("signer1")),
+			"dontime@1.0.0":      ocrCapConfig(t, []byte("other")),
+			"cron-trigger@1.0.0": {Config: []byte{}},
+		}}
+		signers, err := consensusSignersFor(don, localRegistry)
+		require.NoError(t, err)
+		require.Equal(t, []ocrtypes.OnchainPublicKey{[]byte("signer0"), []byte("signer1")}, signers)
+	})
+
+	t.Run("fails without a consensus OCR3 config", func(t *testing.T) {
+		t.Parallel()
+		don := regpkg.DON{CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: []byte{}},
+			"dontime@1.0.0":   ocrCapConfig(t, []byte("other")),
+		}}
+		_, err := consensusSignersFor(don, localRegistry)
+		require.ErrorContains(t, err, "no consensus capability")
+	})
+
+	t.Run("fails with multiple consensus OCR3 configs", func(t *testing.T) {
+		t.Parallel()
+		don := regpkg.DON{CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{
+			"consensus@1.0.0": ocrCapConfig(t, []byte("signer0")),
+			"consensus@2.0.0": ocrCapConfig(t, []byte("signer1")),
+		}}
+		_, err := consensusSignersFor(don, localRegistry)
+		require.ErrorContains(t, err, "multiple consensus capabilities")
 	})
 }
 
