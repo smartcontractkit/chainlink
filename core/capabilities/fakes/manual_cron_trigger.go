@@ -75,6 +75,12 @@ func NewManualCronTriggerService(parentLggr logger.Logger) (*ManualCronTriggerSe
 	}, nil
 }
 
+func (f *ManualCronTriggerService) SetEventEmitter(e *events.Emitter) {
+	if e != nil {
+		f.eventEmitter = e
+	}
+}
+
 func (f *ManualCronTriggerService) Initialise(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
 	f.lggr.Debugf("Initialising %s", ServiceName)
 

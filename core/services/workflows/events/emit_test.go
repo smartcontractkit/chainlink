@@ -226,10 +226,7 @@ func TestEmitter_WithDurableEmit(t *testing.T) {
 	e = events.NewEmitter(rec, events.WithDurableEmit(func(context.Context, []byte, ...any) error { return durableErr }))
 	require.ErrorIs(t, e.EmitUserMetric(t.Context(), map[string]string{}, &eventsv2.WorkflowUserMetric{}), durableErr)
 
-	// A nil func keeps the default (global durable emitter): this must not panic.
-	// This sub-case intentionally hits durableemitter.GlobalEmit, which is not
-	// initialized in this package's tests, so it returns ErrNotInitialized
-	// (swallowed by emitRawMessage).
+	// Nil keeps the default durable emitter without panicking.
 	e = events.NewEmitter(rec, events.WithDurableEmit(nil))
 	require.NoError(t, e.EmitUserMetric(t.Context(), map[string]string{}, &eventsv2.WorkflowUserMetric{}))
 }

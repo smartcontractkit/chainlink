@@ -159,8 +159,7 @@ func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	}
 }
 
-// WithEventEmitter sets the emitter used for workflow status events.
-// Defaults to events.DefaultEmitter().
+// WithEventEmitter sets the workflow status emitter.
 func WithEventEmitter(e *events.Emitter) func(*eventHandler) {
 	return func(eh *eventHandler) {
 		eh.eventEmitter = e

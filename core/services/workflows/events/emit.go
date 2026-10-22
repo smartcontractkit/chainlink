@@ -21,9 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 
-// Emitter emits workflow platform events to beholder (and the durable emitter, if configured).
-// Construct with NewEmitter or DefaultEmitter, then inject concrete emitters with options.
-// Anything left unset falls back to a global emitter, resolved at emit time.
+// Emitter emits workflow platform events to beholder and optional durable sinks.
 type Emitter struct {
 	beholder beholder.Emitter
 	durable  func(ctx context.Context, body []byte, attrKVs ...any) error
@@ -32,8 +30,7 @@ type Emitter struct {
 // EmitterOption configures an Emitter.
 type EmitterOption func(*Emitter)
 
-// WithDurableEmit overrides the durable emit func. A nil fn keeps the default,
-// durableemitter.GlobalEmit, so callers can pass an optional emitter.
+// WithDurableEmit sets the durable emit func. Nil keeps the default.
 func WithDurableEmit(fn func(ctx context.Context, body []byte, attrKVs ...any) error) EmitterOption {
 	return func(e *Emitter) {
 		if fn != nil {
@@ -42,13 +39,12 @@ func WithDurableEmit(fn func(ctx context.Context, body []byte, attrKVs ...any) e
 	}
 }
 
-// WithNoDurableEmit disables the durable emitter, so events go to beholder only.
+// WithNoDurableEmit disables durable emission.
 func WithNoDurableEmit() EmitterOption {
 	return WithDurableEmit(func(context.Context, []byte, ...any) error { return nil })
 }
 
-// NewEmitter returns an Emitter writing to e. A nil e uses the global beholder
-// emitter (late-bound: each Emit resolves the current global).
+// NewEmitter returns an Emitter writing to e. Nil defaults to beholder.GlobalEmitter().
 func NewEmitter(e beholder.Emitter, opts ...EmitterOption) *Emitter {
 	if e == nil {
 		e = beholder.GlobalEmitter()
@@ -60,8 +56,7 @@ func NewEmitter(e beholder.Emitter, opts ...EmitterOption) *Emitter {
 	return em
 }
 
-// DefaultEmitter returns an Emitter writing to the global beholder emitter and
-// the global durable emitter, both late-bound per Emit.
+// DefaultEmitter returns an Emitter configured with global sinks.
 func DefaultEmitter() *Emitter {
 	return NewEmitter(nil)
 }
@@ -554,8 +549,6 @@ func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 	return hex.EncodeToString(s.Sum(nil)), nil
 }
 
-// emitProtoMessage marshals a proto.Message and emits it via the emitter's
-// beholder emitter and durable emitter.
 func (e *Emitter) emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	b, err := proto.Marshal(msg)
 	if err != nil {

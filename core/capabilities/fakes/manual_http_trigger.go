@@ -62,6 +62,12 @@ func NewManualHTTPTriggerService(parentLggr logger.Logger, gatewayConfig gateway
 	}
 }
 
+func (f *ManualHTTPTriggerService) SetEventEmitter(e *events.Emitter) {
+	if e != nil {
+		f.eventEmitter = e
+	}
+}
+
 // HTTPCapability interface methods
 func (f *ManualHTTPTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *httptypedapi.Config) (<-chan capabilities.TriggerAndId[*httptypedapi.Payload], caperrors.Error) {
 	f.inputs[triggerID] = input

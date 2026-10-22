@@ -366,8 +366,7 @@ func TestEngine_AdmissionDenial_StaysSilent(t *testing.T) {
 		Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_admission_denied"},
 	}
 
-	// The harness's recorder is private to this test, so foreign Started/Finished
-	// events from parallel engine tests cannot break the silence assertions below.
+	// Verify no events were emitted.
 	require.Never(t, func() bool {
 		started := harness.rec.Messages(t, "beholder_entity", v2ExecutionStartedEntity)
 		finished := harness.rec.Messages(t, "beholder_entity", v2ExecutionFinishedEntity)

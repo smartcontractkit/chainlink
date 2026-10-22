@@ -155,8 +155,7 @@ type options struct {
 	eventEmitter *wfEvents.Emitter
 }
 
-// WithEventEmitter sets the emitter used to emit metering reports.
-// A nil emitter keeps the default wfEvents.DefaultEmitter().
+// WithEventEmitter sets the metering report emitter. Nil keeps the default.
 func WithEventEmitter(e *wfEvents.Emitter) Option {
 	return func(o *options) {
 		if e != nil {

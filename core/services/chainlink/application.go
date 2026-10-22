@@ -472,8 +472,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", setupErr)
 		}
 		srvcs = append(srvcs, durableEmitter)
-		// Inject the concrete emitter so workflow events skip the global lookup.
-		// Errors are wrapped like durableemitter.GlobalEmit wraps them.
+		// Wrap durableEmitter to return ErrEmitFailed on error.
 		durableEmit = func(ctx context.Context, body []byte, attrKVs ...any) error {
 			if emitErr := durableEmitter.Emit(ctx, body, attrKVs...); emitErr != nil {
 				return fmt.Errorf("%w: %w", durableemitter.ErrEmitFailed, emitErr)

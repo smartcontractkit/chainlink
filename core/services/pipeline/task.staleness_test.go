@@ -15,9 +15,7 @@ import (
 func TestStalenessTask(t *testing.T) {
 	t.Parallel()
 
-	// Samples are stamped at call time, right before Run reads the clock.
-	// Capturing the reference time before the parallel subtests start lets
-	// scheduler delay inflate the observed age and break the assertions.
+	// Stamp samples per call to prevent clock drift in parallel subtests.
 	makeSamples := func() []pipeline.Result {
 		now := time.Now()
 		fresh := now.Add(-time.Second).UnixMilli()      // 1 second old
@@ -29,9 +27,7 @@ func TestStalenessTask(t *testing.T) {
 		}
 	}
 
-	// Helper running Run with a single sample at the given age. Uses approximate
-	// bounds because the sample's TsMs is captured here but Run calls time.Now()
-	// itself, introducing sub-ms drift between capture and use.
+	// Run task with a sample at the given age.
 	runAt := func(method string, age time.Duration, extra ...func(*pipeline.StalenessTask)) (decimal.Decimal, error) {
 		t.Helper()
 		task := pipeline.StalenessTask{

@@ -1932,7 +1932,6 @@ func Test_Handler_OrganizationID(t *testing.T) {
 			}
 		}
 	}()
-	// t.Cleanup (not defer) so parallel subtests can still use the server.
 	t.Cleanup(s.Stop)
 	linkingURL := lis.Addr().String()
 
@@ -1989,7 +1988,6 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	// Create gRPC client and orgResolver
 	conn, err := grpc.NewClient(linkingURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
-	// t.Cleanup (not defer) so parallel subtests can still use the connection.
 	t.Cleanup(func() { conn.Close() })
 
 	linkingClient := linkingclient.NewLinkingServiceClient(conn)
@@ -2001,7 +1999,6 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	}
 	orgResolver, err := orgresolver.NewOrgResolverWithClient(orgResolverConfig, linkingClient, lggr)
 	require.NoError(t, err)
-	// t.Cleanup (not defer) so parallel subtests can still use the resolver.
 	t.Cleanup(func() { orgResolver.Close() })
 
 	h, err := NewEventHandler(lggr, store, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},

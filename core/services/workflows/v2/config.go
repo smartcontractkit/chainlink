@@ -59,9 +59,7 @@ type EngineConfig struct {
 
 	BeholderEmitter custmsg.MessageEmitter
 
-	// EventEmitter emits workflow platform events. If nil, Validate defaults it
-	// to events.DefaultEmitter() (global beholder + global durable emitter,
-	// both resolved at emit time).
+	// EventEmitter emits workflow platform events. Defaults to events.DefaultEmitter().
 	EventEmitter *events.Emitter
 
 	Hooks         LifecycleHooks

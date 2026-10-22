@@ -3371,7 +3371,6 @@ func userLogMatchStatus(msgs []beholder.Message, expectedSubstrings []string) (o
 	return observed, expectedSubstrings[nextToFind:]
 }
 
-// requireUserLogs fails the test if the expected user log messages are not eventually found in the recorder.
 func requireUserLogs(t *testing.T, rec *beholdertest.Recorder, expectedSubstrings []string) {
 	t.Helper()
 	if len(expectedSubstrings) == 0 {
