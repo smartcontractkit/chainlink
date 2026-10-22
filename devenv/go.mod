@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/devenv
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/avast/retry-go/v4 v4.7.0
