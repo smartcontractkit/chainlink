@@ -11679,7 +11679,7 @@ LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '40m0s'
+NoNewFinalizedHeadsThreshold = '4h0m0s'
 
 [Transactions]
 Enabled = true
@@ -14499,7 +14499,7 @@ ChainType = 'scroll'
 FinalityDepth = 10
 SafeDepth = 0
 FinalityTagEnabled = true
-SafeTagSupported = true
+SafeTagSupported = false
 LinkContractAddress = '0x548C6944cba02B9D1C0570102c89de64D258d3Ac'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
