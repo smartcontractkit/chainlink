@@ -941,14 +941,7 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 		},
 	}
 
-	h.lggr.Debugw("Creating module for workflowID", "workflowID", workflowID)
-
-	module, err := host.NewModule(ctx, moduleConfig, binary)
-	if err != nil {
-		return nil, err
-	}
-
-	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
+	cachedSubs := h.parseCachedTriggerSubscriptions(workflowID, cachedTriggerSubs)
 
 	// Wrap the local WASM module in a RequirementSelectingModule that routes
 	// triggers with a TEE requirement to the ConfidentialModule (which delegates
@@ -961,7 +954,10 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create confidential module: %w", err)
 	}
-	engineModule := h.createEngineModule(ctx, workflowID, binary, moduleConfig, module)
+	engineModule, err := h.createEngineModule(ctx, workflowID, binary, moduleConfig, cachedSubs != nil)
+	if err != nil {
+		return nil, err
+	}
 	selectingModule := generichost.NewRequirementSelectingModule(
 		generichost.ModuleAndHandler{Module: engineModule},
 		[]generichost.ModuleAndHandler{{
@@ -971,7 +967,7 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 	)
 	cfg := h.newV2EngineConfig(ctx, selectingModule, workflowID, owner, tag, sdkName, name, config)
 
-	cfg.CachedTriggerSubscriptions = h.parseCachedTriggerSubscriptions(workflowID, cachedTriggerSubs)
+	cfg.CachedTriggerSubscriptions = cachedSubs
 	h.wireTriggerSubscriptionCacheHook(cfg, workflowID)
 
 	h.wireInitDoneHook(cfg, initDone)
@@ -1045,30 +1041,60 @@ func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, 
 	return engine, nil
 }
 
+// createEngineModule returns the engine's local module. With lazy set, and a
+// module store available, the WASM is not compiled until the first execution.
 func (h *eventHandler) createEngineModule(
 	ctx context.Context,
 	workflowID string,
 	binary []byte,
 	moduleConfig *host.ModuleConfig,
-	module generichost.Module,
-) generichost.Module {
-	engineModule := module
-	if h.moduleLRU != nil && h.moduleStore != nil {
-		storeStart := time.Now()
-		storeErr := h.moduleStore.StoreModule(workflowID, binary, h.moduleEngineVersion)
-		if h.metrics != nil {
-			h.metrics.recordModuleStore(ctx, time.Since(storeStart), storeErr == nil)
-		}
-		if storeErr != nil {
-			h.lggr.Warnw("Failed to cache module binary to disk, LRU eviction disabled for this workflow", "workflowID", workflowID, "err", storeErr)
-		} else {
-			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, h.moduleEngineVersion, nil, h.cacheMetrics, int64(len(binary)))
-			h.moduleLRU.Register(workflowID, evictable)
-			engineModule = evictable
+	lazy bool,
+) (generichost.Module, error) {
+	if lazy {
+		if evictable := h.newEvictableModule(ctx, workflowID, binary, moduleConfig, nil); evictable != nil {
+			h.lggr.Debugw("Deferring module compilation until first execution", "workflowID", workflowID)
+			return evictable, nil
 		}
 	}
 
-	return engineModule
+	h.lggr.Debugw("Creating module for workflowID", "workflowID", workflowID)
+	module, err := host.NewModule(ctx, moduleConfig, binary)
+	if err != nil {
+		return nil, err
+	}
+	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
+
+	if evictable := h.newEvictableModule(ctx, workflowID, binary, moduleConfig, module); evictable != nil {
+		return evictable, nil
+	}
+	return module, nil
+}
+
+// newEvictableModule persists the binary and registers an evictable wrapper
+// around module (nil means not yet loaded). It returns nil when eviction is
+// unavailable for this workflow.
+func (h *eventHandler) newEvictableModule(
+	ctx context.Context,
+	workflowID string,
+	binary []byte,
+	moduleConfig *host.ModuleConfig,
+	module generichost.Module,
+) *EvictableModule {
+	if h.moduleLRU == nil || h.moduleStore == nil {
+		return nil
+	}
+	storeStart := time.Now()
+	storeErr := h.moduleStore.StoreModule(workflowID, binary, h.moduleEngineVersion)
+	if h.metrics != nil {
+		h.metrics.recordModuleStore(ctx, time.Since(storeStart), storeErr == nil)
+	}
+	if storeErr != nil {
+		h.lggr.Warnw("Failed to cache module binary to disk, LRU eviction disabled for this workflow", "workflowID", workflowID, "err", storeErr)
+		return nil
+	}
+	evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, h.moduleEngineVersion, nil, h.cacheMetrics, int64(len(binary)))
+	h.moduleLRU.Register(workflowID, evictable)
+	return evictable
 }
 
 // stopEngine drains (returning ErrDrainInProgress while executions remain) and
