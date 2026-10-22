@@ -62,15 +62,23 @@ func (tp *DonTimeProvider) GetDONTime() (time.Time, error) {
 	}()
 
 	tp.recordDonTimeCall()
-
+	//TODO remove these
+	tp.lggr.Infow("Requesting DON Time", "executionID", tp.workflowExecutionID, "seqNum", tp.timeSeqNum)
 	ch := tp.donTimeStore.RequestDonTime(tp.workflowExecutionID, tp.timeSeqNum)
 	timer := tp.clock.NewTimer(tp.requestTimeout)
 	defer timer.Stop()
 
 	select {
 	case donTimeResp := <-ch:
-		return tp.donTimeFromResponse(donTimeResp)
+		ts, err := tp.donTimeFromResponse(donTimeResp)
+		if err != nil {
+			tp.lggr.Errorw("Received DON Time error response", "executionID", tp.workflowExecutionID, "seqNum", tp.timeSeqNum, "error", err)
+		} else {
+			tp.lggr.Infow("Received DON Time response", "executionID", tp.workflowExecutionID, "seqNum", tp.timeSeqNum, "ts", ts)
+		}
+		return ts, err
 	case <-timer.Chan():
+		tp.lggr.Errorw("DON Time request timed out", "executionID", tp.workflowExecutionID, "seqNum", tp.timeSeqNum)
 		tp.donTimeStore.RemoveRequest(tp.workflowExecutionID)
 		tp.recordDonTimeTimeout()
 		return tp.donTimeFromResponse(dontime.Response{
