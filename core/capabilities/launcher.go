@@ -60,7 +60,7 @@ type launcher struct {
 	localCapMgr         localcapmgr.LocalCapabilityManager
 
 	// durableEmit persists events emitted by remote executable clients (e.g. the
-	// transmission schedule). Empty falls back to durableemitter.GlobalEmit.
+	// transmission schedule). Nil falls back to durableemitter.GlobalEmit.
 	durableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
 
 	// shardingEnabled and shardIndex carry this node's local shard identity,
@@ -117,6 +117,15 @@ type shimID struct {
 
 // TODO: add metric handler and instrument all the internal log.Error calls
 
+// LauncherOption configures a launcher.
+type LauncherOption func(*launcher)
+
+// WithDurableEmit sets the durable emit func remote executable clients use for
+// transmission schedule events. Nil keeps the default, durableemitter.GlobalEmit.
+func WithDurableEmit(fn func(ctx context.Context, body []byte, attrKVs ...any) error) LauncherOption {
+	return func(l *launcher) { l.durableEmit = fn }
+}
+
 // NewLauncher creates a new capabilities launcher.
 // don2donSharedPeer is required; it provides the node's peer ID and manages DON-to-DON connections.
 func NewLauncher(
@@ -129,7 +138,7 @@ func NewLauncher(
 	limitsFactory limits.Factory,
 	shardingEnabled bool,
 	shardIndex uint16,
-	durableEmit func(ctx context.Context, body []byte, attrKVs ...any) error,
+	opts ...LauncherOption,
 ) (*launcher, error) {
 	if don2donSharedPeer == nil {
 		return nil, errors.New("don2donSharedPeer is required")
@@ -164,7 +173,7 @@ func NewLauncher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create propagate org ID gate limiter: %w", err)
 	}
-	return &launcher{
+	l := &launcher{
 		lggr:       logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		dispatcher: dispatcher,
 		cachedShims: cachedShims{
@@ -184,9 +193,12 @@ func NewLauncher(
 		propagateOrgIDGate:     propagateOrgIDGate,
 		shardingEnabled:        shardingEnabled,
 		shardIndex:             shardIndex,
-		durableEmit:            durableEmit,
 		stopCh:                 make(services.StopChan),
-	}, nil
+	}
+	for _, opt := range opts {
+		opt(l)
+	}
+	return l, nil
 }
 
 func (w *launcher) publicDONs(

@@ -561,6 +561,7 @@ func Test_Client_Execute_InjectsDurableEmit(t *testing.T) {
 			return nil
 		}))
 	require.NoError(t, client.SetConfig(capInfo, donInfo, time.Minute, nil, 0))
+	servicetest.Run(t, client)
 
 	// Cancel up front: Execute emits the transmission schedule before it waits
 	// for a response quorum, so the durable sink must have been called by then.
