@@ -19,6 +19,12 @@ var (
 
 type Vars struct {
 	vars map[string]any
+	// timestamps records the source timestamp (unix ms) of each task's result,
+	// keyed by dotID. Zero means unknown. Written by the scheduler as results
+	// are reported, and read by aggregation tasks (see the median staleness
+	// gate). Like vars, it is only mutated in the scheduler's Run loop, and
+	// copies handed to tasks are snapshots.
+	timestamps map[string]uint64
 }
 
 // NewVarsFrom creates new Vars from the given map.
@@ -27,7 +33,7 @@ func NewVarsFrom(m map[string]any) Vars {
 	if m == nil {
 		m = make(map[string]any)
 	}
-	return Vars{vars: m}
+	return Vars{vars: m, timestamps: make(map[string]uint64)}
 }
 
 // Get returns the value for the given keypath or error.
@@ -83,11 +89,29 @@ func (vars Vars) Set(dotID string, value any) error {
 	return nil
 }
 
+// SetTimestamp records the source timestamp (unix ms) of a task's result,
+// keyed by dotID. Zero means unknown.
+func (vars Vars) SetTimestamp(dotID string, timestamp uint64) {
+	if timestamp == 0 {
+		// Unknown timestamps are never consulted, so there is nothing to record.
+		return
+	}
+	vars.timestamps[dotID] = timestamp
+}
+
+// GetTimestamp returns the recorded source timestamp for a task's dotID.
+// Zero means unknown (never recorded or unknown).
+func (vars Vars) GetTimestamp(dotID string) uint64 {
+	return vars.timestamps[dotID]
+}
+
 // Copy makes a copy of Vars by copying the underlying map.
 // Used by scheduler for new tasks to avoid data races.
 func (vars Vars) Copy() Vars {
 	newVars := make(map[string]any)
 	// No need to copy recursively, because only the top-level map is mutable (see Set()).
 	maps.Copy(newVars, vars.vars)
-	return NewVarsFrom(newVars)
+	newTimestamps := make(map[string]uint64, len(vars.timestamps))
+	maps.Copy(newTimestamps, vars.timestamps)
+	return Vars{vars: newVars, timestamps: newTimestamps}
 }
