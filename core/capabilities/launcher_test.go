@@ -1541,3 +1541,83 @@ func TestWithoutLocallyHostedCapabilities(t *testing.T) {
 	got = filterLocalCapabilitiesFromRemote([]regpkg.DON{remote}, nil)
 	assert.Len(t, got[0].CapabilityConfigurations, 2)
 }
+
+// A chain capability DON mistakenly configured as a workflow DON (AcceptsWorkflows=true) hosts a capability
+// locally. When another DON in the same family is later given a config for the same capability, the node must
+// keep serving its local capability and must not try to add a remote shim for the duplicate.
+func TestLauncher_OnNewRegistry_PrefersLocalCapabilityOverDuplicateInFamily(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	reg := regpkg.NewRegistry(lggr)
+	fullTriggerCapID := "streams-trigger@1.0.0"
+	mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
+		fullTriggerCapID,
+		capabilities.CapabilityTypeTrigger,
+		"streams trigger",
+	))
+	require.NoError(t, reg.Add(t.Context(), mt))
+
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	misconfiguredDonNodes, remoteWorkflowDonNodes, capabilityDonNodes := newNodes(4), newNodes(4), newNodes(4)
+	triggerCapIDHash := RandomUTF8BytesWord()
+	misconfiguredDonID := uint32(1)
+	remoteWfDonID := uint32(2)
+	capDonID := uint32(3)
+
+	triggerCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"StreamsTrigger": {
+				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+						RegistrationRefresh:     durationpb.New(1 * time.Second),
+						MinResponsesToAggregate: 3,
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	localRegistry := buildLocalRegistry()
+	// The misconfigured DON: hosts the capability but also accepts workflows.
+	addDON(localRegistry, misconfiguredDonID, 0, 1, true, true, misconfiguredDonNodes, []string{"zone-a"}, 1, [][32]byte{triggerCapIDHash})
+	addCapabilityToDON(localRegistry, misconfiguredDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
+	// A genuine remote workflow DON that consumes the capability from this node.
+	addDON(localRegistry, remoteWfDonID, 0, 1, true, true, remoteWorkflowDonNodes, []string{"zone-a"}, 1, nil)
+	// A second in-family DON gets a config for the same capability.
+	addDON(localRegistry, capDonID, 0, 1, true, false, capabilityDonNodes, []string{"zone-a"}, 1, [][32]byte{triggerCapIDHash})
+	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
+
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(misconfiguredDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	launcher, err := NewLauncher(
+		lggr,
+		sharedPeer,
+		nil,
+		dispatcher,
+		reg,
+		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
+	)
+	require.NoError(t, err)
+	servicetest.Run(t, launcher)
+
+	// Only the local publisher is set up. A receiver for the duplicate on capDonID would fail the mock.
+	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, misconfiguredDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerPublisher")).Return(nil).Once()
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+
+	assert.Empty(t, launcher.cachedShims.combinedClients, "no remote shim for a locally hosted capability")
+	assert.Len(t, launcher.cachedShims.triggerPublishers, 1)
+
+	got, err := reg.Get(t.Context(), fullTriggerCapID)
+	require.NoError(t, err)
+	info, err := got.Info(t.Context())
+	require.NoError(t, err)
+	assert.True(t, info.IsLocal, "the locally hosted capability must stay registered")
+	assert.Nil(t, info.DON)
+}
