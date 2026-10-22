@@ -641,3 +641,71 @@ func whitelistContains(entries []WhitelistEntry, addr string) bool {
 	}
 	return false
 }
+
+func validateUnwrapChangesetConfig(e cldf.Environment, cfg types.CCIPUnwrapTokenConfig) error {
+	if cfg.MCMSConfig == nil {
+		return errors.New("MCMS Config cannot be nil")
+	}
+
+	if len(cfg.Chains) == 0 {
+		return errors.New("chains cannot be empty")
+	}
+
+	evmChains := e.BlockChains.EVMChains()
+	for chainSelector := range cfg.Chains {
+		if _, ok := evmChains[chainSelector]; !ok {
+			return fmt.Errorf("chain %d not found in environment", chainSelector)
+		}
+	}
+
+	for chainSelector, chainConfig := range cfg.Chains {
+		address := chainConfig.ExternalAddressTransfer
+		if address == "" {
+			continue
+		}
+
+		if !common.IsHexAddress(address) {
+			return fmt.Errorf(
+				"invalid transfer address %q for chain %d",
+				address, chainSelector,
+			)
+		}
+
+		recipient := common.HexToAddress(address)
+		if recipient == (common.Address{}) {
+			return fmt.Errorf(
+				"transfer address cannot be zero for chain %d",
+				chainSelector,
+			)
+		}
+
+		whitelist, err := GetWhitelistedAddresses(
+			e,
+			[]uint64{chainSelector},
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to read whitelist for chain %d: %w",
+				chainSelector, err,
+			)
+		}
+
+		found := false
+		for _, entry := range whitelist[chainSelector] {
+			if common.IsHexAddress(entry.Address) &&
+				common.HexToAddress(entry.Address) == recipient {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return fmt.Errorf(
+				"address %s is not whitelisted for chain %d",
+				recipient.Hex(), chainSelector,
+			)
+		}
+	}
+
+	return nil
+}
