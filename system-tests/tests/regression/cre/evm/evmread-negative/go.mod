@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/ethereum/go-ethereum v1.17.4
