@@ -171,7 +171,7 @@ func storageInput(ext *envconfig.Extensions, output *creenv.SetupOutput, donFami
 	}
 
 	return &storage.Input{
-		ComposeFile:           ext.StorageCompose,
+		ComposeFile:           "file://" + ext.StorageCompose,
 		Network:               framework.DefaultNetworkName,
 		RegistryRPCURL:        rpcURL,
 		RegistryChainSelector: selector,
