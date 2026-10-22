@@ -933,12 +933,7 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 		MaxUserMetricNameLengthLimiter:       h.engineLimiters.UserMetricNameLength,
 		MaxUserMetricLabelsPerMetricLimiter:  h.engineLimiters.UserMetricLabelsPerMetric,
 		MaxUserMetricLabelValueLengthLimiter: h.engineLimiters.UserMetricLabelValueLength,
-		SdkLabeler: func(name string) {
-			sdkName = name
-			h.emitterMu.Lock()
-			h.emitter = h.emitter.With(platform.KeySDK, name)
-			h.emitterMu.Unlock()
-		},
+		SdkLabeler: func(name string) { sdkName = name },
 	}
 
 	cachedSubs := h.parseCachedTriggerSubscriptions(workflowID, cachedTriggerSubs)
@@ -969,6 +964,9 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 		}},
 	)
 	cfg := h.newV2EngineConfig(ctx, selectingModule, workflowID, owner, tag, sdkName, name, config)
+	if sdkName != "" {
+		cfg.BeholderEmitter = cfg.BeholderEmitter.With(platform.KeySDK, sdkName)
+	}
 
 	cfg.CachedTriggerSubscriptions = cachedSubs
 	h.wireTriggerSubscriptionCacheHook(cfg, workflowID, cachedSdkName)
