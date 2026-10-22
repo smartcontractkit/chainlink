@@ -3,8 +3,8 @@ package tron_test
 import (
 	"testing"
 
-	"github.com/fbsobreira/gotron-sdk/pkg/address"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk/pkg/address"
 	"github.com/stretchr/testify/require"
 
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
