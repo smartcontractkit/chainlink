@@ -54,6 +54,8 @@ func (w WorkflowID) Equal(o WorkflowID) bool {
 	return w.Hex() == o.Hex()
 }
 
+// WorkflowIDFromHex parses a workflow ID in the canonical form (e.g., 64 lowercase hex
+// characters with no "0x" prefix). Any other spelling is rejected.
 func WorkflowIDFromHex(h string) (WorkflowID, error) {
 	b, err := hex.DecodeString(h)
 	if err != nil {
@@ -64,7 +66,13 @@ func WorkflowIDFromHex(h string) (WorkflowID, error) {
 		return [32]byte{}, fmt.Errorf("invalid workflow id: incorrect length, expected 32, got %d", len(b))
 	}
 
-	return WorkflowID([32]byte(b)), nil
+	// assert that the encoded string matches the input string
+	wid := WorkflowID([32]byte(b))
+	if wid.Hex() != h {
+		return [32]byte{}, fmt.Errorf("invalid workflow id %q: must be lowercase hex", h)
+	}
+
+	return wid, nil
 }
 
 // expects a hex-encoded [20]byte string, no "0x" prefix
