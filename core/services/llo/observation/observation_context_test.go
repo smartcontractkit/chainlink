@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -327,7 +329,7 @@ result3 -> result3_parse -> multiply3;
 		}, val.(*lloprotocol.Quote))
 	})
 
-	t.Run("an invalid job-level quote fails the tagged streams of the same pipeline", func(t *testing.T) {
+	t.Run("an invalid job-level quote is not validated and does not fail the tagged streams", func(t *testing.T) {
 		t.Parallel()
 		badJobStreamID := streams.StreamID(15)
 		jb := job.Job{
@@ -358,15 +360,20 @@ result3 -> multiply3;
 		oc := newObservationContext(lggr, badReg, &mockTelemeter{})
 		opts := llov30.DSOpts(nil)
 
-		// The quote is only assembled for the job-level stream, but the whole set
-		// fails: the tagged streams come from the same pipeline run.
-		for _, sid := range []streams.StreamID{11, 12, 13, badJobStreamID} {
+		// Only tagged values are validated, so the tagged streams succeed.
+		for _, sid := range []streams.StreamID{11, 12, 13} {
 			val, err := oc.Observe(ctx, sid, opts)
-			assert.Nil(t, val, "stream %d should have no value", sid)
-			var qerr QuoteInvariantError
-			require.ErrorAs(t, err, &qerr, "stream %d", sid)
-			assert.Equal(t, badJobStreamID, qerr.StreamID)
+			require.NoError(t, err, "stream %d", sid)
+			assert.IsType(t, &lloprotocol.Decimal{}, val, "stream %d", sid)
 		}
+
+		// The job-level quote is assembled from the terminal outputs and returned
+		// as is.
+		val, err := oc.Observe(ctx, badJobStreamID, opts)
+		require.NoError(t, err)
+		q, ok := val.(*lloprotocol.Quote)
+		require.True(t, ok, "expected *lloprotocol.Quote, got %T", val)
+		assert.False(t, q.IsValid())
 	})
 }
 
@@ -541,6 +548,198 @@ func makeLegacyQuotePipeline(benchmark, bid, ask string) *mockPipeline {
 	return &mockPipeline{run: &pipeline.Run{}, trrs: trrs}
 }
 
+// makeNamedQuotePipeline returns a pipeline for jobStreamID whose terminal
+// outputs, at index 0, 1 and 2, are multiply tasks with the given DOT IDs and
+// values. If tags is given, the terminal outputs are tagged with those stream
+// IDs in the same order.
+func makeNamedQuotePipeline(t *testing.T, jobStreamID streams.StreamID, tags []streams.StreamID, names [3]string, v0, v1, v2 string) *mockPipeline {
+	t.Helper()
+	return makeNamedTerminalsPipeline(t, jobStreamID, tags, names[:], []string{v0, v1, v2})
+}
+
+// makeNamedTerminalsPipeline returns a pipeline for jobStreamID whose terminal
+// outputs, in index order, are multiply tasks with the given DOT IDs and values,
+// each over a jsonparse. If tags is given, the terminal outputs are tagged with
+// those stream IDs in the same order.
+func makeNamedTerminalsPipeline(t *testing.T, jobStreamID streams.StreamID, tags []streams.StreamID, names, values []string) *mockPipeline {
+	t.Helper()
+	var dag strings.Builder
+	dag.WriteString("ds [type=memo value=\"{}\"];\n")
+	for i, name := range names {
+		tag := ""
+		if tags != nil {
+			tag = fmt.Sprintf(" streamID=%d", tags[i])
+		}
+		fmt.Fprintf(&dag, "parse_%d [type=jsonparse path=\"data,%d\"];\n", i, i)
+		fmt.Fprintf(&dag, "%s [type=multiply times=1 index=%d%s];\n", name, i, tag)
+		fmt.Fprintf(&dag, "ds -> parse_%d -> %s;\n", i, name)
+	}
+	p, err := pipeline.Parse(dag.String())
+	require.NoError(t, err)
+	var trrs pipeline.TaskRunResults
+	for i, name := range names {
+		task := p.ByDotID(name)
+		require.NotNil(t, task, name)
+		trrs = append(trrs, pipeline.TaskRunResult{Task: task, Result: pipeline.Result{Value: decimal.RequireFromString(values[i])}})
+	}
+	streamIDs := append(slices.Clone(tags), jobStreamID)
+	return &mockPipeline{run: &pipeline.Run{}, trrs: trrs, streamIDs: streamIDs, terminalDotIDs: streams.TerminalDotIDs(p)}
+}
+
+// makeMedianQuotePipeline returns a pipeline for jobStreamID shaped like the
+// feeds-manager quote template: one bridge per entry of sourcePaths, each
+// parsed into Benchmark, Bid and Ask with that entry's paths, feeding three
+// terminal median tasks. If tags is given, the medians are tagged with those
+// stream IDs in Benchmark, Bid, Ask order.
+func makeMedianQuotePipeline(t *testing.T, jobStreamID streams.StreamID, tags []streams.StreamID, sourcePaths [][3]string, benchmark, bid, ask string) *mockPipeline {
+	t.Helper()
+	fields := [3]string{"benchmark", "bid", "ask"}
+	var dag strings.Builder
+	for i, paths := range sourcePaths {
+		fmt.Fprintf(&dag, "ds%d_payload [type=memo value=\"{}\"];\n", i)
+		for j, field := range fields {
+			fmt.Fprintf(&dag, "ds%d_%s [type=jsonparse path=\"%s\"];\n", i, field, paths[j])
+			fmt.Fprintf(&dag, "ds%d_payload -> ds%d_%s -> %s_price;\n", i, i, field, field)
+		}
+	}
+	for j, field := range fields {
+		tag := ""
+		if tags != nil {
+			tag = fmt.Sprintf(" streamID=%d", tags[j])
+		}
+		fmt.Fprintf(&dag, "%s_price [type=median allowedFaults=1 index=%d%s];\n", field, j, tag)
+	}
+	p, err := pipeline.Parse(dag.String())
+	require.NoError(t, err)
+	values := [3]string{benchmark, bid, ask}
+	var trrs pipeline.TaskRunResults
+	for j, field := range fields {
+		task := p.ByDotID(field + "_price")
+		require.NotNil(t, task, field)
+		trrs = append(trrs, pipeline.TaskRunResult{Task: task, Result: pipeline.Result{Value: decimal.RequireFromString(values[j])}})
+	}
+	streamIDs := append(slices.Clone(tags), jobStreamID)
+	return &mockPipeline{run: &pipeline.Run{}, trrs: trrs, streamIDs: streamIDs, terminalDotIDs: streams.TerminalDotIDs(p)}
+}
+
+// makePerpsPriceQuotePipeline returns a pipeline for jobStreamID shaped like
+// the feeds-manager perps price template: two venues sampled per field,
+// optionally normalized by USDC/USDT conversion factors, decayed by staleness,
+// then aggregated into wm_mid, wm_bid and wm_ask, tagged with tags in that
+// order. bid and ask are anchored against the winsorized mid.
+func makePerpsPriceQuotePipeline(t *testing.T, jobStreamID streams.StreamID, tags [3]streams.StreamID, normalize bool, benchmark, bid, ask string) *mockPipeline {
+	t.Helper()
+	fields := [3]string{"mid", "bid", "ask"}
+	venues := [2]string{"hyperliquid", "binance"}
+	var dag strings.Builder
+	if normalize {
+		for _, f := range [2]string{"usdc", "usdt"} {
+			fmt.Fprintf(&dag, "fetch_%s [type=bridge name=\"bridge-data-engine\" requestData=<{\"data\":{\"endpoint\":\"crypto-v3\"}}> cacheTTL=\"300s\"]\n", f)
+			fmt.Fprintf(&dag, "%s_factor [type=sample input=\"$(fetch_%s)\" source=\"%s\" weight=\"1\" valuePath=\"data,price\" tsPath=\"timestamps,providerDataReceivedUnixMs\" decimals=\"18\"]\n", f, f, strings.ToUpper(f))
+		}
+	}
+	for _, v := range venues {
+		fmt.Fprintf(&dag, "fetch_%s [type=bridge name=\"bridge-coinpaprika\" requestData=<{\"data\":{\"endpoint\":\"markprice\"}}> cacheTTL=\"300s\"]\n", v)
+		for _, f := range fields {
+			fmt.Fprintf(&dag, "%s_%s [type=sample input=\"$(fetch_%s)\" source=\"%s\" weight=\"1\" unit=\"USDT\" valuePath=\"data,%s\" tsPath=\"timestamps,providerDataReceivedUnixMs\"]\n", v, f, v, v, f)
+		}
+	}
+	for _, f := range fields {
+		samples := fmt.Sprintf("[$(hyperliquid_%s), $(binance_%s)]", f, f)
+		if normalize {
+			fmt.Fprintf(&dag, "norm_%s [type=normalize samples=\"%s\" unitMap=<{\"USDC\":$(usdc_factor),\"USDT\":$(usdt_factor)}> targetUnit=\"USD\" enabled=\"true\" onMissingRate=\"error\"]\n", f, samples)
+			samples = fmt.Sprintf("$(norm_%s)", f)
+		}
+		fmt.Fprintf(&dag, "stale_%s [type=staleness samples=\"%s\" method=\"exp_cooldown\" threshold=\"60s\" halfLife=\"5s\" decayThreshold=\"0.03\" cutoff=\"300s\"]\n", f, samples)
+	}
+	fmt.Fprintf(&dag, "winsor_mid [type=weightedmean samples=\"$(stale_mid)\" method=\"winsor_samples\" band=\"0.03\"]\n")
+	fmt.Fprintf(&dag, "wm_mid [type=weightedmean samples=\"$(winsor_mid)\" minWeightMass=\"1\" streamID=%d index=0]\n", tags[0])
+	fmt.Fprintf(&dag, "wm_bid [type=anchor reference=\"$(winsor_mid)\" low=\"$(stale_bid)\" high=\"$(stale_ask)\" select=\"low\" minWeightMass=\"1\" streamID=%d index=1]\n", tags[1])
+	fmt.Fprintf(&dag, "wm_ask [type=anchor reference=\"$(winsor_mid)\" low=\"$(stale_bid)\" high=\"$(stale_ask)\" select=\"high\" minWeightMass=\"1\" streamID=%d index=2]\n", tags[2])
+	if normalize {
+		for _, fa := range [2]string{"usdc", "usdt"} {
+			for _, f := range fields {
+				fmt.Fprintf(&dag, "fetch_%s -> %s_factor -> norm_%s\n", fa, fa, f)
+			}
+		}
+	}
+	for _, v := range venues {
+		for _, f := range fields {
+			if normalize {
+				fmt.Fprintf(&dag, "fetch_%s -> %s_%s -> norm_%s -> stale_%s -> wm_%s\n", v, v, f, f, f, f)
+			} else {
+				fmt.Fprintf(&dag, "fetch_%s -> %s_%s -> stale_%s -> wm_%s\n", v, v, f, f, f)
+			}
+		}
+	}
+	p, err := pipeline.Parse(dag.String())
+	require.NoError(t, err)
+	values := [3]string{benchmark, bid, ask}
+	var trrs pipeline.TaskRunResults
+	for i, f := range fields {
+		task := p.ByDotID("wm_" + f)
+		require.NotNil(t, task, f)
+		trrs = append(trrs, pipeline.TaskRunResult{Task: task, Result: pipeline.Result{Value: decimal.RequireFromString(values[i])}})
+	}
+	require.Len(t, trrs.Terminals(), 3)
+	return &mockPipeline{run: &pipeline.Run{}, trrs: trrs, streamIDs: append(tags[:], jobStreamID), terminalDotIDs: streams.TerminalDotIDs(p)}
+}
+
+// makeDexCrossQuotePipeline returns a pipeline for jobStreamID shaped like the
+// feeds-manager dex cross exchange template: two market rate sources parsed
+// into Benchmark, Bid and Ask, aggregated by median, then converted by an
+// exchange rate referenced through multiply times.
+func makeDexCrossQuotePipeline(t *testing.T, jobStreamID streams.StreamID, benchmark, bid, ask string) *mockPipeline {
+	t.Helper()
+	p, err := pipeline.Parse(`
+exchange_rate [type=bridge name="bridge-x" requestData="{}"];
+exchange_rate_parse [type=jsonparse path="result"];
+exchange_rate_value [type=multiply input="$(exchange_rate_parse)" times=1];
+exchange_rate -> exchange_rate_parse -> exchange_rate_value;
+
+ds1_market_rate_payload [type=bridge name="bridge-y" requestData="{}"];
+ds1_market_rate_benchmark [type=jsonparse path="data,mid"];
+ds1_market_rate_bid [type=jsonparse path="data,bid"];
+ds1_market_rate_ask [type=jsonparse path="data,ask"];
+ds1_market_rate_payload -> ds1_market_rate_benchmark -> market_rate_benchmark_median;
+ds1_market_rate_payload -> ds1_market_rate_bid -> market_rate_bid_median;
+ds1_market_rate_payload -> ds1_market_rate_ask -> market_rate_ask_median;
+
+ds2_market_rate_payload [type=bridge name="bridge-z" requestData="{}"];
+ds2_market_rate_benchmark [type=jsonparse path="data,mid"];
+ds2_market_rate_bid [type=jsonparse path="data,bid"];
+ds2_market_rate_ask [type=jsonparse path="data,ask"];
+ds2_market_rate_payload -> ds2_market_rate_benchmark -> market_rate_benchmark_median;
+ds2_market_rate_payload -> ds2_market_rate_bid -> market_rate_bid_median;
+ds2_market_rate_payload -> ds2_market_rate_ask -> market_rate_ask_median;
+
+market_rate_benchmark_median [type=median allowedFaults=1];
+market_rate_bid_median [type=median allowedFaults=1];
+market_rate_ask_median [type=median allowedFaults=1];
+
+exchange_rate_multiply_benchmark [type=multiply times="$(exchange_rate_value)"];
+exchange_rate_multiply_bid [type=multiply times="$(exchange_rate_value)"];
+exchange_rate_multiply_ask [type=multiply times="$(exchange_rate_value)"];
+
+benchmark_price [type=any index=0];
+market_rate_benchmark_median -> exchange_rate_multiply_benchmark -> benchmark_price;
+bid_price [type=any index=1];
+market_rate_bid_median -> exchange_rate_multiply_bid -> bid_price;
+ask_price [type=any index=2];
+market_rate_ask_median -> exchange_rate_multiply_ask -> ask_price;
+`)
+	require.NoError(t, err)
+	values := [3]string{benchmark, bid, ask}
+	var trrs pipeline.TaskRunResults
+	for i, id := range [3]string{"benchmark_price", "bid_price", "ask_price"} {
+		task := p.ByDotID(id)
+		require.NotNil(t, task, id)
+		trrs = append(trrs, pipeline.TaskRunResult{Task: task, Result: pipeline.Result{Value: decimal.RequireFromString(values[i])}})
+	}
+	require.Len(t, trrs.Terminals(), 3)
+	return &mockPipeline{run: &pipeline.Run{}, trrs: trrs, streamIDs: []streams.StreamID{jobStreamID}, terminalDotIDs: streams.TerminalDotIDs(p)}
+}
+
 func TestObservationContext_Observe_quotes(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
@@ -691,16 +890,373 @@ func TestObservationContext_Observe_quotes(t *testing.T) {
 		assert.Equal(t, int32(1), p.runCount.Load())
 	})
 
-	t.Run("fails a legacy three-terminal quote violating the invariant", func(t *testing.T) {
+	t.Run("does not validate a legacy three-terminal quote", func(t *testing.T) {
 		t.Parallel()
 		sid := streams.StreamID(1)
 		// Ordering is Benchmark, Bid, Ask.
 		p := makeLegacyQuotePipeline("2.2", "9.9", "3.3")
 		val, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
-		assert.Nil(t, val)
+		require.NoError(t, err)
+		q := val.(*lloprotocol.Quote)
+		assert.Equal(t, "9.9", q.Bid.String())
+		assert.False(t, q.IsValid())
+	})
+
+	t.Run("fails a terminal quote with quote named tasks violating the invariant", func(t *testing.T) {
+		t.Parallel()
+		for name, names := range map[string][3]string{
+			"price suffix":  {"benchmark_price", "bid_price", "ask_price"},
+			"mid alias":     {"wm_mid", "wm_bid", "wm_ask"},
+			"bare names":    {"benchmark", "bid", "ask"},
+			"mixed case":    {"Benchmark_Price", "BID", "Ask_Price"},
+			"source prefix": {"ds1_benchmark", "ds1_bid", "ds1_ask"},
+		} {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				sid := streams.StreamID(1)
+				p := makeNamedQuotePipeline(t, sid, nil, names, "2.2", "9.9", "3.3")
+				val, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
+				assert.Nil(t, val)
+				var qerr QuoteInvariantError
+				require.ErrorAs(t, err, &qerr)
+				assert.Equal(t, sid, qerr.StreamID)
+			})
+		}
+	})
+
+	t.Run("returns a valid terminal quote with quote named tasks", func(t *testing.T) {
+		t.Parallel()
+		sid := streams.StreamID(1)
+		p := makeNamedQuotePipeline(t, sid, nil, [3]string{"benchmark_price", "bid_price", "ask_price"}, "2.2", "1.1", "3.3")
+		val, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
+		require.NoError(t, err)
+		assert.True(t, val.(*lloprotocol.Quote).IsValid())
+	})
+
+	t.Run("does not validate a terminal quote without quote named tasks", func(t *testing.T) {
+		t.Parallel()
+		for name, names := range map[string][3]string{
+			"unrelated names":  {"price", "low", "high"},
+			"substrings only":  {"benchmarks", "forbid", "task"},
+			"camel case":       {"benchmarkPrice", "bidPrice", "askPrice"},
+			"ambiguous name":   {"benchmark_price", "bid_ask_spread", "ask_price"},
+			"one name missing": {"benchmark_price", "bid_price", "result"},
+			"timestamp field":  {"mid_timestamp", "bid_price", "ask_price"},
+		} {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				sid := streams.StreamID(1)
+				p := makeNamedQuotePipeline(t, sid, nil, names, "2.2", "9.9", "3.3")
+				val, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
+				require.NoError(t, err)
+				assert.False(t, val.(*lloprotocol.Quote).IsValid())
+			})
+		}
+	})
+
+	t.Run("validates terminals named as quote fields regardless of their index", func(t *testing.T) {
+		t.Parallel()
+		sid := streams.StreamID(1)
+		names := [3]string{"ask_price", "benchmark_price", "bid_price"}
+
+		p := makeNamedQuotePipeline(t, sid, nil, names, "3.3", "2.2", "1.1")
+		_, err := newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
+		require.NoError(t, err)
+
+		p = makeNamedQuotePipeline(t, sid, nil, names, "3.3", "2.2", "9.9")
+		_, err = newOC(t, map[streams.StreamID]*mockPipeline{sid: p}).Observe(ctx, sid, opts)
 		var qerr QuoteInvariantError
 		require.ErrorAs(t, err, &qerr)
 		assert.Equal(t, sid, qerr.StreamID)
+		assert.Equal(t, "9.9", qerr.Quote.Bid.String())
+		assert.Equal(t, "2.2", qerr.Quote.Benchmark.String())
+		assert.Equal(t, "3.3", qerr.Quote.Ask.String())
+	})
+
+	t.Run("fails every stream of a flex median pipeline with bid, mid and ask", func(t *testing.T) {
+		t.Parallel()
+		// Flex orders fields alphabetically and adds a timestamp median, as for
+		// USD/UAH-Datalink-NCFX-ForexPrice.
+		jobSID := streams.StreamID(1000004349)
+		for name, tc := range map[string]struct {
+			names  []string
+			values []string
+		}{
+			"bid, mid and ask": {
+				names:  []string{"price_median_ask", "price_median_bid", "price_median_mid", "price_mid_timestamp"},
+				values: []string{"3.3", "9.9", "2.2", "1761148800000"},
+			},
+			"with volumes and last traded price": {
+				names:  []string{"price_median_ask", "price_median_askvolume", "price_median_bid", "price_median_bidvolume", "price_median_lasttradedprice", "price_median_mid", "price_mid_timestamp"},
+				values: []string{"3.3", "100", "9.9", "100", "2.5", "2.2", "1761148800000"},
+			},
+		} {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				tags := make([]streams.StreamID, len(tc.names))
+				for i := range tags {
+					tags[i] = streams.StreamID(1000004350 + i)
+				}
+				p := makeNamedTerminalsPipeline(t, jobSID, tags, tc.names, tc.values)
+				pipelines := map[streams.StreamID]*mockPipeline{}
+				for _, sid := range tags {
+					pipelines[sid] = p
+				}
+				oc := newOC(t, pipelines)
+
+				for _, sid := range tags {
+					val, err := oc.Observe(ctx, sid, opts)
+					assert.Nil(t, val, "stream %d should have no value", sid)
+					var qerr QuoteInvariantError
+					require.ErrorAs(t, err, &qerr, "stream %d", sid)
+					assert.Equal(t, jobSID, qerr.StreamID)
+				}
+				assert.Equal(t, int32(1), p.runCount.Load(), "pipeline should only run once")
+			})
+		}
+	})
+
+	t.Run("returns every stream of a valid flex median pipeline with bid, mid and ask", func(t *testing.T) {
+		t.Parallel()
+		jobSID := streams.StreamID(1000004349)
+		names := []string{"price_median_ask", "price_median_bid", "price_median_mid", "price_mid_timestamp"}
+		tags := []streams.StreamID{1000004353, 1000004352, 1000004350, 1000004351}
+		p := makeNamedTerminalsPipeline(t, jobSID, tags, names, []string{"3.3", "1.1", "2.2", "1761148800000"})
+		pipelines := map[streams.StreamID]*mockPipeline{}
+		for _, sid := range tags {
+			pipelines[sid] = p
+		}
+		oc := newOC(t, pipelines)
+
+		for _, sid := range tags {
+			val, err := oc.Observe(ctx, sid, opts)
+			require.NoError(t, err, "stream %d", sid)
+			assert.IsType(t, &lloprotocol.Decimal{}, val, "stream %d", sid)
+		}
+	})
+
+	t.Run("does not validate terminals that do not name each quote field once", func(t *testing.T) {
+		t.Parallel()
+		for name, names := range map[string][]string{
+			"duplicate role": {"bid_a", "bid_b", "benchmark", "ask"},
+			"best bid ask":   {"best_bid", "best_ask", "bid_volume", "ask_volume"},
+			"no benchmark":   {"price_median_ask", "price_median_bid", "price_median_lasttradedprice"},
+		} {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				tags := make([]streams.StreamID, len(names))
+				values := make([]string, len(names))
+				for i := range names {
+					tags[i] = streams.StreamID(100 + i)
+					values[i] = strconv.Itoa(len(names) - i)
+				}
+				p := makeNamedTerminalsPipeline(t, 99, tags, names, values)
+				pipelines := map[streams.StreamID]*mockPipeline{}
+				for _, sid := range tags {
+					pipelines[sid] = p
+				}
+				oc := newOC(t, pipelines)
+
+				for _, sid := range tags {
+					_, err := oc.Observe(ctx, sid, opts)
+					require.NoError(t, err, "stream %d", sid)
+				}
+			})
+		}
+	})
+
+	t.Run("fails an invalid multi-source median quote", func(t *testing.T) {
+		t.Parallel()
+		known := [3]string{"data,mid", "data,bid", "data,ask"}
+		for name, tags := range map[string][]streams.StreamID{
+			"untagged medians": nil,
+			"tagged medians":   {11, 12, 13},
+		} {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				jobSID := streams.StreamID(15)
+				p := makeMedianQuotePipeline(t, jobSID, tags, [][3]string{known, known, known, known}, "2.2", "9.9", "3.3")
+				pipelines := map[streams.StreamID]*mockPipeline{jobSID: p}
+				for _, sid := range tags {
+					pipelines[sid] = p
+				}
+				oc := newOC(t, pipelines)
+
+				for _, sid := range append(slices.Clone(tags), jobSID) {
+					val, err := oc.Observe(ctx, sid, opts)
+					assert.Nil(t, val, "stream %d should have no value", sid)
+					var qerr QuoteInvariantError
+					require.ErrorAs(t, err, &qerr, "stream %d", sid)
+					assert.Equal(t, jobSID, qerr.StreamID)
+				}
+				assert.Equal(t, int32(1), p.runCount.Load(), "pipeline should only run once")
+			})
+		}
+	})
+
+	t.Run("returns a valid multi-source median quote", func(t *testing.T) {
+		t.Parallel()
+		jobSID := streams.StreamID(15)
+		known := [3]string{"data,mid_price", "data,bid_price", "data,ask_price"}
+		p := makeMedianQuotePipeline(t, jobSID, nil, [][3]string{known, known, known}, "2.2", "1.1", "3.3")
+		val, err := newOC(t, map[streams.StreamID]*mockPipeline{jobSID: p}).Observe(ctx, jobSID, opts)
+		require.NoError(t, err)
+		assert.True(t, val.(*lloprotocol.Quote).IsValid())
+	})
+
+	t.Run("fails an invalid dex cross exchange quote", func(t *testing.T) {
+		t.Parallel()
+		jobSID := streams.StreamID(1000001458)
+		p := makeDexCrossQuotePipeline(t, jobSID, "2.2", "9.9", "3.3")
+		val, err := newOC(t, map[streams.StreamID]*mockPipeline{jobSID: p}).Observe(ctx, jobSID, opts)
+		assert.Nil(t, val)
+		var qerr QuoteInvariantError
+		require.ErrorAs(t, err, &qerr)
+		assert.Equal(t, jobSID, qerr.StreamID)
+	})
+
+	t.Run("returns a valid dex cross exchange quote", func(t *testing.T) {
+		t.Parallel()
+		jobSID := streams.StreamID(1000001458)
+		p := makeDexCrossQuotePipeline(t, jobSID, "2.2", "1.1", "3.3")
+		val, err := newOC(t, map[streams.StreamID]*mockPipeline{jobSID: p}).Observe(ctx, jobSID, opts)
+		require.NoError(t, err)
+		assert.True(t, val.(*lloprotocol.Quote).IsValid())
+	})
+
+	t.Run("validates a quote reading one path for all fields", func(t *testing.T) {
+		t.Parallel()
+		for _, path := range []string{"data,result", "data,index_price"} {
+			t.Run(path, func(t *testing.T) {
+				t.Parallel()
+				jobSID := streams.StreamID(1000007905)
+				same := [3]string{path, path, path}
+
+				p := makeMedianQuotePipeline(t, jobSID, nil, [][3]string{same, same}, "2.2", "2.2", "2.2")
+				val, err := newOC(t, map[streams.StreamID]*mockPipeline{jobSID: p}).Observe(ctx, jobSID, opts)
+				require.NoError(t, err)
+				assert.True(t, val.(*lloprotocol.Quote).IsValid())
+
+				p = makeMedianQuotePipeline(t, jobSID, nil, [][3]string{same, same}, "2.2", "9.9", "3.3")
+				_, err = newOC(t, map[streams.StreamID]*mockPipeline{jobSID: p}).Observe(ctx, jobSID, opts)
+				var qerr QuoteInvariantError
+				require.ErrorAs(t, err, &qerr)
+				assert.Equal(t, jobSID, qerr.StreamID)
+			})
+		}
+	})
+
+	t.Run("does not fail the tagged streams of a funding rate pipeline", func(t *testing.T) {
+		t.Parallel()
+		// The implicit job-level quote is Benchmark=fundingRate, Bid=fundingTimestamp,
+		// Ask=epochDuration, which always violates the invariant.
+		jobSID := streams.StreamID(1000001306)
+		tags := []streams.StreamID{1000001007, 1000001015, 1000001016}
+		names := [3]string{"ds_funding_rate", "ds_funding_timestamp", "ds_epoch_duration"}
+		p := makeNamedQuotePipeline(t, jobSID, tags, names, "0.0001", "1761148800000", "28800")
+		pipelines := map[streams.StreamID]*mockPipeline{jobSID: p}
+		for _, sid := range tags {
+			pipelines[sid] = p
+		}
+		oc := newOC(t, pipelines)
+
+		for _, sid := range tags {
+			val, err := oc.Observe(ctx, sid, opts)
+			require.NoError(t, err, "stream %d", sid)
+			assert.IsType(t, &lloprotocol.Decimal{}, val, "stream %d", sid)
+		}
+	})
+
+	t.Run("fails every stream of an invalid perps price quote", func(t *testing.T) {
+		t.Parallel()
+		for name, normalize := range map[string]bool{
+			"without normalize": false,
+			"with normalize":    true,
+		} {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				jobSID := streams.StreamID(1000008984)
+				tags := [3]streams.StreamID{1000008985, 1000008986, 1000008987}
+				p := makePerpsPriceQuotePipeline(t, jobSID, tags, normalize, "2.2", "9.9", "3.3")
+				pipelines := map[streams.StreamID]*mockPipeline{jobSID: p}
+				for _, sid := range tags {
+					pipelines[sid] = p
+				}
+				oc := newOC(t, pipelines)
+
+				for _, sid := range append(tags[:], jobSID) {
+					val, err := oc.Observe(ctx, sid, opts)
+					assert.Nil(t, val, "stream %d should have no value", sid)
+					var qerr QuoteInvariantError
+					require.ErrorAs(t, err, &qerr, "stream %d", sid)
+					assert.Equal(t, jobSID, qerr.StreamID)
+				}
+				assert.Equal(t, int32(1), p.runCount.Load(), "pipeline should only run once")
+			})
+		}
+	})
+
+	t.Run("returns every stream of a valid perps price quote", func(t *testing.T) {
+		t.Parallel()
+		jobSID := streams.StreamID(1000008984)
+		tags := [3]streams.StreamID{1000008985, 1000008986, 1000008987}
+		p := makePerpsPriceQuotePipeline(t, jobSID, tags, true, "2.2", "1.1", "3.3")
+		pipelines := map[streams.StreamID]*mockPipeline{jobSID: p}
+		for _, sid := range tags {
+			pipelines[sid] = p
+		}
+		oc := newOC(t, pipelines)
+
+		for _, sid := range tags {
+			val, err := oc.Observe(ctx, sid, opts)
+			require.NoError(t, err, "stream %d", sid)
+			assert.IsType(t, &lloprotocol.Decimal{}, val, "stream %d", sid)
+		}
+		val, err := oc.Observe(ctx, jobSID, opts)
+		require.NoError(t, err)
+		assert.True(t, val.(*lloprotocol.Quote).IsValid())
+	})
+
+	t.Run("fails the tagged siblings of an invalid terminal quote with quote named tasks", func(t *testing.T) {
+		t.Parallel()
+		jobSID := streams.StreamID(15)
+		tags := []streams.StreamID{11, 12, 13}
+		p := makeNamedQuotePipeline(t, jobSID, tags, [3]string{"benchmark_price", "bid_price", "ask_price"}, "2.2", "9.9", "3.3")
+		pipelines := map[streams.StreamID]*mockPipeline{jobSID: p}
+		for _, sid := range tags {
+			pipelines[sid] = p
+		}
+		oc := newOC(t, pipelines)
+
+		for _, sid := range append(slices.Clone(tags), jobSID) {
+			val, err := oc.Observe(ctx, sid, opts)
+			assert.Nil(t, val, "stream %d should have no value", sid)
+			var qerr QuoteInvariantError
+			require.ErrorAs(t, err, &qerr, "stream %d", sid)
+			assert.Equal(t, jobSID, qerr.StreamID)
+		}
+		assert.Equal(t, int32(1), p.runCount.Load(), "pipeline should only run once")
+	})
+
+	t.Run("returns the tagged siblings of a valid terminal quote with quote named tasks", func(t *testing.T) {
+		t.Parallel()
+		jobSID := streams.StreamID(15)
+		tags := []streams.StreamID{11, 12, 13}
+		p := makeNamedQuotePipeline(t, jobSID, tags, [3]string{"benchmark_price", "bid_price", "ask_price"}, "2.2", "1.1", "3.3")
+		pipelines := map[streams.StreamID]*mockPipeline{jobSID: p}
+		for _, sid := range tags {
+			pipelines[sid] = p
+		}
+		oc := newOC(t, pipelines)
+
+		for _, sid := range tags {
+			val, err := oc.Observe(ctx, sid, opts)
+			require.NoError(t, err, "stream %d", sid)
+			assert.IsType(t, &lloprotocol.Decimal{}, val, "stream %d", sid)
+		}
+		val, err := oc.Observe(ctx, jobSID, opts)
+		require.NoError(t, err)
+		assert.True(t, val.(*lloprotocol.Quote).IsValid())
 	})
 
 	t.Run("returns a valid legacy three-terminal quote", func(t *testing.T) {
