@@ -145,6 +145,7 @@ type eventHandler struct {
 	dispatcher              remotetypes.Dispatcher
 	shardDonLookup          func(ctx context.Context, shardID uint32) *commoncap.DON
 	shardFailoverComm       *sharding.ShardFailoverCommunicator
+	shardFailoverCommMu     sync.Mutex
 
 	metrics *metrics
 }
@@ -458,8 +459,11 @@ func (h *eventHandler) close() error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Close()
 	}
-	if h.shardFailoverComm != nil {
-		_ = h.shardFailoverComm.Close()
+	h.shardFailoverCommMu.Lock()
+	comm := h.shardFailoverComm
+	h.shardFailoverCommMu.Unlock()
+	if comm != nil {
+		_ = comm.Close()
 	}
 	es := h.engineRegistry.PopAll()
 	// No metering is emitted on close: meter records anchor on workflow-spec
@@ -988,6 +992,16 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 	return cfg, nil
 }
 
+// getShardFailoverComm lazily creates the communicator; newEngine runs concurrently.
+func (h *eventHandler) getShardFailoverComm() *sharding.ShardFailoverCommunicator {
+	h.shardFailoverCommMu.Lock()
+	defer h.shardFailoverCommMu.Unlock()
+	if h.shardFailoverComm == nil {
+		h.shardFailoverComm = sharding.NewShardFailoverCommunicator(h.dispatcher, h.myDonID, h.lggr)
+	}
+	return h.shardFailoverComm
+}
+
 // newEngine is the default engineFactoryFn: it builds the module stack and
 // EngineConfig, wires sharding, and calls one of the two engine constructors.
 //
@@ -1002,9 +1016,6 @@ func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, 
 
 	var manager *ShardFailoverManager
 	if h.shardingEnabled && h.dispatcher != nil {
-		if h.shardFailoverComm == nil {
-			h.shardFailoverComm = sharding.NewShardFailoverCommunicator(h.dispatcher, h.myDonID, h.lggr)
-		}
 		manager = NewShardFailoverManager(ShardFailoverManagerConfig{
 			ShardingEnabled:            h.shardingEnabled,
 			MyDONID:                    h.myDonID,
@@ -1017,7 +1028,7 @@ func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, 
 			ShardingFailoverGate:       h.engineLimiters.ShardingFailoverEnabled,
 			TimeoutBasedFailoverGate:   h.engineLimiters.TimeoutBasedFailover,
 			TimeoutBasedFailoverWindow: h.engineLimiters.TimeoutBasedFailoverWindow,
-			Communicator:               h.shardFailoverComm,
+			Communicator:               h.getShardFailoverComm(),
 			ShardDonLookup:             h.shardDonLookup,
 			DonSubscriber:              h.workflowDonSubscriber,
 			Logger:                     h.lggr,

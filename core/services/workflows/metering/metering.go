@@ -556,7 +556,7 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 		Steps: map[string]*protoEvents.MeteringReportStep{},
 		Metadata: &protoEvents.WorkflowMetadata{
 			WorkflowOwner:           r.labels[platform.KeyWorkflowOwner],
-			WorkflowName:            r.labels[platform.KeyWorkflowID],
+			WorkflowName:            r.labels[platform.KeyWorkflowName],
 			Version:                 r.labels[platform.KeyWorkflowVersion],
 			WorkflowID:              r.labels[platform.KeyWorkflowID],
 			WorkflowExecutionID:     r.labels[platform.KeyWorkflowExecutionID],
