@@ -325,7 +325,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to build Beholder auth: %w", err)
 	}
 	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.AppID().String(), cfg.Feature().LogPoller(),
-		cfg.Database(), cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(),
+		cfg.Database(), cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg,
 		cfg.Metering(), beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
 
 	relayerFactory := RelayerFactory{

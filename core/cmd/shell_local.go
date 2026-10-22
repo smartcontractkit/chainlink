@@ -1213,7 +1213,7 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 	// no-op so that downstream code never needs to nil-check.
 	if s.Config.Telemetry().Enabled() {
 		var beholderErr error
-		s.BeholderClient, beholderErr = newBeholderClient(s.Logger, keyStore, s.Config.Tracing(), s.Config.Telemetry(), csaPubKeyHex, beholderAuthHeaders)
+		s.BeholderClient, beholderErr = newBeholderClient(s.Logger, keyStore, s.Config.Tracing(), s.Config, s.Config.Telemetry(), csaPubKeyHex, beholderAuthHeaders)
 		if beholderErr != nil {
 			return fmt.Errorf("failed creating beholder client: %w", beholderErr)
 		}
