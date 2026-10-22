@@ -17,7 +17,6 @@ require (
 	github.com/cockroachdb/errors v1.12.0
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/ethereum/go-ethereum v1.17.4
-	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b
 	github.com/gagliardetto/solana-go v1.23.0
 	github.com/go-resty/resty/v2 v2.17.2
 	github.com/goccy/go-yaml v1.19.2
@@ -50,6 +49,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.15.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
+	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20261013132128-58831cfe6302
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20260126202327-6be9a05f0caf
 	github.com/smartcontractkit/chainlink/v2 v2.29.0
 	github.com/smartcontractkit/cld-changesets v0.9.1-0.20261006140245-39c6e0739a44
@@ -515,7 +515,6 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260928110227-94ca436e6c53 // indirect
 	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260925185547-7ea74de84cb2 // indirect
-	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20261013132128-58831cfe6302 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
 	github.com/smartcontractkit/go-daml v0.0.0-20260702101944-3a593d4e8e19 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
@@ -647,9 +646,6 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 	tags.cncf.io/container-device-interface v1.1.0 // indirect
 )
-
-// gotron-sdk is not longer maintained
-replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
 
 // moby/go-archive v0.2.0 removed deprecated aliases (archive.Gzip, etc.) that
 // docker/cli@v28.5.x still uses. docker/compose has not migrated to docker/cli v29

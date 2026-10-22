@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk/pkg/address"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk/pkg/address"
 
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	tron_addr "github.com/fbsobreira/gotron-sdk/pkg/address"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	tron_addr "github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk/pkg/address"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 

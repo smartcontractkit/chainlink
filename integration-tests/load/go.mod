@@ -672,9 +672,6 @@ require (
 // avoids ambiguous imports of indirect dependencies
 exclude github.com/hashicorp/consul v1.2.1
 
-// gotron-sdk is not longer maintained
-replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
-
 // Force downgrade to avoid breaking change. Copied from dskit's go.mod:
 //
 // Replace memberlist with our fork which includes some fixes that haven't been

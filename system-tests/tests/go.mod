@@ -61,7 +61,6 @@ require (
 	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.16.2
 	github.com/confluentinc/confluent-kafka-go v1.9.2
 	github.com/ethereum/go-ethereum v1.17.4
-	github.com/fbsobreira/gotron-sdk v0.0.0-20250403083053-2943ce8c759b
 	github.com/gagliardetto/solana-go v1.23.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -91,6 +90,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.15.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
+	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20261013132128-58831cfe6302
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20260126202327-6be9a05f0caf
@@ -655,7 +655,6 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.53.0 // indirect
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260928110227-94ca436e6c53 // indirect
 	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260925185547-7ea74de84cb2 // indirect
-	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20261013132128-58831cfe6302 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
 	github.com/smartcontractkit/go-daml v0.0.0-20260702101944-3a593d4e8e19 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
@@ -819,9 +818,6 @@ require (
 )
 
 tool github.com/smartcontractkit/chainlink-testing-framework/framework/cmd
-
-// gotron-sdk is not longer maintained
-replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
 
 // Force downgrade to avoid breaking change. Copied from dskit's go.mod:
 //
