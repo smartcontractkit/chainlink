@@ -54,7 +54,7 @@ type ManualCronTriggerService struct {
 	scheduler        gocron.Scheduler
 }
 
-func NewManualCronTriggerService(parentLggr logger.Logger, opts ...EventEmitterOption) (*ManualCronTriggerService, error) {
+func NewManualCronTriggerService(parentLggr logger.Logger) (*ManualCronTriggerService, error) {
 	lggr := logger.Named(parentLggr, "CronTriggerService") // ManualCronTriggerService
 
 	scheduler, err := gocron.NewScheduler()
@@ -66,7 +66,7 @@ func NewManualCronTriggerService(parentLggr logger.Logger, opts ...EventEmitterO
 		CapabilityInfo:   manualCronTriggerInfo,
 		config:           ManualCronConfig{FastestScheduleIntervalSeconds: 1},
 		lggr:             lggr,
-		eventEmitter:     newEventEmitter(opts),
+		eventEmitter:     events.DefaultEmitter(),
 		callbackCh:       make(map[string]chan capabilities.TriggerAndId[*crontypedapi.Payload]),
 		legacyCallbackCh: make(chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]), //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 		workflowIDs:      make(map[string]string),

@@ -473,7 +473,13 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		}
 		srvcs = append(srvcs, durableEmitter)
 		// Inject the concrete emitter so workflow events skip the global lookup.
-		durableEmit = durableEmitter.Emit
+		// Errors are wrapped like durableemitter.GlobalEmit wraps them.
+		durableEmit = func(ctx context.Context, body []byte, attrKVs ...any) error {
+			if emitErr := durableEmitter.Emit(ctx, body, attrKVs...); emitErr != nil {
+				return fmt.Errorf("%w: %w", durableemitter.ErrEmitFailed, emitErr)
+			}
+			return nil
+		}
 	}
 
 	creServices, err := cre.NewServices(
