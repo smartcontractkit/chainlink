@@ -358,6 +358,7 @@ type AptosReadWorkflowConfig struct {
 	ChainSelector    uint64 `yaml:"chainSelector"`
 	WorkflowName     string `yaml:"workflowName"`
 	ExpectedCoinName string `yaml:"expectedCoinName"`
+	ExpectUserError  bool   `yaml:"expectUserError"`
 }
 
 // StellarReadWorkflowConfig mirrors the fields of the stellarread workflow's

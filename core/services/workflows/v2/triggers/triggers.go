@@ -17,8 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
@@ -196,7 +194,6 @@ type RegisterDeps struct {
 	CapRegistry  registry.CapabilitiesRegistry
 	RegTimeout   limits.TimeLimiter
 	ChainAllowed limits.GateLimiter
-	Settings     settings.Getter
 	Logger       logger.Logger
 	Metrics      *monitoring.WorkflowsMetricLabeler
 }
@@ -311,11 +308,8 @@ func Register(
 				WorkflowRegistryChainSelector: meta.WorkflowRegistryChainSelector,
 				WorkflowRegistryAddress:       meta.WorkflowRegistryAddress,
 				EngineVersion:                 platform.ValueWorkflowVersionV2,
+				OrgID:                         meta.OrgID,
 				// no WorkflowExecutionID needed (or available at this stage)
-			}
-			propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(gCtx, deps.Settings)
-			if propagateOrgIDMeta && meta.OrgID != "" {
-				metadata.OrgID = meta.OrgID
 			}
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
 				TriggerID: registrationID,
@@ -364,7 +358,7 @@ func Register(
 	// If any registration failed, unregister successful ones and return error
 	if registrationErr != nil {
 		deps.Logger.Errorw("One or more trigger registrations failed - reverting all", "err", registrationErr)
-		Unregister(ctx, deps.Logger, meta.WorkflowID, meta.WorkflowDonID, handles)
+		Unregister(ctx, deps.Logger, meta.WorkflowID, meta.WorkflowDonID, meta.OrgID, handles)
 		return nil, nil, nil, registrationErr
 	}
 
@@ -376,13 +370,14 @@ func Register(
 // Unregister unregisters every handle in handles with the capability
 // registry. It logs individual UnregisterTrigger failures and returns how
 // many occurred, so callers can log their own summary.
-func Unregister(ctx context.Context, lggr logger.Logger, workflowID string, workflowDonID uint32, handles map[string]*Handle) (failCount int) {
+func Unregister(ctx context.Context, lggr logger.Logger, workflowID string, workflowDonID uint32, orgID string, handles map[string]*Handle) (failCount int) {
 	for registrationID, handle := range handles {
 		if err := handle.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
 			Metadata: capabilities.RequestMetadata{
 				WorkflowID:    workflowID,
 				WorkflowDonID: workflowDonID,
+				OrgID:         orgID,
 			},
 			Payload: handle.Payload,
 			Method:  handle.Method,

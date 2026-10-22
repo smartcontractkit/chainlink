@@ -59,6 +59,10 @@ func onAptosReadTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.Pa
 	}()
 
 	client := aptos.Client{ChainSelector: cfg.ChainSelector}
+	if cfg.ExpectUserError {
+		return runViewUserErrorCheck(cfg, runtime, client)
+	}
+
 	reply, err := client.View(runtime, &aptos.ViewRequest{
 		Payload: &aptos.ViewPayload{
 			Module: &aptos.ModuleID{
@@ -98,6 +102,36 @@ func onAptosReadTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.Pa
 
 	msg := "Aptos read consensus succeeded"
 	runtime.Logger().Info(msg, "onchain_value", strings.TrimSpace(onchainValue), "workflow", cfg.WorkflowName)
+	return nil, nil
+}
+
+// userErrorPrefix is how the host serialises a public user-origin capability error for the guest
+// (visibility:origin:code:message).
+const userErrorPrefix = "Public:User:"
+
+// runViewUserErrorCheck calls View on a module that doesn't exist under 0x1. The Aptos node rejects
+// it with HTTP 400 (Linker Error), which the capability must surface as a user error.
+func runViewUserErrorCheck(cfg config.Config, runtime sdk.Runtime, client aptos.Client) (any, error) {
+	_, err := client.View(runtime, &aptos.ViewRequest{
+		Payload: &aptos.ViewPayload{
+			Module: &aptos.ModuleID{
+				Address: []byte{0x1},
+				Name:    "cre_e2e_missing_module",
+			},
+			Function: "missing",
+		},
+	}).Await()
+	if err == nil {
+		runtime.Logger().Info("Aptos view user error test failed: expected error, got reply", "workflow", cfg.WorkflowName)
+		return nil, errors.New("expected View on missing module to fail")
+	}
+	if !strings.HasPrefix(err.Error(), userErrorPrefix) {
+		msg := fmt.Sprintf("Aptos view user error test failed: unexpected classification: %v", err)
+		runtime.Logger().Info(msg, "workflow", cfg.WorkflowName)
+		return nil, fmt.Errorf("expected user error, got: %w", err)
+	}
+
+	runtime.Logger().Info("Aptos view user error classified as expected", "error", err.Error(), "workflow", cfg.WorkflowName)
 	return nil, nil
 }
 

@@ -206,16 +206,10 @@ func (e *engine) close() error {
 }
 
 func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions []*sdkpb.TriggerSubscription) error {
-	var creGetter settings.Getter
-	if e.base.cfg.LocalLimiters != nil {
-		creGetter = e.base.cfg.LocalLimiters.Settings
-	}
-
 	deps := triggers.RegisterDeps{
 		CapRegistry:  e.base.cfg.CapRegistry,
 		RegTimeout:   e.base.cfg.LocalLimiters.TriggerRegistrationsTime,
 		ChainAllowed: e.base.cfg.LocalLimiters.ChainAllowed,
-		Settings:     creGetter,
 		Logger:       e.base.logger(),
 		Metrics:      e.base.metrics,
 	}
@@ -264,7 +258,7 @@ func (e *engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 
 // NOTE: needs to be called under the triggersRegMu lock
 func (e *engine) unregisterAllTriggers(ctx context.Context) {
-	failCount := triggers.Unregister(ctx, e.base.logger(), e.base.cfg.WorkflowID, e.base.localNode.Load().WorkflowDON.ID, e.triggers)
+	failCount := triggers.Unregister(ctx, e.base.logger(), e.base.cfg.WorkflowID, e.base.localNode.Load().WorkflowDON.ID, e.base.orgID, e.triggers)
 	e.base.logger().Infow("All triggers unregistered", "numTriggers", len(e.triggers), "failed", failCount)
 	e.triggers = make(map[string]*triggers.Handle)
 }
@@ -400,7 +394,17 @@ func (e *engine) handleAllTriggerEvents(ctx context.Context) {
 		e.base.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
 
-			if err := e.ExecuteTrigger(ctx, queueHead); err != nil {
+			var err error
+			switch {
+			case ctx.Err() != nil:
+				// The queue can still hand out an event after Close cancels ctx, so reject it rather than run it.
+				err = ErrEngineClosed
+			case e.base.Draining():
+				err = ErrEngineDraining
+			default:
+				err = e.base.executeTrigger(ctx, queueHead)
+			}
+			if err != nil {
 				// Dedup, a concurrent Close and a concurrent Drain are expected outcomes (the event is handled elsewhere or the engine is going away), so they're logged at info rather than error level.
 				if errors.Is(err, ErrDuplicateExecution) || errors.Is(err, ErrEngineClosed) || errors.Is(err, ErrEngineDraining) {
 					e.base.logger().Infow("Skipping trigger event execution", "triggerID", queueHead.TriggerCapID, "eventID", queueHead.Event.Event.ID, "err", err)
