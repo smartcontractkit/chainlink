@@ -61,7 +61,7 @@ type ORM interface {
 
 // engineFactoryFn creates a workflow engine. The initDone channel is used to signal when
 // the engine has completed initialization; it is wired to the OnInitialized lifecycle hook.
-type engineFactoryFn func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (v2.WorkflowEngine, error)
+type engineFactoryFn func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, cachedSdkName string, initDone chan<- error) (v2.WorkflowEngine, error)
 
 type DrainableService interface {
 	Drain() bool
@@ -168,7 +168,7 @@ func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 
 func WithStaticEngine(engine v2.WorkflowEngine) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.engineFactory = func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, _ []byte, initDone chan<- error) (v2.WorkflowEngine, error) {
+		e.engineFactory = func(_ context.Context, _, _ string, _ types.WorkflowName, _ string, _, _ []byte, _ string, _ []byte, _ string, initDone chan<- error) (v2.WorkflowEngine, error) {
 			// For static engines (used in tests), signal immediate initialization success
 			if initDone != nil {
 				initDone <- nil
@@ -339,7 +339,7 @@ type WorkflowArtifactsStore interface {
 	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
 	PauseWorkflowArtifacts(ctx context.Context, workflowID string) error
 	DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error
-	SaveTriggerSubscriptions(ctx context.Context, workflowID string, payload []byte) error
+	SaveTriggerSubscriptions(ctx context.Context, workflowID string, payload []byte, sdkName string) error
 }
 
 // NewEventHandler returns a new eventHandler instance.
@@ -916,11 +916,11 @@ func (h *eventHandler) useCoordinatedEngine(ctx context.Context, workflowID stri
 // buildEngineConfig builds the module stack (local WASM module plus the
 // confidential module) and the EngineConfig that the legacy and the
 // coordinated engine share.
-func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (*v2.EngineConfig, error) {
+func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, cachedSdkName string, initDone chan<- error) (*v2.EngineConfig, error) {
 	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 
-	var sdkName string
+	sdkName := cachedSdkName
 	moduleConfig := &host.ModuleConfig{
 		Logger:                               lggr,
 		MemoryLimiter:                        h.engineLimiters.WASMMemorySize,
@@ -942,6 +942,9 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 	}
 
 	cachedSubs := h.parseCachedTriggerSubscriptions(workflowID, cachedTriggerSubs)
+	// Both are needed to skip compilation: the subscriptions replace Subscribe(),
+	// and the SDK name is otherwise only learned by compiling.
+	lazy := cachedSubs != nil && cachedSdkName != ""
 
 	// Wrap the local WASM module in a RequirementSelectingModule that routes
 	// triggers with a TEE requirement to the ConfidentialModule (which delegates
@@ -954,7 +957,7 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create confidential module: %w", err)
 	}
-	engineModule, err := h.createEngineModule(ctx, workflowID, binary, moduleConfig, cachedSubs != nil)
+	engineModule, err := h.createEngineModule(ctx, workflowID, binary, moduleConfig, lazy)
 	if err != nil {
 		return nil, err
 	}
@@ -968,7 +971,7 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 	cfg := h.newV2EngineConfig(ctx, selectingModule, workflowID, owner, tag, sdkName, name, config)
 
 	cfg.CachedTriggerSubscriptions = cachedSubs
-	h.wireTriggerSubscriptionCacheHook(cfg, workflowID)
+	h.wireTriggerSubscriptionCacheHook(cfg, workflowID, cachedSdkName)
 
 	h.wireInitDoneHook(cfg, initDone)
 
@@ -991,8 +994,8 @@ func (h *eventHandler) getShardFailoverComm() *sharding.ShardFailoverCommunicato
 // The coordinated engine registers no triggers itself:
 // tryCoordinatedEngineCreate hands it to the coordinator once it is in the
 // registry, and the coordinator calls Subscribe to obtain its subscriptions.
-func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (v2.WorkflowEngine, error) {
-	cfg, err := h.buildEngineConfig(ctx, workflowID, owner, name, tag, config, binary, binaryURL, cachedTriggerSubs, initDone)
+func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, cachedSdkName string, initDone chan<- error) (v2.WorkflowEngine, error) {
+	cfg, err := h.buildEngineConfig(ctx, workflowID, owner, name, tag, config, binary, binaryURL, cachedTriggerSubs, cachedSdkName, initDone)
 	if err != nil {
 		return nil, err
 	}
@@ -1306,7 +1309,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	}
 
 	initDone := make(chan error, 1)
-	engine, err := h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, in.workflowName, spec.WorkflowTag, in.config, in.binary, spec.BinaryURL, spec.TriggerSubscriptions, initDone)
+	engine, err := h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, in.workflowName, spec.WorkflowTag, in.config, in.binary, spec.BinaryURL, spec.TriggerSubscriptions, spec.SdkName, initDone)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
@@ -1592,13 +1595,15 @@ func (h *eventHandler) parseCachedTriggerSubscriptions(workflowID string, payloa
 // wireTriggerSubscriptionCacheHook persists a freshly WASM-computed trigger
 // subscription set back to workflow_specs_v2 so future engine starts for this
 // workflow ID can skip WASM execution.
-func (h *eventHandler) wireTriggerSubscriptionCacheHook(cfg *v2.EngineConfig, workflowID string) {
+func (h *eventHandler) wireTriggerSubscriptionCacheHook(cfg *v2.EngineConfig, workflowID, cachedSdkName string) {
 	if !h.cachedTriggerSubscriptionsEnabled {
 		return
 	}
+	// Rows cached before the SDK name was stored are healed on the first eager start.
+	backfillSdkName := cachedSdkName == "" && cfg.SdkName != ""
 	existingHook := cfg.Hooks.OnSubscriptionsReady
 	cfg.Hooks.OnSubscriptionsReady = func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE, fromCache bool) error {
-		if !fromCache {
+		if !fromCache || backfillSdkName {
 			payload, err := proto.Marshal(&sdkpb.TriggerSubscriptionRequest{Subscriptions: subs})
 			if err != nil {
 				h.lggr.Errorw("failed to marshal trigger subscriptions for caching", "workflowID", workflowID, "err", err)
@@ -1607,7 +1612,7 @@ func (h *eventHandler) wireTriggerSubscriptionCacheHook(cfg *v2.EngineConfig, wo
 				go func() {
 					saveCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 					defer cancel()
-					if saveErr := h.workflowArtifactsStore.SaveTriggerSubscriptions(saveCtx, workflowID, payload); saveErr != nil {
+					if saveErr := h.workflowArtifactsStore.SaveTriggerSubscriptions(saveCtx, workflowID, payload, cfg.SdkName); saveErr != nil {
 						h.lggr.Errorw("failed to cache trigger subscriptions", "workflowID", workflowID, "err", saveErr)
 					}
 				}()
