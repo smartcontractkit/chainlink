@@ -102,3 +102,28 @@ func Test_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
 
 	assert.Eventually(t, func() bool { return counter.Load() == 10 }, 5*time.Second, 10*time.Millisecond)
 }
+
+func Test_TryExecuteTask_FailsFastWhenParallelExecutionLimitReached(t *testing.T) {
+	t.Parallel()
+	tp := remote.NewParallelExecutor(2, "test_parallel_executor")
+	servicetest.Run(t, tp)
+
+	release := make(chan struct{})
+	for range 2 {
+		err := tp.TryExecuteTask(t.Context(), func(ctx context.Context) {
+			<-release
+		})
+		require.NoError(t, err)
+	}
+
+	err := tp.TryExecuteTask(t.Context(), func(ctx context.Context) {})
+	require.ErrorIs(t, err, remote.ErrNoSlotAvailable)
+
+	close(release)
+
+	var executed atomic.Bool
+	require.Eventually(t, func() bool {
+		return tp.TryExecuteTask(t.Context(), func(ctx context.Context) { executed.Store(true) }) == nil
+	}, 5*time.Second, 10*time.Millisecond)
+	assert.Eventually(t, executed.Load, 5*time.Second, 10*time.Millisecond)
+}
