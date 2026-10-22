@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 
 	"google.golang.org/protobuf/proto"
@@ -658,9 +659,10 @@ func consensusSignersFor(don registry.DON, localRegistry *registry.RegistryMetad
 	var found []string
 	for capID, capConfig := range don.CapabilityConfigurations {
 		c, ok := localRegistry.IDsToCapabilities[capID]
-		if !ok || c.CapabilityType != capabilities.CapabilityTypeConsensus {
+		if !ok || !strings.HasPrefix(c.ID, "consensus") {
 			continue
 		}
+
 		cfg := &capabilitiespb.CapabilityConfig{}
 		if err := proto.Unmarshal(capConfig.Config, cfg); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal config of capability %s: %w", capID, err)

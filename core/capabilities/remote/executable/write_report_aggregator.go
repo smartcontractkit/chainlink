@@ -3,18 +3,17 @@ package executable
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"maps"
 	"math/big"
 	"slices"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	ocr3types "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
@@ -36,6 +35,8 @@ import (
 //
 // Signatures are verified with the onchain keyring of the report's chain family against the
 // signers of the calling DON's consensus OCR3 config, where the signer index is the SignerId.
+// Verification is deferred until the request quorum is reached, so requests that never reach
+// a quorum cost no signature verification
 //
 // Whenever the signatures cannot be verified (unknown signer set, unexpected report header, or
 // fewer than F+1 valid signatures once the request quorum is reached), the request is executed
@@ -105,8 +106,7 @@ func (a *writeReportSignatureAggregator) NewAccumulator(_ context.Context, capab
 		family:     family,
 		callingDon: callingDon,
 		verifier:   a.verifiers[family],
-		checked:    map[string]struct{}{},
-		valid:      map[string]*sdk.AttributedSignature{},
+		candidates: map[uint32]map[string]*signatureCandidate{},
 		lggr:       logger.With(a.lggr, "capabilityID", capabilityID, "callingDonID", callingDon.ID),
 	}
 
@@ -130,6 +130,11 @@ func (a *writeReportSignatureAggregator) NewAccumulator(_ context.Context, capab
 	return acc, nil
 }
 
+type signatureCandidate struct {
+	signature []byte
+	senders   []p2ptypes.PeerID
+}
+
 type writeReportAccumulator struct {
 	family     writeReportFamily
 	callingDon commoncap.DON
@@ -146,10 +151,10 @@ type writeReportAccumulator struct {
 	baseWrReq     writeReportRequest
 	headerChecked bool
 
-	// checked holds (SignerId, signature) pairs that have already been verified.
-	checked map[string]struct{}
-	// valid holds one verified signature per signer public key.
-	valid map[string]*sdk.AttributedSignature
+	// candidates hold the unverified signatures received
+	candidates map[uint32]map[string]*signatureCandidate
+	// aggregated is the payload built from verified signatures once computed
+	aggregated []byte
 
 	fallback bool
 }
@@ -157,6 +162,7 @@ type writeReportAccumulator struct {
 var _ types.RequestAccumulator = (*writeReportAccumulator)(nil)
 
 func (a *writeReportAccumulator) useFallback(reason, msg string, keyvals ...any) {
+	a.candidates = nil
 	a.fallback = true
 	a.lggr.Warnw(msg+"; executing with the payload of the latest request", append(keyvals, "reason", reason)...)
 }
@@ -165,6 +171,9 @@ func (a *writeReportAccumulator) Add(sender p2ptypes.PeerID, payload []byte) err
 	if a.fallback {
 		a.latestPayload = payload
 		a.received = true
+		return nil
+	}
+	if a.aggregated != nil {
 		return nil
 	}
 
@@ -195,7 +204,7 @@ func (a *writeReportAccumulator) Add(sender p2ptypes.PeerID, payload []byte) err
 
 	a.base = req
 	a.baseWrReq = wrReq
-	a.addSignatures(sender, report)
+	a.addCandidates(sender, report.Sigs)
 	return nil
 }
 
@@ -221,44 +230,121 @@ func (a *writeReportAccumulator) checkReportHeader(report *sdk.ReportResponse) {
 	}
 }
 
-func (a *writeReportAccumulator) addSignatures(sender p2ptypes.PeerID, report *sdk.ReportResponse) {
-	digest := ocrtypes.ConfigDigest(report.ConfigDigest)
-	reportWithInfo := ocr3types.ReportWithInfo[[]byte]{Report: report.RawReport}
+// addCandidates buffers the signatures of a request for verification once the quorum is reached.
+// A request contributes at most one signature per signer, which bounds the verification work a
+// malicious sender  can cause
+func (a *writeReportAccumulator) addCandidates(sender p2ptypes.PeerID, sigs []*sdk.AttributedSignature) {
+	if len(sigs) > len(a.signers) {
+		a.lggr.Warnw("dropping report signatures of request with more signatures than signers",
+			"sender", sender.String(), "signatures", len(sigs), "signers", len(a.signers))
+	}
 	var invalid []string
-	for _, sig := range report.Sigs {
+	seen := make(map[uint32]struct{}, len(sigs))
+	for _, sig := range sigs {
 		if sig == nil {
 			invalid = append(invalid, "nil signature")
 			continue
 		}
-		key := checkedKey(sig)
-		if _, ok := a.checked[key]; ok {
-			continue
-		}
-		a.checked[key] = struct{}{}
 
 		if int(sig.SignerId) >= len(a.signers) || a.signers[sig.SignerId] == nil {
 			invalid = append(invalid, fmt.Sprintf("signer %d: unknown signer", sig.SignerId))
 			continue
 		}
-		if a.isMalleable(sig.Signature) {
-			invalid = append(invalid, fmt.Sprintf("signer %d: malleable signature", sig.SignerId))
-			continue
-		}
-		signer := a.signers[sig.SignerId]
-		if !a.verifier.Verify(signer, digest, report.SeqNr, reportWithInfo, sig.Signature) {
-			invalid = append(invalid, fmt.Sprintf("signer %d: invalid signature", sig.SignerId))
-			continue
-		}
 
-		candidate := &sdk.AttributedSignature{Signature: bytes.Clone(sig.Signature), SignerId: sig.SignerId}
-		if existing, ok := a.valid[string(signer)]; !ok || compareSignatures(candidate, existing) < 0 {
-			a.valid[string(signer)] = candidate
+		if _, ok := seen[sig.SignerId]; ok {
+			invalid = append(invalid, fmt.Sprintf("signer %d: duplicate signer", sig.SignerId))
+			continue
 		}
+		seen[sig.SignerId] = struct{}{}
+
+		bySig, ok := a.candidates[sig.SignerId]
+		if !ok {
+			bySig = map[string]*signatureCandidate{}
+			a.candidates[sig.SignerId] = bySig
+		}
+		c, ok := bySig[string(sig.Signature)]
+		if !ok {
+			c = &signatureCandidate{signature: bytes.Clone(sig.Signature)}
+			bySig[string(sig.Signature)] = c
+		}
+		c.senders = append(c.senders, sender)
 	}
 
 	if len(invalid) > 0 {
 		a.lggr.Warnw("dropping invalid report signatures", "sender", sender.String(), "invalid", invalid)
 	}
+}
+
+// Payload is called once the request quorum is reached. Since at least one of the quorum
+// requests comes from an honest node, fewer than F+1 valid signatures means the signatures
+// could not be verified rather than an attack, so the latest payload is used instead.
+func (a *writeReportAccumulator) Payload() ([]byte, bool, error) {
+	if a.aggregated != nil {
+		return a.aggregated, true, nil
+	}
+	if a.fallback || a.baseWrReq == nil {
+		return a.latestPayload, a.received, nil
+	}
+
+	required := int(a.callingDon.F) + 1
+	sigs := a.verifiedSignatures(required)
+	if len(sigs) < required {
+		a.useFallback("not_enough_valid_signatures", "not enough valid signatures in quorum requests",
+			"validSignatures", len(sigs), "required", required)
+		return a.latestPayload, a.received, nil
+	}
+
+	payload, err := a.aggregatedPayload(sigs)
+	if err != nil {
+		a.useFallback("aggregation_failed", "failed to build payload with aggregated signatures", "err", err)
+		return a.latestPayload, a.received, nil
+	}
+	a.aggregated = payload
+	a.candidates = nil
+	return payload, true, nil
+}
+
+// verifiedSignatures returns up to required valid signatures of distinct signers. Signers are
+// tried in ascending SignerId order and their candidates in signature byte order, so the result
+// does not depend on the order in which requests arrived
+func (a *writeReportAccumulator) verifiedSignatures(required int) []*sdk.AttributedSignature {
+	report := a.baseWrReq.GetReport()
+	digest := ocrtypes.ConfigDigest(report.ConfigDigest)
+	reportWithInfo := ocr3types.ReportWithInfo[[]byte]{Report: report.RawReport}
+
+	var invalid []string
+	sigs := make([]*sdk.AttributedSignature, 0, required)
+	usedSigners := map[string]struct{}{}
+	for _, signerID := range slices.Sorted(maps.Keys(a.candidates)) {
+		if len(sigs) == required {
+			break
+		}
+		signer := a.signers[signerID]
+		if _, ok := usedSigners[string(signer)]; ok {
+			continue
+		}
+		bySig := a.candidates[signerID]
+		for _, key := range slices.Sorted(maps.Keys(bySig)) {
+			c := bySig[key]
+			if a.isMalleable(c.signature) {
+				invalid = append(invalid, fmt.Sprintf("signer %d from %v: malleable signature", signerID, c.senders))
+				continue
+			}
+			if !a.verifier.Verify(signer, digest, report.SeqNr, reportWithInfo, c.signature) {
+				invalid = append(invalid, fmt.Sprintf("signer %d from %v: invalid signature", signerID, c.senders))
+				continue
+			}
+			sigs = append(sigs, &sdk.AttributedSignature{Signature: c.signature, SignerId: signerID})
+			usedSigners[string(signer)] = struct{}{}
+			break
+		}
+	}
+
+	if len(invalid) > 0 {
+		a.lggr.Warnw("dropping invalid report signatures", "invalid", invalid)
+	}
+
+	return sigs
 }
 
 var secp256k1HalfN = new(big.Int).Rsh(crypto.S256().Params().N, 1)
@@ -276,53 +362,12 @@ func (a *writeReportAccumulator) isMalleable(sig []byte) bool {
 	return new(big.Int).SetBytes(sig[32:64]).Cmp(secp256k1HalfN) > 0
 }
 
-func compareSignatures(a, b *sdk.AttributedSignature) int {
-	if a.SignerId != b.SignerId {
-		if a.SignerId < b.SignerId {
-			return -1
-		}
-		return 1
-	}
-	return bytes.Compare(a.Signature, b.Signature)
-}
-
-func checkedKey(sig *sdk.AttributedSignature) string {
-	var id [4]byte
-	binary.BigEndian.PutUint32(id[:], sig.SignerId)
-	return string(id[:]) + string(sig.Signature)
-}
-
-// Payload is called once the request quorum is reached. Since at least one of the quorum
-// requests comes from an honest node, fewer than F+1 valid signatures means the signatures
-// could not be verified rather than an attack, so the latest payload is used instead.
-func (a *writeReportAccumulator) Payload() ([]byte, bool, error) {
-	if a.fallback || a.baseWrReq == nil {
-		return a.latestPayload, a.received, nil
-	}
-
-	required := int(a.callingDon.F) + 1
-	if len(a.valid) < required {
-		a.useFallback("not_enough_valid_signatures", "not enough valid signatures in quorum requests",
-			"validSignatures", len(a.valid), "required", required)
-		return a.latestPayload, a.received, nil
-	}
-
-	payload, err := a.aggregatedPayload(required)
-	if err != nil {
-		a.useFallback("aggregation_failed", "failed to build payload with aggregated signatures", "err", err)
-		return a.latestPayload, a.received, nil
-	}
-	return payload, true, nil
-}
-
-func (a *writeReportAccumulator) aggregatedPayload(required int) ([]byte, error) {
-	sigs := slices.SortedFunc(maps.Values(a.valid), compareSignatures)
-
+func (a *writeReportAccumulator) aggregatedPayload(sigs []*sdk.AttributedSignature) ([]byte, error) {
 	wrReq, ok := proto.Clone(a.baseWrReq).(writeReportRequest)
 	if !ok {
 		return nil, errors.New("failed to clone WriteReportRequest")
 	}
-	wrReq.GetReport().Sigs = sigs[:required]
+	wrReq.GetReport().Sigs = sigs
 
 	wrAny, err := anypb.New(wrReq)
 	if err != nil {
