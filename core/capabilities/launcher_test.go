@@ -1579,22 +1579,30 @@ func TestConsensusSignersFor(t *testing.T) {
 	})
 }
 
-func TestWithoutLocallyHostedCapabilities(t *testing.T) {
+func TestLauncher_AddRemoteCapabilities_SkipsCapabilitiesHostedByMyDON(t *testing.T) {
 	t.Parallel()
 
+	const localCapID = "evm:ChainSelector:5009297550715157269@1.0.0"
+	const remoteCapID = "evm:ChainSelector:16015286601757825753@1.0.0"
 	cfg := func() regpkg.CapabilityConfiguration { return regpkg.CapabilityConfiguration{Config: []byte{1}} }
-	mine := regpkg.DON{ID: 2, CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{"evm:ChainSelector:5009297550715157269@1.0.0": cfg()}}
-	remote := regpkg.DON{ID: 1, CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{"evm:ChainSelector:5009297550715157269@1.0.0": cfg(), "evm:ChainSelector:16015286601757825753@1.0.0": cfg()}}
+	myDON := regpkg.DON{ID: 2, Name: "mine", CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{localCapID: cfg()}}
+	remote := regpkg.DON{ID: 1, Name: "remote", CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{localCapID: cfg(), remoteCapID: cfg()}}
 
-	got := filterLocalCapabilitiesFromRemote([]regpkg.DON{remote}, []regpkg.DON{mine})
-	require.Len(t, got, 1)
-	assert.Equal(t, uint32(1), got[0].ID)
-	assert.Contains(t, got[0].CapabilityConfigurations, "evm:ChainSelector:16015286601757825753@1.0.0")
-	assert.NotContains(t, got[0].CapabilityConfigurations, "evm:ChainSelector:5009297550715157269@1.0.0")
-	assert.Contains(t, remote.CapabilityConfigurations, "evm:ChainSelector:5009297550715157269@1.0.0", "input must not be mutated")
+	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
+	launcher, err := NewLauncher(lggr, mocks.NewSharedPeer(t), nil, remoteMocks.NewDispatcher(t), regpkg.NewRegistry(lggr), &mockDonNotifier{}, limits.Factory{}, false, 0)
+	require.NoError(t, err)
 
-	got = filterLocalCapabilitiesFromRemote([]regpkg.DON{remote}, nil)
-	assert.Len(t, got[0].CapabilityConfigurations, 2)
+	// The local registry has no capabilities, so the non-local capability fails its lookup. The locally
+	// hosted one must be skipped before any lookup or parsing happens.
+	launcher.addRemoteCapabilities(t.Context(), myDON, remote, &regpkg.RegistryMetadata{}, nil)
+
+	skipped := observedLogs.FilterMessage("skipping remote capability hosted locally by my DON").All()
+	require.Len(t, skipped, 1)
+	assert.Equal(t, localCapID, skipped[0].ContextMap()["capabilityID"])
+	for _, e := range observedLogs.FilterLevelExact(zapcore.ErrorLevel).All() {
+		assert.NotEqual(t, localCapID, e.ContextMap()["capabilityID"], "locally hosted capability must not be processed as remote")
+	}
+	assert.Empty(t, launcher.cachedShims.combinedClients)
 }
 
 // A chain capability DON mistakenly configured as a workflow DON (AcceptsWorkflows=true) hosts a capability

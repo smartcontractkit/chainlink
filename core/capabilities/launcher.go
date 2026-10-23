@@ -440,11 +440,6 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 	belongsToAWorkflowDON := len(myWorkflowDONs) > 0
 	belongsToACapabilityDON := len(myCapabilityDONs) > 0
 
-	// Prefer capabilities hosted locally over remote ones. If this node serves a capability ID as
-	// part of a capability DON, never set up a remote shim for the same ID. This is a safety mechanism
-	// to prevent duplicate capability configs taking down the capability altogether.
-	remoteCapabilityDONs = filterLocalCapabilitiesFromRemote(remoteCapabilityDONs, myCapabilityDONs)
-
 	// Prune shims for capabilities/methods/DONs that are no longer wanted, before the create/update
 	// loops below run. This must happen first: if a capability moved to a different DON ID, its old
 	// CombinedClient must be removed from the registry before the replacement is added under the new
@@ -517,34 +512,6 @@ func (w *launcher) onNewRegistry(ctx context.Context, metadataRegistry *registry
 	return nil
 }
 
-// filterLocalCapabilitiesFromRemote returns remoteDONs with every capability ID that is hosted by one
-// of myCapabilityDONs removed from their capability configurations. The inputs are not mutated.
-// This method still leaves room for the same capability to exist on different remote DONs.
-func filterLocalCapabilitiesFromRemote(remoteDONs, myCapabilityDONs []registry.DON) []registry.DON {
-	local := map[string]struct{}{}
-	for _, d := range myCapabilityDONs {
-		for capID := range d.CapabilityConfigurations {
-			local[capID] = struct{}{}
-		}
-	}
-	if len(local) == 0 {
-		return remoteDONs
-	}
-	filtered := make([]registry.DON, 0, len(remoteDONs))
-	for _, d := range remoteDONs {
-		configs := make(map[string]registry.CapabilityConfiguration, len(d.CapabilityConfigurations))
-		for capID, c := range d.CapabilityConfigurations {
-			if _, isLocal := local[capID]; isLocal {
-				continue
-			}
-			configs[capID] = c
-		}
-		d.CapabilityConfigurations = configs
-		filtered = append(filtered, d)
-	}
-	return filtered
-}
-
 func filterDONsByFamilies(donList []registry.DON, myDONFamilies []string) []registry.DON {
 	filteredDONs := []registry.DON{}
 	for _, d := range donList {
@@ -589,6 +556,13 @@ func donFamiliesOverlap(donA, donB []string) bool {
 // it is best effort to ensure that valid capabilities are added even if some fail
 func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON registry.DON, localRegistry *registry.RegistryMetadata, offchainMC *offchainMethodConfigs) {
 	for cid, c := range remoteDON.CapabilityConfigurations {
+		// Prefer capabilities hosted by my own DON over remote ones, so a duplicate remote shim can
+		// never replace or collide with the local capability.
+		if _, isLocal := myDON.CapabilityConfigurations[cid]; isLocal {
+			w.lggr.Warnw("skipping remote capability hosted locally by my DON", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid)
+			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultSkipped)
+			continue
+		}
 		capabilityConfig, err := offchainMC.configuration(cid, remoteDON, c)
 		if err != nil {
 			w.lggr.Errorw("could not unmarshal capability config", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid, "error", err)
