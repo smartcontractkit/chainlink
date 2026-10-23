@@ -501,7 +501,7 @@ func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, er
 		return nil, fmt.Errorf("failed to register limit check unenforced counter: %w", err)
 	}
 
-	em.triggerCoordinatorWorkflowsGauge, err = beholder.GetMeter().Int64Gauge(
+	em.triggerCoordinatorWorkflowsGauge, err = meter.Int64Gauge(
 		"platform_trigger_coordinator_workflows",
 		metric.WithDescription("Number of workflows currently registered with the trigger coordinator"),
 	)
@@ -509,7 +509,7 @@ func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, er
 		return nil, fmt.Errorf("failed to register trigger coordinator workflows gauge: %w", err)
 	}
 
-	em.triggerCoordinatorReadersGauge, err = beholder.GetMeter().Int64Gauge(
+	em.triggerCoordinatorReadersGauge, err = meter.Int64Gauge(
 		"platform_trigger_coordinator_readers",
 		metric.WithDescription("Number of trigger reader goroutines running across all coordinated workflows"),
 	)
@@ -517,7 +517,7 @@ func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, er
 		return nil, fmt.Errorf("failed to register trigger coordinator readers gauge: %w", err)
 	}
 
-	em.triggerCoordinatorUnregisterFailures, err = beholder.GetMeter().Int64Counter(
+	em.triggerCoordinatorUnregisterFailures, err = meter.Int64Counter(
 		"platform_trigger_coordinator_unregister_failures_total",
 		metric.WithDescription("Trigger unregistration failures in the coordinator, by workflowID"),
 	)
@@ -525,7 +525,7 @@ func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, er
 		return nil, fmt.Errorf("failed to register trigger coordinator unregister failures counter: %w", err)
 	}
 
-	em.activeExecutionsGauge, err = beholder.GetMeter().Int64Gauge(
+	em.activeExecutionsGauge, err = meter.Int64Gauge(
 		"platform_engine_active_executions",
 		metric.WithDescription("In-flight workflow executions, by workflowID"),
 	)
