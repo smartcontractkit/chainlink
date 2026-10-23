@@ -22,5 +22,8 @@ const (
 	TriggerDropReasonExecutionResponseLimitInvalid    = "execution_response_limit_invalid"
 	TriggerDropReasonCentralQueueFull                 = "central_queue_full"
 	TriggerDropReasonUnregistered                     = "unregistered"
+	TriggerDropReasonEngineGone                       = "engine_gone"
+	TriggerDropReasonEngineNotCoordinated             = "engine_not_coordinated"
+	TriggerDropReasonObservedAtMissing                = "observed_at_missing"
 	TriggerDropReasonUnknown                          = "unknown"
 )

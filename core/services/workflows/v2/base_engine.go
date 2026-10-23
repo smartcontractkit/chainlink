@@ -49,16 +49,17 @@ import (
 var executingWorkflows atomic.Int64
 
 var (
-	ErrDuplicateExecution      = errors.New("duplicate execution")
+	ErrDuplicateExecution = triggers.ErrDuplicateExecution
+	ErrEngineDraining     = triggers.ErrEngineDraining
+	ErrEngineClosed       = triggers.ErrEngineClosed
+
 	ErrShardDeniedNotOwner     = errors.New("shard ownership denied: not owner")
 	ErrShardDeniedOrchestrator = errors.New("shard ownership denied: orchestrator error")
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
 	ErrAdmissionCache          = errors.New("admission: event cached for failover")
 
-	ErrEngineDraining = errors.New("engine is draining")
-	ErrEngineClosed   = errors.New("engine is closed")
-	ErrQueueFull      = errors.New("trigger event queue is full")
-	ErrEnqueueFailed  = errors.New("failed to enqueue trigger event")
+	ErrQueueFull     = errors.New("trigger event queue is full")
+	ErrEnqueueFailed = errors.New("failed to enqueue trigger event")
 
 	ErrZeroTriggerSubscriptions = errors.New("workflow subscribed to zero triggers")
 )

@@ -55,6 +55,8 @@ type fakeEngine struct {
 	coordinated bool
 	// execute, if set, runs inside ExecuteTrigger on the execution's goroutine.
 	execute func(ctx context.Context, event CoordinatedEvent)
+	// executeErr, if set, is returned by every ExecuteTrigger call.
+	executeErr error
 
 	mu      sync.Mutex
 	events  []CoordinatedEvent
@@ -69,7 +71,7 @@ func (e *fakeEngine) ExecuteTrigger(ctx context.Context, event CoordinatedEvent)
 	if e.execute != nil {
 		e.execute(ctx, event)
 	}
-	return nil
+	return e.executeErr
 }
 
 func (e *fakeEngine) IsCoordinated() bool { return e.coordinated }
@@ -110,6 +112,14 @@ func (r *fakeEngineRegistry) set(wid types.WorkflowID, e RegisteredEngine) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.engines[wid] = e
+}
+
+// remove simulates the workflow's engine disappearing from the registry, e.g.
+// because the workflow was unregistered while events were still queued.
+func (r *fakeEngineRegistry) remove(wid types.WorkflowID) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.engines, wid)
 }
 
 // fakeWorkflowLimits counts slots, recording the tenant each call was scoped to.
@@ -184,6 +194,32 @@ func newCoordinatorFixtureWithAdmission(t *testing.T, admission AdmissionLimiter
 	engines.set(wid, engine)
 
 	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), admission, engines, wfLimits, clock)
+	servicetest.Run(t, c)
+
+	return &coordinatorFixture{
+		c: c.(*coordinator), capReg: capReg, engines: engines, limits: wfLimits,
+		clock: clock, wid: wid, engine: engine,
+	}
+}
+
+// newCoordinatorFixtureWithLogger is newCoordinatorFixture, but with the given
+// logger instead of a plain test logger, for tests that assert on log output.
+func newCoordinatorFixtureWithLogger(t *testing.T, lggr logger.Logger) *coordinatorFixture {
+	t.Helper()
+	capReg := regmocks.NewCapabilitiesRegistry(t)
+	engines := newFakeEngineRegistry()
+	wfLimits := &fakeWorkflowLimits{}
+	clock := clockwork.NewFakeClock()
+
+	wid, err := types.WorkflowIDFromHex(validWorkflowID)
+	require.NoError(t, err)
+	engine := &fakeEngine{coordinated: true}
+	engines.set(wid, engine)
+
+	deps := newRegisterDeps(t, capReg, limits.NewGateLimiter(true))
+	deps.Logger = lggr
+
+	c := NewCoordinator(deps, newTestAdmission(), engines, wfLimits, clock)
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{

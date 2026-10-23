@@ -10,8 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
@@ -646,5 +648,95 @@ func TestCoordinator_Admission(t *testing.T) {
 		release()
 		require.Eventually(t, func() bool { return len(f.engine.executed()) == 3 }, 5*time.Second, 5*time.Millisecond)
 		assert.Equal(t, []string{"evt-1", "evt-2", "evt-3"}, f.engine.executedIDs(), "evt-3 keeps the deadline stamped at dispatch")
+	})
+}
+
+// TestCoordinator_DropObservability covers drops that happen while resolving
+// the engine, and makes sure expected execution outcomes (duplicate,
+// draining, closed) are never logged as errors.
+//
+//nolint:paralleltest // its first two cases read metrics through useTestMeter, which swaps a global
+func TestCoordinator_DropObservability(t *testing.T) {
+	t.Run("the engine disappearing is counted as a drop", func(t *testing.T) { //nolint:paralleltest // see above
+		reader := useTestMeter(t)
+		f := newCoordinatorFixture(t)
+		trigger, eventCh := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		// The workflow was unregistered elsewhere (e.g. shard failover) and its
+		// engine is gone, but an event was already in the queue.
+		f.engines.remove(f.wid)
+		eventCh <- triggerEvent("evt-1")
+
+		gone := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonEngineGone}
+		require.Eventually(t, func() bool {
+			return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", gone) == 1
+		}, 5*time.Second, 5*time.Millisecond)
+		assert.Empty(t, f.engine.executed())
+	})
+
+	t.Run("an engine that is no longer coordinated is counted as a drop", func(t *testing.T) { //nolint:paralleltest // see above
+		reader := useTestMeter(t)
+		f := newCoordinatorFixture(t)
+		trigger, eventCh := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		// The syncer swapped in a legacy engine for this workflow; the
+		// coordinator must not deliver to it.
+		f.engine.coordinated = false
+		eventCh <- triggerEvent("evt-1")
+
+		notCoordinated := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonEngineNotCoordinated}
+		require.Eventually(t, func() bool {
+			return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", notCoordinated) == 1
+		}, 5*time.Second, 5*time.Millisecond)
+		assert.Empty(t, f.engine.executed())
+	})
+
+	t.Run("expected execution outcomes are logged at info, not error", func(t *testing.T) {
+		t.Parallel()
+		for _, tc := range []struct {
+			name string
+			err  error
+		}{
+			{"duplicate execution", ErrDuplicateExecution},
+			{"engine draining", ErrEngineDraining},
+			{"engine closed", ErrEngineClosed},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+				lggr, errorLogs := logger.TestObserved(t, zapcore.ErrorLevel)
+				f := newCoordinatorFixtureWithLogger(t, lggr)
+				trigger, eventCh := f.expectTrigger(t)
+				trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+				f.engine.executeErr = tc.err
+				_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+				require.NoError(t, err)
+
+				eventCh <- triggerEvent("evt-1")
+				require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+
+				assert.Empty(t, errorLogs.All(), "an expected execution outcome must not log at error, the way legacy's engine.go does")
+			})
+		}
+
+		t.Run("an unexpected execution error still logs at error", func(t *testing.T) {
+			t.Parallel()
+			lggr, errorLogs := logger.TestObserved(t, zapcore.ErrorLevel)
+			f := newCoordinatorFixtureWithLogger(t, lggr)
+			trigger, eventCh := f.expectTrigger(t)
+			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+			f.engine.executeErr = errors.New("boom")
+			_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+			require.NoError(t, err)
+
+			eventCh <- triggerEvent("evt-1")
+			require.Eventually(t, func() bool { return len(errorLogs.All()) == 1 }, 5*time.Second, 5*time.Millisecond,
+				"an unanticipated execution error must still be visible as an error")
+		})
 	})
 }

@@ -55,6 +55,15 @@ type Subscriber interface {
 	Tenant() contexts.CRE
 }
 
+// These are the EventSink.ExecuteTrigger errors a caller must expect and
+// handle without logging them as failures: each one means the event was
+// deliberately not executed, not that something went wrong.
+var (
+	ErrDuplicateExecution = errors.New("duplicate execution")
+	ErrEngineDraining     = errors.New("engine is draining")
+	ErrEngineClosed       = errors.New("engine is closed")
+)
+
 // EventSink is how trigger events are delivered to an engine for execution.
 type EventSink interface {
 	// ExecuteTrigger implementations should perform no admission checks.  Calls
@@ -63,11 +72,12 @@ type EventSink interface {
 	// Expected errors:
 	//   - ErrDuplicateExecution — the event was already executed.
 	//     The implementation should ACKs the duplicate internally before returning.
+	//   - ErrEngineDraining, ErrEngineClosed — the engine stopped accepting
+	//     events after the caller already resolved it. Neither is retried.
 	//   - ErrMeteringReserveFailed — metering report reservation failed.
 	//     Implementation should not ACK; the caller may retry.
 	//
-	// Execution errors are NOT returned as errors.
-	// Implementations should expose errors and execution state via lifecycle hooks.
+	// Any other error is unexpected and should be logged as a failure.
 	ExecuteTrigger(ctx context.Context, event CoordinatedEvent) error
 }
 
