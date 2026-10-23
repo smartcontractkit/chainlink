@@ -301,16 +301,23 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}, nil
 }
 
-// emitVaultGetSecrets emits a Started/Finished pair around a Vault get-secrets
-// call so it surfaces in the CRE UI like any other capability call (see
-// callCapability). One pair is emitted per batch call; a failed call finishes as
-// errored with the returned error.
-func emitVaultGetSecrets[T any](
+// runWithGetSecretsEvents runs fn (a Vault get-secrets call) and emits a
+// Started/Finished pair around it so the call surfaces in the CRE UI like any
+// other capability call (see callCapability). One pair is emitted per batch
+// call. A call-level error finishes as errored; otherwise outcome classifies the
+// per-secret result — a partial batch finishes succeeded with an error summary,
+// which the CRE UI uses to derive "completed with errors" for the execution.
+//
+// The returned error is the call-level error only: a partial or fully-failed
+// batch still returns its responses to the caller (the per-secret errors live in
+// them).
+func runWithGetSecretsEvents[T any](
 	ctx context.Context,
 	labels map[string]string,
 	executionID string,
 	callbackID int32,
 	run func() (T, error),
+	outcome func(T) (string, error),
 ) (T, error) {
 	stepRef := strconv.FormatInt(int64(callbackID), 10)
 	_ = events.EmitCapabilityStartedEvent(
@@ -320,23 +327,51 @@ func emitVaultGetSecrets[T any](
 
 	v, err := run()
 
-	status := store.StatusCompleted
-	if err != nil {
-		status = store.StatusErrored
+	emitStatus := store.StatusCompleted
+	var emitErr error
+	switch {
+	case err != nil:
+		emitStatus, emitErr = store.StatusErrored, err
+	case outcome != nil:
+		emitStatus, emitErr = outcome(v)
 	}
 	_ = events.EmitCapabilityFinishedEvent(
 		ctx, labels, executionID,
-		vaultcommon.CapabilityID, stepRef, status, vaultcommon.MethodGetSecrets, err,
+		vaultcommon.CapabilityID, stepRef, emitStatus, vaultcommon.MethodGetSecrets, emitErr,
 	)
 	return v, err
+}
+
+// vaultSecretBatchOutcome classifies a get-secrets batch for the CRE UI event:
+// all requests succeeded, some failed (partial), or all failed. The summary is
+// counts only — never secret keys or values — so the event carries no
+// secret-identifying data.
+func vaultSecretBatchOutcome(total, failed int) (string, error) {
+	switch {
+	case failed == 0:
+		return store.StatusCompleted, nil
+	case failed == total:
+		return store.StatusErrored, fmt.Errorf("all %d secret requests failed", total)
+	default:
+		return store.StatusCompleted, fmt.Errorf("%d of %d secret requests failed", failed, total)
+	}
 }
 
 // GetSecrets wraps the embedded SecretsFetcher so a Vault get-secrets call from a
 // normal workflow is observable in the CRE UI as a capability execution step.
 func (c *ExecutionHelper) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
-	return emitVaultGetSecrets(ctx, c.base.eventLabels(), c.WorkflowExecutionID, request.GetCallbackId(),
+	return runWithGetSecretsEvents(ctx, c.base.eventLabels(), c.WorkflowExecutionID, request.GetCallbackId(),
 		func() ([]*sdkpb.SecretResponse, error) {
 			return c.SecretsFetcher.GetSecrets(ctx, request)
+		},
+		func(responses []*sdkpb.SecretResponse) (string, error) {
+			failed := 0
+			for _, r := range responses {
+				if r.GetError() != nil {
+					failed++
+				}
+			}
+			return vaultSecretBatchOutcome(len(responses), failed)
 		})
 }
 
@@ -425,9 +460,19 @@ func (e *executionHelperWithRawSecrets) GetRawSecrets(ctx context.Context, reque
 // from a confidential (TEE) workflow is observable in the CRE UI as a capability
 // execution step, matching the normal GetSecrets path.
 func (e *executionHelperWithRawSecrets) GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vaultcommon.GetSecretsResponse, error) {
-	return emitVaultGetSecrets(ctx, e.base.eventLabels(), e.WorkflowExecutionID, request.GetCallbackId(),
+	return runWithGetSecretsEvents(ctx, e.base.eventLabels(), e.WorkflowExecutionID, request.GetCallbackId(),
 		func() (*vaultcommon.GetSecretsResponse, error) {
 			return e.SecretsFetcher.(RawSecretsFetcher).GetRawSecretsResponse(ctx, request, fetcher)
+		},
+		func(resp *vaultcommon.GetSecretsResponse) (string, error) {
+			responses := resp.GetResponses()
+			failed := 0
+			for _, r := range responses {
+				if r.GetError() != "" {
+					failed++
+				}
+			}
+			return vaultSecretBatchOutcome(len(responses), failed)
 		})
 }
 

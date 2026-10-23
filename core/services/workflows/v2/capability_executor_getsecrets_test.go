@@ -42,6 +42,32 @@ func (s stubSecretsFetcher) GetRawSecretsResponse(context.Context, *sdkpb.GetSec
 
 func (s stubSecretsFetcher) GetOwner() string { return "stub-owner" }
 
+func sdkSecretOK(id string) *sdkpb.SecretResponse {
+	return &sdkpb.SecretResponse{
+		Response: &sdkpb.SecretResponse_Secret{Secret: &sdkpb.Secret{Id: id, Value: "value-" + id}},
+	}
+}
+
+func sdkSecretErr(id string) *sdkpb.SecretResponse {
+	return &sdkpb.SecretResponse{
+		Response: &sdkpb.SecretResponse_Error{Error: &sdkpb.SecretError{Id: id, Error: "not found"}},
+	}
+}
+
+func vaultSecretOK(id string) *vaultcommon.SecretResponse {
+	return &vaultcommon.SecretResponse{
+		Id:     &vaultcommon.SecretIdentifier{Key: id},
+		Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{}},
+	}
+}
+
+func vaultSecretErr(id string) *vaultcommon.SecretResponse {
+	return &vaultcommon.SecretResponse{
+		Id:     &vaultcommon.SecretIdentifier{Key: id},
+		Result: &vaultcommon.SecretResponse_Error{Error: "not found"},
+	}
+}
+
 // newSecretsEventTestHelper builds an ExecutionHelper whose base engine only
 // carries the workflow event labels, which is all the wrappers read from it.
 func newSecretsEventTestHelper(t *testing.T, executionID string, fetcher SecretsFetcher) *ExecutionHelper {
@@ -91,7 +117,9 @@ func TestExecutionHelper_GetSecretsEmitsCapabilityExecutionEvents(t *testing.T) 
 
 	const executionID = "exec-1"
 	callbackID := int32(7)
-	h := newSecretsEventTestHelper(t, executionID, stubSecretsFetcher{})
+	h := newSecretsEventTestHelper(t, executionID, stubSecretsFetcher{
+		resp: []*sdkpb.SecretResponse{sdkSecretOK("a"), sdkSecretOK("b")},
+	})
 
 	_, err := h.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{CallbackId: callbackID})
 	require.NoError(t, err)
@@ -115,12 +143,12 @@ func TestExecutionHelper_GetSecretsEmitsCapabilityExecutionEvents(t *testing.T) 
 	assert.Empty(t, finished.GetError())
 }
 
-// TestExecutionHelper_GetSecretsEmitsErroredOnFailure verifies that a failed vault
-// get-secrets call finishes as errored with the returned error, so the failure is
-// visible in the CRE UI.
+// TestExecutionHelper_GetSecretsEmitsErroredOnCallFailure verifies that a
+// call-level failure finishes as errored with the returned error, so the failure
+// is visible in the CRE UI.
 //
 // NewObserver mutates process-global beholder state, so this test must not be parallel.
-func TestExecutionHelper_GetSecretsEmitsErroredOnFailure(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+func TestExecutionHelper_GetSecretsEmitsErroredOnCallFailure(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
 	observer := beholdertest.NewObserver(t)
 
 	wantErr := errors.New("vault unavailable")
@@ -134,6 +162,48 @@ func TestExecutionHelper_GetSecretsEmitsErroredOnFailure(t *testing.T) { //nolin
 	assert.Equal(t, wantErr.Error(), finished.GetError())
 }
 
+// TestExecutionHelper_GetSecretsEmitsPartialOutcome verifies that a batch where
+// only some secrets fail finishes succeeded with an error summary, so the
+// workflow execution derives "completed with errors" in the CRE UI.
+//
+// NewObserver mutates process-global beholder state, so this test must not be parallel.
+func TestExecutionHelper_GetSecretsEmitsPartialOutcome(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+	observer := beholdertest.NewObserver(t)
+
+	h := newSecretsEventTestHelper(t, "exec-1", stubSecretsFetcher{
+		resp: []*sdkpb.SecretResponse{sdkSecretOK("a"), sdkSecretOK("b"), sdkSecretErr("c")},
+	})
+
+	resp, err := h.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{CallbackId: 1})
+	require.NoError(t, err, "a partial batch is still a successful call")
+	require.Len(t, resp, 3)
+
+	finished := decodeCapabilityExecutionFinished(t, observer)
+	assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_SUCCEEDED, finished.GetStatus())
+	assert.Equal(t, "1 of 3 secret requests failed", finished.GetError())
+}
+
+// TestExecutionHelper_GetSecretsEmitsErroredWhenAllSecretsFail verifies that a
+// batch where every secret fails finishes errored (the call itself still returns
+// its responses), so the step is visibly failed in the CRE UI.
+//
+// NewObserver mutates process-global beholder state, so this test must not be parallel.
+func TestExecutionHelper_GetSecretsEmitsErroredWhenAllSecretsFail(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+	observer := beholdertest.NewObserver(t)
+
+	h := newSecretsEventTestHelper(t, "exec-1", stubSecretsFetcher{
+		resp: []*sdkpb.SecretResponse{sdkSecretErr("a"), sdkSecretErr("b")},
+	})
+
+	resp, err := h.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{CallbackId: 1})
+	require.NoError(t, err, "per-secret failures are not a call-level error")
+	require.Len(t, resp, 2)
+
+	finished := decodeCapabilityExecutionFinished(t, observer)
+	assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED, finished.GetStatus())
+	assert.Equal(t, "all 2 secret requests failed", finished.GetError())
+}
+
 // TestExecutionHelper_GetRawSecretsResponseEmitsCapabilityExecutionEvents verifies
 // that a successful vault get-secrets call from a confidential (TEE) workflow — the
 // path the confidential relay handler drives — emits the same Started/Finished pair,
@@ -145,7 +215,11 @@ func TestExecutionHelper_GetRawSecretsResponseEmitsCapabilityExecutionEvents(t *
 
 	const executionID = "exec-tee"
 	callbackID := int32(3)
-	base := newSecretsEventTestHelper(t, executionID, stubSecretsFetcher{})
+	base := newSecretsEventTestHelper(t, executionID, stubSecretsFetcher{
+		rawResp: &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{vaultSecretOK("a")},
+		},
+	})
 	raw := &executionHelperWithRawSecrets{base}
 
 	_, err := raw.GetRawSecretsResponse(t.Context(), &sdkpb.GetSecretsRequest{CallbackId: callbackID}, nil)
@@ -166,11 +240,33 @@ func TestExecutionHelper_GetRawSecretsResponseEmitsCapabilityExecutionEvents(t *
 	assert.Empty(t, finished.GetError())
 }
 
-// TestExecutionHelper_GetRawSecretsResponseEmitsErroredOnFailure verifies that a
+// TestExecutionHelper_GetRawSecretsResponseEmitsPartialOutcome verifies the
+// confidential path classifies a partial batch the same way as the normal path.
+//
+// NewObserver mutates process-global beholder state, so this test must not be parallel.
+func TestExecutionHelper_GetRawSecretsResponseEmitsPartialOutcome(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+	observer := beholdertest.NewObserver(t)
+
+	base := newSecretsEventTestHelper(t, "exec-tee", stubSecretsFetcher{
+		rawResp: &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{vaultSecretOK("a"), vaultSecretErr("b")},
+		},
+	})
+	raw := &executionHelperWithRawSecrets{base}
+
+	_, err := raw.GetRawSecretsResponse(t.Context(), &sdkpb.GetSecretsRequest{CallbackId: 1}, nil)
+	require.NoError(t, err)
+
+	finished := decodeCapabilityExecutionFinished(t, observer)
+	assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_SUCCEEDED, finished.GetStatus())
+	assert.Equal(t, "1 of 2 secret requests failed", finished.GetError())
+}
+
+// TestExecutionHelper_GetRawSecretsResponseEmitsErroredOnCallFailure verifies that a
 // failed confidential get-secrets call finishes as errored with the returned error.
 //
 // NewObserver mutates process-global beholder state, so this test must not be parallel.
-func TestExecutionHelper_GetRawSecretsResponseEmitsErroredOnFailure(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+func TestExecutionHelper_GetRawSecretsResponseEmitsErroredOnCallFailure(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
 	observer := beholdertest.NewObserver(t)
 
 	wantErr := errors.New("vault unavailable")
