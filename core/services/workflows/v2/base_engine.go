@@ -49,16 +49,17 @@ import (
 var executingWorkflows atomic.Int64
 
 var (
-	ErrDuplicateExecution      = errors.New("duplicate execution")
+	ErrDuplicateExecution = triggers.ErrDuplicateExecution
+	ErrEngineDraining     = triggers.ErrEngineDraining
+	ErrEngineClosed       = triggers.ErrEngineClosed
+
 	ErrShardDeniedNotOwner     = errors.New("shard ownership denied: not owner")
 	ErrShardDeniedOrchestrator = errors.New("shard ownership denied: orchestrator error")
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
 	ErrAdmissionCache          = errors.New("admission: event cached for failover")
 
-	ErrEngineDraining = errors.New("engine is draining")
-	ErrEngineClosed   = errors.New("engine is closed")
-	ErrQueueFull      = errors.New("trigger event queue is full")
-	ErrEnqueueFailed  = errors.New("failed to enqueue trigger event")
+	ErrQueueFull     = errors.New("trigger event queue is full")
+	ErrEnqueueFailed = errors.New("failed to enqueue trigger event")
 
 	ErrZeroTriggerSubscriptions = errors.New("workflow subscribed to zero triggers")
 )
@@ -376,6 +377,11 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 // init. Every field it reads is written before OnInitialized fires.
 func (e *baseEngine) Tenant() contexts.CRE {
 	return contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
+}
+
+// SdkName is the SDK the workflow binary was built with.
+func (e *baseEngine) SdkName() string {
+	return e.cfg.SdkName
 }
 
 // Drain marks the engine as draining and prevents new executions from starting.

@@ -207,6 +207,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		platform.KeyWorkflowOwner, params.WorkflowOwner,
 		platform.KeyWorkflowName, params.WorkflowName.String(),
 		platform.KeyOrganizationID, cre.Org,
+		platform.KeySDK, subscriber.SdkName(),
 	)
 
 	// Registration IDs derive from the workflowID, so a leftover registration
@@ -381,7 +382,7 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 		// The deadline needs ObservedAt. Drop the event if it is missing.
 		if event.ObservedAt.IsZero() {
 			cw.lggr.Errorw("Trigger event missing ObservedAt, dropping", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
-			tm.IncrementTriggerEventDroppedTotal(ctx, "observed_at_missing")
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonObservedAtMissing)
 			return
 		}
 		queueTimeout, err := c.admission.TriggerEventQueueTimeout.Limit(ctx)
@@ -438,7 +439,7 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 			continue
 		}
 
-		engine, ok := c.coordinatedEngine(cw, event)
+		engine, ok := c.coordinatedEngine(ctx, cw, tm, event)
 		if !ok {
 			continue
 		}
@@ -463,7 +464,11 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 			defer free()
 			// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
 			if err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event); err != nil {
-				cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
+				if errors.Is(err, ErrDuplicateExecution) || errors.Is(err, ErrEngineDraining) || errors.Is(err, ErrEngineClosed) {
+					cw.lggr.Infow("Skipping trigger event execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+				} else {
+					cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
+				}
 			}
 		})
 	}
@@ -471,16 +476,18 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 
 // coordinatedEngine looks up the workflow's engine fresh for every event
 // instead of caching it, since the engine for a workflow can change while the
-// registration is running. It reports false, after logging why, if there is no
-// engine to deliver to.
-func (c *coordinator) coordinatedEngine(cw *coordinatedWorkflow, event CoordinatedEvent) (RegisteredEngine, bool) {
+// registration is running. It reports false, after logging why and counting
+// the drop, if there is no engine to deliver to.
+func (c *coordinator) coordinatedEngine(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) (RegisteredEngine, bool) {
 	engine, found := c.engines.Get(cw.wid)
 	if !found {
 		cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineGone)
 		return nil, false
 	}
 	if !engine.IsCoordinated() {
 		cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineNotCoordinated)
 		return nil, false
 	}
 	return engine, true

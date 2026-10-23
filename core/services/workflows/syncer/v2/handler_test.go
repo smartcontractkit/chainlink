@@ -135,6 +135,8 @@ func (m *mockEngine) Subscribe(context.Context) ([]*sdk.TriggerSubscription, err
 
 func (m *mockEngine) Tenant() contexts.CRE { return contexts.CRE{} }
 
+func (m *mockEngine) SdkName() string { return "" }
+
 func (m *mockEngine) Drain() bool { return false }
 
 func (m *mockEngine) ActiveExecutions() int32 { return 0 }
