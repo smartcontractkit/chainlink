@@ -574,8 +574,13 @@ func proposeAndApproveShardAssignmentJob(t *testing.T, testEnv *ttypes.TestEnvir
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: "shard-assignment"},
 	}
 
+	// Use a fresh bundle per proposal: the environment's bundle keeps every report, so re-proposing
+	// a previously used assignment would return the cached report without proposing anything.
+	// WithForceExecute is not enough, as it does not reach the nested ProposeJobSpec operation.
+	sharedBundle := testEnv.CreEnvironment.CldfEnvironment.OperationsBundle
+	bundle := operations.NewBundle(sharedBundle.GetContext, sharedBundle.Logger, operations.NewMemoryReporter())
 	report, err := operations.ExecuteOperation(
-		testEnv.CreEnvironment.CldfEnvironment.OperationsBundle,
+		bundle,
 		ring_ops.ProposeShardAssignmentJob,
 		ring_ops.ProposeShardAssignmentJobDeps{Env: *testEnv.CreEnvironment.CldfEnvironment},
 		jobInput,
