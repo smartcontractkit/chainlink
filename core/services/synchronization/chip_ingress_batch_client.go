@@ -35,6 +35,10 @@ const (
 // replacing the WSRPC path to OTI (OCR Telemetry Ingress). One instance is
 // shared by every job. Each message becomes a CloudEvent whose extensions
 // chip-ingress turns into the same Kafka key and headers OTI used to produce.
+//
+// Batches go out as PublishBatchNoAck (see NewChipIngressBatchClient), so a message
+// counted as sent was validated and handed to chip-ingress's Kafka producer, not
+// necessarily persisted.
 type chipIngressBatchClient struct {
 	services.Service
 	eng *services.Engine
@@ -72,6 +76,16 @@ func NewChipIngressBatchClient(chipClient chipingress.Client, csaPubKeyHex strin
 		batch.WithMaxGRPCRequestSize(cfg.MaxGRPCRequestSize),
 		batch.WithShutdownTimeout(cfg.DrainTimeout),
 		batch.WithClientName(legacyTelemetryBatchClientName),
+		// Partial delivery: the server reports a result per event, so one rejected event
+		// (e.g. a missing topic) fails only itself. This is the library default; set it
+		// explicitly so a bump can't silently turn a bad event into a failed batch.
+		batch.WithTransactionEnabled(false),
+		// Legacy telemetry is loss-tolerant, and OTI's own traffic is produced with
+		// acks=0. Send with PublishBatchNoAck so the server answers once it has validated
+		// the events and handed them to its Kafka producer, without waiting for the
+		// broker. A server without that RPC fails every batch with Unimplemented; there
+		// is no fallback to PublishBatch, so deploy the server first.
+		batch.WithNoAck(),
 		// Send builds a fresh event per message and never touches it after queueing,
 		// so skip the defensive per-message proto.Clone.
 		batch.WithEventClone(false),
@@ -155,7 +169,9 @@ func (c *chipIngressBatchClient) Send(_ context.Context, payload TelemPayload) {
 }
 
 // onPublished returns the callback the batch client runs once the message's batch
-// has been published, counting each message as sent or failed.
+// has been published, counting each message as sent or failed. With NoAck, "sent"
+// means chip-ingress validated the event and handed it to its producer; events can
+// still be lost afterwards without any error.
 func (c *chipIngressBatchClient) onPublished(telemType TelemetryType, contractID string) func(error) {
 	return func(err error) {
 		if err != nil {

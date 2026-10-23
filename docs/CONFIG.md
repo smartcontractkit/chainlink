@@ -339,7 +339,7 @@ UseBatchSend toggles sending telemetry to the ingress server using the batch cli
 ```toml
 ChipIngressEnabled = false # Default
 ```
-ChipIngressEnabled sends all telemetry to ChipIngressEndpoint instead of the WSRPC Endpoints. Endpoints entries are still required and select which chains send telemetry; in this mode only their Network and ChainID are used.
+ChipIngressEnabled sends all telemetry to ChipIngressEndpoint instead of the WSRPC Endpoints. Endpoints entries are still required and select which chains send telemetry; in this mode only their Network and ChainID are used. Telemetry is sent with PublishBatchNoAck (fire-and-forget; the server must support it), so a message counted as sent was accepted by chip-ingress's producer, not necessarily persisted.
 
 ### ChipIngressEndpoint
 ```toml

@@ -32,11 +32,12 @@ func NewTestTelemetryIngressBatchClient(t *testing.T, url *url.URL, serverPubKey
 func NewTestChipIngressBatchClient(t *testing.T, chipClient chipingress.Client, logging bool, sendInterval time.Duration) ChipIngressService {
 	c, err := NewChipIngressBatchClient(chipClient, "deadbeef", ChipIngressBatchConfig{
 		BufferSize:         10_000,
-		MaxBatchSize:       1_000,
+		MaxBatchSize:       100, // shipped defaults; 1_000 is above the validated maximum
 		MaxConcurrentSends: 10,
 		SendInterval:       sendInterval,
 		SendTimeout:        time.Second,
-		DrainTimeout:       5 * time.Second,
+		MaxGRPCRequestSize: 10 << 20,
+		DrainTimeout:       time.Second,
 		Logging:            logging,
 	}, logger.TestLogger(t))
 	require.NoError(t, err)
