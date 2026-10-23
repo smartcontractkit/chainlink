@@ -348,10 +348,10 @@ func runWithGetSecretsEvents[T any](
 // counts only — never secret keys or values — so the event carries no
 // secret-identifying data.
 func vaultSecretBatchOutcome(total, failed int) (string, error) {
-	switch {
-	case failed == 0:
+	switch failed {
+	case 0:
 		return store.StatusCompleted, nil
-	case failed == total:
+	case total:
 		return store.StatusErrored, fmt.Errorf("all %d secret requests failed", total)
 	default:
 		return store.StatusCompleted, fmt.Errorf("%d of %d secret requests failed", failed, total)
