@@ -14,8 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/curve25519"
-	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -39,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultcrypto"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
@@ -72,6 +71,7 @@ func NewReportingPluginFactory(
 	db dkgocrtypes.ResultPackageDatabase,
 	recipientKey *dkgrecipientkey.Key,
 	lazyPublicKey *vaultcap.LazyPublicKey,
+	directReader *vaultcap.LazyDirectSecretsReader,
 	limitsFactory limits.Factory,
 	lifecycle *vaultcap.RequestLifecycleTracker,
 ) (*ReportingPluginFactory, error) {
@@ -99,6 +99,7 @@ func NewReportingPluginFactory(
 		recipientKey:  recipientKey,
 		limitsFactory: limitsFactory,
 		lifecycle:     lifecycle,
+		directReader:  directReader,
 	}, nil
 }
 
@@ -110,6 +111,7 @@ type ReportingPluginFactory struct {
 	recipientKey  *dkgrecipientkey.Key
 	limitsFactory limits.Factory
 	lifecycle     *vaultcap.RequestLifecycleTracker
+	directReader  *vaultcap.LazyDirectSecretsReader
 }
 
 func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID string) (publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, err error) {
@@ -222,7 +224,10 @@ func logLimit[N limits.Number](ctx context.Context, lggr logger.Logger, limiter 
 	return limit
 }
 
-func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
+var _ ocr3_1types.ReportingPluginFactory2[[]byte] = (*ReportingPluginFactory)(nil)
+
+// When readOnlyKV is set, the instance also serves direct GetSecrets reads.
+func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, _ ocr3_1types.BlobBroadcastFetcher, readOnlyKV ocr3_1types.ReadOnlyKeyValueState) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
 	var configProto vaultcommon.ReportingPluginConfig
 	if err := proto.Unmarshal(config.OffchainConfig, &configProto); err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not unmarshal reporting plugin config: %w", err)
@@ -303,14 +308,24 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
 
-	return &ReportingPlugin{
-		lggr:                         r.lggr.Named("VaultReportingPlugin"),
+	pluginLggr := r.lggr.Named("VaultReportingPlugin")
+	reads := &getSecretsHandler{
+		lggr:            pluginLggr,
+		metrics:         metrics,
+		validator:       validator,
+		publicKey:       publicKey,
+		privateKeyShare: privateKeyShare,
+	}
+
+	plugin := &ReportingPlugin{
+		lggr:                         pluginLggr,
 		store:                        r.store,
 		cfg:                          cfg,
 		metrics:                      metrics,
 		onchainCfg:                   config,
 		validator:                    validator,
 		lifecycle:                    r.lifecycle,
+		reads:                        reads,
 		maxObservationBytes:          pluginLimits.MaxObservationBytes,
 		maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
 		unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
@@ -321,7 +336,17 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
 			return handle.MarshalBinary()
 		},
-	}, ocr3_1types.ReportingPluginInfo1{
+	}
+
+	// Register the shared get-secrets handler with the vault capability's lazy
+	// reader so it can serve direct reads for this DKG instance's key material.
+	if readOnlyKV != nil && r.directReader != nil {
+		reads.readOnlyKV = readOnlyKV
+		reads.registry = r.directReader
+		r.directReader.Set(reads)
+	}
+
+	return plugin, ocr3_1types.ReportingPluginInfo1{
 		Name:   "VaultReportingPlugin",
 		Limits: pluginLimits,
 	}, nil
@@ -346,6 +371,10 @@ type ReportingPlugin struct {
 	marshalBlob   func(handle ocr3_1types.BlobHandle) ([]byte, error)
 
 	pendingQueueStallTracker pendingQueueStallTracker
+
+	// Shared GetSecrets read/response handler for this DKG instance; also
+	// serves direct reads when registered with a lazy reader.
+	reads *getSecretsHandler
 }
 
 type pendingQueueStallTracker struct {
@@ -971,52 +1000,26 @@ type share struct {
 }
 
 func (s *share) encryptWithKeyBinary(pk string) ([]byte, error) {
-	publicKey, err := hex.DecodeString(pk)
-	if err != nil {
-		return nil, vaulttypes.NewUserError("failed to convert public key to bytes: " + err.Error())
+	encrypted, err := vaultcrypto.EncryptShareBinary(s.data, pk)
+	if errors.Is(err, vaultcrypto.ErrInvalidRecipientKey) {
+		return nil, vaulttypes.NewUserError(err.Error())
 	}
-
-	if len(publicKey) != curve25519.PointSize {
-		return nil, vaulttypes.NewUserError(fmt.Sprintf("invalid public key size: expected %d bytes, got %d bytes", curve25519.PointSize, len(publicKey)))
-	}
-
-	publicKeyLength := [curve25519.PointSize]byte(publicKey)
-	encrypted, err := box.SealAnonymous(nil, s.data, &publicKeyLength, rand.Reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt decryption share: %w", err)
-	}
-
-	return encrypted, nil
+	return encrypted, err
 }
 
 func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, encryptedSecret []byte, workflowOwner string) (*share, error) {
-	ct := &tdh2easy.Ciphertext{}
-	err := ct.UnmarshalVerify(encryptedSecret, publicKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal ciphertext: %w", err)
+	if workflowOwner == "" {
+		return nil, errors.New("failed to verify label on secret. error: owner must not be empty for secret label verification")
 	}
-
-	es := hex.EncodeToString(encryptedSecret)
-	err = vaultcap.EnsureRightLabelOnSecret(publicKey, es, workflowOwner)
+	sb, err := vaultcrypto.GeneratePlaintextShare(publicKey, privateKeyShare, encryptedSecret, vaultutils.WorkflowOwnerToLabel(workflowOwner))
 	if err != nil {
-		return nil, errors.New("failed to verify label on secret. error: " + err.Error())
+		return nil, err
 	}
-
-	s, err := tdh2easy.Decrypt(ct, privateKeyShare)
-	if err != nil {
-		return nil, fmt.Errorf("could not generate decryption share: %w", err)
-	}
-
-	sb, err := s.Marshal()
-	if err != nil {
-		return nil, errors.New("could not marshal decryption share")
-	}
-
 	return &share{data: sb}, nil
 }
 
 func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest, requestsCountForID map[string]int) (*vaultcommon.SecretResponse, error) {
-	id, err := r.validateGetSecretsRequestItem(ctx, secretRequest, requestsCountForID)
+	id, err := validateGetSecretsRequestItem(ctx, r.validator, secretRequest, requestsCountForID)
 	if err != nil {
 		return nil, err
 	}
@@ -1029,33 +1032,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		return nil, vaulttypes.NewUserError("key does not exist")
 	}
 
-	sh, err := generatePlaintextShare(r.cfg.PublicKey, r.cfg.PrivateKeyShare, secret.EncryptedSecret, id.Owner)
-	if err != nil {
-		return nil, err
-	}
-
-	shares := []*vaultcommon.EncryptedShares{}
-	for _, pk := range secretRequest.EncryptionKeys {
-		encShare, err := sh.encryptWithKeyBinary(pk)
-		if err != nil {
-			return nil, err
-		}
-
-		shares = append(shares, &vaultcommon.EncryptedShares{
-			EncryptionKey: pk,
-			BinaryShares:  [][]byte{encShare},
-		})
-	}
-
-	return &vaultcommon.SecretResponse{
-		Id: id,
-		Result: &vaultcommon.SecretResponse_Data{
-			Data: &vaultcommon.SecretData{
-				EncryptedValue:               hex.EncodeToString(secret.EncryptedSecret),
-				EncryptedDecryptionKeyShares: shares,
-			},
-		},
-	}, nil
+	return r.reads.buildGetSecretsResponse(id, secretRequest, secret)
 }
 
 func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, seqNr uint64, requestID string, req proto.Message, o *vaultcommon.Observation) {
@@ -2513,6 +2490,7 @@ func (r *ReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, seqN
 }
 
 func (r *ReportingPlugin) Close() error {
+	r.reads.Close()
 	return errors.Join(
 		r.validator.Close(),
 		r.cfg.MaxSecretsPerOwner.Close(),

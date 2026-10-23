@@ -15,6 +15,7 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -28,6 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/directread"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -76,6 +79,9 @@ type launcher struct {
 	workflowTagHashFlag limits.RangeLimiter[commonconfig.Timestamp]
 
 	propagateOrgIDGate limits.GateLimiter
+
+	// vaultShareSizeLimit caps the size of each decryption share in direct GetSecrets responses.
+	vaultShareSizeLimit limits.BoundLimiter[commonconfig.Size]
 
 	muSubServices sync.Mutex
 	subServices   []services.Service
@@ -159,6 +165,10 @@ func NewLauncher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create propagate org ID gate limiter: %w", err)
 	}
+	vaultShareSizeLimit, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultShareSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vault share size limit limiter: %w", err)
+	}
 	return &launcher{
 		lggr:       logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		dispatcher: dispatcher,
@@ -177,6 +187,7 @@ func NewLauncher(
 		workflowDONBindingGate: workflowDONBindingGate,
 		workflowTagHashFlag:    workflowTagHashFlag,
 		propagateOrgIDGate:     propagateOrgIDGate,
+		vaultShareSizeLimit:    vaultShareSizeLimit,
 		shardingEnabled:        shardingEnabled,
 		shardIndex:             shardIndex,
 		stopCh:                 make(services.StopChan),
@@ -273,6 +284,11 @@ func (w *launcher) Close() error {
 		if w.propagateOrgIDGate != nil {
 			if err := w.propagateOrgIDGate.Close(); err != nil {
 				w.lggr.Errorw("failed to close propagate org ID gate limiter", "error", err)
+			}
+		}
+		if w.vaultShareSizeLimit != nil {
+			if err := w.vaultShareSizeLimit.Close(); err != nil {
+				w.lggr.Errorw("failed to close vault share size limit limiter", "error", err)
 			}
 		}
 		return nil
@@ -736,7 +752,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		} else { // executable
 			client, alreadyExists := w.cachedShims.executableClients[key]
 			if !alreadyExists {
-				client = executable.NewClient(info.ID, method, w.dispatcher, w.lggr)
+				client = executable.NewClient(info.ID, method, w.dispatcher, w.lggr, w.executableClientOpts(capID, method)...)
 				cc.SetExecutableClient(method, client)
 				// add to cachedShims later, only after startNewShim succeeds
 			}
@@ -767,6 +783,17 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		if err2 := w.registry.Add(ctx, cc); err2 != nil {
 			return fmt.Errorf("failed to add CombinedClient for capability %s to registry: %w", capID, err2)
 		}
+	}
+	return nil
+}
+
+// Vault direct GetSecrets responses carry a different share from each node, so
+// they can't use the identical-response quorum.
+func (w *launcher) executableClientOpts(capID, method string) []executable.ClientOpt {
+	// NewAggregatorFactory checks if the request has GetSecretsDirectly set so the new aggregator
+	// is behind a feature flag
+	if capID == vaultcommon.CapabilityID && method == vaulttypes.MethodSecretsGet {
+		return []executable.ClientOpt{executable.WithAggregatorFactory(directread.NewAggregatorFactory(w.vaultShareSizeLimit))}
 	}
 	return nil
 }

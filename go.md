@@ -62,6 +62,7 @@ flowchart LR
 	chainlink-common --> freeport
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
+	chainlink-common --> tdh2/go/tdh2
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/keystore --> chainlink-common
 	chainlink-common/keystore --> smdkg
@@ -339,6 +340,7 @@ flowchart LR
 	chainlink-common --> freeport
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
+	chainlink-common --> tdh2/go/tdh2
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/keystore --> chainlink-common
 	chainlink-common/keystore --> smdkg
