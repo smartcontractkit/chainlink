@@ -81,7 +81,7 @@ type Core struct {
 // Values are deep-copied, so c never aliases f: later writes through either one
 // do not affect the other.
 func (c *Core) SetFrom(f *Core) {
-	fc := clone.Clone(*f).(Core)
+	fc := clone.Slowly(*f).(Core)
 	f = &fc
 	if v := f.InsecureFastScrypt; v != nil {
 		c.InsecureFastScrypt = v
