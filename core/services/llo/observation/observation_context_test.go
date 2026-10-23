@@ -576,7 +576,7 @@ func makeNamedTerminalsPipeline(t *testing.T, jobStreamID streams.StreamID, tags
 	}
 	p, err := pipeline.Parse(dag.String())
 	require.NoError(t, err)
-	var trrs pipeline.TaskRunResults
+	trrs := make(pipeline.TaskRunResults, 0, len(names))
 	for i, name := range names {
 		task := p.ByDotID(name)
 		require.NotNil(t, task, name)
@@ -612,7 +612,7 @@ func makeMedianQuotePipeline(t *testing.T, jobStreamID streams.StreamID, tags []
 	p, err := pipeline.Parse(dag.String())
 	require.NoError(t, err)
 	values := [3]string{benchmark, bid, ask}
-	var trrs pipeline.TaskRunResults
+	trrs := make(pipeline.TaskRunResults, 0, len(fields))
 	for j, field := range fields {
 		task := p.ByDotID(field + "_price")
 		require.NotNil(t, task, field)
@@ -675,7 +675,7 @@ func makePerpsPriceQuotePipeline(t *testing.T, jobStreamID streams.StreamID, tag
 	p, err := pipeline.Parse(dag.String())
 	require.NoError(t, err)
 	values := [3]string{benchmark, bid, ask}
-	var trrs pipeline.TaskRunResults
+	trrs := make(pipeline.TaskRunResults, 0, len(fields))
 	for i, f := range fields {
 		task := p.ByDotID("wm_" + f)
 		require.NotNil(t, task, f)
@@ -730,7 +730,7 @@ market_rate_ask_median -> exchange_rate_multiply_ask -> ask_price;
 `)
 	require.NoError(t, err)
 	values := [3]string{benchmark, bid, ask}
-	var trrs pipeline.TaskRunResults
+	trrs := make(pipeline.TaskRunResults, 0, len(values))
 	for i, id := range [3]string{"benchmark_price", "bid_price", "ask_price"} {
 		task := p.ByDotID(id)
 		require.NotNil(t, task, id)

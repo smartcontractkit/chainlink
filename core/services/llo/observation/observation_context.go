@@ -271,21 +271,33 @@ func validateNamedQuote(p streams.Pipeline, streamID streams.StreamID, tagged re
 	if !ok {
 		return nil
 	}
-	var q lloprotocol.Quote
+	q, benchmarkTag, ok := namedQuote(ids, trrs.Terminals())
+	if !ok {
+		return nil
+	}
+	return validateStreamValue(quoteStreamID(p, streamID, tagged, benchmarkTag), q)
+}
+
+// namedQuote builds the quote from the results of the terminals with the
+// Benchmark, Bid and Ask IDs in ids, and returns the stream tagged on the
+// Benchmark terminal. It reports false if any of them is missing, failed or is
+// not a decimal.
+func namedQuote(ids [3]string, terminals []pipeline.TaskRunResult) (*lloprotocol.Quote, *uint32, bool) {
+	q := new(lloprotocol.Quote)
 	fields := [3]*decimal.Decimal{&q.Benchmark, &q.Bid, &q.Ask}
 	var benchmarkTag *uint32
 	found := 0
-	for _, trr := range trrs.Terminals() {
+	for _, trr := range terminals {
 		role := slices.Index(ids[:], trr.Task.DotID())
 		if role == -1 {
 			continue
 		}
 		if trr.Result.Error != nil {
-			return nil
+			return nil, nil, false
 		}
 		d, err := toDecimal(trr.Result.Value)
 		if err != nil {
-			return nil
+			return nil, nil, false
 		}
 		*fields[role] = d
 		if role == 0 {
@@ -293,10 +305,7 @@ func validateNamedQuote(p streams.Pipeline, streamID streams.StreamID, tagged re
 		}
 		found++
 	}
-	if found != len(ids) {
-		return nil
-	}
-	return validateStreamValue(quoteStreamID(p, streamID, tagged, benchmarkTag), &q)
+	return q, benchmarkTag, found == len(ids)
 }
 
 // quoteStreamID returns the stream a named quote is attributed to: the lowest
