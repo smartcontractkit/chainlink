@@ -33,15 +33,17 @@ const (
 	testOwner        = "abcdef" // already normalized: contexts.WithCRE strips a 0x prefix
 	testOrg          = "org-1"
 	testDonID        = uint32(7)
+	testSdkName      = "javascript"
 )
 
 var testTenant = contexts.CRE{Org: testOrg, Owner: testOwner, Workflow: validWorkflowID}
 
 type fakeSubscriber struct {
-	tenant contexts.CRE
-	subs   []*sdkpb.TriggerSubscription
-	err    error
-	calls  int
+	tenant  contexts.CRE
+	sdkName string
+	subs    []*sdkpb.TriggerSubscription
+	err     error
+	calls   int
 }
 
 func (s *fakeSubscriber) Subscribe(context.Context) ([]*sdkpb.TriggerSubscription, error) {
@@ -50,6 +52,8 @@ func (s *fakeSubscriber) Subscribe(context.Context) ([]*sdkpb.TriggerSubscriptio
 }
 
 func (s *fakeSubscriber) Tenant() contexts.CRE { return s.tenant }
+
+func (s *fakeSubscriber) SdkName() string { return s.sdkName }
 
 type fakeEngine struct {
 	coordinated bool
@@ -308,8 +312,9 @@ func newTrackedAdmission() (AdmissionLimiters, *queueTracker) {
 
 func newTestSubscriber() *fakeSubscriber {
 	return &fakeSubscriber{
-		tenant: testTenant,
-		subs:   []*sdkpb.TriggerSubscription{{Id: testTriggerCapID, Method: testMethod}},
+		tenant:  testTenant,
+		sdkName: testSdkName,
+		subs:    []*sdkpb.TriggerSubscription{{Id: testTriggerCapID, Method: testMethod}},
 	}
 }
 

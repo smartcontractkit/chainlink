@@ -154,26 +154,46 @@ func TestCoordinator_RegisterTriggers(t *testing.T) {
 	})
 }
 
-// TestCoordinator_NoDeliver covers dropped delivery: events must not reach an
-// engine that is gone from the registry or not coordinated.
-func TestCoordinator_NoDeliver(t *testing.T) {
-	t.Parallel()
+// TestCoordinator_MetricsIncludeSdkLabel makes sure the coordinator's metrics
+// carry the sdk label.
+//
+//nolint:paralleltest // reads metrics through useTestMeter, which swaps a global
+func TestCoordinator_MetricsIncludeSdkLabel(t *testing.T) {
+	reader := useTestMeter(t)
+	f := newCoordinatorFixture(t)
+	trigger, _ := f.expectTrigger(t)
+	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
 
+	_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+	require.NoError(t, err)
+	require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+
+	sdk := map[string]string{platform.KeySDK: testSdkName}
+	require.Eventually(t, func() bool {
+		return counterTotal(t, reader, "platform_engine_workflow_unregistered_count", sdk) == 1
+	}, 5*time.Second, 5*time.Millisecond)
+}
+
+// TestCoordinator_NoDeliver covers dropped delivery: events must not reach an
+// engine that is gone from the registry or not coordinated, and each case
+// must be countable the same way every other drop reason is.
+//
+//nolint:paralleltest // its cases read metrics through useTestMeter, which swaps a global
+func TestCoordinator_NoDeliver(t *testing.T) {
 	for _, tc := range []struct {
-		name   string
-		mutate func(f *coordinatorFixture)
+		name       string
+		mutate     func(f *coordinatorFixture)
+		dropReason string
 	}{
 		{"drops events once the engine is gone from the registry", func(f *coordinatorFixture) {
-			f.engines.mu.Lock()
-			delete(f.engines.engines, f.wid)
-			f.engines.mu.Unlock()
-		}},
+			f.engines.remove(f.wid)
+		}, monitoring.TriggerDropReasonEngineGone},
 		{"drops events for an engine that is not coordinated", func(f *coordinatorFixture) {
 			f.engine.coordinated = false
-		}},
+		}, monitoring.TriggerDropReasonEngineNotCoordinated},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+		t.Run(tc.name, func(t *testing.T) { //nolint:paralleltest // see above
+			reader := useTestMeter(t)
 			f := newCoordinatorFixture(t)
 			trigger, eventCh := f.expectTrigger(t)
 			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
@@ -187,6 +207,11 @@ func TestCoordinator_NoDeliver(t *testing.T) {
 			eventCh <- triggerEvent("evt-1")
 			eventCh <- triggerEvent("evt-2")
 			assert.Empty(t, f.engine.executed())
+
+			dropped := map[string]string{platform.KeyTriggerDropReason: tc.dropReason}
+			require.Eventually(t, func() bool {
+				return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", dropped) == 2
+			}, 5*time.Second, 5*time.Millisecond)
 		})
 	}
 }
@@ -653,49 +678,10 @@ func TestCoordinator_Admission(t *testing.T) {
 
 // TestCoordinator_DropObservability covers drops that happen while resolving
 // the engine, and makes sure expected execution outcomes (duplicate,
-// draining, closed) are never logged as errors.
-//
-//nolint:paralleltest // its first two cases read metrics through useTestMeter, which swaps a global
+// draining, closed) are never logged as errors. The drop-counting side of
+// this is covered by TestCoordinator_NoDeliver.
 func TestCoordinator_DropObservability(t *testing.T) {
-	t.Run("the engine disappearing is counted as a drop", func(t *testing.T) { //nolint:paralleltest // see above
-		reader := useTestMeter(t)
-		f := newCoordinatorFixture(t)
-		trigger, eventCh := f.expectTrigger(t)
-		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
-		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
-		require.NoError(t, err)
-
-		// The workflow was unregistered elsewhere (e.g. shard failover) and its
-		// engine is gone, but an event was already in the queue.
-		f.engines.remove(f.wid)
-		eventCh <- triggerEvent("evt-1")
-
-		gone := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonEngineGone}
-		require.Eventually(t, func() bool {
-			return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", gone) == 1
-		}, 5*time.Second, 5*time.Millisecond)
-		assert.Empty(t, f.engine.executed())
-	})
-
-	t.Run("an engine that is no longer coordinated is counted as a drop", func(t *testing.T) { //nolint:paralleltest // see above
-		reader := useTestMeter(t)
-		f := newCoordinatorFixture(t)
-		trigger, eventCh := f.expectTrigger(t)
-		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
-		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
-		require.NoError(t, err)
-
-		// The syncer swapped in a legacy engine for this workflow; the
-		// coordinator must not deliver to it.
-		f.engine.coordinated = false
-		eventCh <- triggerEvent("evt-1")
-
-		notCoordinated := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonEngineNotCoordinated}
-		require.Eventually(t, func() bool {
-			return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", notCoordinated) == 1
-		}, 5*time.Second, 5*time.Millisecond)
-		assert.Empty(t, f.engine.executed())
-	})
+	t.Parallel()
 
 	t.Run("expected execution outcomes are logged at info, not error", func(t *testing.T) {
 		t.Parallel()

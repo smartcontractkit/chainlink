@@ -566,6 +566,9 @@ func (m *ShardFailoverManager) Subscribe(context.Context) ([]*sdkpb.TriggerSubsc
 // plain getter it cannot half-work, so it stays a passthrough.
 func (m *ShardFailoverManager) Tenant() contexts.CRE { return m.engine.Tenant() }
 
+// SdkName delegates to the wrapped engine, same reasoning as Tenant.
+func (m *ShardFailoverManager) SdkName() string { return m.engine.SdkName() }
+
 // IsCoordinated delegates to the wrapped engine. Unlike the methods above this
 // is called on the legacy path — every reconciliation tick reads it to classify
 // the engine — so it must answer rather than fail.

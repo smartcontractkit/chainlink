@@ -53,6 +53,11 @@ type Subscriber interface {
 
 	// Tenant identifies the tenant the subscriptions belong to.
 	Tenant() contexts.CRE
+
+	// SdkName is the SDK the workflow binary was built with, discovered during
+	// module creation. RegisterTriggers adds it to the coordinator's metric
+	// labels so they match the labels the legacy engine's own metrics carry.
+	SdkName() string
 }
 
 // These are the EventSink.ExecuteTrigger errors a caller must expect and

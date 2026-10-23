@@ -113,6 +113,10 @@ func (e *engine) Tenant() contexts.CRE {
 	return e.base.Tenant()
 }
 
+func (e *engine) SdkName() string {
+	return e.base.SdkName()
+}
+
 // IsCoordinated reports that this engine manages its own trigger registration and acknowledgement.
 func (e *engine) IsCoordinated() bool {
 	return false

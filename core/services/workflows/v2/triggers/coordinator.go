@@ -207,6 +207,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		platform.KeyWorkflowOwner, params.WorkflowOwner,
 		platform.KeyWorkflowName, params.WorkflowName.String(),
 		platform.KeyOrganizationID, cre.Org,
+		platform.KeySDK, subscriber.SdkName(),
 	)
 
 	// Registration IDs derive from the workflowID, so a leftover registration

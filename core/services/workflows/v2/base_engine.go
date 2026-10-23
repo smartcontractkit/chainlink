@@ -379,6 +379,11 @@ func (e *baseEngine) Tenant() contexts.CRE {
 	return contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
 }
 
+// SdkName is the SDK the workflow binary was built with.
+func (e *baseEngine) SdkName() string {
+	return e.cfg.SdkName
+}
+
 // Drain marks the engine as draining and prevents new executions from starting.
 // In-flight executions continue to run to completion.
 // It returns true only on the first transition to draining.
