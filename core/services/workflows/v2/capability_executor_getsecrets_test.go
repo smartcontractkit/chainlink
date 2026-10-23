@@ -16,6 +16,7 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
 const (
@@ -78,7 +79,7 @@ func newSecretsEventTestHelper(t *testing.T, executionID string, fetcher Secrets
 		platform.KeyWorkflowID:    "wf-id",
 		platform.KeyWorkflowName:  "wf-name",
 	}
-	be := &baseEngine{}
+	be := &baseEngine{cfg: &EngineConfig{EventEmitter: events.DefaultEmitter()}}
 	be.loggerLabels.Store(&labels)
 
 	return &ExecutionHelper{
