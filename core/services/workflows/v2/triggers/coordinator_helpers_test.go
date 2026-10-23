@@ -55,6 +55,8 @@ type fakeEngine struct {
 	coordinated bool
 	// execute, if set, runs inside ExecuteTrigger on the execution's goroutine.
 	execute func(ctx context.Context, event CoordinatedEvent)
+	// err is returned from every ExecuteTrigger call.
+	err error
 
 	mu      sync.Mutex
 	events  []CoordinatedEvent
@@ -69,7 +71,7 @@ func (e *fakeEngine) ExecuteTrigger(ctx context.Context, event CoordinatedEvent)
 	if e.execute != nil {
 		e.execute(ctx, event)
 	}
-	return nil
+	return e.err
 }
 
 func (e *fakeEngine) IsCoordinated() bool { return e.coordinated }
