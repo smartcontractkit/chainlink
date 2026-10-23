@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	chipingressmocks "github.com/smartcontractkit/chainlink-common/pkg/chipingress/mocks"
+	chipingresspb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
@@ -33,7 +34,7 @@ func newTestPayload(contractID string) TelemPayload {
 	}
 }
 
-// publishedBatches collects PublishBatch requests; the batch client publishes
+// publishedBatches collects PublishBatchNoAck requests; the batch client publishes
 // from its own goroutines, so access is guarded.
 type publishedBatches struct {
 	mu      sync.Mutex
@@ -63,15 +64,22 @@ func publishOK(b *chipingress.CloudEventBatch) (*chipingress.PublishResponse, er
 	return &chipingress.PublishResponse{Results: results}, nil
 }
 
-// startBatchClient starts a batch client over a mock chip client whose PublishBatch
-// records each request and then answers with publish.
+// startBatchClient starts a batch client over a mock chip client whose PublishBatchNoAck
+// records each request and then answers with publish. The test fails if the client ever
+// sends an acked PublishBatch.
 func startBatchClient(t *testing.T, publish publishFunc) (ChipIngressService, *publishedBatches) {
 	t.Helper()
 	chipClient := chipingressmocks.NewClient(t)
 	chipClient.On("Ping", mock.Anything, mock.Anything, mock.Anything).Return(&chipingress.PingResponse{}, nil).Maybe()
 	chipClient.On("Close").Return(nil).Maybe() // batch.Client.Stop() closes the underlying client
-	published := &publishedBatches{}
+	// Fail the test instead of letting an unexpected call kill the batch client's send goroutine.
 	chipClient.EXPECT().PublishBatch(mock.Anything, mock.Anything, mock.Anything).
+		RunAndReturn(func(_ context.Context, b *chipingress.CloudEventBatch, _ ...grpc.CallOption) (*chipingress.PublishResponse, error) {
+			t.Error("legacy telemetry must be sent with PublishBatchNoAck, not PublishBatch")
+			return publishOK(b)
+		}).Maybe()
+	published := &publishedBatches{}
+	chipClient.EXPECT().PublishBatchNoAck(mock.Anything, mock.Anything, mock.Anything).
 		RunAndReturn(func(_ context.Context, b *chipingress.CloudEventBatch, _ ...grpc.CallOption) (*chipingress.PublishResponse, error) {
 			published.add(b.Events)
 			return publish(b)
@@ -161,6 +169,63 @@ func TestChipIngressBatchClient_UnsupportedTypesCountedNotDropped(t *testing.T) 
 		}
 		assert.Equal(c, n, total, "only the supported messages are published")
 	}, testutils.WaitTimeout(t), 10*time.Millisecond)
+}
+
+func TestChipIngressBatchClient_NoAckWithPartialDelivery(t *testing.T) {
+	t.Parallel()
+	var transactionEnabled atomic.Pointer[bool]
+	client, published := startBatchClient(t, func(b *chipingress.CloudEventBatch) (*chipingress.PublishResponse, error) {
+		transactionEnabled.Store(b.GetOptions().TransactionEnabled)
+		return publishOK(b)
+	})
+
+	client.Send(t.Context(), newTestPayload("0xabc"))
+	awaitFirstEvent(t, published) // reaching PublishBatchNoAck at all proves the NoAck routing
+
+	opt := transactionEnabled.Load()
+	// Pins the wire value, so a library bump that changes the default can't turn one
+	// rejected event into a failed batch (the client sets it explicitly too).
+	require.NotNil(t, opt, "the request must carry PublishOptions")
+	assert.False(t, *opt, "legacy telemetry uses partial delivery so one bad event can't fail its batch")
+}
+
+func TestChipIngressBatchClient_PartialDeliveryCountsPerEvent(t *testing.T) { //nolint:paralleltest // asserts deltas on package-global prometheus metrics
+	// The server accepts the batch and rejects every other event (e.g. a missing topic).
+	rejectOdd := func(b *chipingress.CloudEventBatch) (*chipingress.PublishResponse, error) {
+		results := make([]*chipingress.PublishResult, len(b.Events))
+		for i := range results {
+			results[i] = &chipingress.PublishResult{EventId: b.Events[i].Id}
+			if i%2 == 1 {
+				results[i].Error = &chipingress.PublishError{ErrorCode: chipingresspb.PublishErrorCode_PUBLISH_ERROR_CODE_UNKNOWN, Reason: "unknown topic"}
+			}
+		}
+		return &chipingress.PublishResponse{Results: results}, nil
+	}
+	// A long interval keeps the sends in one batch, so the results are positional within it.
+	chipClient := chipingressmocks.NewClient(t)
+	chipClient.On("Ping", mock.Anything, mock.Anything, mock.Anything).Return(&chipingress.PingResponse{}, nil).Maybe()
+	chipClient.On("Close").Return(nil).Maybe()
+	var batches atomic.Int32
+	chipClient.EXPECT().PublishBatchNoAck(mock.Anything, mock.Anything, mock.Anything).
+		RunAndReturn(func(_ context.Context, b *chipingress.CloudEventBatch, _ ...grpc.CallOption) (*chipingress.PublishResponse, error) {
+			batches.Add(1)
+			return rejectOdd(b)
+		}).Maybe()
+	client := NewTestChipIngressBatchClient(t, chipClient, false, 300*time.Millisecond)
+	servicetest.Run(t, client)
+
+	const n = 6
+	sentBefore := counterValue(TelemetryClientMessagesSent, OCR2Median)
+	errorsBefore := counterValue(TelemetryClientMessagesSendErrors, OCR2Median)
+	for range n {
+		client.Send(t.Context(), newTestPayload("0xabc"))
+	}
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.InDelta(c, n/2, counterValue(TelemetryClientMessagesSent, OCR2Median)-sentBefore, 0.001)
+		assert.InDelta(c, n/2, counterValue(TelemetryClientMessagesSendErrors, OCR2Median)-errorsBefore, 0.001)
+	}, testutils.WaitTimeout(t), 10*time.Millisecond)
+	assert.Equal(t, int32(1), batches.Load(), "all events must share one batch for the positional split to be meaningful")
 }
 
 func TestLogLimiter(t *testing.T) {
