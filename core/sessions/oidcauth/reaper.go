@@ -46,6 +46,12 @@ func (sr *sessionReaper) Work(ctx context.Context) {
 
 // DeleteStaleSessions deletes all sessions before the passed time.
 func (sr *sessionReaper) deleteStaleSessions(ctx context.Context, before time.Time) error {
-	_, err := sr.ds.ExecContext(ctx, "DELETE FROM oidc_sessions WHERE created_at < $1", before)
+	if _, err := sr.ds.ExecContext(ctx, "DELETE FROM oidc_sessions WHERE created_at < $1", before); err != nil {
+		return err
+	}
+	if _, err := sr.ds.ExecContext(ctx, "DELETE FROM oidc_pending_auth WHERE expires_at <= now()"); err != nil {
+		return err
+	}
+	_, err := sr.ds.ExecContext(ctx, "DELETE FROM oidc_device_flows WHERE expires_at <= now()")
 	return err
 }
