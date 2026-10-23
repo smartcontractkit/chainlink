@@ -56,6 +56,7 @@ type server struct {
 type dynamicServerConfig struct {
 	remoteExecutableConfig *commoncap.RemoteExecutableConfig
 	hasher                 types.MessageHasher
+	accumulatorFactory     types.RequestAccumulatorFactory
 	underlying             commoncap.ExecutableCapability
 	capInfo                commoncap.CapabilityInfo
 	localDonInfo           commoncap.DON
@@ -67,7 +68,7 @@ type Server interface {
 	services.Service
 	SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableConfig, underlying commoncap.ExecutableCapability,
 		capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON,
-		messageHasher types.MessageHasher) error
+		messageHasher types.MessageHasher, accumulatorFactory types.RequestAccumulatorFactory) error
 }
 
 var _ Server = &server{}
@@ -93,9 +94,11 @@ func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatch
 	}
 }
 
-// SetConfig sets the remote server configuration dynamically
+// SetConfig sets the remote server configuration dynamically. A nil accumulatorFactory executes
+// each request with the payload of the request that completed the quorum.
 func (r *server) SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableConfig, underlying commoncap.ExecutableCapability,
-	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, messageHasher types.MessageHasher) error {
+	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, messageHasher types.MessageHasher,
+	accumulatorFactory types.RequestAccumulatorFactory) error {
 	currCfg := r.cfg.Load()
 	if remoteExecutableConfig == nil {
 		r.lggr.Info("no remote config provided, using default values")
@@ -133,6 +136,7 @@ func (r *server) SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableCon
 	r.cfg.Store(&dynamicServerConfig{
 		remoteExecutableConfig: remoteExecutableConfig,
 		hasher:                 messageHasher,
+		accumulatorFactory:     accumulatorFactory,
 		underlying:             underlying,
 		capInfo:                capInfo,
 		localDonInfo:           localDonInfo,
@@ -301,8 +305,18 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 			return
 		}
 
+		var accumulator types.RequestAccumulator
+		if cfg.accumulatorFactory != nil {
+			var aerr error
+			accumulator, aerr = cfg.accumulatorFactory.NewAccumulator(ctx, cfg.capInfo.ID, callingDon)
+			if aerr != nil {
+				r.lggr.Errorw("failed to instantiate request accumulator", "err", aerr)
+				return
+			}
+		}
+
 		sr, ierr := request.NewServerRequest(cfg.underlying, msg.Method, cfg.capInfo.ID, cfg.localDonInfo.ID, r.peerID,
-			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.workflowDONBindingGate, r.lggr)
+			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.workflowDONBindingGate, accumulator, r.lggr)
 		if ierr != nil {
 			r.lggr.Errorw("failed to instantiate server request", "err", ierr)
 			return

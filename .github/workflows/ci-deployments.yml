@@ -148,8 +148,6 @@ jobs:
       - ${{ needs.filter.outputs.spot_param }}
       - image=ubuntu24-full-x64
       - extras=s3-cache
-    outputs:
-      shard-count: ${{ strategy.job-total }}
     permissions:
       id-token: write
       contents: read
@@ -246,42 +244,27 @@ jobs:
     needs: [filter, deployment-tests]
     runs-on: ubuntu-latest
     permissions:
-      actions: read
       contents: read
     steps:
+      # Read the matrix result from the workflow engine instead of the Jobs API.
+      # The Jobs API can report `conclusion: null` for shards that finished seconds
+      # ago, and this job always starts seconds after the last shard, so querying it
+      # produced false failures that evicted runs from the merge queue.
       - name: Check deployment shard results
         env:
-          EXPECTED_ROWS: ${{ needs.deployment-tests.outputs.shard-count }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JOB_NAME_PREFIX: "Deployment Tests (go_deployment_tests shard "
+          FILTER_RESULT: ${{ needs.filter.result }}
+          SHARDS_RESULT: ${{ needs.deployment-tests.result }}
         run: |
-          gh api \
-            --paginate \
-            --jq '.jobs[] | {name, conclusion} | @json' \
-            "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" \
-            > jobs.jsonl
+          if [[ "${FILTER_RESULT}" == "failure" || "${FILTER_RESULT}" == "cancelled" ]]; then
+            echo "::error::'Detect Changes' did not succeed - shard results cannot be trusted."
+            exit 1
+          fi
 
-          python - <<'PY'
-          import json
-          import os
-          import sys
-
-          prefix = os.environ["JOB_NAME_PREFIX"]
-          expected = int(os.environ["EXPECTED_ROWS"])
-          rows = []
-          with open("jobs.jsonl", encoding="utf-8") as f:
-              for line in f:
-                  row = json.loads(line)
-                  if row["name"].startswith(prefix):
-                      rows.append(row)
-
-          if len(rows) != expected:
-              print(f"Expected {expected} rows for {prefix}, got {len(rows)}")
-              sys.exit(1)
-
-          conclusions = [row["conclusion"] for row in rows]
-          if any(conclusion not in {"success", "skipped"} for conclusion in conclusions):
-              print(f"Deployment shard group failed with conclusions: {conclusions}")
-              sys.exit(1)
-          print("All deployment shards succeeded.")
-          PY
+          case "${SHARDS_RESULT}" in
+            success) echo "All deployment shards succeeded." ;;
+            skipped) echo "Deployment shards were skipped." ;;
+            *)
+              echo "::error::Deployment shards concluded '${SHARDS_RESULT}'."
+              exit 1
+              ;;
+          esac

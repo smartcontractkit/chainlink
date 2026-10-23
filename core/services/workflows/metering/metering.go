@@ -114,10 +114,11 @@ type Report struct {
 	engineVersion string
 
 	// dependencies
-	balance *balanceStore
-	client  BillingClient
-	lggr    logger.SugaredLogger
-	metrics *monitoring.WorkflowsMetricLabeler
+	balance      *balanceStore
+	client       BillingClient
+	lggr         logger.SugaredLogger
+	metrics      *monitoring.WorkflowsMetricLabeler
+	eventEmitter *wfEvents.Emitter
 
 	// internal state
 	mu       sync.RWMutex
@@ -147,6 +148,28 @@ type Report struct {
 	retryDelay time.Duration
 }
 
+// Option configures metering report construction.
+type Option func(*options)
+
+type options struct {
+	eventEmitter *wfEvents.Emitter
+}
+
+// WithEventEmitter sets the metering report emitter. Nil keeps the default.
+func WithEventEmitter(e *wfEvents.Emitter) Option {
+	return func(o *options) {
+		if e != nil {
+			o.eventEmitter = e
+		}
+	}
+}
+
+func newOptions() *options {
+	return &options{
+		eventEmitter: wfEvents.DefaultEmitter(),
+	}
+}
+
 func NewReport(
 	ctx context.Context,
 	labels map[string]string,
@@ -154,6 +177,7 @@ func NewReport(
 	client BillingClient,
 	metrics *monitoring.WorkflowsMetricLabeler,
 	workflowRegistryAddress, workflowRegistryChainSelector, engineVersion string,
+	opts ...Option,
 ) (*Report, error) {
 	requiredLabels := []string{platform.KeyWorkflowOwner, platform.KeyWorkflowID, platform.KeyWorkflowExecutionID}
 	for _, label := range requiredLabels {
@@ -163,10 +187,16 @@ func NewReport(
 		}
 	}
 
+	o := newOptions()
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	report := &Report{
 		labels:                  labels,
 		lggr:                    logger.Sugared(lggr).Named("Metering").With(platform.KeyWorkflowExecutionID, labels[platform.KeyWorkflowExecutionID]),
 		metrics:                 metrics,
+		eventEmitter:            o.eventEmitter,
 		workflowRegistryAddress: workflowRegistryAddress,
 		rateCard:                make(map[string]decimal.Decimal),
 		engineVersion:           engineVersion,
@@ -270,7 +300,6 @@ func (r *Report) Reserve(ctx context.Context) error {
 	reserveCtx, cancel := context.WithTimeout(ctx, defaultBillingCallTimeout)
 	defer cancel()
 	resp, err := r.client.ReserveCredits(reserveCtx, &req)
-
 	// If there is an error communicating with the billing service, fail open
 	if err != nil {
 		r.switchToMeteringMode(err)
@@ -707,7 +736,7 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 	r.lggr.Debug("Emitting metering report")
 	r.lggr.Tracew("Metering report", "report", rpt, "stepRefs", strings.Join(stepRefs, ","))
 
-	return wfEvents.EmitMeteringReport(ctx, r.labels, rpt)
+	return r.eventEmitter.EmitMeteringReport(ctx, r.labels, rpt)
 }
 
 // creditToSpendingLimits returns a slice of spend limits where the amount is applied to the spend types from the
@@ -914,11 +943,12 @@ func medianSpend(spends []decimal.Decimal) decimal.Decimal {
 
 // Reports is a concurrency-safe wrapper around map[string]*Report.
 type Reports struct {
-	mu      sync.RWMutex
-	reports map[string]*Report
-	client  BillingClient
-	lggr    logger.Logger
-	metrics *monitoring.WorkflowsMetricLabeler
+	mu           sync.RWMutex
+	reports      map[string]*Report
+	client       BillingClient
+	lggr         logger.Logger
+	metrics      *monitoring.WorkflowsMetricLabeler
+	eventEmitter *wfEvents.Emitter
 
 	// descriptive properties
 	owner      string
@@ -941,17 +971,24 @@ func NewReports(
 	metrics *monitoring.WorkflowsMetricLabeler,
 	workflowRegistryAddress,
 	workflowRegistryChainSelector, engineVersion string,
+	opts ...Option,
 ) *Reports {
 	valOf := reflect.ValueOf(client)
 	if valOf.IsValid() && valOf.IsNil() {
 		client = nil
 	}
 
+	o := newOptions()
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	return &Reports{
-		reports: make(map[string]*Report),
-		client:  client,
-		lggr:    lggr,
-		metrics: metrics,
+		reports:      make(map[string]*Report),
+		client:       client,
+		lggr:         lggr,
+		metrics:      metrics,
+		eventEmitter: o.eventEmitter,
 
 		owner:      owner,
 		workflowID: workflowID,
@@ -990,7 +1027,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainSelector, s.engineVersion)
+	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainSelector, s.engineVersion, WithEventEmitter(s.eventEmitter))
 	if err != nil {
 		return nil, err
 	}

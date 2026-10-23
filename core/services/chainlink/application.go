@@ -419,6 +419,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(csaSigner, csaPubKey)
 
 	// Wire DurableEmitter for persistent chip ingress delivery when enabled
+	var durableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
 		emitterCfg := durableemitter.DefaultConfig()
 		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{
@@ -471,6 +472,13 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", setupErr)
 		}
 		srvcs = append(srvcs, durableEmitter)
+		// Wrap durableEmitter to return ErrEmitFailed on error.
+		durableEmit = func(ctx context.Context, body []byte, attrKVs ...any) error {
+			if emitErr := durableEmitter.Emit(ctx, body, attrKVs...); emitErr != nil {
+				return fmt.Errorf("%w: %w", durableemitter.ErrEmitFailed, emitErr)
+			}
+			return nil
+		}
 	}
 
 	creServices, err := cre.NewServices(
@@ -489,6 +497,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			BillingClient:                opts.BillingClient,
 			LinkingClient:                opts.LinkingClient,
 			Meter:                        meter,
+			DurableEmit:                  durableEmit,
 			StorageClient:                opts.StorageClient,
 			DonTimeStore:                 opts.DonTimeStore,
 			LimitsFactory:                limitsFactory,

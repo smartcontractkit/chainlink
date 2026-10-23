@@ -60,6 +60,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	artifactsV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
@@ -70,6 +71,7 @@ import (
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 // Keystore is the minimal interface needed from keystore for CRE
@@ -92,6 +94,9 @@ type Opts struct {
 	BillingClient metering.BillingClient
 	LinkingClient linkingclient.LinkingServiceClient
 	Meter         metric.Meter
+
+	// DurableEmit persists workflow events for durable delivery. Nil disables persistence.
+	DurableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
 
 	StorageClient storage.WorkflowClient
 
@@ -957,6 +962,8 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithShardResolver(shardResolver),
 		syncerV2.WithShardIndex(uint32(cfg.Sharding().ShardIndex())),
 		syncerV2.WithTriggerCoordinator(triggerCoordinator),
+		// Shared emitter across handler and spawned engines.
+		syncerV2.WithEventEmitter(events.NewEmitter(nil, events.WithDurableEmit(opts.DurableEmit))),
 	}
 	if shardingEnabled && dispatcher != nil {
 		handlerOpts = append(handlerOpts,
@@ -1027,6 +1034,7 @@ func newWorkflowRegistrySyncerV2(
 				syncerV2.WithModuleLRU(moduleLRU),
 				syncerV2.WithModuleStore(fileStore),
 				syncerV2.WithModuleCacheMetrics(cm),
+				syncerV2.WithModuleEngineVersion(static.Version),
 			)
 
 			lggr.Infow("Module cache enabled",
@@ -1034,6 +1042,7 @@ func newWorkflowRegistrySyncerV2(
 				"idleTimeout", mc.IdleTimeout(),
 				"maxLoaded", mc.MaxLoaded(),
 				"cacheDir", fileStore.CacheDir(),
+				"engineVersion", static.Version,
 			)
 		}
 	}
