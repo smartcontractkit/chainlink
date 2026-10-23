@@ -151,6 +151,7 @@ func TestShell_CreateExternalInitiator(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 			app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.JobPipeline.ExternalInitiatorsEnabled = new(true)
@@ -191,6 +192,7 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 			})
@@ -258,6 +260,7 @@ func TestShell_DestroyExternalInitiator_NotFound(t *testing.T) {
 }
 
 func TestShell_RemoteLogin(t *testing.T) {
+	t.Parallel()
 	app := startNewApplicationV2(t, nil)
 	orm := app.AuthenticationProvider()
 
@@ -276,6 +279,7 @@ func TestShell_RemoteLogin(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			enteredStrings := []string{test.email, test.pwd}
 			prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 			client := app.NewAuthenticatingShell(prompter)
@@ -356,6 +360,7 @@ func TestShell_CheckRemoteBuildCompatibility(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			enteredStrings := []string{u.Email, cltest.Password}
 			prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 			client := app.NewAuthenticatingShell(prompter)
@@ -521,17 +526,20 @@ func TestShell_ConfigV2(t *testing.T) {
 	user, effective := app.Config.ConfigTOML()
 
 	t.Run("user", func(t *testing.T) {
+		t.Parallel()
 		got, err := client.ConfigV2Str(true)
 		require.NoError(t, err)
 		assert.Equal(t, user, got, diff.Diff(user, got))
 	})
 	t.Run("effective", func(t *testing.T) {
+		t.Parallel()
 		got, err := client.ConfigV2Str(false)
 		require.NoError(t, err)
 		assert.Equal(t, effective, got, diff.Diff(effective, got))
 	})
 }
 
+//nolint:paralleltest // deliberately serial: full app + OCR + synchronous pipeline run; parallel scheduling starves the test deadline and bridge traffic must stay on local httptest only
 func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	// Serial: full app + OCR + synchronous pipeline run; avoid parallel scheduling
 	// starving the test deadline and keep bridge traffic on local httptest only.

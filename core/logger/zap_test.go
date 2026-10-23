@@ -25,6 +25,7 @@ func newTestLogger(t *testing.T, cfg Config) Logger {
 }
 
 func TestZapLogger_OutOfDiskSpace(t *testing.T) {
+	t.Parallel()
 	maxSize := utils.FileSize(5 * utils.MB)
 
 	logsDir := t.TempDir()
@@ -48,7 +49,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		testDiskLogLvlChan: make(chan zapcore.Level),
 	}
 
-	t.Run("on logger creation", func(t *testing.T) {
+	t.Run("on logger creation", func(t *testing.T) { //nolint:paralleltest // subtests share and mutate one Config plus its poll/level channels; concurrent runs cross-wire disk polls
 		pollChan := make(chan time.Time)
 		stop := func() {
 			close(pollChan)
@@ -78,7 +79,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		require.Contains(t, err.Error(), "no such file or directory")
 	})
 
-	t.Run("on logger creation generic error", func(t *testing.T) {
+	t.Run("on logger creation generic error", func(t *testing.T) { //nolint:paralleltest // subtests share and mutate one Config plus its poll/level channels; concurrent runs cross-wire disk polls
 		pollChan := make(chan time.Time)
 		stop := func() {
 			close(pollChan)
@@ -108,7 +109,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		require.Contains(t, err.Error(), "no such file or directory")
 	})
 
-	t.Run("after logger is created", func(t *testing.T) {
+	t.Run("after logger is created", func(t *testing.T) { //nolint:paralleltest // subtests share and mutate one Config plus its poll/level channels; concurrent runs cross-wire disk polls
 		pollChan := make(chan time.Time)
 		stop := func() {
 			close(pollChan)
@@ -155,7 +156,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		require.Contains(t, actualMessage, expectedMessage)
 	})
 
-	t.Run("after logger is created, recovers disk space", func(t *testing.T) {
+	t.Run("after logger is created, recovers disk space", func(t *testing.T) { //nolint:paralleltest // subtests share and mutate one Config plus its poll/level channels; concurrent runs cross-wire disk polls
 		pollChan := make(chan time.Time)
 		stop := func() {
 			close(pollChan)
@@ -209,6 +210,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 }
 
 func TestZapLogger_LogCaller(t *testing.T) {
+	t.Parallel()
 	maxSize := utils.FileSize(5 * utils.MB)
 
 	logsDir := t.TempDir()
@@ -263,6 +265,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 }
 
 func TestZapLogger_Name(t *testing.T) {
+	t.Parallel()
 	cfg := Config{}
 	lggr := newTestLogger(t, cfg)
 	require.Empty(t, lggr.Name())
@@ -273,6 +276,7 @@ func TestZapLogger_Name(t *testing.T) {
 }
 
 func TestLogger_Leak(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -297,6 +301,7 @@ func TestLogger_Leak(t *testing.T) {
 }
 
 func TestLogger_Output(t *testing.T) {
+	t.Parallel()
 	core, logs := observer.New(zapcore.InfoLevel)
 	ac := NewUpdatableCore()
 	lggrCfg := Config{}

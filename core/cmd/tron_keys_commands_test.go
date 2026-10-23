@@ -54,6 +54,7 @@ func TestTronKeyPresenter_RenderTable(t *testing.T) {
 }
 
 func TestShell_TronKeys(t *testing.T) {
+	t.Parallel()
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Tron()
 	cleanup := func() {
@@ -66,7 +67,7 @@ func TestShell_TronKeys(t *testing.T) {
 		requireTronKeyCount(t, app, 0)
 	}
 
-	t.Run("ListTronKeys", func(tt *testing.T) {
+	t.Run("ListTronKeys", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		ctx := t.Context()
 		client, r := app.NewShellAndRenderer()
@@ -79,7 +80,7 @@ func TestShell_TronKeys(t *testing.T) {
 		assert.Equal(t, key.PublicKeyStr(), keys[0].PubKey)
 	})
 
-	t.Run("CreateTronKey", func(tt *testing.T) {
+	t.Run("CreateTronKey", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		client, _ := app.NewShellAndRenderer()
 		require.NoError(t, cmd.NewTronKeysClient(client).CreateKey(nilContext))
@@ -88,7 +89,7 @@ func TestShell_TronKeys(t *testing.T) {
 		require.Len(t, keys, 1)
 	})
 
-	t.Run("DeleteTronKey", func(tt *testing.T) {
+	t.Run("DeleteTronKey", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		ctx := t.Context()
 		client, _ := app.NewShellAndRenderer()
@@ -109,7 +110,7 @@ func TestShell_TronKeys(t *testing.T) {
 		requireTronKeyCount(t, app, 0)
 	})
 
-	t.Run("ImportExportTronKey", func(tt *testing.T) {
+	t.Run("ImportExportTronKey", func(tt *testing.T) { //nolint:paralleltest // subtests share a single keystore/application instance
 		defer cleanup()
 		defer deleteKeyExportFile(t)
 		ctx := t.Context()

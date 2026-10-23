@@ -54,6 +54,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 			t.Cleanup(func() {
 				_, err2 := db.Exec("DELETE FROM sessions where email = $1", cltest.APIEmailAdmin)

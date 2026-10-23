@@ -21,6 +21,7 @@ import (
 )
 
 func TestShell_CreateUser(t *testing.T) {
+	t.Parallel()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	client.PasswordPrompter = cltest.MockPasswordPrompter{
@@ -43,6 +44,7 @@ func TestShell_CreateUser(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			set := flag.NewFlagSet("test", 0)
 			flagSetApplyFromAction(client.CreateUser, set, "")
 
@@ -60,6 +62,7 @@ func TestShell_CreateUser(t *testing.T) {
 }
 
 func TestShell_ChangeRole(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -84,6 +87,7 @@ func TestShell_ChangeRole(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			set := flag.NewFlagSet("test", 0)
 			flagSetApplyFromAction(client.ChangeRole, set, "")
 
@@ -100,6 +104,7 @@ func TestShell_ChangeRole(t *testing.T) {
 }
 
 func TestShell_DeleteUser(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -120,6 +125,7 @@ func TestShell_DeleteUser(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			set := flag.NewFlagSet("test", 0)
 			flagSetApplyFromAction(client.DeleteUser, set, "")
 
@@ -135,6 +141,7 @@ func TestShell_DeleteUser(t *testing.T) {
 }
 
 func TestShell_ListUsers(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
@@ -165,6 +172,7 @@ func TestShell_ListUsers(t *testing.T) {
 }
 
 func TestAdminUsersPresenter_RenderTable(t *testing.T) {
+	t.Parallel()
 	user := sessions.User{
 		Email:     "foo@bar.com",
 		Role:      "admin",

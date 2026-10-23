@@ -9,16 +9,20 @@ import (
 )
 
 func TestParseEnvFile(t *testing.T) {
+	t.Parallel()
 	t.Run("valid", func(t *testing.T) {
+		t.Parallel()
 		got, err := ParseEnvFile("testdata/valid.env")
 		require.NoError(t, err)
 		require.Equal(t, []string{"GOMEMLIMIT=1MiB"}, got)
 	})
 	t.Run("invalid", func(t *testing.T) {
+		t.Parallel()
 		_, err := ParseEnvFile("testdata/invalid.env")
 		require.Error(t, err)
 	})
 	t.Run("missing", func(t *testing.T) {
+		t.Parallel()
 		_, err := ParseEnvFile("testdata/missing.env")
 		require.ErrorIs(t, err, os.ErrNotExist)
 	})
