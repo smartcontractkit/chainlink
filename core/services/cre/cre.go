@@ -71,6 +71,7 @@ import (
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 // Keystore is the minimal interface needed from keystore for CRE
@@ -1033,6 +1034,7 @@ func newWorkflowRegistrySyncerV2(
 				syncerV2.WithModuleLRU(moduleLRU),
 				syncerV2.WithModuleStore(fileStore),
 				syncerV2.WithModuleCacheMetrics(cm),
+				syncerV2.WithModuleEngineVersion(static.Version),
 			)
 
 			lggr.Infow("Module cache enabled",
@@ -1040,6 +1042,7 @@ func newWorkflowRegistrySyncerV2(
 				"idleTimeout", mc.IdleTimeout(),
 				"maxLoaded", mc.MaxLoaded(),
 				"cacheDir", fileStore.CacheDir(),
+				"engineVersion", static.Version,
 			)
 		}
 	}
