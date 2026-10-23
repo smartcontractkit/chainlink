@@ -48,6 +48,7 @@ require (
 	github.com/hashicorp/go-envparse v0.1.0
 	github.com/hashicorp/go-plugin v1.8.0
 	github.com/holiman/uint256 v1.3.2
+	github.com/huandu/go-clone v1.7.3
 	github.com/imdario/mergo v0.3.16
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/jmoiron/sqlx v1.4.0
