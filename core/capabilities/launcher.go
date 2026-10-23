@@ -574,6 +574,13 @@ func donFamiliesOverlap(donA, donB []string) bool {
 // it is best effort to ensure that valid capabilities are added even if some fail
 func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON registry.DON, localRegistry *registry.RegistryMetadata, offchainMC *offchainMethodConfigs) {
 	for cid, c := range remoteDON.CapabilityConfigurations {
+		// Prefer capabilities hosted by my own DON over remote ones, so a duplicate remote shim can
+		// never replace or collide with the local capability.
+		if _, isLocal := myDON.CapabilityConfigurations[cid]; isLocal {
+			w.lggr.Warnw("skipping remote capability hosted locally by my DON", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid)
+			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultSkipped)
+			continue
+		}
 		capabilityConfig, err := offchainMC.configuration(cid, remoteDON, c)
 		if err != nil {
 			w.lggr.Errorw("could not unmarshal capability config", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid, "error", err)
