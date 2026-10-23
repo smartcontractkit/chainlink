@@ -77,7 +77,11 @@ type Core struct {
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
+// Values are deep-copied, so c never aliases f: later writes through either one
+// do not affect the other.
 func (c *Core) SetFrom(f *Core) {
+	fc := deepCopy(*f)
+	f = &fc
 	if v := f.InsecureFastScrypt; v != nil {
 		c.InsecureFastScrypt = v
 	}
