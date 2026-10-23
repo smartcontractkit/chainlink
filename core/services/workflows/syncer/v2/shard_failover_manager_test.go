@@ -217,10 +217,12 @@ func TestShardFailoverManager_MultipleWorkflowsSharedDispatcher(t *testing.T) {
 			WorkflowID:      workflowID,
 			WorkflowOwner:   "0xowner",
 			ShardResolver:   resolver,
-			Communicator:    comm,
 			ShardDonLookup:  shardDonLookupFn,
 			DonSubscriber:   donSub,
-			Logger:          logger.Test(t),
+			Failover: FailoverConfig{
+				Communicator: comm,
+			},
+			Logger: logger.Test(t),
 		})
 	}
 
@@ -727,16 +729,18 @@ func newTimeoutBasedFailoverManager(t *testing.T, eng *recordingEngine, gate *fa
 	}
 
 	m := NewShardFailoverManager(ShardFailoverManagerConfig{
-		ShardingEnabled:            true,
-		MyDONID:                    2,
-		MyShardIndex:               1,
-		WorkflowID:                 "wf-1",
-		WorkflowOwner:              "0xowner",
-		ShardResolver:              resolver,
-		ShardingFailoverGate:       &fakeGateLimiter{open: true},
-		TimeoutBasedFailoverGate:   autoGate,
-		TimeoutBasedFailoverWindow: autoWindow,
-		Logger:                     logger.Test(t),
+		ShardingEnabled: true,
+		MyDONID:         2,
+		MyShardIndex:    1,
+		WorkflowID:      "wf-1",
+		WorkflowOwner:   "0xowner",
+		ShardResolver:   resolver,
+		Failover: FailoverConfig{
+			ShardingFailoverGate:       &fakeGateLimiter{open: true},
+			TimeoutBasedFailoverGate:   autoGate,
+			TimeoutBasedFailoverWindow: autoWindow,
+		},
+		Logger: logger.Test(t),
 	})
 	m.SetEngine(eng)
 	return m
@@ -759,13 +763,17 @@ func TestShardFailoverManager_TimeoutBasedFailover_ExecutesCachedEventAfterWindo
 
 	time.Sleep(60 * time.Millisecond)
 	m.executeDueTimeoutBasedFailovers(t.Context())
-	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "cached event was not auto-executed after the failover window elapsed")
 
-	tenants := eng.executionTenants()
-	require.Len(t, tenants, 1, "auto-execution did not go through the recording engine")
+	// The pass spawns the execution asynchronously, so wait for it to land.
 	wantTenant := contexts.CREValue(contexts.WithCRE(context.Background(), eng.Tenant()))
-	assert.Equal(t, wantTenant, tenants[0],
-		"auto-executed event ran without the workflow tenant on the context")
+	assert.Eventually(t, func() bool {
+		ids := eng.executedIDs()
+		if len(ids) != 1 || ids[0] != "evt-1" {
+			return false
+		}
+		tenants := eng.executionTenants()
+		return len(tenants) == 1 && tenants[0] == wantTenant
+	}, 5*time.Second, 10*time.Millisecond, "cached event was not auto-executed with the workflow tenant after the failover window elapsed")
 
 	m.executeDueTimeoutBasedFailovers(t.Context())
 	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "auto-executed event was executed twice")
