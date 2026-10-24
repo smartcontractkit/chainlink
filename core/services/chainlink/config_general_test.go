@@ -20,6 +20,28 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
+func TestGeneralConfig_ResourceAttributesShardIndex(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		toml     string
+		expected string
+	}{
+		{"ShardingEnabled", "[Sharding]\nShardingEnabled = true\nShardIndex = 2\n", "2"},
+		{"ShardingDisabled", "[Sharding]\nShardingEnabled = false\nShardIndex = 2\n", ""},
+		{"ExplicitAttributeWins", "[Telemetry.ResourceAttributes]\nshardIndex = '7'\n\n[Sharding]\nShardingEnabled = true\nShardIndex = 2\n", "7"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfg, err := GeneralConfigOpts{ConfigStrings: []string{tt.toml}}.New()
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, cfg.ResourceAttributes()["shardIndex"])
+		})
+	}
+}
+
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	config, err := GeneralConfigOpts{}.New()
 	require.NoError(t, err)
