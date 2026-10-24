@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/huandu/go-clone"
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -77,7 +78,11 @@ type Core struct {
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
+// Values are deep-copied, so c never aliases f: later writes through either one
+// do not affect the other.
 func (c *Core) SetFrom(f *Core) {
+	fc := clone.Slowly(*f).(Core)
+	f = &fc
 	if v := f.InsecureFastScrypt; v != nil {
 		c.InsecureFastScrypt = v
 	}
