@@ -24,6 +24,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
@@ -721,6 +722,22 @@ func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.Billi
 // registry from the don notifier (the engine runs on the workflow DON), so it
 // is intentionally left empty here. Service/resource_pool are stamped by
 // syncer.NewSpecMeter.
+// newDeploymentIdentity returns the node's [Metering] deployment dimensions.
+func newDeploymentIdentity(cfg Config) resourcemanager.DeploymentIdentity {
+	m := cfg.Metering()
+	if m == nil {
+		return resourcemanager.DeploymentIdentity{}
+	}
+	return resourcemanager.DeploymentIdentity{
+		Product:         m.Product(),
+		Tenant:          m.Tenant(),
+		NumericTenantID: m.NumericTenantID(),
+		Environment:     m.Environment(),
+		Zone:            m.Zone(),
+		NodeID:          m.NodeID(),
+	}
+}
+
 func newSyncerMeterIdentity(cfg Config) resourcemanager.ResourceIdentity {
 	m := cfg.Metering()
 	if m == nil {
@@ -988,6 +1005,15 @@ func newWorkflowRegistrySyncerV2(
 			return nil, nil, fmt.Errorf("unable to create workflow spec meter: %w", smErr)
 		}
 		handlerOpts = append(handlerOpts, syncerV2.WithSpecMeter(specMeter))
+	}
+
+	// Compute usage records share the [Metering].MeterRecordsEnabled gate.
+	if meterRecordsEnabled {
+		if d := durableemitter.GetGlobalEmitter(); d != nil {
+			handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(newDeploymentIdentity(cfg), d))
+		} else {
+			lggr.Warnw("Compute usage metering enabled without a durable emitter; compute usage records disabled")
+		}
 	}
 
 	mc := capCfg.WorkflowRegistry().ModuleCache()
