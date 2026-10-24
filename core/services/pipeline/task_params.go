@@ -592,6 +592,19 @@ func (s *DecimalSliceParam) UnmarshalPipelineParam(val any) error {
 		return s.UnmarshalPipelineParam(SliceParam(v))
 	case SliceParam:
 		for _, x := range v {
+			// Aggregators read a Sample's value. DecimalParam deliberately does
+			// not, so scalar arithmetic cannot silently shed a sample's timestamp.
+			switch sample := x.(type) {
+			case Sample:
+				dsp = append(dsp, sample.Value)
+				continue
+			case *Sample:
+				if sample == nil {
+					return errors.Wrap(ErrBadInput, "nil sample")
+				}
+				dsp = append(dsp, sample.Value)
+				continue
+			}
 			var d DecimalParam
 			err := d.UnmarshalPipelineParam(x)
 			if err != nil {
