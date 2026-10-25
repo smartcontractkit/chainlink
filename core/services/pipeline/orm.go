@@ -424,7 +424,7 @@ func (o *orm) InsertFinishedRunWithSpec(ctx context.Context, run *Run, saveSucce
 		}
 		return tx.insertFinishedRun(ctx, run, saveSuccessfulTaskRuns)
 	})
-	return errors.Wrap(err, "InsertFinishedRun failed")
+	return errors.Wrap(err, "InsertFinishedRunWithSpec failed")
 }
 
 func (o *orm) insertFinishedRun(ctx context.Context, run *Run, saveSuccessfulTaskRuns bool) error {

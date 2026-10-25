@@ -987,7 +987,7 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 	}
 
 	if err := migrate.Rollback(ctx, db.DB, version); err != nil {
-		return fmt.Errorf("migrateDB failed: %w", err)
+		return fmt.Errorf("database rollback failed: %w", err)
 	}
 
 	return nil
@@ -1003,7 +1003,7 @@ func (s *Shell) VersionDatabase(_ *cli.Context) error {
 
 	version, err := migrate.Current(ctx, db.DB)
 	if err != nil {
-		return fmt.Errorf("migrateDB failed: %w", err)
+		return fmt.Errorf("failed to get current database version: %w", err)
 	}
 
 	s.Logger.Infof("Database version: %v", version)
