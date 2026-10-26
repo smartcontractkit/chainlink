@@ -40,7 +40,8 @@ type mockPipeline struct {
 	trrs pipeline.TaskRunResults
 	err  error
 
-	streamIDs []streams.StreamID
+	streamIDs      []streams.StreamID
+	terminalDotIDs []string
 
 	runCount atomic.Int32
 }
@@ -62,6 +63,10 @@ func (m *mockPipeline) setResults(run *pipeline.Run, trrs pipeline.TaskRunResult
 
 func (m *mockPipeline) StreamIDs() []streams.StreamID {
 	return m.streamIDs
+}
+
+func (m *mockPipeline) TerminalDotIDs() []string {
+	return m.terminalDotIDs
 }
 
 type mockRegistry struct {
@@ -179,7 +184,10 @@ func (m *mockTelemeter) GetOutcomeTelemetryCh() chan<- *lloprotocol.LLOOutcomeTe
 	return nil
 }
 func (m *mockTelemeter) GetReportTelemetryCh() chan<- *lloprotocol.LLOReportTelemetry { return nil }
-func (m *mockTelemeter) CaptureEATelemetry() bool                                     { return true }
+func (m *mockTelemeter) GetAttributedObservationTelemetryCh() chan<- *lloprotocol.LLOAttributedObservationTelemetry {
+	return nil
+}
+func (m *mockTelemeter) CaptureEATelemetry() bool { return true }
 
 func (m *mockTelemeter) CaptureObservationTelemetry() bool { return true }
 

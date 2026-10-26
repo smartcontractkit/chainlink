@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	nethttp "net/http"
 	"time"
 
-	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
+	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 
@@ -20,10 +21,10 @@ type None struct{}
 func main() {
 	wasm.NewRunner(func(configBytes []byte) (None, error) {
 		return None{}, nil
-	}).Run(RunSimpleHttpWorkflow)
+	}).Run(RunSimpleHTTPWorkflow)
 }
 
-func RunSimpleHttpWorkflow(_ None, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[None], error) {
+func RunSimpleHTTPWorkflow(_ None, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[None], error) {
 	workflows := cre.Workflow[None]{
 		cre.Handler(
 			http.Trigger(&http.Config{
@@ -71,9 +72,9 @@ func orderPizza(sendReqester *http.SendRequester, inputs []byte, customer string
 
 	req := &http.Request{
 		Url:    "http://host.docker.internal:2999/orders",
-		Method: "POST",
+		Method: nethttp.MethodPost,
 		Body:   inputs,
-		Headers: map[string]string{
+		Headers: map[string]string{ //nolint:staticcheck // SA1019: example workflow uses legacy single-value headers
 			"Content-Type": "application/json",
 		},
 	}
@@ -97,7 +98,7 @@ func orderPizza(sendReqester *http.SendRequester, inputs []byte, customer string
 	}
 
 	if orderResp.Status == "success" {
-		return fmt.Sprintf("Pizza order placed successfully! Order ID: %s", orderResp.OrderID), nil
+		return "Pizza order placed successfully! Order ID: " + orderResp.OrderID, nil
 	}
 
 	return "", nil

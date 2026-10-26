@@ -2,12 +2,15 @@ package operations
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
@@ -1036,4 +1039,192 @@ var chainConfigs = []*nodev1.ChainConfig{
 		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_10",
 	},
+}
+
+// shardedFixtures returns the common fixtures plus a node that is a member of shard 1 of workflow_1_zone-b.
+func shardedFixtures(t *testing.T) ([]*nodev1.Node, []*nodev1.ChainConfig) {
+	t.Helper()
+
+	shardNode := proto.Clone(nodes[1]).(*nodev1.Node)
+	require.Equal(t, "node_2", shardNode.Id)
+	shardNode.Id = "node_11"
+	shardNode.Name = "cl-cre-one-zone-b-shard-1-0"
+	shardNode.Labels[0].Key = "don-workflow_1_zone-b_shard-1"
+
+	var shardChainConfigs []*nodev1.ChainConfig
+	for _, cc := range chainConfigs {
+		if cc.NodeId != "node_2" {
+			continue
+		}
+		c := proto.Clone(cc).(*nodev1.ChainConfig)
+		c.NodeId = "node_11"
+		c.AccountAddress += "-shard-1"
+		shardChainConfigs = append(shardChainConfigs, c)
+	}
+
+	return append(slices.Clone(nodes), shardNode), append(slices.Clone(chainConfigs), shardChainConfigs...)
+}
+
+func TestProposeGatewayJob_ShardedDON(t *testing.T) {
+	t.Parallel()
+
+	type decodedSpec struct {
+		GatewayConfig struct {
+			ShardedDONs []struct {
+				DonName string
+				F       int
+				Shards  []struct {
+					Nodes []struct {
+						Address string
+						Name    string
+					}
+				}
+			}
+			Services []struct {
+				ServiceName string
+				DONs        []string
+			}
+		} `toml:"gatewayConfig"`
+	}
+
+	zoneB := []string{"workflow_1_zone-b", "workflow_1_zone-b_shard-1"}
+
+	testCases := []struct {
+		name     string
+		services []GatewayService
+		errorMsg string
+	}{
+		{
+			name: "shards are emitted under one sharded DON",
+			services: []GatewayService{
+				{
+					ServiceName: "workflows",
+					Handlers:    []string{"http-capabilities"},
+					ShardedDONs: [][]string{zoneB},
+				},
+			},
+		},
+		{
+			name: "same sharded DON referenced by multiple services",
+			services: []GatewayService{
+				{
+					ServiceName: "workflows",
+					Handlers:    []string{"http-capabilities"},
+					ShardedDONs: [][]string{zoneB},
+				},
+				{
+					ServiceName: "workflows-2",
+					Handlers:    []string{"http-capabilities"},
+					ShardedDONs: [][]string{zoneB},
+				},
+			},
+		},
+		{
+			name: "fail - DON referenced with different shards",
+			services: []GatewayService{
+				{
+					ServiceName: "workflows",
+					Handlers:    []string{"http-capabilities"},
+					ShardedDONs: [][]string{zoneB},
+				},
+				{
+					ServiceName: "workflows-2",
+					Handlers:    []string{"http-capabilities"},
+					DONs:        []string{"workflow_1_zone-b"},
+				},
+			},
+			errorMsg: "is referenced with different shards",
+		},
+		{
+			name: "fail - JD DON is a shard of two DONs",
+			services: []GatewayService{
+				{
+					ServiceName: "workflows",
+					Handlers:    []string{"http-capabilities"},
+					ShardedDONs: [][]string{
+						zoneB,
+						{"other", "workflow_1_zone-b_shard-1"},
+					},
+				},
+			},
+			errorMsg: "is used as a shard of both DON",
+		},
+		{
+			name: "fail - no shards",
+			services: []GatewayService{
+				{
+					ServiceName: "workflows",
+					Handlers:    []string{"http-capabilities"},
+					ShardedDONs: [][]string{{}},
+				},
+			},
+			errorMsg: "must have at least one shard",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ns, ccs := shardedFixtures(t)
+			env, err := environment.New(t.Context(),
+				environment.WithEVMSimulated(t, []uint64{909606746561742123}),
+				environment.WithOffchainClient(newOffchainClient(ns, ccs, nil, nil)),
+			)
+			require.NoError(t, err)
+
+			input := commonInputServiceCentric
+			input.Services = tc.services
+			output, err := proposeGatewayJob(operations.Bundle{GetContext: func() context.Context { return t.Context() }}, ProposeGatewayJobDeps{Env: *env}, input)
+			if tc.errorMsg != "" {
+				require.ErrorContains(t, err, tc.errorMsg)
+				return
+			}
+			require.NoError(t, err)
+
+			require.Len(t, output.Specs["node_5"], 1)
+			var spec decodedSpec
+			require.NoError(t, toml.Unmarshal([]byte(output.Specs["node_5"][0]), &spec))
+
+			dons := spec.GatewayConfig.ShardedDONs
+			require.Len(t, dons, 1)
+			assert.Equal(t, "workflow_1_zone-b", dons[0].DonName)
+			assert.Equal(t, 0, dons[0].F)
+			require.Len(t, dons[0].Shards, 2)
+			require.Len(t, dons[0].Shards[0].Nodes, 1)
+			assert.Equal(t, "0x04", dons[0].Shards[0].Nodes[0].Address)
+			assert.Equal(t, "cl-cre-one-zone-b-0 (DON workflow_1_zone-b)", dons[0].Shards[0].Nodes[0].Name)
+			require.Len(t, dons[0].Shards[1].Nodes, 1)
+			assert.Equal(t, "0x04-shard-1", dons[0].Shards[1].Nodes[0].Address)
+			assert.Equal(t, "cl-cre-one-zone-b-shard-1-0 (DON workflow_1_zone-b_shard-1)", dons[0].Shards[1].Nodes[0].Name)
+
+			require.Len(t, spec.GatewayConfig.Services, len(tc.services))
+			for _, svc := range spec.GatewayConfig.Services {
+				assert.Equal(t, []string{"workflow_1_zone-b"}, svc.DONs)
+			}
+		})
+	}
+}
+
+func TestCollectShardedDONs(t *testing.T) {
+	t.Parallel()
+
+	shardedDONs, err := collectShardedDONs([]GatewayService{
+		{
+			ServiceName: "a",
+			DONs:        []string{"vault", "wf_a"},
+			ShardedDONs: [][]string{{"wf_b", "wf_b_shard-1", "wf_b_shard-2"}},
+		},
+		{
+			ServiceName: "b",
+			DONs:        []string{"vault"},
+			ShardedDONs: [][]string{{"wf_a"}},
+		},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{
+		{"vault"},
+		{"wf_a"},
+		{"wf_b", "wf_b_shard-1", "wf_b_shard-2"},
+	}, shardedDONs)
 }

@@ -12,7 +12,7 @@ import (
 )
 
 func TestValidate(t *testing.T) {
-	v2Coordinator := types.EIP55Address("0x2be990eE17832b59E0086534c5ea2459Aa75E38F")
+	v2PlusCoordinator := types.EIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
 	fromAddresses := []types.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
 
 	var tests = []struct {
@@ -25,7 +25,7 @@ func TestValidate(t *testing.T) {
 			toml: `
 type = "blockhashstore"
 name = "valid-test"
-coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+coordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
 waitBlocks = 59
 lookbackBlocks = 159
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
@@ -38,8 +38,9 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 				require.Equal(t, job.BlockhashStore, os.Type)
 				require.Equal(t, "valid-test", os.Name.String)
 				require.Nil(t, os.BlockhashStoreSpec.CoordinatorV1Address)
-				require.Equal(t, &v2Coordinator,
-					os.BlockhashStoreSpec.CoordinatorV2Address)
+				require.Nil(t, os.BlockhashStoreSpec.CoordinatorV2Address)
+				require.Equal(t, &v2PlusCoordinator,
+					os.BlockhashStoreSpec.CoordinatorV2PlusAddress)
 				require.Equal(t, int32(59), os.BlockhashStoreSpec.WaitBlocks)
 				require.Equal(t, int32(159), os.BlockhashStoreSpec.LookbackBlocks)
 				require.Equal(t, types.EIP55Address("0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"),
@@ -56,7 +57,7 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			toml: `
 type = "blockhashstore"
 name = "defaults-test"
-coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+coordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"`,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -74,7 +75,7 @@ evmChainID = "4"`,
 			toml: `
 type = "blockhashstore"
 name = "heartbeat-blocks-test"
-coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+coordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 heartbeatPeriod = "650s"
 evmChainID = "4"`,
@@ -98,11 +99,11 @@ blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"
 fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.EqualError(t, err, `coordinatorV1Address is no longer supported; use coordinatorV2Address or coordinatorV2PlusAddress`)
+				require.EqualError(t, err, `coordinatorV1Address is no longer supported; use coordinatorV2PlusAddress`)
 			},
 		},
 		{
-			name: "v2 only",
+			name: "v2 coordinator not supported",
 			toml: `
 type = "blockhashstore"
 name = "defaults-test"
@@ -111,9 +112,7 @@ blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"
 fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.NoError(t, err)
-				require.Nil(t, os.BlockhashStoreSpec.CoordinatorV1Address)
-				require.Equal(t, &v2Coordinator, os.BlockhashStoreSpec.CoordinatorV2Address)
+				require.EqualError(t, err, `coordinatorV2Address is no longer supported; use coordinatorV2PlusAddress`)
 			},
 		},
 		{
@@ -125,7 +124,7 @@ blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"
 fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.EqualError(t, err, `at least one of "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`)
+				require.EqualError(t, err, `"coordinatorV2PlusAddress" must be set`)
 			},
 		},
 		{
@@ -133,7 +132,7 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			toml: `
 type = "blockhashstore"
 name = "defaults-test"
-coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+coordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
 evmChainID = "4"
 fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -145,7 +144,7 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			toml: `
 type = "blockhashstore"
 name = "defaults-test"
-coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+coordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -157,7 +156,7 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			toml: `
 type = "blockhashstore"
 name = "valid-test"
-coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+coordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
 waitBlocks = 257
 lookbackBlocks = 258
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
@@ -171,7 +170,7 @@ evmChainID = "4"`,
 			toml: `
 type = "blockhashstore"
 name = "valid-test"
-coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+coordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
 lookbackBlocks = 257
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"`,
@@ -184,7 +183,7 @@ evmChainID = "4"`,
 			toml: `
 type = "blockhashstore"
 name = "valid-test"
-coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+coordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
 waitBlocks = 200
 lookbackBlocks = 100
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
@@ -198,7 +197,7 @@ evmChainID = "4"`,
 			toml: `
 type = "blockhashstore"
 name = "valid-test"
-coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+coordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
 waitBlocks = 10
 lookbackBlocks = 100
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"

@@ -82,6 +82,9 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	"Test_CRE_V2_ShardManualAssignmentBothSpecs": {
 		{Topology: "workflow-gateway-sharded-manual", Configs: "configs/workflow-gateway-sharded-manual.toml"},
 	},
+	"Test_CRE_V2_ShardManualAssignmentCoordinated": {
+		{Topology: "workflow-gateway-sharded-manual", Configs: "configs/workflow-gateway-sharded-manual.toml"},
+	},
 	"Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger": {
 		{Topology: "workflow-sharded-capabilities", Configs: "configs/workflow-sharded-capabilities-don.toml"},
 	},
@@ -94,8 +97,20 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	"Test_CRE_V2_ShardFailoverSharedVault": {
 		{Topology: "workflow-gateway-sharded-shared-vault-failover", Configs: "configs/workflow-gateway-sharded-shared-vault-failover.toml"},
 	},
+	"Test_CRE_V2_ShardFailoverAutoOnPrimaryDeath": {
+		{Topology: "workflow-gateway-sharded-shared-vault-failover", Configs: "configs/workflow-gateway-sharded-shared-vault-failover.toml"},
+	},
+	"Test_CRE_V2_ShardFailoverPrimaryRecovery": {
+		{Topology: "workflow-gateway-sharded-shared-vault-failover", Configs: "configs/workflow-gateway-sharded-shared-vault-failover.toml"},
+	},
+	"Test_CRE_V2_ShardFailoverCentralizedEventRouting": {
+		{Topology: "workflow-gateway-sharded-shared-vault-failover", Configs: "configs/workflow-gateway-sharded-shared-vault-failover.toml"},
+	},
 	"Test_CRE_V2_FailoverManualSwap": {
 		{Topology: "workflow-gateway-failover", Configs: "configs/workflow-gateway-failover-don.toml"},
+	},
+	"Test_CRE_V2_FailoverManualSwapCoordinated": {
+		{Topology: "workflow-gateway-failover-coordinated", Configs: "configs/workflow-gateway-failover-coordinated-don.toml"},
 	},
 	"Test_CRE_V2_Module_Cache": {
 		{Topology: "workflow-gateway-cache-test", Configs: "configs/workflow-gateway-don-cache-test.toml"},
@@ -105,6 +120,15 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	},
 	"Test_CRE_V2_ConfidentialWorkflows_Relay": {
 		{Topology: "workflow-gateway-capabilities-confidential-workflows", Configs: "configs/workflow-gateway-capabilities-don-confidential-workflows.toml"},
+	},
+	"Test_CRE_V2_ShardManualAssignmentConfidentialWorkflows": {
+		{Topology: "workflow-gateway-sharded-confidential-workflows-manual", Configs: "configs/workflow-gateway-sharded-confidential-workflows-manual.toml"},
+	},
+	"Test_CRE_V2_ShardFailoverConfidentialWorkflows": {
+		{Topology: "workflow-gateway-sharded-confidential-workflows-failover", Configs: "configs/workflow-gateway-sharded-confidential-workflows-failover.toml"},
+	},
+	"Test_CRE_V2_OffchainCapabilitiesRegistry": {
+		{Topology: "workflow-gateway-capabilities-offchain-registry", Configs: "configs/workflow-gateway-capabilities-don-offchain-registry.toml"},
 	},
 }
 

@@ -17,8 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
@@ -28,6 +26,17 @@ import (
 )
 
 const _prefix = "trigger_reg"
+
+var (
+	// ErrAdmissionDenied is returned when an admission check rejects a trigger
+	// event. The event will never be executed, so the caller ACKs and drops it.
+	ErrAdmissionDenied = errors.New("trigger admission denied")
+
+	// ErrAdmissionCached is returned when an admission check holds a trigger
+	// event back for possible replay (e.g. shard failover). The caller drops it
+	// without ACKing.
+	ErrAdmissionCached = errors.New("admission: event cached for failover")
+)
 
 // Handle is a registered trigger capability plus the registration
 // payload/method needed to unregister and re-deliver to it.
@@ -59,14 +68,20 @@ type Subscriber interface {
 
 // EventSink is how trigger events are delivered to an engine for execution.
 type EventSink interface {
-	// ExecuteTrigger implementations should perform no admission checks.  Calls
-	// should start a workflow execution.
+	// ExecuteTrigger should start a workflow execution. Engines perform no
+	// admission checks; a wrapper that does (e.g. the shard failover manager)
+	// reports the outcome with the admission errors below and leaves acting on
+	// it to the caller, which holds the trigger handles.
 	//
 	// Expected errors:
 	//   - ErrDuplicateExecution — the event was already executed.
 	//     The implementation should ACKs the duplicate internally before returning.
 	//   - ErrMeteringReserveFailed — metering report reservation failed.
 	//     Implementation should not ACK; the caller may retry.
+	//   - ErrAdmissionDenied — an admission check rejected the event; it will
+	//     never execute. The caller ACKs and drops it.
+	//   - ErrAdmissionCached — an admission check held the event back for
+	//     replay. The caller drops it without ACKing.
 	//
 	// Execution errors are NOT returned as errors.
 	// Implementations should expose errors and execution state via lifecycle hooks.
@@ -179,7 +194,6 @@ type RegisterDeps struct {
 	CapRegistry  registry.CapabilitiesRegistry
 	RegTimeout   limits.TimeLimiter
 	ChainAllowed limits.GateLimiter
-	Settings     settings.Getter
 	Logger       logger.Logger
 	Metrics      *monitoring.WorkflowsMetricLabeler
 }
@@ -294,11 +308,8 @@ func Register(
 				WorkflowRegistryChainSelector: meta.WorkflowRegistryChainSelector,
 				WorkflowRegistryAddress:       meta.WorkflowRegistryAddress,
 				EngineVersion:                 platform.ValueWorkflowVersionV2,
+				OrgID:                         meta.OrgID,
 				// no WorkflowExecutionID needed (or available at this stage)
-			}
-			propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(gCtx, deps.Settings)
-			if propagateOrgIDMeta && meta.OrgID != "" {
-				metadata.OrgID = meta.OrgID
 			}
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
 				TriggerID: registrationID,
@@ -347,7 +358,7 @@ func Register(
 	// If any registration failed, unregister successful ones and return error
 	if registrationErr != nil {
 		deps.Logger.Errorw("One or more trigger registrations failed - reverting all", "err", registrationErr)
-		Unregister(ctx, deps.Logger, meta.WorkflowID, meta.WorkflowDonID, handles)
+		Unregister(ctx, deps.Logger, meta.WorkflowID, meta.WorkflowDonID, meta.OrgID, handles)
 		return nil, nil, nil, registrationErr
 	}
 
@@ -359,13 +370,14 @@ func Register(
 // Unregister unregisters every handle in handles with the capability
 // registry. It logs individual UnregisterTrigger failures and returns how
 // many occurred, so callers can log their own summary.
-func Unregister(ctx context.Context, lggr logger.Logger, workflowID string, workflowDonID uint32, handles map[string]*Handle) (failCount int) {
+func Unregister(ctx context.Context, lggr logger.Logger, workflowID string, workflowDonID uint32, orgID string, handles map[string]*Handle) (failCount int) {
 	for registrationID, handle := range handles {
 		if err := handle.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
 			Metadata: capabilities.RequestMetadata{
 				WorkflowID:    workflowID,
 				WorkflowDonID: workflowDonID,
+				OrgID:         orgID,
 			},
 			Payload: handle.Payload,
 			Method:  handle.Method,

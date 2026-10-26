@@ -60,7 +60,23 @@ func ExecuteShardingTestWithCronTrigger(t *testing.T, testEnv *ttypes.TestEnviro
 	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: "*/30 * * * * *",
 	}
-	const numWorkflows = 5
+	// TODO: 16 workflows is a statistical workaround, not a fix. Step 8 requires the mapping
+	// to span both shards, but placement is consistent hashing over workflow IDs
+	// (core/services/ring/utils.go), and the IDs embed the compiled WASM, so they re-roll
+	// with the Go toolchain and checkout path (system-tests/lib/cre/workflow/compile.go
+	// builds without -trimpath). With 5 workflows all-on-one-shard happens ~1 in 15 runs;
+	// with 16 it is ~1 in 15,000-40,000. The flake is rare, not gone, and the count adds
+	// deploy/registry/cleanup runtime to every run.
+	// Real fixes, in order of preference:
+	//  1. Expose healthy shard/ring membership on the shard orchestrator API and assert
+	//     shard 1 joined the ring after scale-up. That checks the actual regression
+	//     ("second shard never receives auto-sharded work") with zero hash-ring luck, and
+	//     would let step 8 drop the both-shards requirement entirely.
+	//  2. Add -trimpath -buildvcs=false to the workflow build so IDs stop depending on the
+	//     checkout path (toolchain re-rolls would still happen).
+	//  3. Cover the distribution property in ring unit tests (deterministic, in-package)
+	//     instead of sampling a hash ring through a Docker system test.
+	const numWorkflows = 16
 	workflowNames := make([]string, numWorkflows)
 	for i := range numWorkflows {
 		workflowNames[i] = fmt.Sprintf("shardtest-cron-%d", i)
@@ -94,7 +110,7 @@ func ExecuteShardingTestWithEVMLogTrigger(t *testing.T, testEnv *ttypes.TestEnvi
 
 	workflowFileLocation := "./evm/logtrigger/main.go"
 
-	const numWorkflows = 5
+	const numWorkflows = 10
 	workflowNames := make([]string, numWorkflows)
 	for i := range numWorkflows {
 		workflowNames[i] = fmt.Sprintf("shardtest-evmlogtrigger-%d", i)

@@ -74,40 +74,13 @@ func testWorkflowRegistry(addr string, urls ...string) config.CapabilitiesWorkfl
 	return wfRegTestStub{addr: addr, additionalURLs: urls}
 }
 
-func TestWorkflowRegistrySemverMajor(t *testing.T) {
-	t.Parallel()
-
-	major, err := workflowRegistrySemverMajor("")
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), major)
-
-	major, err = workflowRegistrySemverMajor("   ")
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), major)
-
-	major, err = workflowRegistrySemverMajor("2.0.0")
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), major)
-
-	major, err = workflowRegistrySemverMajor("1.0.0")
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), major)
-
-	_, err = workflowRegistrySemverMajor("not-a-version")
-	require.Error(t, err)
-}
-
 func TestWorkflowRegistryConfigured(t *testing.T) {
 	t.Parallel()
 
-	require.False(t, workflowRegistryConfigured(testWorkflowRegistry(""), 1))
-	require.False(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "  "), 1))
-	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xabc"), 1))
-
-	require.False(t, workflowRegistryConfigured(testWorkflowRegistry(""), 2))
-	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xdef"), 2))
-	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "https://example"), 2))
-	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "grpc://x"), 2))
+	require.False(t, workflowRegistryConfigured(testWorkflowRegistry("")))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xabc")))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "https://example")))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "grpc://x")))
 }
 
 func TestWireRegistrySyncerV2(t *testing.T) {
@@ -127,11 +100,4 @@ func TestWireRegistrySyncerV2(t *testing.T) {
 	require.Same(t, registrySyncer, services[1])
 
 	var _ registrysyncerV2.Listener = (*registryListenerStub)(nil)
-}
-
-func TestNewLocalTestMetadataRegistry(t *testing.T) {
-	t.Parallel()
-
-	registry := newLocalTestMetadataRegistry(nil)
-	require.Equal(t, uint8(0), registry.WorkflowDONF)
 }

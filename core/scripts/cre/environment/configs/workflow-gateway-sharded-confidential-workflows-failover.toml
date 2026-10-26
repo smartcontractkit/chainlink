@@ -1,0 +1,238 @@
+# workflow-gateway-sharded-shared-vault-failover.toml plus the confidential deltas from
+# workflow-gateway-capabilities-don-confidential-workflows.toml.
+
+# INSECURE: relaxes TEE attestation validation; for tests only.
+[capability_configs.confidential-relay]
+  [capability_configs.confidential-relay.values]
+    trustEnclaves = true
+    requireBFTQuorum = true
+
+[capability_configs.confidential-workflows]
+  binary_name = "confidential-workflows"
+  [capability_configs.confidential-workflows.values]
+    version = "1.0.0-alpha"
+
+
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  container_name = "anvil-2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  image = "job-distributor:0.28.0"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+[infra]
+  type = "docker"
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow-1-zone-a"
+  don_families = ["zone-a_workflows", "zone-a_shard-0"]
+  don_types = ["workflow", "shard"]
+  shard_index = 0
+  override_mode = "each"
+  http_port_range_start = 14700
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"ShardingFailoverEnabled":"true","PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true","PerWorkflow":{"ConfidentialWorkflows":{"Enabled":"true"}}}' }
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "confidential-workflows", "confidential-relay"]
+  exposes_remote_capabilities = true
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:15.0"
+    port = 19700
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["62051:50051", "24876:9876"]
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      [Sharding]
+      ShardingEnabled = true
+      ShardAssignmentMode = "manual-only"
+
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["24877:9876"]
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      [Sharding]
+      ShardingEnabled = true
+      ShardAssignmentMode = "manual-only"
+
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["24878:9876"]
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      [Sharding]
+      ShardingEnabled = true
+      ShardAssignmentMode = "manual-only"
+
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["24879:9876"]
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      [Sharding]
+      ShardingEnabled = true
+      ShardAssignmentMode = "manual-only"
+
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow-1-zone-a-shard-1"
+  don_families = ["zone-a_workflows", "zone-a_shard-1"]
+  don_types = ["workflow", "shard"]
+  shard_index = 1
+  override_mode = "all"
+  http_port_range_start = 14800
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"ShardingFailoverEnabled":"true","PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true","PerWorkflow":{"ConfidentialWorkflows":{"Enabled":"true"}}}' }
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "confidential-workflows", "confidential-relay"]
+  exposes_remote_capabilities = true
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:15.0"
+    port = 19800
+
+[[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      [Sharding]
+      ShardingEnabled = true
+      ShardAssignmentMode = "manual-only"
+
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
+[[nodesets]]
+  nodes = 4
+  name = "chain-capabilities-zone-a"
+  don_families = ["zone-a_shard-0", "zone-a_shard-1"]
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true
+  override_mode = "all"
+  http_port_range_start = 14900
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true"}' }
+  capabilities = ["vault"]
+
+  [nodesets.db]
+    image = "postgres:15.0"
+    port = 19900
+
+[[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 14750
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+
+  [nodesets.db]
+    image = "postgres:15.0"
+    port = 19750
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["5002:5002","15002:15002"]
+      user_config_overrides = ""

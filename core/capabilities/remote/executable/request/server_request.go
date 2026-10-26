@@ -31,6 +31,7 @@ type srMetrics struct {
 	executeCount         metric.Int64Counter
 	executeRequestCount  metric.Int64Counter
 	executeResponseCount metric.Int64Counter
+	executeOrgIDCount    metric.Int64Counter
 }
 
 func (s *srMetrics) recordExecutionDuration(ctx context.Context, d time.Duration, success bool) {
@@ -56,6 +57,12 @@ func (s *srMetrics) countExecution(ctx context.Context, success bool) {
 func (s *srMetrics) countExecutionRequest(ctx context.Context) {
 	s.executeRequestCount.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID),
+	))
+}
+
+func (s *srMetrics) countExecutionOrgID(ctx context.Context, hasOrgID bool) {
+	s.executeOrgIDCount.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID), attribute.String("hasOrgID", strconv.FormatBool(hasOrgID)),
 	))
 }
 
@@ -92,6 +99,11 @@ func newSrMetrics(capabilityID string, callingDonID uint32) (*srMetrics, error) 
 		return nil, err
 	}
 
+	eoc, err := beholder.GetMeter().Int64Counter("platform_executable_capability_server_execute_org_id_count")
+	if err != nil {
+		return nil, err
+	}
+
 	return &srMetrics{
 		capabilityID:         capabilityID,
 		callingDonID:         strconv.FormatUint(uint64(callingDonID), 10),
@@ -99,6 +111,7 @@ func newSrMetrics(capabilityID string, callingDonID uint32) (*srMetrics, error) 
 		executeCount:         ec,
 		executeRequestCount:  erc,
 		executeResponseCount: erspc,
+		executeOrgIDCount:    eoc,
 	}, nil
 }
 
@@ -135,7 +148,9 @@ type ServerRequest struct {
 	// Metadata.WorkflowDonID to match the authenticated calling DON.
 	workflowDONBindingGate limits.GateLimiter
 
-	// stateMux guards requesters, responseSentToRequester, response, and executionCancel.
+	accumulator types.RequestAccumulator
+
+	// stateMux guards requesters, responseSentToRequester, response, accumulator, and executionCancel.
 	// It is held only for short map/field operations, never during capability execution.
 	stateMux sync.Mutex
 
@@ -157,12 +172,15 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method, capa
 	capabilityPeerID p2ptypes.PeerID,
 	callingDon capabilities.DON, requestID string,
 	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string,
-	workflowDONBindingGate limits.GateLimiter, lggr logger.Logger,
+	workflowDONBindingGate limits.GateLimiter, accumulator types.RequestAccumulator, lggr logger.Logger,
 ) (*ServerRequest, error) {
 	lggr = logger.With(logger.Named(lggr, "ServerRequest"), "requestID", requestID) // cap ID and method name included in the parent logger
 
 	if workflowDONBindingGate == nil {
 		return nil, errors.New("workflowDONBindingGate must not be nil")
+	}
+	if accumulator == nil {
+		accumulator = NewLatestPayloadAccumulator()
 	}
 
 	m, err := newSrMetrics(capabilityID, callingDon.ID)
@@ -185,9 +203,30 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method, capa
 		requestTimeout:          requestTimeout,
 		capMethodName:           capMethodName,
 		workflowDONBindingGate:  workflowDONBindingGate,
+		accumulator:             accumulator,
 		lggr:                    lggr,
 		metrics:                 m,
 	}, nil
+}
+
+type latestPayloadAccumulator struct {
+	payload  []byte
+	received bool
+}
+
+// NewLatestPayloadAccumulator returns an accumulator that executes with the most recently received payload.
+func NewLatestPayloadAccumulator() types.RequestAccumulator {
+	return &latestPayloadAccumulator{}
+}
+
+func (a *latestPayloadAccumulator) Add(_ p2ptypes.PeerID, payload []byte) error {
+	a.payload = payload
+	a.received = true
+	return nil
+}
+
+func (a *latestPayloadAccumulator) Payload() ([]byte, bool, error) {
+	return a.payload, a.received, nil
 }
 
 func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) error {
@@ -207,19 +246,34 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 		e.stateMux.Unlock()
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}
+	if err := e.accumulator.Add(requester, msg.Payload); err != nil {
+		e.lggr.Warnw("failed to accumulate request payload", "requester", requester.String(), "err", err)
+	}
 
 	quorumReached := e.minimumRequiredRequestsReceived()
+	var payload []byte
+	payloadReady := false
+	if quorumReached && !e.hasResponse() {
+		var accErr error
+		payload, payloadReady, accErr = e.accumulator.Payload()
+		if accErr != nil {
+			e.lggr.Errorw("request cannot be executed", "err", accErr)
+			e.setError(types.Error_INTERNAL_ERROR, accErr.Error())
+		} else if !payloadReady {
+			e.lggr.Warnw("quorum of requests reached but no executable payload yet, waiting for more requests", "calls", len(e.requesters))
+		}
+	}
 	calls := len(e.requesters)
 	hasResponse := e.hasResponse()
 	e.stateMux.Unlock()
 
 	e.lggr.Debugw("OnMessage called for request", "requester", requester.String(),
-		"quorumReached", quorumReached, "hasResponse", hasResponse, "minRequesters", e.callingDon.F+1, "calls", calls)
+		"quorumReached", quorumReached, "payloadReady", payloadReady, "hasResponse", hasResponse, "minRequesters", e.callingDon.F+1, "calls", calls)
 
 	// Only one message wins the right to execute. All others skip execution
 	// and either wait for the executor's fan-out or self-send if the response
 	// is already available.
-	if quorumReached && !hasResponse && e.executionClaimed.CompareAndSwap(false, true) {
+	if quorumReached && payloadReady && !hasResponse && e.executionClaimed.CompareAndSwap(false, true) {
 		switch e.method {
 		case types.MethodExecute:
 			ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
@@ -231,8 +285,7 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 			e.stateMux.Unlock()
 			success := false
 			start := time.Now()
-			responsePayload, responseErr := executeCapabilityRequest(ctxWithTimeout, e.lggr, e.capability, msg.Payload, e.callingDon.ID, e.workflowDONBindingGate)
-
+			responsePayload, responseErr := executeCapabilityRequest(ctxWithTimeout, e.lggr, e.capability, payload, e.callingDon.ID, e.workflowDONBindingGate, e.metrics)
 			e.stateMux.Lock()
 			// Cancel may have already set a timeout error response; never overwrite an
 			// existing response.
@@ -383,7 +436,7 @@ func (e *ServerRequest) sendResponse(ctx context.Context, requester p2ptypes.Pee
 	return nil
 }
 
-func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capability capabilities.ExecutableCapability, payload []byte, callingDonID uint32, workflowDONBindingGate limits.GateLimiter) ([]byte, error) {
+func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capability capabilities.ExecutableCapability, payload []byte, callingDonID uint32, workflowDONBindingGate limits.GateLimiter, metrics *srMetrics) ([]byte, error) {
 	capabilityRequest, err := pb.UnmarshalCapabilityRequest(payload)
 	if err != nil {
 		lggr.Errorw("failed to unmarshal capability request", "err", err)
@@ -391,6 +444,7 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 		// Do not include the unmarshal error in the response as it may contain sensitive information
 		return nil, errors.New("failed to unmarshal capability request")
 	}
+	metrics.countExecutionOrgID(ctx, capabilityRequest.Metadata.OrgID != "")
 
 	// When enabled, bind the caller-supplied WorkflowDonID to the authenticated
 	// calling DON so it cannot be spoofed. All F+1 aggregated requests share this

@@ -12,10 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-const (
-	OCRPeeringPort          = 5001
-	CapabilitiesPeeringPort = 6690
-)
+const PeeringPort = 5001
 
 type Topology struct {
 	WorkflowDONIDs        []uint64               `toml:"workflow_don_ids" json:"workflow_don_ids"`
@@ -187,18 +184,14 @@ type PeeringNode interface {
 	PeerID() string
 }
 
-func PeeringCfgs(bt PeeringNode) (CapabilitiesPeeringData, OCRPeeringData, error) {
+func PeeringCfgs(bt PeeringNode) (PeeringData, error) {
 	p := strings.TrimPrefix(bt.PeerID(), "p2p_")
 	if p == "" {
-		return CapabilitiesPeeringData{}, OCRPeeringData{}, errors.New("cannot create peering configs, node has no P2P key")
+		return PeeringData{}, errors.New("cannot create peering configs, node has no P2P key")
 	}
-	return CapabilitiesPeeringData{
-		GlobalBootstrapperPeerID: p,
-		GlobalBootstrapperHost:   bt.GetHost(),
-		Port:                     CapabilitiesPeeringPort,
-	}, OCRPeeringData{
-		OCRBootstrapperPeerID: p,
-		OCRBootstrapperHost:   bt.GetHost(), // typos:ignore // 'bootstraper', fixing at this point could cause errors
-		Port:                  OCRPeeringPort,
+	return PeeringData{
+		BootstrapperPeerID: p,
+		BootstrapperHost:   bt.GetHost(),
+		Port:               PeeringPort,
 	}, nil
 }

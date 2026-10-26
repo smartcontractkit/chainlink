@@ -358,7 +358,6 @@ flowchart LR
 	chainlink-data-streams --> chainlink-evm/gethwrappers
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-deployments-framework --> ccip-owner-contracts
-	chainlink-deployments-framework --> chainlink-canton/authentication
 	chainlink-deployments-framework --> chainlink-ccip/chains/evm
 	chainlink-deployments-framework --> chainlink-protos/op-catalog
 	chainlink-deployments-framework --> mcms
@@ -577,6 +576,8 @@ flowchart LR
 	chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip --> cre-sdk-go/capabilities/blockchain/aptos
 	chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/confidentialvaultsecretcron --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/confidentialvaultsecretcron href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/evm/evmread --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/system-tests/tests/smoke/cre/evm/evmread --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/evm/evmread href "https://github.com/smartcontractkit/chainlink"
@@ -649,6 +650,7 @@ flowchart LR
 	libocr --> go-sumtype2
 	click libocr href "https://github.com/smartcontractkit/libocr"
 	mcms --> chainlink-canton
+	mcms --> chainlink-canton/authentication
 	mcms --> chainlink-canton/contracts/v2
 	mcms --> chainlink-ccip/chains/solana
 	mcms --> chainlink-ccip/deployment
@@ -697,6 +699,7 @@ flowchart LR
 		 chainlink/system-tests/tests/smoke/cre/aptos/aptosread
 		 chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite
 		 chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip
+		 chainlink/system-tests/tests/smoke/cre/confidentialvaultsecretcron
 		 chainlink/system-tests/tests/smoke/cre/evm/evmread
 		 chainlink/system-tests/tests/smoke/cre/evm/logtrigger
 		 chainlink/system-tests/tests/smoke/cre/evmread
