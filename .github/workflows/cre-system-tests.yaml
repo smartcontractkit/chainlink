@@ -380,7 +380,7 @@ jobs:
           Analyze and upload test results (${{ steps.run-tests.outputs.tests_result
           }})
         if: ${{ !cancelled() }}
-        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
+        uses: smartcontractkit/.github/actions/branch-out-upload@main
         with:
           junit-file-path: "/tmp/junit-report.xml"
           trunk-org-slug: chainlink

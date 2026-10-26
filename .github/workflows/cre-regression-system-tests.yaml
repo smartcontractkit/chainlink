@@ -252,7 +252,7 @@ jobs:
       - name: Analyze and upload test results (${{
           steps.run-regression-tests.outputs.tests_result }})
         if: ${{ !cancelled() }}
-        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
+        uses: smartcontractkit/.github/actions/branch-out-upload@main
         with:
           junit-file-path: "/tmp/junit-report-regression.xml"
           trunk-org-slug: chainlink

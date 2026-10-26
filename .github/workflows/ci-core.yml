@@ -420,7 +420,7 @@ jobs:
         if:
           ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine ==
           'true' && !cancelled() }}
-        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
+        uses: smartcontractkit/.github/actions/branch-out-upload@main
         with:
           junit-file-path: "./junit.xml"
           trunk-org-slug: chainlink
