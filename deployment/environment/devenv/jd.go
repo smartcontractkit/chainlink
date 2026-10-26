@@ -44,7 +44,7 @@ func NewJDClient(ctx context.Context, cfg JDConfig) (cldf_offchain.Client, error
 	donJDClient := &JobDistributor{
 		JobDistributor: jdClient,
 	}
-	if cfg.NodeInfo != nil && len(cfg.NodeInfo) > 0 {
+	if len(cfg.NodeInfo) > 0 {
 		donJDClient.don, err = NewRegisteredDON(ctx, cfg.NodeInfo, *donJDClient)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create registered DON: %w", err)

@@ -339,6 +339,92 @@ func TestBridgeTask_UsesBridgeConnManagerHappyPath(t *testing.T) {
 	assert.Equal(t, int32(0), httpCalls.Load())
 }
 
+func TestBridgeTask_UsesBridgeConnManagerCacheFallback(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+
+	var httpCalls atomic.Int32
+	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		httpCalls.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer s1.Close()
+
+	feedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+
+	orm := bridges.NewORM(db)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{
+		URL:                  feedURL.String(),
+		UseConnectionManager: true,
+	})
+
+	manager := bridgeconn.NewBridgeConnManager(logger.TestLogger(t))
+	seedable, ok := manager.(interface {
+		SeedObservation(bridge bridges.BridgeType, requestData map[string]any, observation []byte) error
+		DisableEAConnDialingForTest()
+	})
+	require.True(t, ok)
+	seedable.DisableEAConnDialingForTest()
+
+	task := pipeline.BridgeTask{
+		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
+		Name:        bridge.Name.String(),
+		RequestData: btcUSDPairing,
+		CacheTTL:    "30s",
+	}
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(t.Context(), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
+	require.NoError(t, err)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
+	task.HelperSetBridgeConnManager(manager)
+
+	telemCh := make(chan any, 2)
+	ctx := pipeline.WithTelemetryCh(t.Context(), telemCh)
+
+	cachedResponse := []byte(`{"data":{"result":"9700"}}`)
+
+	// Prime the connection manager so the first live lookup succeeds and its
+	// response is persisted to the bridge cache by the task.
+	require.NoError(t, seedable.SeedObservation(*bridge, utils.MustUnmarshalToMap(btcUSDPairing), cachedResponse))
+
+	result, runInfo := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
+	require.NoError(t, result.Error)
+	assert.JSONEq(t, string(cachedResponse), result.Value.(string))
+	assert.Equal(t, int32(0), httpCalls.Load())
+
+	telem := <-telemCh
+	require.IsType(t, &pipeline.BridgeTelemetry{}, telem)
+	btelem := telem.(*pipeline.BridgeTelemetry)
+	assert.False(t, btelem.LocalCacheHit)
+	// The telemetry body carries the live observation.
+	assert.JSONEq(t, string(cachedResponse), string(btelem.ResponseData))
+
+	// Point the task at a different request payload. The connection manager only
+	// holds an observation for the original payload, so this second lookup misses
+	// and falls back to the bridge cache persisted by the first run.
+	task.RequestData = ethUSDPairing
+
+	result2, runInfo2 := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo2.IsPending)
+	assert.False(t, runInfo2.IsRetryable)
+	require.NoError(t, result2.Error)
+	assert.JSONEq(t, string(cachedResponse), result2.Value.(string))
+	assert.Equal(t, int32(0), httpCalls.Load())
+
+	telem2 := <-telemCh
+	require.IsType(t, &pipeline.BridgeTelemetry{}, telem2)
+	btelem2 := telem2.(*pipeline.BridgeTelemetry)
+	assert.True(t, btelem2.LocalCacheHit)
+	// The cache-fallback body is served from the bridge cache persisted above.
+	assert.JSONEq(t, string(cachedResponse), string(btelem2.ResponseData))
+}
+
 func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	t.Parallel()
 

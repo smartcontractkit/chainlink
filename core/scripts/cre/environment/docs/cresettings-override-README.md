@@ -189,6 +189,49 @@ say *what* to change; the helper makes sure it lands everywhere it could be read
 (Internally it still merges each DON's own boot baseline, since DONs can boot with
 different `CL_CRE_SETTINGS` — but that's handled for you.)
 
+## Mixed-env caveat: a NEW flag will diverge (guard the test)
+
+[Mixed-env](./mixed-env.md) runs each multi-node DON as **2 nodes on the PR image + 2 on
+the develop/baseline image** and fails the run if the two halves disagree. That interacts
+with this helper in one specific case:
+
+- **Overriding a flag that already exists in the baseline image** → fine. Both halves know
+  the key and behave the same; no divergence.
+- **Overriding a flag that is NEW in your PR** (you added the `cresettings` key *and* the
+  code that reads it in the same PR) → **the 2 PR nodes act on it, the 2 baseline nodes
+  cannot** (their binary has neither the key nor a reader — the override is validated only
+  in the test process against the PR schema, delivered to every node, then silently ignored
+  on the baseline nodes). The DON diverges 2-vs-2, which trips the mixed-env non-determinism
+  gate (a consensus stall and/or the post-run log-marker scan) — a **false failure**, since
+  your PR is correct.
+
+For that second case, guard the test so it does not run under mixed-env:
+
+```go
+func Test_CRE_MyNewFlag(t *testing.T) {
+    // Skips ONLY under mixed-env; the test still runs in full under the normal
+    // single-image suite. Call it before deploy/register/ApplyCRESettings.
+    t_helpers.SkipIfMixedEnv(t, "enables PerWorkflow.<NewFlag>, new in this PR; baseline "+
+        "nodes lack it and would diverge. Remove once <NewFlag> is in the release baseline.")
+
+    testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
+    t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Workflow(myWorkflowID, "..."))
+    // ...
+}
+```
+
+> **⚠️ Do not reach for `SkipIfMixedEnv` unless you know precisely why *this* test must skip
+> mixed-env.** Mixed-env is a required merge gate for cross-version compatibility; every skip
+> is a hole in it. It is justified **only** when the test deliberately exercises behavior
+> that exists in the PR image but not the baseline (a brand-new flag or capability), so a
+> 2-vs-2 split is unavoidable and expected — **never** to silence a real divergence a
+> reviewer should see. The `reason` is mandatory; note removing the guard once the flag
+> reaches the baseline image. See [mixed-env.md](./mixed-env.md#skipping-a-single-test).
+
+(Enabling a new flag via a topology's boot `CL_CRE_SETTINGS` rather than this helper diverges
+from boot regardless of any test — this guard won't help there; keep the new flag out of the
+mixed-env topology instead.)
+
 ## Run these serially — the override guard
 
 Because overrides mutate settings on the shared environment, **only one override may be

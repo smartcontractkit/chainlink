@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
@@ -106,6 +107,8 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 				environment.WithLogger(lggr),
 			))
 			require.NoError(t, err)
+			ds := datastore.NewMemoryDataStore()
+			require.NoError(t, ds.Merge(rt.Environment().DataStore))
 
 			if !test.ForgetPrerequisites {
 				// NOTE: We don't use the DeployPrerequisites changeset because the TokenPoolFactory is a prerequisite in itself.
@@ -113,7 +116,8 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 					chain := rt.Environment().BlockChains.EVMChains()[selector]
 
 					// Deploy token admin registry
-					tokenAdminRegistry, err := cldf.DeployContract(lggr, chain, rt.State().AddressBook,
+					tokenAdminRegistry, err := shared.DeployContractAndRecord(lggr, chain, rt.State().AddressBook, ds,
+						cldf.NewTypeAndVersion(shared.TokenAdminRegistry, deployment.Version1_5_0), "",
 						func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_admin_registry.TokenAdminRegistry] {
 							tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 := token_admin_registry.DeployTokenAdminRegistry(
 								chain.DeployerKey,
@@ -124,7 +128,8 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 						})
 					require.NoError(t, err, "failed to deploy token admin registry")
 					// Deploy RMN proxy
-					rmnProxy, err := cldf.DeployContract(lggr, chain, rt.State().AddressBook,
+					rmnProxy, err := shared.DeployContractAndRecord(lggr, chain, rt.State().AddressBook, ds,
+						cldf.NewTypeAndVersion(shared.ARMProxy, deployment.Version1_0_0), "",
 						func(chain cldf_evm.Chain) cldf.ContractDeploy[*rmn_proxy_contract.RMNProxy] {
 							rmnProxyAddr, tx2, rmnProxy2, err2 := rmn_proxy_contract.DeployRMNProxy(
 								chain.DeployerKey,
@@ -139,7 +144,8 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 						})
 					require.NoError(t, err, "failed to deploy RMN proxy")
 					// Deploy router
-					_, err = cldf.DeployContract(lggr, chain, rt.State().AddressBook,
+					_, err = shared.DeployContractAndRecord(lggr, chain, rt.State().AddressBook, ds,
+						cldf.NewTypeAndVersion(shared.Router, deployment.Version1_2_0), "",
 						func(chain cldf_evm.Chain) cldf.ContractDeploy[*router.Router] {
 							routerAddr, tx2, routerC, err2 := router.DeployRouter(
 								chain.DeployerKey,
@@ -155,7 +161,8 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 						})
 					require.NoError(t, err, "failed to deploy router")
 					// Deploy registry module
-					_, err = cldf.DeployContract(lggr, chain, rt.State().AddressBook,
+					_, err = shared.DeployContractAndRecord(lggr, chain, rt.State().AddressBook, ds,
+						cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0), "registry-module-0",
 						func(chain cldf_evm.Chain) cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
 							regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
 								chain.DeployerKey,
@@ -169,6 +176,9 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 					require.NoError(t, err, "failed to deploy registry module")
 				}
 			}
+			env := rt.Environment()
+			env.DataStore = ds.Seal()
+			rt = runtime.NewFromEnvironment(env)
 
 			if test.MultipleRegistryModules {
 				// Add a new registry module to each chain
@@ -176,7 +186,8 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 				require.NoError(t, err, "failed to load onchain state")
 				for _, selector := range selectors {
 					chain := rt.Environment().BlockChains.EVMChains()[selector]
-					_, err := cldf.DeployContract(lggr, chain, rt.State().AddressBook,
+					_, err := shared.DeployContractAndRecord(lggr, chain, rt.State().AddressBook, ds,
+						cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0), "registry-module-1",
 						func(chain cldf_evm.Chain) cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
 							regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
 								chain.DeployerKey,
@@ -188,6 +199,9 @@ func TestDeployTokenPoolFactoryChangeset(t *testing.T) {
 						})
 					require.NoError(t, err, "failed to deploy registry module")
 				}
+				env = rt.Environment()
+				env.DataStore = ds.Seal()
+				rt = runtime.NewFromEnvironment(env)
 			}
 
 			state, err := stateview.LoadOnchainState(rt.Environment())

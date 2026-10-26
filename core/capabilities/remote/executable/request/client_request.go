@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -48,7 +46,7 @@ func newRemoteCapabilityExecuteError(transportErr types.Error, errMsg string) er
 	}
 }
 
-func newRemoteCapabilityExecuteErrorWithMessage(display string, errMsg string) error {
+func newRemoteCapabilityExecuteErrorWithMessage(display, errMsg string) error {
 	return &errRemoteCapabilityExecuteError{
 		s:    display,
 		wrap: caperrors.DeserializeErrorFromString(errMsg),
@@ -101,11 +99,35 @@ type ClientRequest struct {
 	wg       *sync.WaitGroup
 }
 
-// TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
+// clientRequestConfig holds the sinks for the transmission schedule event.
+// Zero values resolve to the late-bound globals.
+type clientRequestConfig struct {
+	emitter beholder.Emitter
+	durable func(ctx context.Context, body []byte, attrKVs ...any) error
+}
+
+// ClientRequestOption configures the sinks used for a ClientRequest's
+// transmission schedule event.
+type ClientRequestOption func(*clientRequestConfig)
+
+// WithEmitter sets the beholder emitter used for the transmission schedule
+// event. A nil emitter defaults to beholder.GlobalEmitter(), which resolves
+// the global client at emit time.
+func WithEmitter(e beholder.Emitter) ClientRequestOption {
+	return func(c *clientRequestConfig) { c.emitter = e }
+}
+
+// WithDurableEmit overrides the durable emit func (default durableemitter.GlobalEmit).
+func WithDurableEmit(fn func(ctx context.Context, body []byte, attrKVs ...any) error) ClientRequestOption {
+	return func(c *clientRequestConfig) { c.durable = fn }
+}
+
+// NewClientExecuteRequest creates a new client request for a remote executable capability.
+// V2 capabilities always use the AllAtOnce transmission schedule.
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string,
-	signers [][]byte, minResponsesToAggregate uint32,
+	requestTimeout time.Duration, capMethodName string,
+	signers [][]byte, minResponsesToAggregate uint32, opts ...ClientRequestOption,
 ) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
 	if err != nil {
@@ -121,21 +143,23 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	// to ensure that it supports parallel step execution
 	requestID := types.MethodExecute + ":" + workflowExecutionID + ":" + req.Metadata.ReferenceID
 
-	var tc transmission.TransmissionConfig
-	if transmissionConfig != nil {
-		// all v2 capabilities should be all at once
-		tc = transmission.TransmissionConfig{
-			Schedule: transmission.Schedule_AllAtOnce,
-		}
-	} else { // per-workflow setting used by V1 Capabilities
-		tc, err = transmission.ExtractTransmissionConfig(req.Config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
-		}
-	}
-
 	lggr = logger.With(lggr, "requestId", requestID) // cap ID and method name included in the parent logger
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, minResponsesToAggregate)
+
+	// Apply options and default the sinks before the transmission schedule
+	// event is emitted inside newClientRequest, so overrides apply to it.
+	// A nil emitter defaults to beholder.GlobalEmitter(), which resolves the
+	// global client at emit time, matching the previous direct global read.
+	cfg := clientRequestConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if cfg.emitter == nil {
+		cfg.emitter = beholder.GlobalEmitter()
+	}
+	if cfg.durable == nil {
+		cfg.durable = durableemitter.GlobalEmit
+	}
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, minResponsesToAggregate, cfg)
 }
 
 var (
@@ -157,29 +181,25 @@ func requiredConfirmations(f uint8, minResponsesToAggregate uint32) int {
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string,
+	methodType string, rawRequest []byte, workflowExecutionID, stepRef, capMethodName string,
 	signers [][]byte, minResponsesToAggregate uint32,
+	cfg clientRequestConfig,
 ) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
 		return nil, errors.New("remote capability info missing DON")
 	}
 
-	peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelaysForConfig(remoteCapabilityDonInfo.Members, requestID, tc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
-	}
+	peerIDToTransmissionDelay := getPeerIDToTransmissionDelays(remoteCapabilityDonInfo.Members)
 
 	// send schedule through beholder for single execution performance tracking
-	err = emitTransmissionScheduleEvent(ctx,
-		tc.Schedule,
+	if err := emitTransmissionScheduleEvent(ctx, cfg,
 		workflowExecutionID,
 		requestID,
 		remoteCapabilityInfo.ID,
 		stepRef,
 		peerIDToTransmissionDelay,
-	)
-	if err != nil {
+	); err != nil {
 		lggr.Errorw("failed to emit transmission schedule event", "error", err)
 	}
 
@@ -274,32 +294,30 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 	}, nil
 }
 
-func emitTransmissionScheduleEvent(ctx context.Context, scheduleType, workflowExecutionID, transmissionID, capabilityID, stepRef string, peerIDToTransmissionDelay map[p2ptypes.PeerID]time.Duration) error {
-	// Create a slice of peer IDs sorted by their delay values
-	type peerDelay struct {
-		peerID p2ptypes.PeerID
-		delay  time.Duration
+// getPeerIDToTransmissionDelays returns a map of PeerID to the time.Duration that the node
+// with that PeerID should wait before transmitting the capability request. If a node is not
+// in the map, it should not transmit. With the AllAtOnce schedule every DON member transmits
+// immediately.
+func getPeerIDToTransmissionDelays(donPeerIDs []p2ptypes.PeerID) map[p2ptypes.PeerID]time.Duration {
+	peerIDToTransmissionDelay := make(map[p2ptypes.PeerID]time.Duration, len(donPeerIDs))
+	for _, peerID := range donPeerIDs {
+		peerIDToTransmissionDelay[peerID] = 0
 	}
+	return peerIDToTransmissionDelay
+}
 
-	peerDelays := make([]peerDelay, 0, len(peerIDToTransmissionDelay))
+func emitTransmissionScheduleEvent(ctx context.Context, cfg clientRequestConfig,
+	workflowExecutionID, transmissionID, capabilityID, stepRef string, peerIDToTransmissionDelay map[p2ptypes.PeerID]time.Duration,
+) error {
+	// map of peer IDs to their transmission delays in milliseconds
+	peerDelaysMap := make(map[string]int64, len(peerIDToTransmissionDelay))
 	for peerID, delay := range peerIDToTransmissionDelay {
-		peerDelays = append(peerDelays, peerDelay{peerID, delay})
-	}
-
-	// Sort by delay value
-	sort.Slice(peerDelays, func(i, j int) bool {
-		return peerDelays[i].delay < peerDelays[j].delay
-	})
-
-	// Create map with sorted peers and their delays in milliseconds
-	peerDelaysMap := make(map[string]int64, len(peerDelays))
-	for _, pd := range peerDelays {
-		peerDelaysMap[pd.peerID.String()] = pd.delay.Milliseconds()
+		peerDelaysMap[peerID.String()] = delay.Milliseconds()
 	}
 
 	msg := &events.TransmissionsScheduledEvent{
 		Timestamp:              time.Now().Format(time.RFC3339),
-		ScheduleType:           scheduleType,
+		ScheduleType:           ScheduleAllAtOnce,
 		WorkflowExecutionID:    workflowExecutionID,
 		TransmissionID:         transmissionID,
 		CapabilityID:           capabilityID,
@@ -314,14 +332,14 @@ func emitTransmissionScheduleEvent(ctx context.Context, scheduleType, workflowEx
 
 	// emit transmission schedule event to track which nodes are successful when called to emit
 	entity := fmt.Sprintf("%s.%s", TransmissionEventProtoPkg, TransmissionEventEntity)
-	if err = beholder.GetEmitter().Emit(ctx, b,
+	if err = cfg.emitter.Emit(ctx, b,
 		"beholder_data_schema", TransmissionEventSchema, // required
 		"beholder_domain", "platform", // required
 		"beholder_entity", entity); err != nil { // required
 		return err
 	}
 
-	err = durableemitter.GlobalEmit(ctx, b, "source", "platform", "type", entity)
+	err = cfg.durable(ctx, b, "source", "platform", "type", entity)
 	if err != nil && !errors.Is(err, durableemitter.ErrNotInitialized) {
 		return err
 	}
@@ -535,7 +553,11 @@ func (c *ClientRequest) hasValidAttestation(resp commoncap.CapabilityResponse) b
 
 	err := c.verifyAttestation(resp)
 	if err != nil {
-		c.lggr.Errorw("Attestation is present, but not valid. This is most likely a bug and requires investigation - falling back to identical responses verification", "error", err)
+		// This is error is caused by a known bug.
+		// The issue is not critical, as we can fallback to the quorum aggregation and only causes read failures
+		// if F+1 nodes have original RPC response used in report and F of those nodes are malicious or down.
+		// TODO: PLEX-3350 - fix validation of OCR attestation.
+		c.lggr.Debugw("Attestation is present, but not valid.", "error", err)
 		return false
 	}
 

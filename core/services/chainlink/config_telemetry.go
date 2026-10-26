@@ -3,6 +3,7 @@ package chainlink
 import (
 	"fmt"
 	"maps"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap/zapcore"
@@ -29,7 +30,8 @@ const (
 const defaultDurableEmitterMaxQueuePayloadBytes int64 = 1 << 30
 
 type telemetryConfig struct {
-	s toml.Telemetry
+	s  toml.Telemetry
+	sh config.Sharding
 }
 
 func (b *telemetryConfig) Enabled() bool { return *b.s.Enabled }
@@ -70,6 +72,10 @@ func (b *telemetryConfig) ResourceAttributes() map[string]string {
 		"service.version":      static.Version,
 		"service.sha":          static.Sha,
 		"service.shortversion": fmt.Sprintf("%s@%s", ver, sha),
+	}
+
+	if b.sh != nil && b.sh.ShardingEnabled() {
+		defaults["shardIndex"] = strconv.FormatUint(uint64(b.sh.ShardIndex()), 10)
 	}
 
 	maps.Copy(defaults, b.s.ResourceAttributes)

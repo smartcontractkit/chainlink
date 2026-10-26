@@ -3,13 +3,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
+	httptrigger "github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 
@@ -26,22 +27,39 @@ func main() {
 	}).Run(RunVaultSecretWorkflow)
 }
 
+// RunVaultSecretWorkflow is an HTTP-triggered verifier; checks arrive per
+// invocation in config.TriggerInput.
 func RunVaultSecretWorkflow(cfg config.Config, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[config.Config], error) {
 	return cre.Workflow[config.Config]{
 		cre.Handler(
-			// cron-trigger@1.0.0 rejects schedules faster than 30s ("maximum fastest cron schedule is 30s").
-			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}),
+			httptrigger.Trigger(&httptrigger.Config{
+				AuthorizedKeys: []*httptrigger.AuthorizedKey{
+					{
+						Type:      httptrigger.KeyType_KEY_TYPE_ECDSA_EVM,
+						PublicKey: cfg.AuthorizedKey,
+					},
+				},
+			}),
 			onTrigger,
 		),
 	}, nil
 }
 
-func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (string, error) {
-	if cfg.ExpectInvalidIdentifier {
-		return evaluateInvalidIdentifiers(cfg, runtime)
+func onTrigger(cfg config.Config, runtime cre.Runtime, trigger *httptrigger.Payload) (string, error) {
+	var input config.TriggerInput
+	if len(trigger.Input) > 0 {
+		if err := json.Unmarshal(trigger.Input, &input); err != nil {
+			return "", fmt.Errorf("failed to unmarshal trigger input: %w", err)
+		}
+	}
+	if input.ExpectInvalidIdentifier {
+		return evaluateInvalidIdentifiers(input, runtime)
+	}
+	if input.ExpectBatchTooBig {
+		return evaluateBatchTooBig(input, runtime)
 	}
 
-	phases := cfg.EffectivePhases()
+	phases := input.Phases
 	if len(phases) == 0 {
 		return "", fmt.Errorf("no vault workflow phases configured")
 	}
@@ -70,25 +88,25 @@ func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (string,
 	return "", fmt.Errorf("no vault workflow phase matched current state: %w", lastErr)
 }
 
-func evaluateInvalidIdentifiers(cfg config.Config, runtime cre.Runtime) (string, error) {
+func evaluateInvalidIdentifiers(input config.TriggerInput, runtime cre.Runtime) (string, error) {
 	_, err := runtime.GetSecret(&cre.SecretRequest{
-		Namespace: cfg.SecretNamespace,
-		Id:        cfg.SecretKey,
+		Namespace: input.SecretNamespace,
+		Id:        input.SecretKey,
 	}).Await()
 	if err == nil {
-		runtime.Logger().Error("Expected identifier validation to fail but GetSecret succeeded", "secretKey", cfg.SecretKey)
-		return "", fmt.Errorf("expected identifier validation failure for key=%s, but secret was retrieved", cfg.SecretKey)
+		runtime.Logger().Error("Expected identifier validation to fail but GetSecret succeeded", "secretKey", input.SecretKey)
+		return "", fmt.Errorf("expected identifier validation failure for key=%s, but secret was retrieved", input.SecretKey)
 	}
-	runtime.Logger().Info("Vault get correctly rejected invalid identifier", "secretKey", cfg.SecretKey, "error", err)
+	runtime.Logger().Info("Vault get correctly rejected invalid identifier", "secretKey", input.SecretKey, "error", err)
 
-	if cfg.SecretKey2 != "" || cfg.SecretNamespace2 != "" {
-		key2 := cfg.SecretKey2
+	if input.SecretKey2 != "" || input.SecretNamespace2 != "" {
+		key2 := input.SecretKey2
 		if key2 == "" {
-			key2 = cfg.SecretKey
+			key2 = input.SecretKey
 		}
-		ns2 := cfg.SecretNamespace2
+		ns2 := input.SecretNamespace2
 		if ns2 == "" {
-			ns2 = cfg.SecretNamespace
+			ns2 = input.SecretNamespace
 		}
 		_, err2 := runtime.GetSecret(&cre.SecretRequest{
 			Namespace: ns2,
@@ -102,7 +120,37 @@ func evaluateInvalidIdentifiers(cfg config.Config, runtime cre.Runtime) (string,
 		runtime.Logger().Info("Vault get correctly rejected invalid identifier", "secretKey", key2, "error", err2)
 	}
 
-	return fmt.Sprintf("Invalid identifier correctly rejected: key=%s", cfg.SecretKey), nil
+	return fmt.Sprintf("Invalid identifier correctly rejected: key=%s", input.SecretKey), nil
+}
+
+// evaluateBatchTooBig submits a GetSecrets batch larger than the vault request
+// batch size limit and verifies the rejection carries the real user-facing
+// cause across the workflow-DON -> vault-DON remote capability hop.
+func evaluateBatchTooBig(input config.TriggerInput, runtime cre.Runtime) (string, error) {
+	if len(input.BatchSecretKeys) == 0 {
+		return "", fmt.Errorf("expectBatchTooBig requires batchSecretKeys to be set")
+	}
+
+	reqs := make([]*cre.SecretRequest, len(input.BatchSecretKeys))
+	for i, key := range input.BatchSecretKeys {
+		reqs[i] = &cre.SecretRequest{
+			Namespace: input.SecretNamespace,
+			Id:        key,
+		}
+	}
+
+	_, err := runtime.GetSecrets(reqs).Await()
+	if err == nil {
+		runtime.Logger().Error("Expected batch size validation to fail but GetSecrets succeeded", "count", len(reqs))
+		return "", fmt.Errorf("expected batch size validation failure for %d secrets, but batch was retrieved", len(reqs))
+	}
+	if !strings.Contains(err.Error(), "request batch size exceeds maximum of") {
+		runtime.Logger().Error("GetSecrets failed with an unexpected error", "count", len(reqs), "error", err)
+		return "", fmt.Errorf("expected batch size rejection for %d secrets, got: %w", len(reqs), err)
+	}
+
+	runtime.Logger().Info("Vault get correctly rejected oversized batch", "count", len(reqs), "error", err)
+	return fmt.Sprintf("Oversized batch correctly rejected: %d secrets", len(reqs)), nil
 }
 
 func evaluatePhase(runtime cre.Runtime, phase config.Phase) error {

@@ -10,13 +10,12 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 // DummyHandler forwards each request/response without doing any checks.
 type dummyHandler struct {
-	donConfig      *config.DONConfig
-	don            DON
+	shards         []*ShardEndpoint
+	defaultDonID   string
 	savedCallbacks map[string]*savedCallback
 	mu             sync.Mutex
 	lggr           logger.Logger
@@ -29,12 +28,23 @@ type savedCallback struct {
 
 var _ Handler = (*dummyHandler)(nil)
 
-func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (Handler, error) {
+// NewDummyHandler builds a handler that forwards each request to every node across
+// every DON and shard it is given, and relays the first node response back to the
+// caller.
+func NewDummyHandler(dons *ShardedDONs, lggr logger.Logger) (Handler, error) {
+	shards, _, err := dons.BuildShardEndpoints()
+	if err != nil {
+		return nil, err
+	}
+	defaultDonID := ""
+	if len(dons.DONs) > 0 {
+		defaultDonID = dons.DONs[0].DonName
+	}
 	return &dummyHandler{
-		donConfig:      donConfig,
-		don:            don,
+		shards:         shards,
+		defaultDonID:   defaultDonID,
 		savedCallbacks: make(map[string]*savedCallback),
-		lggr:           logger.Named(lggr, "DummyHandler."+donConfig.DonID),
+		lggr:           logger.Named(lggr, "DummyHandler."+defaultDonID),
 	}, nil
 }
 
@@ -54,7 +64,7 @@ func (d *dummyHandler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest
 		msg.Body.Method = jsonRequest.Method
 	}
 	if msg.Body.DonID == "" {
-		msg.Body.DonID = d.donConfig.DonID
+		msg.Body.DonID = d.defaultDonID
 	}
 	return d.HandleLegacyUserMessage(ctx, &msg, callback)
 }
@@ -62,7 +72,6 @@ func (d *dummyHandler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest
 func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback Callback) error {
 	d.mu.Lock()
 	d.savedCallbacks[msg.Body.MessageID] = &savedCallback{msg.Body.MessageID, callback}
-	don := d.don
 	d.mu.Unlock()
 	params, err := json.Marshal(msg)
 	if err != nil {
@@ -75,8 +84,10 @@ func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Mes
 		Method:  msg.Body.Method,
 		Params:  &rawParams,
 	}
-	for _, member := range d.donConfig.Members {
-		err = errors.Join(err, don.SendToNode(ctx, member.Address, req))
+	for _, shard := range d.shards {
+		for _, member := range shard.Members {
+			err = errors.Join(err, shard.ConnMgr.SendToNode(ctx, member.Address, req))
+		}
 	}
 	return err
 }

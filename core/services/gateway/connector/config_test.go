@@ -15,28 +15,24 @@ func TestConnectorConfig_From(t *testing.T) {
 	t.Parallel()
 
 	cfg, err := (&chainlink.GeneralConfigOpts{
-		Config: chainlink.Config{
-			Core: toml.Core{
-				Capabilities: toml.Capabilities{
-					GatewayConnector: toml.GatewayConnector{
-						ChainIDForNodeKey:         new("1"),
-						NodeAddress:               new("0x68902d681c28119f9b2531473a417088bf008e59"),
-						DonID:                     new("example_don"),
-						WSHandshakeTimeoutMillis:  new(uint32(100)),
-						AuthMinChallengeLen:       new(10),
-						AuthTimestampToleranceSec: new(uint32(5)),
-						Gateways: []toml.ConnectorGateway{
-							{
-								ID:    new("example_gateway"),
-								DonID: new("example_gateway_don"),
-								URL:   new("wss://localhost:8081/node"),
-							},
-							{
-								ID:    new("another_gateway"),
-								DonID: new("another_gateway_don"),
-								URL:   new("wss://example.com:8090/node"),
-							},
-						},
+		Capabilities: toml.Capabilities{
+			GatewayConnector: toml.GatewayConnector{
+				ChainIDForNodeKey:         new("1"),
+				NodeAddress:               new("0x68902d681c28119f9b2531473a417088bf008e59"),
+				DonID:                     new("example_don"),
+				WSHandshakeTimeoutMillis:  new(uint32(100)),
+				AuthMinChallengeLen:       new(10),
+				AuthTimestampToleranceSec: new(uint32(5)),
+				Gateways: []toml.ConnectorGateway{
+					{
+						ID:    new("example_gateway"),
+						DonID: new("example_gateway_don"),
+						URL:   new("wss://localhost:8081/node"),
+					},
+					{
+						ID:    new("another_gateway"),
+						DonID: new("another_gateway_don"),
+						URL:   new("wss://example.com:8090/node"),
 					},
 				},
 			},

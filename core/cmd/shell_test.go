@@ -18,8 +18,9 @@ import (
 	"github.com/urfave/cli"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
-	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -452,17 +453,17 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 			{
 				"ChainID":   "starknet-id-1",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": commonconfig.MustParseURL("https://feeder.url"),
 			},
 			{
 				"ChainID":   "starknet-id-2",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": commonconfig.MustParseURL("https://feeder.url"),
 			},
 			{
 				"ChainID":   "disabled-starknet-id-1",
 				"Enabled":   new(false),
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": commonconfig.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -472,7 +473,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 			{
 				"ChainID":   "starknet-id-3",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": commonconfig.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -498,12 +499,12 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 			{
 				"ChainID":   "dupe",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": commonconfig.MustParseURL("https://feeder.url"),
 			},
 			{
 				"ChainID":   "dupe",
 				"Enabled":   true,
-				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
+				"FeederURL": commonconfig.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -581,7 +582,7 @@ func getFuncName(i any) string {
 }
 
 func TestShell_emitNodeConfig(t *testing.T) {
-	// t.Parallel() // beholder tester uses t.SetEnv and cannot use t.Parallel
+	t.Parallel()
 
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
@@ -590,16 +591,17 @@ func TestShell_emitNodeConfig(t *testing.T) {
 		// use defaults
 	})
 
+	rec := beholdertest.NewRecorder()
 	shell := &cmd.Shell{
-		Config: gcfg,
-		Logger: lggr,
+		Config:         gcfg,
+		Logger:         lggr,
+		BeholderClient: &beholder.Client{Emitter: rec},
 	}
 
-	beholderObserver := beholdertest.NewObserver(t)
 	shell.EmitNodeConfig(ctx)
 
 	// Verify that a BaseMessage was emitted
-	msgs := beholderObserver.Messages(t, "beholder_entity", "BaseMessage")
+	msgs := rec.Messages(t, "beholder_entity", "BaseMessage")
 	require.Len(t, msgs, 1, "Expected exactly one BaseMessage to be emitted")
 
 	// Verify the message content

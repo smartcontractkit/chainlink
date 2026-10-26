@@ -876,7 +876,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 		case <-ticker:
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
-				w.lggr.Errorw("failed to get get don from notifier", "err", err)
+				w.lggr.Errorw("failed to get don from notifier", "err", err)
 				continue
 			}
 			w.lggr.Debugw("fetching workflow metadata from all sources", "don", don.Families)
@@ -1075,20 +1075,40 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 
 			runningWorkflows := w.engineRegistry.GetAll()
 			w.metrics.recordRunningWorkflows(ctx, len(runningWorkflows))
-			drainingWorkflows := 0
-			for _, workflow := range runningWorkflows {
-				drainable, isDrainable := workflow.Service.(DrainableService)
-				if !isDrainable {
-					continue
-				}
-				if _, draining := drainable.DrainStartedAt(); draining {
-					drainingWorkflows++
-				}
-			}
-			w.metrics.recordDrainingWorkflows(ctx, drainingWorkflows)
+			counts := countEngines(runningWorkflows)
+			w.metrics.recordDrainingWorkflows(ctx, counts.draining)
+			w.metrics.recordRunningEngines(ctx, counts.coordinated, counts.legacy)
 			w.metrics.incrementCompletedSyncs(ctx)
 		}
 	}
+}
+
+// engineCounts is the per-tick breakdown of the engines in the registry.
+// coordinated + legacy always equals the number of engines; draining overlaps
+// with both.
+type engineCounts struct {
+	draining    int
+	coordinated int
+	legacy      int
+}
+
+func countEngines(engines []ServiceWithMetadata) engineCounts {
+	var c engineCounts
+	for _, e := range engines {
+		if e.Coordinated() {
+			c.coordinated++
+		} else {
+			c.legacy++
+		}
+		drainable, isDrainable := e.Service.(DrainableService)
+		if !isDrainable {
+			continue
+		}
+		if _, draining := drainable.DrainStartedAt(); draining {
+			c.draining++
+		}
+	}
+	return c
 }
 
 // reconcileOrphanedSpecs releases persisted specs whose workflow ID is absent
@@ -1259,7 +1279,7 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 
 	var newAllowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
 	readIdentifier = contractBinding.ReadIdentifier(GetActiveAllowlistedRequestsReverseMethodName)
-	var endIndex = new(big.Int).Sub(totalAllowlistedRequestsResult, big.NewInt(1))
+	endIndex := new(big.Int).Sub(totalAllowlistedRequestsResult, big.NewInt(1))
 	var startIndex *big.Int
 
 	for {

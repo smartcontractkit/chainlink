@@ -52,12 +52,14 @@ func (p *BridgePresenter) FriendlyConfirmations() string {
 // RenderTable implements TableRenderer
 func (p *BridgePresenter) RenderTable(rt RendererTable) error {
 	table := rt.newTable([]string{"Name", "URL", "Default Confirmations", "Outgoing Token"})
-	table.Append([]string{
+	if err := table.Append([]string{
 		p.Name,
 		p.URL,
 		p.FriendlyConfirmations(),
 		p.OutgoingToken,
-	})
+	}); err != nil {
+		return err
+	}
 	return render("Bridge", table)
 }
 
@@ -67,11 +69,13 @@ type BridgePresenters []BridgePresenter
 func (ps BridgePresenters) RenderTable(rt RendererTable) error {
 	table := rt.newTable([]string{"Name", "URL", "Confirmations"})
 	for _, p := range ps {
-		table.Append([]string{
+		if err := table.Append([]string{
 			p.Name,
 			p.URL,
 			p.FriendlyConfirmations(),
-		})
+		}); err != nil {
+			return err
+		}
 	}
 
 	return render("Bridges", table)

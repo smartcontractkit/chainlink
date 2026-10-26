@@ -9,7 +9,7 @@ import (
 func TestArtifactServesEveryConstant(t *testing.T) {
 	wasmMagic := []byte{0x00, 'a', 's', 'm'}
 
-	for _, artifact := range []string{ForwarderWasm, ReceiverWasm, RejectingReceiverWasm, ReadFixtureWasm} {
+	for _, artifact := range []string{ForwarderWasm, MockForwarderWasm, ReceiverWasm, RejectingReceiverWasm, ReadFixtureWasm} {
 		wasm, err := Artifact(artifact)
 		require.NoErrorf(t, err, "embedded artifact %s", artifact)
 		require.Greaterf(t, len(wasm), len(wasmMagic), "embedded artifact %s is truncated", artifact)

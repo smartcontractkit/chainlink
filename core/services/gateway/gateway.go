@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -74,7 +75,7 @@ func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFacto
 	}
 
 	codec := &api.JSONRPCCodec{}
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	if err != nil {
 		return nil, fmt.Errorf("error creating gateway metrics: %w", err)
 	}
@@ -132,7 +133,7 @@ func setupFromNewConfig(
 
 			var shardConnMgrs []handlers.DON
 			for shardIdx := range donCfg.Shards {
-				donID := config.ShardDONID(donName, shardIdx)
+				donID := config.GatewayDONIDForShard(donName, shardIdx)
 				donConnMgr := connMgr.DONConnectionManager(donID)
 				if donConnMgr == nil {
 					return nil, fmt.Errorf("connection manager for DON %s shard %d not found", donName, shardIdx)
@@ -152,7 +153,7 @@ func setupFromNewConfig(
 		// Set (multi)handler on all associated DON connection managers, keyed by service name
 		for i, donName := range svc.DONs {
 			for shardIdx := range shardsConnMgrs[i] {
-				donID := config.ShardDONID(donName, shardIdx)
+				donID := config.GatewayDONIDForShard(donName, shardIdx)
 				donConnMgr := connMgr.DONConnectionManager(donID)
 				if donConnMgr == nil {
 					return nil, fmt.Errorf("connection manager for DON %s shard %d not found", donName, shardIdx)

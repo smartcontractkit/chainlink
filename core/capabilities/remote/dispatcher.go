@@ -2,6 +2,7 @@ package remote
 
 import (
 	"context"
+	goerrors "errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -13,27 +14,32 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-var (
-	ErrReceiverExists = errors.New("receiver already exists")
-)
+var ErrReceiverExists = errors.New("receiver already exists")
 
 // dispatcher en/decodes messages and routes traffic between peers and capabilities
+// messageVersion is the version of the remote message schema.
+const messageVersion = 1
+
 type dispatcher struct {
 	cfg               config.Dispatcher
 	peerID            p2ptypes.PeerID
 	signer            p2ptypes.Signer
 	don2donSharedPeer p2ptypes.SharedPeer
-	registry          core.CapabilitiesRegistry
-	rateLimiter       *ratelimit.RateLimiter
+	registry          registry.CapabilitiesRegistry
+	limitsFactory     limits.Factory
+	globalRate        limits.RateLimiter
+	perSenderRateMu   sync.Mutex
+	perSenderRate     map[string]limits.RateLimiter
 	receivers         map[key]*receiver
 	mu                sync.RWMutex
 	stopCh            services.StopChan
@@ -64,24 +70,21 @@ type key struct {
 
 var _ services.Service = &dispatcher{}
 
-func NewDispatcher(cfg config.Dispatcher, don2donSharedPeer p2ptypes.SharedPeer, signer p2ptypes.Signer, registry core.CapabilitiesRegistry, lggr logger.Logger) (*dispatcher, error) {
+func NewDispatcher(cfg config.Dispatcher, don2donSharedPeer p2ptypes.SharedPeer, signer p2ptypes.Signer, registry registry.CapabilitiesRegistry, lggr logger.Logger, lf limits.Factory) (*dispatcher, error) {
 	if don2donSharedPeer == nil {
 		return nil, errors.New("don2donSharedPeer is required")
 	}
-	rl, err := ratelimit.NewRateLimiter(ratelimit.RateLimiterConfig{
-		GlobalRPS:      cfg.RateLimit().GlobalRPS(),
-		GlobalBurst:    cfg.RateLimit().GlobalBurst(),
-		PerSenderRPS:   cfg.RateLimit().PerSenderRPS(),
-		PerSenderBurst: cfg.RateLimit().PerSenderBurst(),
-	})
+	globalRate, err := lf.MakeRateLimiter(cresettings.Default.DispatcherGlobalRate)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create rate limiter")
+		return nil, errors.Wrap(err, "failed to create dispatcher global rate limiter")
 	}
 	return &dispatcher{
 		cfg:               cfg,
 		signer:            signer,
 		registry:          registry,
-		rateLimiter:       rl,
+		limitsFactory:     lf,
+		globalRate:        globalRate,
+		perSenderRate:     make(map[string]limits.RateLimiter),
 		receivers:         make(map[key]*receiver),
 		stopCh:            make(services.StopChan),
 		lggr:              logger.Named(lggr, "Dispatcher"),
@@ -146,6 +149,17 @@ func (d *dispatcher) Start(ctx context.Context) error {
 func (d *dispatcher) Close() error {
 	close(d.stopCh)
 	d.wg.Wait()
+
+	err := d.globalRate.Close()
+	d.perSenderRateMu.Lock()
+	for _, rl := range d.perSenderRate {
+		err = goerrors.Join(err, rl.Close())
+	}
+	d.perSenderRateMu.Unlock()
+	if err != nil {
+		d.lggr.Errorw("failed to close rate limiters", "error", err)
+	}
+
 	d.lggr.Info("dispatcher closed")
 	return nil
 }
@@ -230,8 +244,7 @@ func (d *dispatcher) removeReceiver(k key) {
 }
 
 func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
-	//nolint:gosec // disable G115
-	msgBody.Version = uint32(d.cfg.SupportedVersion())
+	msgBody.Version = messageVersion
 	msgBody.Sender = d.peerID[:]
 	msgBody.Receiver = peerID[:]
 	msgBody.Timestamp = time.Now().UnixMilli()
@@ -284,7 +297,7 @@ func (d *dispatcher) receive() {
 
 func (d *dispatcher) handleMessage(ctx context.Context, msg *p2ptypes.Message) {
 	sender := msg.Sender.String()
-	if !d.rateLimiter.Allow(sender) {
+	if !d.allow(ctx, sender) {
 		d.metrics.rateLimitedMsgsCounter.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("sender", sender),
 		))
@@ -332,6 +345,31 @@ func (d *dispatcher) handleMessage(ctx context.Context, msg *p2ptypes.Message) {
 		d.metrics.receiverDroppedMsgsCounter.Add(ctx, 1, capAttrs)
 		d.lggr.Errorw("receiver channel full, dropping message", "capabilityId", k.capID, "donId", k.donID)
 	}
+}
+
+// allow checks the per-sender and global rate limits, in that order. If the
+// global limit blocks, the per-sender token is credited back.
+func (d *dispatcher) allow(ctx context.Context, sender string) bool {
+	senderRate, err := d.senderRateLimiter(sender)
+	if err != nil {
+		d.lggr.Errorw("failed to create per-sender rate limiter", "sender", sender, "error", err)
+		return false
+	}
+	return limits.MultiRateLimiter{senderRate, d.globalRate}.Allow(ctx)
+}
+
+func (d *dispatcher) senderRateLimiter(sender string) (limits.RateLimiter, error) {
+	d.perSenderRateMu.Lock()
+	defer d.perSenderRateMu.Unlock()
+	if rl, ok := d.perSenderRate[sender]; ok {
+		return rl, nil
+	}
+	rl, err := d.limitsFactory.MakeRateLimiter(cresettings.Default.DispatcherPerSenderRate)
+	if err != nil {
+		return nil, err
+	}
+	d.perSenderRate[sender] = rl
+	return rl, nil
 }
 
 func (d *dispatcher) tryRespondWithError(peerID p2ptypes.PeerID, body *types.MessageBody, errType types.Error) {

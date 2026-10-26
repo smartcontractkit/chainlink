@@ -28,12 +28,12 @@ func TestTOMLGeneralConfig_DevModeInsecureConfig(t *testing.T) {
 	t.Run("insecure config ignore override on non-dev builds", func(t *testing.T) {
 		config, err := GeneralConfigOpts{
 			OverrideFn: func(c *Config, s *Secrets) {
-				enabled := true
-				c.Insecure.DevWebServer = &enabled
-				c.Insecure.DisableRateLimiting = &enabled
-				c.Insecure.InfiniteDepthQueries = &enabled
-				c.Insecure.OCRDevelopmentMode = &enabled
-			}}.New()
+				*c.Insecure.DevWebServer = true
+				*c.Insecure.DisableRateLimiting = true
+				*c.Insecure.InfiniteDepthQueries = true
+				*c.Insecure.OCRDevelopmentMode = true
+			},
+		}.New()
 		require.NoError(t, err)
 
 		assert.True(t, config.Insecure().DevWebServer())
@@ -44,7 +44,8 @@ func TestTOMLGeneralConfig_DevModeInsecureConfig(t *testing.T) {
 
 	t.Run("ParseConfig accepts insecure values on dev builds", func(t *testing.T) {
 		opts := GeneralConfigOpts{
-			ConfigStrings: []string{`
+			ConfigStrings: []string{
+				`
 [insecure]
 DevWebServer = true
 `,

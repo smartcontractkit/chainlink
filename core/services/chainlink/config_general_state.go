@@ -4,8 +4,8 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func (g *generalConfig) AppID() uuid.UUID {
@@ -22,7 +22,7 @@ func (g *generalConfig) logLevel() (ll zapcore.Level) {
 	g.logMu.RLock()
 	ll = zapcore.Level(*g.c.Log.Level)
 	g.logMu.RUnlock()
-	return
+	return ll
 }
 
 func (g *generalConfig) SetLogLevel(lvl zapcore.Level) error {
@@ -36,7 +36,7 @@ func (g *generalConfig) logSQL() (sql bool) {
 	g.logMu.RLock()
 	sql = *g.c.Database.LogQueries
 	g.logMu.RUnlock()
-	return
+	return sql
 }
 
 func (g *generalConfig) SetLogSQL(logSQL bool) {
@@ -49,10 +49,10 @@ func (g *generalConfig) SetPasswords(keystore, vrf *string) {
 	g.passwordMu.Lock()
 	defer g.passwordMu.Unlock()
 	if keystore != nil {
-		g.secrets.Password.Keystore = (*models.Secret)(keystore)
+		g.secrets.Password.Keystore = (*commonconfig.SecretString)(keystore)
 	}
 	if vrf != nil {
-		g.secrets.Password.VRF = (*models.Secret)(vrf)
+		g.secrets.Password.VRF = (*commonconfig.SecretString)(vrf)
 	}
 }
 

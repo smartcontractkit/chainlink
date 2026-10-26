@@ -21,7 +21,9 @@ type ProposeJobSpecInput struct {
 	Environment string `json:"environment" yaml:"environment"`
 	Domain      string `json:"domain" yaml:"domain"`
 
-	DONName    string                     `json:"donName" yaml:"donName"`
+	DONName string `json:"donName" yaml:"donName"`
+	// JDDONName overrides the DON name used for JD node lookup. Defaults to DONName.
+	JDDONName  string                     `json:"jdDonName,omitempty" yaml:"jdDonName,omitempty"`
 	DONFilters []offchain.TargetDONFilter `json:"donFilters" yaml:"donFilters"`
 
 	JobName     string                    `json:"jobName" yaml:"jobName"`
@@ -74,7 +76,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 		if err := verifyStellarJobSpecInputs(config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for Stellar job spec: %w", err)
 		}
-	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.BootstrapVault, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget:
+	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.BootstrapVault, job_types.Consensus:
 	case job_types.CRESettings:
 		if err := verifyCRESettingsSpecInputs(config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for CRE settings job spec: %w", err)
@@ -98,7 +100,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 	var report operations.Report[any, any]
 	switch input.Template {
 	// This will hold all standard capabilities jobs as we add support for them.
-	case job_types.EVM, job_types.Aptos, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.Solana, job_types.Stellar:
+	case job_types.EVM, job_types.Aptos, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.Consensus, job_types.Solana, job_types.Stellar:
 		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)
@@ -114,6 +116,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				Domain:      input.Domain,
 				Environment: input.Environment,
 				DONName:     input.DONName,
+				JDDONName:   input.JDDONName,
 				DONFilters:  input.DONFilters,
 				ExtraLabels: input.ExtraLabels,
 			},

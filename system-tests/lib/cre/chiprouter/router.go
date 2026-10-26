@@ -26,13 +26,6 @@ const relativePathToRepoRoot = "../../../../"
 
 func getClient(ctx context.Context) (*ctfchiprouterclient.Client, error) {
 	clientOnce.Do(func() {
-		if os.Getenv("CTF_CONFIGS") == "" {
-			setErr := os.Setenv("CTF_CONFIGS", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
-			if setErr != nil {
-				errClient = pkgerrors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
-				return
-			}
-		}
 		in := &envconfig.Config{}
 		err := in.Load(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 		if err != nil {

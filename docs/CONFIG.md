@@ -1424,7 +1424,6 @@ NetworkID = 'evm' # Default
 ChainID = '1' # Default
 ContractVersion = '1.0.0' # Default
 MaxBinarySize = '20.00mb' # Default
-MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
 MaxConcurrency = 12 # Default
@@ -1461,12 +1460,6 @@ ContractVersion identifies semantic version of the WorkflowRegistry contract.
 MaxBinarySize = '20.00mb' # Default
 ```
 MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
-
-### MaxEncryptedSecretsSize
-```toml
-MaxEncryptedSecretsSize = '26.40kb' # Default
-```
-MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.
 
 ### MaxConfigSize
 ```toml
@@ -1664,29 +1657,15 @@ ContractVersion identifies semantic version of the CapabilitiesRegistry contract
 ## Capabilities.Dispatcher
 ```toml
 [Capabilities.Dispatcher]
-SupportedVersion = 1 # Default
 ReceiverBufferSize = 10000 # Default
-SendToSharedPeer = false # Default
 ```
 
-
-### SupportedVersion
-```toml
-SupportedVersion = 1 # Default
-```
-SupportedVersion is the version of the version of message schema.
 
 ### ReceiverBufferSize
 ```toml
 ReceiverBufferSize = 10000 # Default
 ```
 ReceiverBufferSize is the size of the buffer for incoming messages.
-
-### SendToSharedPeer
-```toml
-SendToSharedPeer = false # Default
-```
-SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
 
 ## Capabilities.Dispatcher.RateLimit
 ```toml
@@ -1702,121 +1681,29 @@ PerSenderBurst = 50 # Default
 ```toml
 GlobalRPS = 800 # Default
 ```
-GlobalRPS is the global rate limit for the dispatcher.
+GlobalRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ### GlobalBurst
 ```toml
 GlobalBurst = 1000 # Default
 ```
-GlobalBurst is the global burst limit for the dispatcher.
+GlobalBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ### PerSenderRPS
 ```toml
 PerSenderRPS = 10 # Default
 ```
-PerSenderRPS is the per-sender rate limit for the dispatcher.
+PerSenderRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ### PerSenderBurst
 ```toml
 PerSenderBurst = 50 # Default
 ```
-PerSenderBurst is the per-sender burst limit for the dispatcher.
-
-## Capabilities.Peering
-```toml
-[Capabilities.Peering]
-IncomingMessageBufferSize = 10 # Default
-OutgoingMessageBufferSize = 10 # Default
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
-TraceLogging = false # Default
-EnableExperimentalRageP2P = false # Default
-```
-
-
-### IncomingMessageBufferSize
-```toml
-IncomingMessageBufferSize = 10 # Default
-```
-IncomingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
-capabilities P2P host are not configurable; for shared peering, use
-`Capabilities.SharedPeering.StreamConfig`.
-
-### OutgoingMessageBufferSize
-```toml
-OutgoingMessageBufferSize = 10 # Default
-```
-OutgoingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
-capabilities P2P host are not configurable; for shared peering, use
-`Capabilities.SharedPeering.StreamConfig`.
-
-### PeerID
-```toml
-PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
-```
-PeerID is the peer ID to use for the capabilities P2P host; see
-[`P2P.PeerID`](#p2p).
-
-### TraceLogging
-```toml
-TraceLogging = false # Default
-```
-TraceLogging **DEPRECATED**: has no effect.
-
-### EnableExperimentalRageP2P
-```toml
-EnableExperimentalRageP2P = false # Default
-```
-EnableExperimentalRageP2P currently has no effect in this section; the
-capabilities P2P host always uses the production ragep2p stack.
-
-## Capabilities.Peering.V2
-```toml
-[Capabilities.Peering.V2]
-Enabled = false # Default
-AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
-DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
-DeltaDial = '15s' # Default
-DeltaReconcile = '1m' # Default
-ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
-```
-
-
-### Enabled
-```toml
-Enabled = false # Default
-```
-Enabled enables a dedicated P2P V2 host for capabilities (DON-to-DON)
-communication, independent of the top-level `P2P` host.
-
-### AnnounceAddresses
-```toml
-AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
-```
-AnnounceAddresses: see [`P2P.V2.AnnounceAddresses`](#p2pv2).
-
-### DefaultBootstrappers
-```toml
-DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
-```
-DefaultBootstrappers: see [`P2P.V2.DefaultBootstrappers`](#p2pv2).
-
-### DeltaDial
-```toml
-DeltaDial = '15s' # Default
-```
-DeltaDial: see [`P2P.V2.DeltaDial`](#p2pv2).
-
-### DeltaReconcile
-```toml
-DeltaReconcile = '1m' # Default
-```
-DeltaReconcile: see [`P2P.V2.DeltaReconcile`](#p2pv2).
-
-### ListenAddresses
-```toml
-ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
-```
-ListenAddresses: see [`P2P.V2.ListenAddresses`](#p2pv2).
+PerSenderBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ## Capabilities.GatewayConnector
 ```toml
@@ -1972,6 +1859,7 @@ BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
 ```toml
 [Capabilities.Local]
 RegistryBasedLaunchAllowlist = [] # Default
+UseOffchainRegistry = false # Default
 ```
 
 
@@ -1991,15 +1879,18 @@ Examples (using single-quoted TOML strings where backslashes are literal):
 - '^http-actions@.*$' matches any version of http-actions
 - '.*' matches all capabilities
 
-Per-capability configuration. Each capability ID can have its own configuration section.
-Capability IDs must be in the format "name@version".
-[Capabilities.Local.Capabilities."http-actions@1.0.0"]
-BinaryPathOverride overrides the default binary path for a LOOP capability.
-BinaryPathOverride = '/opt/chainlink/binaries/http_action' # Example
-[Capabilities.Local.Capabilities."http-actions@1.0.0".Config]
-Capability-specific configuration as key-value pairs.
-proxyMode = 'gateway' # Example
-allowedPorts = '443,8443' # Example
+### UseOffchainRegistry
+```toml
+UseOffchainRegistry = false # Default
+```
+UseOffchainRegistry gates the offchain capabilities registry cutover. When false (default),
+capability config is sourced from the on-chain registry and the offchain registry is used for
+cross-validation telemetry only. When true, spec_config is sourced exclusively from the offchain
+payload. Don2Don method_configs use the complete offchain map when the capability is present;
+missing DONs or capabilities retain the on-chain map. Binary paths, the launch allowlist and OCR3
+config are unaffected.
+An offchain capability's local_only flag disables its Don2Don client/server shims when true.
+The gate is per-node and reversible.
 
 ## Capabilities.HTTPTrigger
 ```toml
@@ -3064,6 +2955,7 @@ An empty list disables all OCR2 telemetry. Use ["all"] to enable all OCR2 plugin
 UseLocalTimeProvider = true # Default
 EnableDKGRecipient = false # Default
 DebugMode = false # Default
+CachedTriggerSubscriptionsEnabled = false # Default
 ```
 
 
@@ -3084,6 +2976,12 @@ EnableDKGRecipient should be set to true if the DON runs a capability that uses 
 DebugMode = false # Default
 ```
 DebugMode enables additional tracing and logging for workflow engines.
+
+### CachedTriggerSubscriptionsEnabled
+```toml
+CachedTriggerSubscriptionsEnabled = false # Default
+```
+CachedTriggerSubscriptionsEnabled makes workflow engines reuse a previously-persisted trigger subscription payload instead of executing the workflow's WASM Subscribe() call on every engine start.
 
 ## CRE.ConfidentialRelay
 ```toml
@@ -3234,6 +3132,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '5m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3252,7 +3151,7 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
-LimitTransfer = 21000
+LimitTransfer = 200000
 EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
@@ -3309,10 +3208,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 10500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3359,6 +3254,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3438,10 +3334,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3487,6 +3379,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3562,10 +3455,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '500ms'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3610,6 +3499,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3684,10 +3574,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -3733,6 +3619,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3807,10 +3694,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -3857,6 +3740,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3932,10 +3816,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -3981,6 +3861,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4056,10 +3937,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '500ms'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4106,6 +3983,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4181,10 +4059,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4230,6 +4104,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4305,10 +4180,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4355,6 +4226,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4434,10 +4306,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4483,6 +4351,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4558,10 +4427,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4607,6 +4472,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4682,10 +4548,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4731,6 +4593,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4806,10 +4669,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4856,6 +4715,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4935,10 +4795,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -4985,6 +4841,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -5061,10 +4918,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5111,6 +4964,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -5187,10 +5041,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5237,6 +5087,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5316,10 +5167,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5365,6 +5212,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5443,10 +5291,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5493,6 +5337,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '7m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5571,10 +5416,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5620,6 +5461,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5695,10 +5537,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 3800000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5743,6 +5581,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5818,10 +5657,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5868,6 +5703,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5947,10 +5783,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -5997,6 +5829,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '2m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6071,10 +5904,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -6122,6 +5951,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '2m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6197,10 +6027,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6247,6 +6073,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6324,10 +6151,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 11000000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -6375,6 +6198,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6453,10 +6277,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 11000000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6503,6 +6323,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6582,10 +6403,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6632,6 +6449,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6707,10 +6525,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6757,6 +6571,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6836,10 +6651,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -6884,6 +6695,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6959,10 +6771,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7009,6 +6817,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7088,10 +6897,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7138,6 +6943,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -7214,10 +7020,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7264,6 +7066,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7338,10 +7141,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -7389,6 +7188,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7464,10 +7264,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7513,6 +7309,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7588,10 +7385,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7636,6 +7429,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7711,10 +7505,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7761,6 +7551,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7840,10 +7631,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -7890,6 +7677,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7969,10 +7757,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8017,6 +7801,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '0s'
 ResendAfterThreshold = '0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8092,10 +7877,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8141,6 +7922,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8216,10 +7998,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8266,6 +8044,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8344,10 +8123,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -8395,6 +8170,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8474,10 +8250,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8523,6 +8295,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8597,10 +8370,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -8647,6 +8416,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8722,10 +8492,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8770,6 +8536,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8845,10 +8612,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -8895,6 +8658,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8974,10 +8738,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9022,6 +8782,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9097,10 +8858,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9146,6 +8903,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9221,10 +8979,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9270,6 +9024,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9345,10 +9100,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9394,6 +9145,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9469,10 +9221,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 3800000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9518,6 +9266,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -9594,9 +9343,126 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
+[Workflow]
+GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
+```
+
+</p></details>
+
+<details><summary>Tempo Mainnet (4217)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+SafeDepth = 0
+FinalityTagEnabled = true
+SafeTagSupported = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '1s'
+LogPollerSkipEmptyBlocks = false
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = false
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 2
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+ERC20TokenAddress = '0x20C0000000000000000000000000000000000000'
+
+[GasEstimator]
+Mode = 'FeeHistory'
+PriceDefault = '1 gwei'
+PriceMax = '1 micro'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 30
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '4s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
+PersistenceEnabled = false
+PersistenceBatchSize = 100
+
+[NodePool]
+PollFailureThreshold = 5
+PollSuccessThreshold = 0
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 15
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '1s'
+VerifyChainID = true
+ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
 
 [Workflow]
 GasLimitDefault = 400000
@@ -9644,6 +9510,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9723,10 +9590,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -9773,6 +9636,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9852,10 +9716,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -9903,6 +9763,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9983,10 +9844,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10031,6 +9888,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10106,10 +9964,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10156,6 +10010,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10235,10 +10090,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10283,6 +10134,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10358,10 +10210,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10408,6 +10256,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10483,10 +10332,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10533,6 +10378,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10610,10 +10456,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -10661,6 +10503,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10739,10 +10582,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10789,6 +10628,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10868,10 +10708,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -10918,6 +10754,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '7m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10997,10 +10834,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11047,6 +10880,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11125,10 +10959,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 14500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11175,6 +11005,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11250,9 +11081,126 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
+[Workflow]
+GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
+```
+
+</p></details>
+
+<details><summary>Tempo Testnet Moderato (42431)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+SafeDepth = 0
+FinalityTagEnabled = true
+SafeTagSupported = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '1s'
+LogPollerSkipEmptyBlocks = false
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = false
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 2
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+ERC20TokenAddress = '0x20C0000000000000000000000000000000000000'
+
+[GasEstimator]
+Mode = 'FeeHistory'
+PriceDefault = '1 gwei'
+PriceMax = '1 micro'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '4'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 30
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '4s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
+PersistenceEnabled = false
+PersistenceBatchSize = 100
+
+[NodePool]
+PollFailureThreshold = 5
+PollSuccessThreshold = 0
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 15
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '1s'
+VerifyChainID = true
+ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
 
 [Workflow]
 GasLimitDefault = 400000
@@ -11299,6 +11247,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '2m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11378,10 +11327,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11427,6 +11372,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11501,10 +11447,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -11551,6 +11493,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11625,10 +11568,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -11676,6 +11615,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11751,10 +11691,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11801,6 +11737,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -11882,10 +11819,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -11921,7 +11854,7 @@ LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '40m0s'
+NoNewFinalizedHeadsThreshold = '4h0m0s'
 
 [Transactions]
 Enabled = true
@@ -11932,6 +11865,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -12013,10 +11947,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12062,6 +11992,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12137,10 +12068,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12187,6 +12114,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12266,10 +12194,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12315,6 +12239,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -12392,10 +12317,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12441,6 +12362,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -12518,10 +12440,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12568,6 +12486,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12647,10 +12566,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12697,6 +12612,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12776,10 +12692,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12825,6 +12737,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12903,10 +12816,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -12952,6 +12861,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13027,10 +12937,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13076,6 +12982,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13151,10 +13058,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13200,6 +13103,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13275,10 +13179,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13325,6 +13225,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13404,10 +13305,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13454,6 +13351,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13533,10 +13431,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13581,6 +13475,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13655,10 +13550,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -13704,6 +13595,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13778,10 +13670,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -13828,6 +13716,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13907,10 +13796,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -13955,6 +13840,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14030,10 +13916,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14078,6 +13960,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14153,10 +14036,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14203,6 +14082,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14281,10 +14161,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14330,6 +14206,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14404,10 +14281,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -14454,6 +14327,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14528,10 +14402,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -14579,6 +14449,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14657,10 +14528,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 14500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14707,6 +14574,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -14787,10 +14655,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14810,7 +14674,7 @@ ChainType = 'scroll'
 FinalityDepth = 10
 SafeDepth = 0
 FinalityTagEnabled = true
-SafeTagSupported = true
+SafeTagSupported = false
 LinkContractAddress = '0x548C6944cba02B9D1C0570102c89de64D258d3Ac'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -14837,6 +14701,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -14917,10 +14782,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -14966,6 +14827,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -15042,10 +14904,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15091,6 +14949,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '2m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15170,10 +15029,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15219,6 +15074,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15298,10 +15154,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15348,6 +15200,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15427,10 +15280,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15477,6 +15326,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15556,10 +15406,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15605,6 +15451,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15683,10 +15530,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15732,6 +15575,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15750,7 +15594,7 @@ PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
-LimitTransfer = 21000
+LimitTransfer = 200000
 EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
@@ -15807,10 +15651,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 10500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15857,6 +15697,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15936,10 +15777,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -15986,6 +15823,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -16063,10 +15901,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -16114,6 +15948,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -16192,10 +16027,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -16242,6 +16073,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -16321,10 +16153,6 @@ DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
 
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
 [Workflow]
 GasLimitDefault = 400000
 TxAcceptanceState = 2
@@ -16370,6 +16198,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -16444,10 +16273,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -16494,6 +16319,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -16568,10 +16394,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -16834,6 +16656,7 @@ MaxQueued = 250 # Default
 ReaperInterval = '1h' # Default
 ReaperThreshold = '168h' # Default
 ResendAfterThreshold = '1m' # Default
+UnknownErrorRetryTimeout = '0s' # Default
 ```
 
 
@@ -16894,6 +16717,12 @@ ReaperThreshold indicates how old an EthTx ought to be before it can be reaped.
 ResendAfterThreshold = '1m' # Default
 ```
 ResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
+
+### UnknownErrorRetryTimeout
+```toml
+UnknownErrorRetryTimeout = '0s' # Default
+```
+UnknownErrorRetryTimeout is how long broadcaster keeps retrying a transaction that fails with unknown (unclassified) RPC errors, measured from the first such error, before marking it as fatally errored.
 
 ## EVM.Transactions.AutoPurge
 ```toml
@@ -17002,6 +16831,7 @@ FeeBoost enables node to immediately boost txs to the max gas price configured
 ```toml
 [EVM.BalanceMonitor]
 Enabled = true # Default
+ERC20TokenAddress = "0x20C0000000000000000000000000000000000000" # Example
 ```
 
 
@@ -17010,6 +16840,12 @@ Enabled = true # Default
 Enabled = true # Default
 ```
 Enabled balance monitoring for all keys.
+
+### ERC20TokenAddress
+```toml
+ERC20TokenAddress = "0x20C0000000000000000000000000000000000000" # Example
+```
+ERC20TokenAddress is the address of an ERC-20 type token that a chain supports as a fee token.
 
 ## EVM.GasEstimator
 ```toml
@@ -17267,7 +17103,6 @@ OCR2 = 100_000 # Example
 DR = 100_000 # Example
 VRF = 100_000 # Example
 FM = 100_000 # Example
-Keeper = 100_000 # Example
 ```
 
 
@@ -17300,12 +17135,6 @@ VRF overrides LimitDefault for VRF jobs.
 FM = 100_000 # Example
 ```
 FM overrides LimitDefault for Flux Monitor jobs.
-
-### Keeper
-```toml
-Keeper = 100_000 # Example
-```
-Keeper overrides LimitDefault for Keeper jobs.
 
 ## EVM.GasEstimator.BlockHistory
 ```toml
@@ -17886,19 +17715,6 @@ IsLoadBalancedRPC indicates whether the http/ws url above has multiple rpc's beh
 If true, we should try reconnecting to the node even when its the only node in the Nodes list.
 If false and its the only node in the nodes list, we will mark it alive even when its out of sync, because it might still be able to send txs.
 
-## EVM.OCR2.Automation
-```toml
-[EVM.OCR2.Automation]
-GasLimit = 5400000 # Default
-```
-
-
-### GasLimit
-```toml
-GasLimit = 5400000 # Default
-```
-GasLimit controls the gas limit for transmit transactions from ocr2automation job.
-
 ## EVM.Workflow
 ```toml
 [EVM.Workflow]
@@ -17946,123 +17762,6 @@ PollPeriod is the default poll period for checking transmission state
 AcceptanceTimeout = '30s' # Default
 ```
 AcceptanceTimeout is the default timeout for a transmission to be accepted on chain
-
-## Cosmos
-```toml
-[[Cosmos]]
-ChainID = 'Malaga-420' # Example
-Enabled = true # Default
-Bech32Prefix = 'wasm' # Default
-BlockRate = '6s' # Default
-BlocksUntilTxTimeout = 30 # Default
-ConfirmPollPeriod = '1s' # Default
-FallbackGasPrice = '0.015' # Default
-GasToken = 'ucosm' # Default
-GasLimitMultiplier = '1.5' # Default
-MaxMsgsPerBatch = 100 # Default
-OCR2CachePollPeriod = '4s' # Default
-OCR2CacheTTL = '1m' # Default
-TxMsgTimeout = '10m' # Default
-```
-
-
-### ChainID
-```toml
-ChainID = 'Malaga-420' # Example
-```
-ChainID is the Cosmos chain ID. Mandatory.
-
-### Enabled
-```toml
-Enabled = true # Default
-```
-Enabled enables this chain.
-
-### Bech32Prefix
-```toml
-Bech32Prefix = 'wasm' # Default
-```
-Bech32Prefix is the human-readable prefix for addresses on this Cosmos chain. See https://docs.cosmos.network/v0.47/spec/addresses/bech32.
-
-### BlockRate
-```toml
-BlockRate = '6s' # Default
-```
-BlockRate is the average time between blocks.
-
-### BlocksUntilTxTimeout
-```toml
-BlocksUntilTxTimeout = 30 # Default
-```
-BlocksUntilTxTimeout is the number of blocks to wait before giving up on the tx getting confirmed.
-
-### ConfirmPollPeriod
-```toml
-ConfirmPollPeriod = '1s' # Default
-```
-ConfirmPollPeriod sets how often check for tx confirmation.
-
-### FallbackGasPrice
-```toml
-FallbackGasPrice = '0.015' # Default
-```
-FallbackGasPrice sets a fallback gas price to use when the estimator is not available.
-
-### GasToken
-```toml
-GasToken = 'ucosm' # Default
-```
-GasToken is the token denomination which is being used to pay gas fees on this chain.
-
-### GasLimitMultiplier
-```toml
-GasLimitMultiplier = '1.5' # Default
-```
-GasLimitMultiplier scales the estimated gas limit.
-
-### MaxMsgsPerBatch
-```toml
-MaxMsgsPerBatch = 100 # Default
-```
-MaxMsgsPerBatch limits the numbers of messages per transaction batch.
-
-### OCR2CachePollPeriod
-```toml
-OCR2CachePollPeriod = '4s' # Default
-```
-OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
-
-### OCR2CacheTTL
-```toml
-OCR2CacheTTL = '1m' # Default
-```
-OCR2CacheTTL is the stale OCR2 cache deadline.
-
-### TxMsgTimeout
-```toml
-TxMsgTimeout = '10m' # Default
-```
-TxMsgTimeout is the maximum age for resending transaction before they expire.
-
-## Cosmos.Nodes
-```toml
-[[Cosmos.Nodes]]
-Name = 'primary' # Example
-TendermintURL = 'http://tender.mint' # Example
-```
-
-
-### Name
-```toml
-Name = 'primary' # Example
-```
-Name is a unique (per-chain) identifier for this node.
-
-### TendermintURL
-```toml
-TendermintURL = 'http://tender.mint' # Example
-```
-TendermintURL is the HTTP(S) tendermint endpoint for this node.
 
 ## Solana
 ```toml
@@ -18594,4 +18293,3 @@ URL is the base HTTP(S) endpoint for this node.
 APIKey = 'key' # Example
 ```
 APIKey Header is optional and only required for Nethermind RPCs
-

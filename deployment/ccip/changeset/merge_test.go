@@ -322,24 +322,24 @@ func TestMergeChangesetOutputLeavesNothingHalfMerged(t *testing.T) {
 	// The destination already holds one Router; the source deploys a different one under the
 	// same key, which is the conflict that will reject the merge.
 	dest := cldf.ChangesetOutput{
-		AddressBook: cldf.NewMemoryAddressBook(), //nolint:staticcheck // Phase 1 merge still stages the address book
+		AddressBook: cldf.NewMemoryAddressBook(),
 		DataStore:   datastore.NewMemoryDataStore(),
 	}
-	require.NoError(t, dest.AddressBook.Save(chainSelector, addrA, tv)) //nolint:staticcheck // Phase 1 merge still stages the address book
+	require.NoError(t, dest.AddressBook.Save(chainSelector, addrA, tv))
 	require.NoError(t, dest.DataStore.Addresses().Add(ref(addrA)))
 
 	src := cldf.ChangesetOutput{
-		AddressBook: cldf.NewMemoryAddressBook(), //nolint:staticcheck // Phase 1 merge still stages the address book
+		AddressBook: cldf.NewMemoryAddressBook(),
 		DataStore:   datastore.NewMemoryDataStore(),
 	}
-	require.NoError(t, src.AddressBook.Save(chainSelector, addrB, tv)) //nolint:staticcheck // Phase 1 merge still stages the address book
+	require.NoError(t, src.AddressBook.Save(chainSelector, addrB, tv))
 	require.NoError(t, src.DataStore.Addresses().Add(ref(addrB)))
 
 	require.Error(t, MergeChangesetOutput(e, &dest, src))
 
 	// The address book merge would have succeeded on its own, and used to run first. It must
 	// not have been applied.
-	destAddrs, err := dest.AddressBook.Addresses() //nolint:staticcheck // Phase 1 merge still stages the address book
+	destAddrs, err := dest.AddressBook.Addresses()
 	require.NoError(t, err)
 	require.Len(t, destAddrs[chainSelector], 1, "destination address book must be unchanged")
 	require.Contains(t, destAddrs[chainSelector], addrA)
@@ -366,8 +366,8 @@ func TestMergeChangesetOutputPublishesFirstMergeToEnv(t *testing.T) {
 	addr := "0x5B5BBb15ECE0a4Ed8cDab22F902e83F66aBe848f"
 	tv := cldf.NewTypeAndVersion("Router", *semver.MustParse("1.6.0"))
 
-	src := cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()} //nolint:staticcheck // Phase 1 merge still stages the address book
-	require.NoError(t, src.AddressBook.Save(chainSelector, addr, tv))     //nolint:staticcheck // Phase 1 merge still stages the address book
+	src := cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}
+	require.NoError(t, src.AddressBook.Save(chainSelector, addr, tv))
 
 	var dest cldf.ChangesetOutput
 	require.NoError(t, MergeChangesetOutput(e, &dest, src))
@@ -378,7 +378,7 @@ func TestMergeChangesetOutputPublishesFirstMergeToEnv(t *testing.T) {
 
 	// The destination is a copy, not the source's own book: merging again must not corrupt the
 	// first sub-changeset's output.
-	require.NotSame(t, src.AddressBook, dest.AddressBook) //nolint:staticcheck // Phase 1 merge still stages the address book
+	require.NotSame(t, src.AddressBook, dest.AddressBook)
 }
 
 func TestMergeChangesetOutputToleratesKnownAddresses(t *testing.T) {
@@ -392,8 +392,8 @@ func TestMergeChangesetOutputToleratesKnownAddresses(t *testing.T) {
 		e := mergeTestEnvironment(t)
 		require.NoError(t, e.ExistingAddresses.Save(chainSelector, addr, tv))
 
-		src := cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()} //nolint:staticcheck // Phase 1 merge still stages the address book
-		require.NoError(t, src.AddressBook.Save(chainSelector, addr, tv))     //nolint:staticcheck // Phase 1 merge still stages the address book
+		src := cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}
+		require.NoError(t, src.AddressBook.Save(chainSelector, addr, tv))
 
 		var dest cldf.ChangesetOutput
 		require.NoError(t, MergeChangesetOutput(e, &dest, src))
@@ -404,8 +404,8 @@ func TestMergeChangesetOutputToleratesKnownAddresses(t *testing.T) {
 		e := mergeTestEnvironment(t)
 		require.NoError(t, e.ExistingAddresses.Save(chainSelector, addr, tv))
 
-		src := cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()} //nolint:staticcheck // Phase 1 merge still stages the address book
-		require.NoError(t, src.AddressBook.Save(chainSelector, addr,          //nolint:staticcheck // Phase 1 merge still stages the address book
+		src := cldf.ChangesetOutput{AddressBook: cldf.NewMemoryAddressBook()}
+		require.NoError(t, src.AddressBook.Save(chainSelector, addr,
 			cldf.NewTypeAndVersion("FeeQuoter", *semver.MustParse("1.6.0"))))
 
 		var dest cldf.ChangesetOutput

@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 
@@ -68,13 +67,13 @@ func Benchmark_CCIPReader_CCIPMessageSent(b *testing.B) {
 	tests := []struct {
 		name                 string
 		logsInsertedPerChain int
-		startSeqNum          cciptypes.SeqNum
-		endSeqNum            cciptypes.SeqNum
+		startSeqNum          ccipocr3common.SeqNum
+		endSeqNum            ccipocr3common.SeqNum
 		sourceChainsCount    int
 		destChainsCount      int
 
 		expectedLogs   int
-		expectedLatest cciptypes.SeqNum
+		expectedLatest ccipocr3common.SeqNum
 	}{
 		{
 			// Case in which we have 5 chains densely connected generating large volume of logs
@@ -113,7 +112,7 @@ func Benchmark_CCIPReader_CCIPMessageSent(b *testing.B) {
 				msgs, err := reader.MsgsBetweenSeqNums(
 					b.Context(),
 					chainS1,
-					cciptypes.NewSeqNumRange(tt.startSeqNum, tt.endSeqNum),
+					ccipocr3common.NewSeqNumRange(tt.startSeqNum, tt.endSeqNum),
 				)
 				require.NoError(b, err)
 				require.Len(b, msgs, tt.expectedLogs)
@@ -194,8 +193,8 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 		logsInsertedPerChain int
 		sourceChainsCount    int
 		destChainsCount      int
-		startSeqNum          cciptypes.SeqNum
-		endSeqNum            cciptypes.SeqNum
+		startSeqNum          ccipocr3common.SeqNum
+		endSeqNum            ccipocr3common.SeqNum
 
 		expectedChains       int
 		expectedLogsPerChain int
@@ -232,22 +231,22 @@ func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 			tt.destChainsCount,
 		)
 
-		filters := map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{}
+		filters := map[ccipocr3common.ChainSelector][]ccipocr3common.SeqNumRange{}
 		for i := 0; i < tt.sourceChainsCount; i++ {
 			// #nosec G115
-			chainSelector := cciptypes.ChainSelector(i + 1)
+			chainSelector := ccipocr3common.ChainSelector(i + 1)
 			if chainSelector == chainD {
 				continue
 			}
 			// This enforces variation in seqNum ranges
 			// #nosec G115
-			start := cciptypes.SeqNum(i*16) + tt.startSeqNum
+			start := ccipocr3common.SeqNum(i*16) + tt.startSeqNum
 			// #nosec G115
-			stop := cciptypes.SeqNum(i*16) + tt.endSeqNum
+			stop := ccipocr3common.SeqNum(i*16) + tt.endSeqNum
 
 			filters[chainSelector] = append(
 				filters[chainSelector],
-				cciptypes.NewSeqNumRange(start, stop),
+				ccipocr3common.NewSeqNumRange(start, stop),
 			)
 		}
 
@@ -287,7 +286,7 @@ func prepareCommitReportsEventsInDb(
 		// #nosec G115
 		orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(j+1)), s.dbs, logger.TestLogger(b))
 		// #nosec G115
-		destChainID := cciptypes.ChainSelector(j + 1)
+		destChainID := ccipocr3common.ChainSelector(j + 1)
 		populateDatabaseForCommitReportAccepted(
 			ctx,
 			b,
@@ -319,12 +318,12 @@ func populateDatabaseForCommitReportAccepted(
 	b *testing.B,
 	testEnv *benchSetupData,
 	orm *logpoller.DSORM,
-	destChain cciptypes.ChainSelector,
+	destChain ccipocr3common.ChainSelector,
 	numberOfChains int,
 	numOfReports int,
 	offset int,
 ) {
-	var logs []logpoller.Log
+	logs := make([]logpoller.Log, 0, numOfReports)
 	commitReportEvent, exists := offrampABI.Events[consts.EventNameCommitReportAccepted]
 	require.True(b, exists, "Event CommitReportAccepted not found in ABI")
 
@@ -347,7 +346,7 @@ func populateDatabaseForCommitReportAccepted(
 		logIndex := int64(offset + i + 1)    // Offset ensures unique log indices
 
 		// #nosec G115
-		sourceChain := cciptypes.ChainSelector(i%numberOfChains + 1)
+		sourceChain := ccipocr3common.ChainSelector(i%numberOfChains + 1)
 		if sourceChain == destChain {
 			sourceChain++
 		}
@@ -426,7 +425,7 @@ func prepareMessageSentEventsInDb(b *testing.B, logsInserted int, sourceChainsCo
 			orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(j+1)), s.dbs, logger.TestLogger(b))
 
 			// #nosec G115
-			populateDatabaseForMessageSent(ctx, b, s, orm, cciptypes.ChainSelector(j+1), destChainsCount, logsInserted, 0)
+			populateDatabaseForMessageSent(ctx, b, s, orm, ccipocr3common.ChainSelector(j+1), destChainsCount, logsInserted, 0)
 		}
 	}
 
@@ -438,12 +437,12 @@ func populateDatabaseForMessageSent(
 	b *testing.B,
 	testEnv *benchSetupData,
 	orm *logpoller.DSORM,
-	sourceChain cciptypes.ChainSelector,
+	sourceChain ccipocr3common.ChainSelector,
 	destChainCount int,
 	numOfEvents int,
 	offset int,
 ) {
-	var logs []logpoller.Log
+	logs := make([]logpoller.Log, 0, numOfEvents)
 	messageSentEvent, exists := onrampABI.Events[consts.EventNameCCIPMessageSent]
 	require.True(b, exists, "Event CCIPMessageSent not found in ABI")
 
@@ -582,7 +581,7 @@ func prepareExecutedStateChangesEventsInDb(
 				b,
 				s,
 				orm,
-				cciptypes.ChainSelector(j+1),
+				ccipocr3common.ChainSelector(j+1),
 				sourceChainsCount,
 				logsInsertedPerChain,
 				0,
@@ -598,12 +597,12 @@ func populateDatabaseForExecutionStateChanged(
 	b *testing.B,
 	testEnv *benchSetupData,
 	orm *logpoller.DSORM,
-	destChain cciptypes.ChainSelector,
+	destChain ccipocr3common.ChainSelector,
 	sourceChainCount int,
 	numOfEvents int,
 	offset int,
 ) {
-	var logs []logpoller.Log
+	logs := make([]logpoller.Log, 0, numOfEvents)
 	executionStateEvent, exists := offrampABI.Events[consts.EventNameExecutionStateChanged]
 	require.True(b, exists, "Event ExecutionStateChanged not found in ABI")
 
@@ -727,8 +726,8 @@ func benchSetup(
 	err = cr.Start(ctx)
 	require.NoError(t, err)
 
-	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{params.ReaderChain: extendedCr}
-	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
+	contractReaders := map[ccipocr3common.ChainSelector]contractreader.Extended{params.ReaderChain: extendedCr}
+	contractWriters := make(map[ccipocr3common.ChainSelector]types.ContractWriter)
 	mockAddrCodec := newMockAddressCodec(t)
 	mockContractWriter := writer_mocks.NewMockContractWriter(t)
 	readerChainAccessor, err := chainaccessor.NewDefaultAccessor(
@@ -767,8 +766,8 @@ func benchSetup(
 }
 
 type benchSetupParams struct {
-	ReaderChain        cciptypes.ChainSelector
-	DestChain          cciptypes.ChainSelector
+	ReaderChain        ccipocr3common.ChainSelector
+	DestChain          ccipocr3common.ChainSelector
 	Cfg                config.ChainReaderConfig
 	ContractNameToBind string
 	FinalityDepth      int64

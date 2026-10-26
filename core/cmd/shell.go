@@ -37,6 +37,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/promutil"
@@ -45,7 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -56,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	gatewayv2metrics "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
+	gatewaymonitoring "github.com/smartcontractkit/chainlink/v2/core/services/gateway/monitoring"
 	gatewaynetwork "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -85,6 +86,8 @@ func metricViews() []sdkmetric.View {
 		ocr3beholderwrapper.MetricViews(),
 		ocr3_1beholderwrapper.MetricViews(),
 		gatewaynetwork.HTTPClientMetricViews(),
+		gatewaynetwork.WSConnectionMetricViews(),
+		gatewaymonitoring.MetricViews(),
 		gatewayv2metrics.MetricViews(),
 	)
 }
@@ -132,12 +135,13 @@ func newBeholderClient(
 	lggr logger.Logger,
 	keyStore keystore.Master,
 	cfgTracing config.Tracing,
+	cfgApp config.AppConfig,
 	cfgTelemetry config.Telemetry,
 	csaPubKeyHex string,
 	beholderAuthHeaders map[string]string,
 ) (*beholder.Client, error) {
-	attributes := make([]attribute.KeyValue, 0, len(cfgTelemetry.ResourceAttributes()))
-	for k, v := range cfgTelemetry.ResourceAttributes() {
+	attributes := make([]attribute.KeyValue, 0, len(cfgApp.ResourceAttributes()))
+	for k, v := range cfgApp.ResourceAttributes() {
 		attributes = append(attributes, attribute.String(k, v))
 	}
 
@@ -258,7 +262,6 @@ func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 	err := validateFn()
 	if err != nil {
 		fmt.Println("Invalid configuration:", err)
-		fmt.Println()
 		return s.errorOut(errors.New("invalid configuration"))
 	}
 	return nil
@@ -290,11 +293,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	// Configure and optionally start the audit log forwarder service
 	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLogger())
 	if err != nil {
-		return nil, err
+		appLggr.Criticalf("Failed to initialize audit logger: %v. In a future release, this error will prevent node startup.", err)
+		auditLogger = audit.NoopLogger
 	}
 
 	creOpts := cre.Opts{
-		CapabilitiesRegistry: capabilities.NewRegistry(appLggr),
+		CapabilitiesRegistry: registry.NewRegistry(appLggr),
 		ExecutionHandlers:    &confidentialrelay.ExecutionHandlers{},
 	}
 	if cfg.CRE().WorkflowFetcher() != nil && cfg.CRE().WorkflowFetcher().URL() != "" {

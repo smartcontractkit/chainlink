@@ -17,8 +17,8 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -30,7 +30,7 @@ type LoopRegistryServer struct {
 	discoveryHostName string // discovery endpoint hostname. must be accessible to external prom for scraping
 	loopHostName      string // internal hostname of loopps. used by node to forward external prom requests
 	registry          *plugins.LoopRegistry
-	logger            logger.SugaredLogger
+	logger            logger.Logger
 	promClient        *http.Client
 
 	jsonMarshalFn func(any) ([]byte, error)

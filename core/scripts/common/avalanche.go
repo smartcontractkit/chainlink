@@ -39,7 +39,7 @@ func (b *AvaBloom) Add(d []byte) {
 }
 
 // add is internal version of Add, which takes a scratch buffer for reuse (needs to be at least 6 bytes)
-func (b *AvaBloom) add(d []byte, buf []byte) {
+func (b *AvaBloom) add(d, buf []byte) {
 	i1, v1, i2, v2, i3, v3 := bloomValues(d, buf)
 	b[i1] |= v1
 	b[i2] |= v2
@@ -49,17 +49,17 @@ func (b *AvaBloom) add(d []byte, buf []byte) {
 // Big converts b to a big integer.
 // Note: Converting a bloom filter to a big.Int and then calling GetBytes
 // does not return the same bytes, since big.Int will trim leading zeroes
-func (b AvaBloom) Big() *big.Int {
+func (b *AvaBloom) Big() *big.Int {
 	return new(big.Int).SetBytes(b[:])
 }
 
 // Bytes returns the backing byte slice of the bloom
-func (b AvaBloom) Bytes() []byte {
+func (b *AvaBloom) Bytes() []byte {
 	return b[:]
 }
 
 // Test checks if the given topic is present in the bloom filter
-func (b AvaBloom) Test(topic []byte) bool {
+func (b *AvaBloom) Test(topic []byte) bool {
 	i1, v1, i2, v2, i3, v3 := bloomValues(topic, make([]byte, 6))
 	return v1 == v1&b[i1] &&
 		v2 == v2&b[i2] &&
@@ -67,7 +67,7 @@ func (b AvaBloom) Test(topic []byte) bool {
 }
 
 // MarshalText encodes b as a hex string with 0x prefix.
-func (b AvaBloom) MarshalText() ([]byte, error) {
+func (b *AvaBloom) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(b[:]).MarshalText()
 }
 
@@ -77,10 +77,10 @@ func (b *AvaBloom) UnmarshalText(input []byte) error {
 }
 
 // bloomValues returns the bytes (index-value pairs) to set for the given data
-func bloomValues(data []byte, hashbuf []byte) (uint, byte, uint, byte, uint, byte) {
+func bloomValues(data, hashbuf []byte) (uint, byte, uint, byte, uint, byte) {
 	sha := crypto.NewKeccakState()
 	sha.Write(data)
-	sha.Read(hashbuf) //nolint:errcheck
+	sha.Read(hashbuf) //nolint:errcheck // keccak state read does not error
 	// The actual bits to flip
 	v1 := byte(1 << (hashbuf[1] & 0x7))
 	v2 := byte(1 << (hashbuf[3] & 0x7))
@@ -284,13 +284,15 @@ func (h *AvaHeader) UnmarshalJSON(input []byte) error {
 	}
 	return nil
 }
+
 func (h *AvaHeader) Hash() common.Hash {
 	return rlpHash(h)
 }
+
 func rlpHash(x any) (h common.Hash) {
 	sha := crypto.NewKeccakState()
 	sha.Reset()
-	rlp.Encode(sha, x) //nolint:errcheck
-	sha.Read(h[:])     //nolint:errcheck
+	rlp.Encode(sha, x) //nolint:errcheck // rlp encode to hash buffer does not fail
+	sha.Read(h[:])     //nolint:errcheck // keccak state read does not error
 	return h
 }

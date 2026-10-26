@@ -9,10 +9,10 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
@@ -25,7 +25,7 @@ type Service struct {
 	eng *services.Engine
 
 	wrapper           *gatewayconnector.ServiceWrapper
-	capRegistry       core.CapabilitiesRegistry
+	capRegistry       registry.CapabilitiesRegistry
 	executionHandlers *ExecutionHandlers
 	p2pKeystore       keystore.P2P
 	peerID            p2pkey.PeerID
@@ -39,7 +39,7 @@ type Service struct {
 
 func NewService(
 	wrapper *gatewayconnector.ServiceWrapper,
-	capRegistry core.CapabilitiesRegistry,
+	capRegistry registry.CapabilitiesRegistry,
 	executionHandlers *ExecutionHandlers,
 	p2pKeystore keystore.P2P,
 	peerID p2pkey.PeerID,

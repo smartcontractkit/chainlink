@@ -7,24 +7,16 @@ import (
 	"github.com/stretchr/testify/require"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-func TestGatewayMetrics_RecordReadiness(t *testing.T) { //nolint:paralleltest // The test replaces the process-global Beholder client.
+func TestGatewayMetrics_RecordReadiness(t *testing.T) {
+	t.Parallel()
+
 	reader := sdkmetric.NewManualReader()
 	meterProvider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { require.NoError(t, meterProvider.Shutdown(context.Background())) })
 
-	previousClient := beholder.GetClient()
-	t.Cleanup(func() { beholder.SetClient(previousClient) })
-	client := beholder.NoopClientConfig{Lggr: logger.Test(t)}.New()
-	client.Meter = meterProvider.Meter("gateway-test")
-	client.MeterProvider = meterProvider
-	beholder.SetClient(client)
-
-	metrics, err := NewGatewayMetrics()
+	metrics, err := NewGatewayMetrics(meterProvider.Meter("gateway-test"))
 	require.NoError(t, err)
 	metrics.RecordDONConnectionState(t.Context(), "workflow_1_zone-a", 5, 7, 10)
 	metrics.RecordUserReady(t.Context(), true)

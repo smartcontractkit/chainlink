@@ -2,10 +2,8 @@ package changeset
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"math/big"
 	"strings"
 
@@ -102,20 +100,6 @@ func HashedWorkflowName(name string) [10]byte {
 	var result [10]byte
 	copy(result[:], nameHash)
 	return result
-}
-
-func LoadJSON[T any](pth string, fs fs.ReadFileFS) (T, error) {
-	var dflt T
-	f, err := fs.ReadFile(pth)
-	if err != nil {
-		return dflt, fmt.Errorf("failed to read %s: %w", pth, err)
-	}
-	var v T
-	err = json.Unmarshal(f, &v)
-	if err != nil {
-		return dflt, fmt.Errorf("failed to unmarshal JSON: %w", err)
-	}
-	return v, nil
 }
 
 func GetDecimalsFromFeedID(feedID string) (uint8, error) {

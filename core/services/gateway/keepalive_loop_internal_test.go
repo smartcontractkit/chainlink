@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -25,14 +27,14 @@ type mockPingConn struct {
 	unblock   chan struct{} // if non-nil, Write blocks until closed
 }
 
-func (m *mockPingConn) Start(context.Context) error          { return nil }
-func (m *mockPingConn) HealthReport() map[string]error       { return nil }
-func (m *mockPingConn) Name() string                         { return "mockPingConn" }
-func (m *mockPingConn) Ready() error                         { return nil }
-func (m *mockPingConn) Reset(*websocket.Conn) <-chan error   { return nil }
-func (m *mockPingConn) ReadChannel() <-chan network.ReadItem { return nil }
-func (m *mockPingConn) IsConnected() bool                    { return true }
-func (m *mockPingConn) Close() error                         { return nil }
+func (m *mockPingConn) Start(context.Context) error             { return nil }
+func (m *mockPingConn) HealthReport() map[string]error          { return nil }
+func (m *mockPingConn) Name() string                            { return "mockPingConn" }
+func (m *mockPingConn) Ready() error                            { return nil }
+func (m *mockPingConn) Reset(network.WSConnection) <-chan error { return nil }
+func (m *mockPingConn) ReadChannel() <-chan network.ReadItem    { return nil }
+func (m *mockPingConn) IsConnected() bool                       { return true }
+func (m *mockPingConn) Close() error                            { return nil }
 
 func (m *mockPingConn) Write(ctx context.Context, msgType int, _ []byte) error {
 	if msgType == websocket.PingMessage {
@@ -64,7 +66,7 @@ func TestKeepAliveLoop_StuckNodeBlocksAll(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 
 	unblock := make(chan struct{})
@@ -127,4 +129,89 @@ func TestKeepAliveLoop_StuckNodeBlocksAll(t *testing.T) {
 	// Stop the loop (after assertions so the stuck Write doesn't unblock early).
 	close(donMgr.shutdownCh)
 	donMgr.closeWait.Wait()
+}
+
+func TestPingProbeTracker_Matching(t *testing.T) {
+	t.Parallel()
+
+	tracker := &pingProbeTracker{}
+
+	// No probe registered: no observation.
+	_, ok := tracker.consume("unknown")
+	require.False(t, ok)
+
+	// Wrong token (e.g. a pong for a superseded probe): no observation, and the
+	// pending probe stays registered.
+	start := time.Now()
+	tracker.register("token-a", start)
+	_, ok = tracker.consume("token-b")
+	require.False(t, ok)
+
+	// Matching token: exactly one observation.
+	got, ok := tracker.consume("token-a")
+	require.True(t, ok)
+	require.Equal(t, start, got)
+
+	// Duplicate pong: no second observation.
+	_, ok = tracker.consume("token-a")
+	require.False(t, ok)
+
+	// A superseded probe produces no observation: only the latest is retained.
+	tracker.register("token-old", time.Now())
+	newStart := time.Now()
+	tracker.register("token-new", newStart)
+	_, ok = tracker.consume("token-old")
+	require.False(t, ok, "superseded probe must not record")
+	got, ok = tracker.consume("token-new")
+	require.True(t, ok)
+	require.Equal(t, newStart, got)
+}
+
+func TestPingProbeTracker_StaleConnectionCannotMatchReplacement(t *testing.T) {
+	t.Parallel()
+
+	// nodeState carries the current connection's tracker; FinalizeHandshake
+	// replaces it on every handshake.
+	ns := &nodeState{name: "node"}
+	stale := &pingProbeTracker{}
+	ns.pingTracker.Store(stale)
+
+	// Connection replaced: a fresh tracker is installed and receives new probes.
+	fresh := &pingProbeTracker{}
+	ns.pingTracker.Store(fresh)
+	start := time.Now()
+	fresh.register("token-replacement", start)
+
+	// A pong arriving on the old connection is matched against the stale tracker
+	// via its pong-handler closure: it can never record against the replacement.
+	_, ok := stale.consume("token-replacement")
+	require.False(t, ok, "stale connection's tracker must not match the replacement's probe")
+
+	// The replacement connection's tracker still matches its own probe, once.
+	got, ok := fresh.consume("token-replacement")
+	require.True(t, ok)
+	require.Equal(t, start, got)
+}
+
+func TestPingProbeTracker_Concurrent(t *testing.T) {
+	t.Parallel()
+
+	tracker := &pingProbeTracker{}
+	var wg sync.WaitGroup
+	for i := range 8 {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			for j := range 100 {
+				tracker.register(fmt.Sprintf("token-%d-%d", i, j), time.Now())
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			for j := range 100 {
+				tracker.consume(fmt.Sprintf("token-%d", j))
+			}
+		}()
+	}
+	wg.Wait()
 }

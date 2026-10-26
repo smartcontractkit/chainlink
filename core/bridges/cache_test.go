@@ -55,10 +55,12 @@ func TestBridgeCache_Type(t *testing.T) {
 		nameB := bridges.BridgeName("B")
 		nameC := bridges.BridgeName("C")
 
-		initialExpected := []bridges.BridgeType{
-			{Name: nameA},
-			{Name: nameB},
-		}
+		initialExpected := make([]bridges.BridgeType, 0, 3)
+		initialExpected = append(initialExpected,
+			bridges.BridgeType{Name: nameA},
+			bridges.BridgeType{Name: nameB},
+		)
+		//nolint:gocritic // append into a separate slice so initialExpected stays len 2
 		finalExpected := append(initialExpected, bridges.BridgeType{Name: nameC})
 
 		mORM.On("FindBridges", mock.Anything, []bridges.BridgeName{nameA, nameB}).Return(initialExpected, nil)
@@ -92,7 +94,7 @@ func TestBridgeCache_Type(t *testing.T) {
 		}
 
 		mORM.On("CreateBridgeType", mock.Anything, expected).Return(nil)
-		assert.NoError(t, cache.CreateBridgeType(ctx, expected))
+		require.NoError(t, cache.CreateBridgeType(ctx, expected))
 
 		result, err := cache.FindBridge(ctx, bridge)
 
@@ -142,19 +144,19 @@ func TestBridgeCache_Response(t *testing.T) {
 		cache := bridges.NewCache(mORM, lggr, bridges.DefaultUpsertInterval)
 
 		ctx := t.Context()
-		dotId := "test"
-		specId := int32(42)
+		dotID := "test"
+		specID := int32(42)
 		responseData := []byte("test")
 
-		mORM.On("GetCachedResponseWithFinished", mock.Anything, dotId, specId, time.Second).
+		mORM.On("GetCachedResponseWithFinished", mock.Anything, dotID, specID, time.Second).
 			Return(responseData, time.Now(), nil)
 
-		response, err := cache.GetCachedResponse(ctx, dotId, specId, time.Second)
+		response, err := cache.GetCachedResponse(ctx, dotID, specID, time.Second)
 
 		require.NoError(t, err)
 		assert.Equal(t, responseData, response)
 
-		response, err = cache.GetCachedResponse(ctx, dotId, specId, time.Second)
+		response, err = cache.GetCachedResponse(ctx, dotID, specID, time.Second)
 
 		require.NoError(t, err)
 		assert.Equal(t, responseData, response)
@@ -174,8 +176,8 @@ func TestBridgeCache_Response(t *testing.T) {
 		require.NoError(t, cache.Start(t.Context()))
 
 		ctx := t.Context()
-		dotId := "test"
-		specId := int32(42)
+		dotID := "test"
+		specID := int32(42)
 		expected := []byte("test")
 		chBulkUpsertCalled := make(chan struct{}, 1)
 
@@ -183,9 +185,9 @@ func TestBridgeCache_Response(t *testing.T) {
 			chBulkUpsertCalled <- struct{}{}
 		})
 
-		require.NoError(t, cache.UpsertBridgeResponse(ctx, dotId, specId, expected))
+		require.NoError(t, cache.UpsertBridgeResponse(ctx, dotID, specID, expected))
 
-		response, err := cache.GetCachedResponse(ctx, dotId, specId, time.Second)
+		response, err := cache.GetCachedResponse(ctx, dotID, specID, time.Second)
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, response)

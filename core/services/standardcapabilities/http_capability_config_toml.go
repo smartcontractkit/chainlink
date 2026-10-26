@@ -3,8 +3,8 @@ package standardcapabilities
 import (
 	"maps"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // httpTriggerConfigKeys maps the http-trigger capability's JSON config keys.

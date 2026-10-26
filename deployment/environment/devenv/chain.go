@@ -77,9 +77,8 @@ func (c *ChainConfig) SetUsers(pvtkeys []string) error {
 		if c.DeployerKey != nil {
 			c.Users = []*bind.TransactOpts{c.DeployerKey}
 			return nil
-		} else {
-			return errors.New("no private keys provided for users, deployer key is also not set")
 		}
+		return errors.New("no private keys provided for users, deployer key is also not set")
 	}
 	for _, pvtKeyStr := range pvtkeys {
 		pvtKey, err := crypto.HexToECDSA(pvtKeyStr)
@@ -118,7 +117,7 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 		c.DeployerKey = deployer
 		return nil
 	}
-	kmsConfig, err := kms.KMSConfigFromEnvVars()
+	kmsConfig, err := kms.ConfigFromEnvVars()
 	if err != nil {
 		return fmt.Errorf("failed to get kms config from env vars: %w", err)
 	}
@@ -126,7 +125,7 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create KMS client: %w", err)
 	}
-	evmKMSClient := kms.NewEVMKMSClient(kmsClient, kmsConfig.KmsDeployerKeyId)
+	evmKMSClient := kms.NewEVMKMSClient(kmsClient, kmsConfig.KmsDeployerKeyID)
 	chainID, success := new(big.Int).SetString(c.ChainID, 10)
 	if !success {
 		return fmt.Errorf("invalid chainID %s", c.ChainID)

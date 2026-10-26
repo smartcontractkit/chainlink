@@ -2,7 +2,9 @@ package shared
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -100,12 +102,14 @@ func ResolveFeeQuoterAddressAndVersion(
 		if ref.Type != datastore.ContractType(fqv2ops.ContractType) {
 			continue
 		}
-		if ref.Version == nil {
+		if ref.Version == nil || ref.Labels.Contains(SupersededLabel) {
 			continue
 		}
 		if bestVersion == nil || ref.Version.GreaterThan(bestVersion) {
 			bestVersion = ref.Version
 			bestRef = ref
+		} else if ref.Version.Equal(bestVersion) && ref.Address != bestRef.Address {
+			return common.Address{}, semver.Version{}, fmt.Errorf("ambiguous fee quoter %s on chain %d: found at %s and %s", ref.Version, chainSel, bestRef.Address, ref.Address)
 		}
 	}
 
@@ -118,6 +122,19 @@ func ResolveFeeQuoterAddressAndVersion(
 	}
 
 	return common.HexToAddress(bestRef.Address), *bestVersion, nil
+}
+
+// CollectDataStoreRefs returns the environment datastore's refs unkeyed, like
+// CollectAddressRefs but without the address book leg.
+func CollectDataStoreRefs(e deployment.Environment) ([]datastore.AddressRef, error) {
+	if e.DataStore == nil {
+		return nil, errors.New("datastore not available")
+	}
+	refs, err := e.DataStore.Addresses().Fetch()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch address refs from environment datastore: %w", err)
+	}
+	return refs, nil
 }
 
 // CollectAddressRefs returns a plain (unkeyed) slice of address refs drawn from both the
@@ -173,13 +190,65 @@ func QualifierFromParts(parts ...string) string {
 	return strings.Join(quoted, "/")
 }
 
+// ParseQualifierParts decodes a qualifier written by QualifierFromParts. It also accepts the
+// historical unquoted form so existing datastore entries remain readable during the migration.
+func ParseQualifierParts(qualifier string) ([]string, error) {
+	if qualifier == "" {
+		return nil, nil
+	}
+	if qualifier[0] != '"' {
+		return strings.Split(qualifier, "/"), nil
+	}
+
+	var parts []string
+	for remaining := qualifier; remaining != ""; {
+		if remaining[0] != '"' {
+			return nil, fmt.Errorf("invalid qualifier %q: expected quoted part", qualifier)
+		}
+
+		closingQuote := -1
+		escaped := false
+		for i := 1; i < len(remaining); i++ {
+			switch {
+			case escaped:
+				escaped = false
+			case remaining[i] == '\\':
+				escaped = true
+			case remaining[i] == '"':
+				closingQuote = i
+			}
+			if closingQuote >= 0 {
+				break
+			}
+		}
+		if closingQuote < 0 {
+			return nil, fmt.Errorf("invalid qualifier %q: unterminated quoted part", qualifier)
+		}
+
+		part, err := strconv.Unquote(remaining[:closingQuote+1])
+		if err != nil {
+			return nil, fmt.Errorf("invalid qualifier %q: %w", qualifier, err)
+		}
+		parts = append(parts, part)
+
+		remaining = remaining[closingQuote+1:]
+		if remaining == "" {
+			break
+		}
+		if remaining[0] != '/' {
+			return nil, fmt.Errorf("invalid qualifier %q: expected separator", qualifier)
+		}
+		remaining = remaining[1:]
+	}
+	return parts, nil
+}
+
 // TokenPoolLookupTableQualifier returns the datastore qualifier for a Solana token-pool lookup
 // table, which is uniquely identified by (token mint, pool type, metadata).
 //
 // Each component is quoted rather than joined on a bare separator. metadata is caller-supplied
 // free-form text, so a plain "a/b/c" join would let ("A", "B/C") and ("A/B", "C") produce the same
-// qualifier and collide in the datastore. Quoting escapes any separator inside a component, so
-// distinct inputs always yield distinct qualifiers.
+// qualifier and collide in the datastore. ParseQualifierParts restores the component boundaries.
 func TokenPoolLookupTableQualifier(tokenPubKey, poolType, metadata string) string {
 	return QualifierFromParts(tokenPubKey, poolType, metadata)
 }

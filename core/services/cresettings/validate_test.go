@@ -2,6 +2,7 @@ package cresettings
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -59,6 +60,20 @@ externalJobID = "7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"`, want: job.Job{
 				Hash:     "dca1decf4530b4aaa0b6cf8f11ed62f3af75b4ecc4915e4a35292c6918e9160a",
 			},
 		}},
+		{name: "explicit-settings", toml: `type = "cresettings"
+schemaVersion = 1
+externalJobID = "7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"
+settings = '''
+config_type = "settings"
+Foo = "bar"
+'''`, want: job.Job{
+			SchemaVersion: 1,
+			ExternalJobID: uuid.MustParse("7dcfa33b-8ed9-4e9f-9216-5b4d3f5c7887"),
+			CRESettingsSpec: &job.CRESettingsSpec{
+				Settings: "config_type = \"settings\"\nFoo = \"bar\"\n",
+				Hash:     "c8dd0f5d66ec7f90e393897e44e31148e8e9b03bfe52d38702671428e1252a8f",
+			},
+		}},
 		{name: "wrong-type", toml: `type = "asdf"`, wantErr: "unsupported type"},
 		{name: "wrong-hash", toml: hashFn(`asdf`), wantErr: "invalid sha256 hash"},
 		{name: "shard-assignment", toml: `type = "cresettings"
@@ -108,4 +123,28 @@ Foo = "bar"
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestValidatedCRESettingsSpecCapRegistry(t *testing.T) {
+	t.Parallel()
+
+	// The settings payload itself contains a TOML literal string, so the outer spec carries it
+	// in a basic multi-line string (backslashes escaped).
+	spec := func(settings string) string {
+		return "type = \"cresettings\"\nschemaVersion = 1\nexternalJobID = \"" + uuid.NewString() + "\"\nsettings = \"\"\"\n" +
+			strings.ReplaceAll(settings, `\`, `\\`) + "\"\"\"\n"
+	}
+
+	jb, err := ValidatedCRESettingsSpec(spec(capRegSettings(capRegPayload)))
+	require.NoError(t, err)
+	require.NotEmpty(t, jb.CRESettingsSpec.Hash)
+
+	_, err = ValidatedCRESettingsSpec(spec("config_type = \"capabilities_registry\"\n"))
+	require.ErrorContains(t, err, "offchain_config")
+
+	_, err = ValidatedCRESettingsSpec(spec(capRegSettings(`{"domain":"cre","version":0}`)))
+	require.ErrorContains(t, err, "version")
+
+	_, err = ValidatedCRESettingsSpec(spec(capRegSettings(`{"domain":"cre","version":1,"bogus":true}`)))
+	require.Error(t, err)
 }

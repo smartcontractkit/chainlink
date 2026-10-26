@@ -3,6 +3,7 @@ package vault
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -14,24 +15,44 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
 
+// getSecretsUserError wraps a pre-OCR GetSecrets validation failure as a
+// public user-origin caperrors.Error so its classification survives the
+// remote-capability boundary (the server drops non-caperrors messages) and
+// downstream consumers attribute the failure to the user. A limit breach maps
+// to LimitExceeded, other structural rejections to InvalidArgument. The
+// messages are safe to expose: the gateway write path returns identical ones.
+func getSecretsUserError(err error) caperrors.Error {
+	if _, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
+		return caperrors.NewPublicUserError(err, caperrors.LimitExceeded)
+	}
+	return caperrors.NewPublicUserError(err, caperrors.InvalidArgument)
+}
+
 type Capability struct {
 	lggr                 logger.Logger
 	clock                clockwork.Clock
 	expiresAfter         time.Duration
 	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
-	capabilitiesRegistry core.CapabilitiesRegistry
+	capabilitiesRegistry registry.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
 	lifecycle            *RequestLifecycleTracker
 	zoneBRestrictor      *zoneBRestrictor
+	// encryptOnlyEnabled, when open, makes GetPublicKey return only the stable
+	// encrypt-only sub-key (Group/G_bar/H, without the per-recipient HArray that
+	// changes on every DKG reshare), so encrypt-only consumers (e.g. the CRE CLI)
+	// are unaffected by reshares.
+	encryptOnlyEnabled limits.GateLimiter
 	*RequestValidator
 }
 
@@ -75,6 +96,10 @@ func (s *Capability) Close() error {
 		err = errors.Join(err, lerr)
 	}
 
+	if lerr := s.encryptOnlyEnabled.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing encrypt-only gate limiter: %w", lerr))
+	}
+
 	return err
 }
 
@@ -114,22 +139,22 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	r := &vaultcommon.GetSecretsRequest{}
 	err := request.Payload.UnmarshalTo(r)
 	if err != nil {
-		return capabilities.CapabilityResponse{}, fmt.Errorf("could not unmarshal payload to GetSecretsRequest: %w", err)
+		return capabilities.CapabilityResponse{}, getSecretsUserError(fmt.Errorf("could not unmarshal payload to GetSecretsRequest: %w", err))
 	}
 
 	err = s.ValidateGetSecretsRequest(ctx, r)
 	if err != nil {
-		return capabilities.CapabilityResponse{}, fmt.Errorf("could not validate get secrets request: %w", err)
+		return capabilities.CapabilityResponse{}, getSecretsUserError(fmt.Errorf("could not validate get secrets request: %w", err))
 	}
 
 	for idx, req := range r.Requests {
 		if req == nil { // defensive: protobuf strips nil elements, but guard against in-process callers
 			s.lggr.Errorw("get secrets request contains nil secret request", "index", idx)
-			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
+			return capabilities.CapabilityResponse{}, getSecretsUserError(fmt.Errorf("nil secret request at index %d", idx))
 		}
 		if req.Id != nil && vaultutils.NormalizeOwner(req.Id.Owner) != vaultutils.NormalizeOwner(request.Metadata.WorkflowOwner) {
 			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", request.Metadata.WorkflowOwner)
-			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx)
+			return capabilities.CapabilityResponse{}, getSecretsUserError(fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx))
 		}
 	}
 
@@ -204,7 +229,7 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 	s.lggr.Debugw("received get secrets request", "requestID", requestID, "request", request.String())
 	if err := s.ValidateGetSecretsRequest(ctx, request); err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", requestID, "request", request.String(), "err", err)
-		return nil, err
+		return nil, getSecretsUserError(err)
 	}
 
 	// No auth needed, as this method is not exposed externally
@@ -237,9 +262,44 @@ func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetP
 		return nil, fmt.Errorf("could not marshal public key: %w", err)
 	}
 
+	// When the encrypt-only gate is open, return only the stable sub-key
+	// (Group/G_bar/H, without HArray) so consumers that only encrypt (e.g. the CRE
+	// CLI) are unaffected by DKG reshares that redistribute HArray.
+	open, err := s.encryptOnlyEnabled.IsOpen(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not evaluate encrypt-only gate: %w", err)
+	}
+	if open {
+		l.Debug("encrypt-only gate open: stripping HArray, returning encrypt-only public key")
+		pkb, err = encryptOnlyPublicKey(pkb)
+		if err != nil {
+			l.Debugw("could not derive encrypt-only public key", "err", err)
+			return nil, fmt.Errorf("could not derive encrypt-only public key: %w", err)
+		}
+	}
+
 	return &vaultcommon.GetPublicKeyResponse{
 		PublicKey: hex.EncodeToString(pkb),
 	}, nil
+}
+
+// encryptOnlyPublicKey takes the marshaled TDH2 vault public key JSON
+// ({Group, G_bar, H, HArray}) and returns the same JSON with HArray removed.
+// HArray holds the per-recipient verification shares, which are redistributed
+// (and so change) on every DKG reshare; Group/G_bar/H are the stable parts
+// required to encrypt. Encrypt-only consumers use the result so they are
+// unaffected by reshares.
+func encryptOnlyPublicKey(pkJSON []byte) ([]byte, error) {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(pkJSON, &m); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal public key json: %w", err)
+	}
+	delete(m, "HArray")
+	out, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal encrypt-only public key json: %w", err)
+	}
+	return out, nil
 }
 
 func validateEncryptedSecretsUniformOwners(encryptedSecrets []*vaultcommon.EncryptedSecret) error {
@@ -310,7 +370,7 @@ func NewCapability(
 	clock clockwork.Clock,
 	expiresAfter time.Duration,
 	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
-	capabilitiesRegistry core.CapabilitiesRegistry,
+	capabilitiesRegistry registry.CapabilitiesRegistry,
 	publicKey *LazyPublicKey,
 	limitsFactory limits.Factory,
 	lifecycle *RequestLifecycleTracker,
@@ -329,6 +389,13 @@ func NewCapability(
 	if zoneBRestrictor == nil {
 		return nil, errors.New("vault capability requires a non-nil zone-b restrictor")
 	}
+	encryptOnlyEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultPublicKeyEncryptOnlyEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vault public key encrypt-only gate limiter: %w", err)
+	}
+	if encryptOnlyEnabled == nil {
+		return nil, errors.New("vault capability requires a non-nil encrypt-only gate limiter")
+	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
 		clock:                clock,
@@ -338,6 +405,7 @@ func NewCapability(
 		publicKey:            publicKey,
 		lifecycle:            lifecycle,
 		zoneBRestrictor:      zoneBRestrictor,
+		encryptOnlyEnabled:   encryptOnlyEnabled,
 		RequestValidator:     requestValidator,
 	}, nil
 }

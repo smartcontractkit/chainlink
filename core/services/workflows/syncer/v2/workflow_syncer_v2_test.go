@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -300,8 +301,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-	capRegistry := corecaps.NewRegistry(lggr)
-	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
+	capRegistry := registry.NewRegistry(lggr)
+	capRegistry.SetRegistryMetadata(&registry.TestRegistryMetadata{})
 	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
 		ArtifactStorageHost: "storage.chain.link",
 	}))
@@ -404,15 +405,15 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-	capRegistry := corecaps.NewRegistry(lggr)
-	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
+	capRegistry := registry.NewRegistry(lggr)
+	capRegistry.SetRegistryMetadata(&registry.TestRegistryMetadata{})
 	store, err := artifacts.NewStore(lggr, orm, fetcherFn, retrieverFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
 		ArtifactStorageHost: "storage.chain.link",
 	}))
 	require.NoError(t, err)
 
 	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, &confidentialrelay.ExecutionHandlers{}, er,
-		emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier, WithStaticEngine(&mockService{}), withTestOrgResolver())
+		emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier, WithStaticEngine(&mockEngine{}), withTestOrgResolver())
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(

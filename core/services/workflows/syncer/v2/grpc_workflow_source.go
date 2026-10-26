@@ -173,10 +173,11 @@ func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 
 	var allViews []WorkflowMetadataView
 	var start int64
+	families := ExpandWorkflowFamilies(don.Families)
 
 	// Fetch all pages
 	for {
-		workflows, hasMore, err := g.fetchPageWithRetry(ctx, don.Families, start)
+		workflows, hasMore, err := g.fetchPageWithRetry(ctx, families, start)
 		if err != nil {
 			return nil, nil, err
 		}

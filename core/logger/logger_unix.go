@@ -10,6 +10,6 @@ func registerOSSinks() error {
 
 // logFileURI returns the full path to the file the
 // NewLogger logs to, and uses zap's built in default file sink.
-func (c Config) logFileURI() string {
+func (c *Config) logFileURI() string {
 	return filepath.ToSlash(c.LogsFile())
 }

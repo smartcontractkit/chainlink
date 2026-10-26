@@ -45,8 +45,7 @@ var (
 	sigs               = []byte("some-signatures")
 )
 
-type fakeOnchainKeyring struct {
-}
+type fakeOnchainKeyring struct{}
 
 func (f fakeOnchainKeyring) PublicKey() ocrtypes.OnchainPublicKey {
 	return pubKey
@@ -57,7 +56,7 @@ func (f fakeOnchainKeyring) Sign(rc ocrtypes.ReportContext, r ocrtypes.Report) (
 		return nil, fmt.Errorf("expected configDigest %v but got %v", configDigest, rc.ConfigDigest)
 	}
 
-	if rc.Epoch != uint32(seqNr) {
+	if rc.Epoch != uint32(seqNr) { //nolint:gosec // seqNr is a small fixed test value
 		return nil, fmt.Errorf("expected Epoch %v but got %v", seqNr, rc.Epoch)
 	}
 
@@ -80,7 +79,7 @@ func (f fakeOnchainKeyring) Verify(pk ocrtypes.OnchainPublicKey, rc ocrtypes.Rep
 		return false
 	}
 
-	if rc.Epoch != uint32(seqNr) {
+	if rc.Epoch != uint32(seqNr) { //nolint:gosec // seqNr is a small fixed test value
 		return false
 	}
 
@@ -291,8 +290,7 @@ func TestNewOCR3OnchainKeyringMultiChainAdapter_VerifyFromDifferentNodesPublicKe
 
 var _ ocrtypes.ContractTransmitter = (*fakeContractTransmitter)(nil)
 
-type fakeContractTransmitter struct {
-}
+type fakeContractTransmitter struct{}
 
 func (f fakeContractTransmitter) Transmit(ctx context.Context, rc ocrtypes.ReportContext, report ocrtypes.Report, s []ocrtypes.AttributedOnchainSignature) error {
 	if !reflect.DeepEqual(report, rwi.Report) {
@@ -307,7 +305,7 @@ func (f fakeContractTransmitter) Transmit(ctx context.Context, rc ocrtypes.Repor
 		return fmt.Errorf("expected configDigest %v but got %v", configDigest, rc.ConfigDigest)
 	}
 
-	if rc.Epoch != uint32(seqNr) {
+	if rc.Epoch != uint32(seqNr) { //nolint:gosec // seqNr is a small fixed test value
 		return fmt.Errorf("expected Epoch %v but got %v", seqNr, rc.Epoch)
 	}
 

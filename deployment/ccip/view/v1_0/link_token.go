@@ -45,14 +45,12 @@ func GenerateLinkTokenView(lt *link_token.LinkToken) (LinkTokenView, error) {
 	}
 
 	return LinkTokenView{
-		ContractMetaData: view.ContractMetaData{
-			TypeAndVersion: cldf.TypeAndVersion{
-				Type:    linkcontracts.LinkToken,
-				Version: *semver.MustParse("1.0.0"),
-			}.String(),
-			Address: lt.Address(),
-			Owner:   owner,
-		},
+		TypeAndVersion: cldf.TypeAndVersion{
+			Type:    linkcontracts.LinkToken,
+			Version: *semver.MustParse("1.0.0"),
+		}.String(),
+		Address:  lt.Address(),
+		Owner:    owner,
 		Decimals: decimals,
 		Supply:   totalSupply,
 		Minters:  minters,

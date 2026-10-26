@@ -185,7 +185,7 @@ func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := contexts.WithCRE(t.Context(), contexts.CRE{Workflow: workflowID})
-	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
+	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL, nil)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary)
 	require.Equal(t, []byte(configData), config)
@@ -229,7 +229,7 @@ func Test_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := contexts.WithCRE(t.Context(), contexts.CRE{Workflow: workflowID})
-	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
+	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL, nil)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary)
 	require.Equal(t, []byte(configData), config)
@@ -273,7 +273,7 @@ func Test_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := contexts.WithCRE(t.Context(), contexts.CRE{Workflow: workflowID})
-	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
+	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL, nil)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary)
 	require.Equal(t, []byte(configData), config)
@@ -336,7 +336,12 @@ func Test_Store_FetchWorkflowArtifacts_PauseTombstone(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
+	// FetchWorkflowArtifacts no longer looks the row up itself: the caller (here, the test,
+	// standing in for workflowRegisteredEvent) passes in the row it already has in hand.
+	activeSpec, err := orm.GetWorkflowSpec(ctx, workflowID)
+	require.NoError(t, err)
+
+	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL, activeSpec)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary)
 	require.Equal(t, []byte(configData), config)
@@ -345,7 +350,10 @@ func Test_Store_FetchWorkflowArtifacts_PauseTombstone(t *testing.T) {
 	// returning the cleared payload.
 	require.NoError(t, h.PauseWorkflowArtifacts(ctx, workflowID))
 
-	binary, config, err = h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
+	tombstoneSpec, err := orm.GetWorkflowSpec(ctx, workflowID)
+	require.NoError(t, err)
+
+	binary, config, err = h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL, tombstoneSpec)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary, "tombstoned row must not be served as a cache hit")
 	require.Equal(t, []byte(configData), config)

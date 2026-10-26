@@ -9,24 +9,22 @@ import (
 	"sync"
 	"time"
 
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
-	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
 const confidentialWorkflowsCapabilityID = "confidential-workflows@1.0.0-alpha"
@@ -60,7 +58,7 @@ func ParseWorkflowAttributes(data []byte) (WorkflowAttributes, error) {
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
 type ConfidentialModule struct {
-	capRegistry       core.CapabilitiesRegistry
+	capRegistry       registry.CapabilitiesRegistry
 	binaryURL         string
 	binaryHash        []byte
 	workflowID        string
@@ -79,41 +77,32 @@ type ConfidentialModule struct {
 	creSettingsGetter settings.Getter
 }
 
-// confidentialModuleMetrics are node-measured (and therefore trusted) metrics for
-// the enclave round-trip. They live in the enclave* namespace alongside the
-// enclave-reported enclave.* metrics (which are non-attested), keeping all
-// confidential-workflow metrics out of the classic platform_engine_* namespace.
-type confidentialModuleMetrics struct {
-	executionDuration metric.Int64Histogram
-	executionFailures metric.Int64Counter
-}
+// errorTypeAttribute labels enclave execution failures with the failure's root
+// cause, mirroring the enclave-side error_type convention so alerts can page on
+// system failures without firing on user-caused ones.
+const errorTypeAttribute = "error_type"
 
-func newConfidentialModuleMetrics(meter metric.Meter) (*confidentialModuleMetrics, error) {
-	executionDuration, err := meter.Int64Histogram("enclave_execution_time_ms")
-	if err != nil {
-		return nil, err
+// errorTypeFor classifies a failed enclave round-trip as "user" or "system".
+// A user-origin caperrors.Error propagating from the capability (e.g. a workflow
+// that exceeds its execution budget) is the user's, everything else is ours.
+func errorTypeFor(err error) string {
+	if events.ClassifyError(err, events.ErrorClassificationSystem) == events.ErrorClassificationUser {
+		return "user"
 	}
-	executionFailures, err := meter.Int64Counter("enclave_execution_failures")
-	if err != nil {
-		return nil, err
-	}
-	return &confidentialModuleMetrics{
-		executionDuration: executionDuration,
-		executionFailures: executionFailures,
-	}, nil
+	return "system"
 }
 
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, creSettingsGetter settings.Getter, lggr logger.Logger) (*ConfidentialModule, error) {
+func NewConfidentialModule(capRegistry registry.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, creSettingsGetter settings.Getter, lggr logger.Logger) (*ConfidentialModule, error) {
 	if enabledGate == nil {
 		return nil, errors.New("enabledGate must not be nil")
 	}
 	if resolveOrgID == nil {
 		return nil, errors.New("resolveOrgID must not be nil")
 	}
-	metrics, err := newConfidentialModuleMetrics(beholder.GetMeter())
+	metrics, err := newConfidentialModuleMetrics(beholder.GetMeter(), workflowID, workflowOwner, workflowName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create confidential module metrics: %w", err)
 	}
@@ -134,9 +123,17 @@ func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandl
 	}, nil
 }
 
-func (m *ConfidentialModule) Start()            {}
-func (m *ConfidentialModule) Close()            {}
-func (m *ConfidentialModule) IsLegacyDAG() bool { return false }
+func (m *ConfidentialModule) Start() {
+	if err := m.metrics.start(); err != nil {
+		m.lggr.Errorw("failed to start confidential module metrics", "error", err)
+	}
+}
+
+func (m *ConfidentialModule) Close() {
+	if err := m.metrics.close(); err != nil {
+		m.lggr.Errorw("failed to close confidential module metrics", "error", err)
+	}
+}
 
 func (m *ConfidentialModule) Execute(
 	ctx context.Context,
@@ -179,16 +176,12 @@ func (m *ConfidentialModule) Execute(
 
 	capOutput := &confworkflowtypes.ConfidentialWorkflowResponse{}
 	// Time the enclave round-trip (node-measured, trusted) and count failures.
-	attrs := metric.WithAttributes(
-		attribute.String(platform.KeyWorkflowID, m.workflowID),
-		attribute.String(platform.KeyWorkflowOwner, m.workflowOwner),
-		attribute.String(platform.KeyWorkflowName, m.workflowName),
-	)
 	start := time.Now()
 	err := doRequest(ctx, m, workflowExecutionID, "Execute", capInput, capOutput, orgID)
-	m.metrics.executionDuration.Record(ctx, time.Since(start).Milliseconds(), attrs)
+	completed := time.Now()
+	m.metrics.executionDuration.Record(ctx, completed.Sub(start).Milliseconds(), m.metrics.attrs)
 	if err != nil {
-		m.metrics.executionFailures.Add(ctx, 1, attrs)
+		m.metrics.recordFailure(ctx, err, completed)
 		return nil, err
 	}
 

@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/stellarwrite/config"
 )
 
@@ -113,7 +112,15 @@ func onStellarWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron
 	}).Await()
 	if err != nil {
 		if cfg.ExpectFailure {
-			return nil, fmt.Errorf("expected failed tx status in WriteReport reply, got call error instead: %w", err)
+			// The capability rejects undeliverable writes before submitting (pre-submit
+			// simulation gate): the receiver reports it cannot accept the report, so no tx
+			// is sent and WriteReport returns a call error instead of a failed-tx reply.
+			// That rejection is the expected failure for these negative receivers.
+			runtime.Logger().Info(
+				fmt.Sprintf("Stellar write failure observed as expected error=%v", err),
+				"workflow", cfg.WorkflowName,
+			)
+			return nil, nil
 		}
 		runtime.Logger().Info(fmt.Sprintf("Stellar write failed: WriteReport error: %v", err), "workflow", cfg.WorkflowName, "chainSelector", cfg.ChainSelector)
 		return nil, err

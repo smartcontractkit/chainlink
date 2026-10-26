@@ -19,7 +19,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
@@ -52,11 +51,11 @@ type DonNode struct {
 
 type CapabilityHost struct {
 	NodeID       string // globally unique
-	Capabilities []capabilities_registry.CapabilitiesRegistryCapability
+	Capabilities []kcr.CapabilitiesRegistryCapability
 }
 
 type Nop struct {
-	capabilities_registry.CapabilitiesRegistryNodeOperator
+	kcr.CapabilitiesRegistryNodeOperator
 	NodeIDs []string // nodes run by this operator
 }
 
@@ -123,15 +122,15 @@ func (v DonCapabilities) Validate() error {
 	return nil
 }
 
-func NodeOperator(name string, adminAddress string) capabilities_registry.CapabilitiesRegistryNodeOperator {
-	return capabilities_registry.CapabilitiesRegistryNodeOperator{
+func NodeOperator(name string, adminAddress string) kcr.CapabilitiesRegistryNodeOperator {
+	return kcr.CapabilitiesRegistryNodeOperator{
 		Name:  name,
 		Admin: adminAddr(adminAddress),
 	}
 }
 
-func NopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint64) (map[capabilities_registry.CapabilitiesRegistryNodeOperator][]string, error) {
-	out := make(map[capabilities_registry.CapabilitiesRegistryNodeOperator][]string)
+func NopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint64) (map[kcr.CapabilitiesRegistryNodeOperator][]string, error) {
+	out := make(map[kcr.CapabilitiesRegistryNodeOperator][]string)
 	for _, don := range dons {
 		for _, nop := range don.Nops {
 			idx := slices.IndexFunc(donInfos, func(donInfo DonInfo) bool {
@@ -210,7 +209,7 @@ func MapDonsToNodes(dons []DonInfo, excludeBootstraps bool, registryChainSel uin
 // RegisteredDon is a representation of a don that exists in the in the capabilities registry all with the enriched node data
 type RegisteredDon struct {
 	Name  string
-	Info  capabilities_registry.CapabilitiesRegistryDONInfo
+	Info  kcr.CapabilitiesRegistryDONInfo
 	Nodes []deployment.Node
 }
 
@@ -218,7 +217,7 @@ type RegisteredDonConfig struct {
 	Name             string
 	NodeIDs          []string // ids in the offchain client
 	RegistryChainSel uint64
-	Registry         *capabilities_registry.CapabilitiesRegistry
+	Registry         *kcr.CapabilitiesRegistry
 }
 
 func NewRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
@@ -252,10 +251,10 @@ func NewRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*Registere
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node info: %w", err)
 	}
-	want := sortedHash(nodes.PeerIDs())
+	want := SortedHash(nodes.PeerIDs())
 	var don *kcr.CapabilitiesRegistryDONInfo
 	for i, d := range di {
-		got := sortedHash(d.NodeP2PIds)
+		got := SortedHash(d.NodeP2PIds)
 		if got == want {
 			don = &di[i]
 		}

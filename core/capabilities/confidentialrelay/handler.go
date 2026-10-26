@@ -22,6 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -154,7 +156,7 @@ type Handler struct {
 	services.Service
 	eng *services.Engine
 
-	capRegistry       core.CapabilitiesRegistry
+	capRegistry       registry.CapabilitiesRegistry
 	executionHandlers *ExecutionHandlers
 	gatewayConnector  core.GatewayConnector
 	responseSigner    relayResponseSigner
@@ -197,7 +199,7 @@ type Handler struct {
 	pendingRequestsMu sync.Mutex
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *ExecutionHandlers, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, requireBFTQuorum bool) (*Handler, error) {
+func NewHandler(capRegistry registry.CapabilitiesRegistry, executionHandlers *ExecutionHandlers, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, requireBFTQuorum bool) (*Handler, error) {
 	if responseSigner == nil {
 		return nil, errors.New("response signer is required")
 	}
@@ -478,10 +480,22 @@ func (h *Handler) fetchSecrets(
 		return nil, &relayError{code: jsonrpc.ErrInternal, err: fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID)}
 	}
 
-	vaultResp, err := handler.GetRawSecrets(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
+	vaultResp, err := handler.GetRawSecretsResponse(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
 	if err != nil {
-		l.Errorw("vault secrets fetch failed", "err", err)
-		return nil, &relayError{code: jsonrpc.ErrInternal, err: err}
+		// A user-origin caperrors.Error (e.g. an oversized GetSecrets batch
+		// rejected by the vault) keeps its classification across the remote
+		// boundary: answer invalid params with the real cause. Anything else
+		// stays internal, mirroring translateVaultResponse.
+		code := jsonrpc.ErrInternal
+		respErr := err
+		userErr := false
+		if capErr, ok := errors.AsType[caperrors.Error](err); ok && capErr.Origin() == caperrors.OriginUser {
+			code = jsonrpc.ErrInvalidParams
+			respErr = capErr // surface the vault's message, not the transport-wrapped chain
+			userErr = true
+		}
+		l.Errorw("vault secrets fetch failed", "userError", userErr, "err", err)
+		return nil, &relayError{code: code, err: respErr}
 	}
 
 	result, err := translateVaultResponse(vaultResp, params.EnclavePublicKey)
@@ -507,10 +521,14 @@ func (h *Handler) fetchSecrets(
 // translateVaultResponse converts a vault GetSecretsResponse to the enclave relay protocol format.
 // Encoding conversion: ciphertext hex (vault) -> base64 (enclave relay); encrypted shares may be
 // binary or hex (vault) -> base64 (enclave relay).
-func translateVaultResponse(vaultResp []*vault.SecretResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
-	result := &confidentialrelaytypes.SecretsResponseResult{}
+func translateVaultResponse(vaultResp *vault.GetSecretsResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
+	// Forward the DKG instance's public key so the enclave verifies/aggregates these
+	// shares against the live key rather than its (possibly stale) configured key.
+	result := &confidentialrelaytypes.SecretsResponseResult{
+		RawVaultPublicKey: vaultResp.GetRawVaultPublicKey(),
+	}
 
-	for _, sr := range vaultResp {
+	for _, sr := range vaultResp.GetResponses() {
 		if sr.GetError() != "" {
 			return nil, newVaultSecretError(sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
 		}
@@ -984,7 +1002,7 @@ func (h *Handler) signSecretsResponse(
 		// Keep populating Signatures too: there are still readers of the array. The
 		// cleanup order is readers first, then writers (this), then the field itself,
 		// or builds go red.
-		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig},
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig}, //nolint:staticcheck // SA1019 backward compatibility
 	}, nil
 }
 
@@ -1015,7 +1033,7 @@ func (h *Handler) signCapabilityResponse(
 		// Keep populating Signatures too: there are still readers of the array. The
 		// cleanup order is readers first, then writers (this), then the field itself,
 		// or builds go red.
-		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig},
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig}, //nolint:staticcheck // SA1019 backward compatibility
 	}, nil
 }
 

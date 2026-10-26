@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // stubHTTPTriggerCapability implements coreconfig.HTTPTriggerCapability with
@@ -115,7 +115,7 @@ func TestInjectHTTPTriggerConfig_TOMLOverridesJobSpec(t *testing.T) {
 	// Job spec carries different values; TOML must win.
 	jobSpecConfig := `{"metadataBatchSize":999,"sendChannelBufferSize":888,"requestCacheTTL":777,"gatewayConnection":{"retryConfig":{"initialIntervalMs":111}}}`
 
-	got := injectHTTPTriggerConfig(logger.TestLogger(t), cfg, jobSpecConfig)
+	got := injectHTTPTriggerConfig(logger.Test(t), cfg, jobSpecConfig)
 
 	var m map[string]any
 	require.NoError(t, json.Unmarshal([]byte(got), &m))
@@ -142,7 +142,7 @@ func TestInjectHTTPTriggerConfig_UnsetTOMLFallsBackToJobSpec(t *testing.T) {
 	cfg := &stubHTTPTriggerCapability{}
 	jobSpecConfig := `{"metadataBatchSize":999,"sendChannelBufferSize":888,"requestCacheTTL":777,"gatewayConnection":{"retryConfig":{"initialIntervalMs":111},"maxPushMetadataDurationMs":555}}`
 
-	got := injectHTTPTriggerConfig(logger.TestLogger(t), cfg, jobSpecConfig)
+	got := injectHTTPTriggerConfig(logger.Test(t), cfg, jobSpecConfig)
 
 	var m map[string]any
 	require.NoError(t, json.Unmarshal([]byte(got), &m))
@@ -163,7 +163,7 @@ func TestInjectHTTPTriggerConfig_EmptyConfigProducesEmptyJSON(t *testing.T) {
 	// No TOML values, no job-spec config: result is empty JSON so the
 	// capability binary applies all of its built-in defaults.
 	cfg := &stubHTTPTriggerCapability{}
-	got := injectHTTPTriggerConfig(logger.TestLogger(t), cfg, "")
+	got := injectHTTPTriggerConfig(logger.Test(t), cfg, "")
 	assert.Equal(t, "{}", got)
 }
 
@@ -171,7 +171,7 @@ func TestInjectHTTPTriggerConfig_MalformedJobSpecConfigStillInjects(t *testing.T
 	t.Parallel()
 
 	cfg := &stubHTTPTriggerCapability{metadataBatchSize: 25}
-	got := injectHTTPTriggerConfig(logger.TestLogger(t), cfg, "{not valid json")
+	got := injectHTTPTriggerConfig(logger.Test(t), cfg, "{not valid json")
 
 	var m map[string]any
 	require.NoError(t, json.Unmarshal([]byte(got), &m))
@@ -201,7 +201,7 @@ func TestInjectHTTPActionConfig_TOMLOverridesJobSpec(t *testing.T) {
 	// Job spec carries different values; TOML must win.
 	jobSpecConfig := `{"proxyMode":"gateway","gatewayConnection":{"initialIntervalMs":111},"httpClient":{"allowedPorts":[443]}}`
 
-	got := injectHTTPActionConfig(logger.TestLogger(t), cfg, jobSpecConfig)
+	got := injectHTTPActionConfig(logger.Test(t), cfg, jobSpecConfig)
 
 	var m map[string]any
 	require.NoError(t, json.Unmarshal([]byte(got), &m))
@@ -229,7 +229,7 @@ func TestInjectHTTPActionConfig_UnsetTOMLFallsBackToJobSpec(t *testing.T) {
 	cfg := &stubHTTPActionCapability{}
 	jobSpecConfig := `{"proxyMode":"direct","gatewayConnection":{"initialIntervalMs":111},"httpClient":{"allowedPorts":[443,8443]}}`
 
-	got := injectHTTPActionConfig(logger.TestLogger(t), cfg, jobSpecConfig)
+	got := injectHTTPActionConfig(logger.Test(t), cfg, jobSpecConfig)
 
 	var m map[string]any
 	require.NoError(t, json.Unmarshal([]byte(got), &m))
@@ -245,7 +245,7 @@ func TestInjectHTTPActionConfig_EmptyConfigProducesEmptyJSON(t *testing.T) {
 	t.Parallel()
 
 	cfg := &stubHTTPActionCapability{}
-	got := injectHTTPActionConfig(logger.TestLogger(t), cfg, "")
+	got := injectHTTPActionConfig(logger.Test(t), cfg, "")
 	assert.Equal(t, "{}", got)
 }
 
@@ -259,7 +259,7 @@ func TestInjectHTTPActionConfig_HTTPClientOnlyFromTOML(t *testing.T) {
 		httpClient: stubHTTPActionHTTPClient{allowedPorts: []int{9443}, allowedSchemes: []string{"https"}},
 	}
 
-	got := injectHTTPActionConfig(logger.TestLogger(t), cfg, `{"proxyMode":"direct"}`)
+	got := injectHTTPActionConfig(logger.Test(t), cfg, `{"proxyMode":"direct"}`)
 
 	var m map[string]any
 	require.NoError(t, json.Unmarshal([]byte(got), &m))

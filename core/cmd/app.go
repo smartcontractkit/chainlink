@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -9,7 +10,6 @@ import (
 	"regexp"
 	"slices"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli"
 
@@ -107,7 +107,7 @@ func NewApp(s *Shell) *cli.App {
 		urlStr := c.String("remote-node-url")
 		remoteNodeURL, err := url.Parse(urlStr)
 		if err != nil {
-			return errors.Wrapf(err, "%s is not a valid URL", urlStr)
+			return fmt.Errorf("%s is not a valid URL: %w", urlStr, err)
 		}
 
 		insecureSkipVerify := c.Bool("insecure-skip-verify")
@@ -117,8 +117,8 @@ func NewApp(s *Shell) *cli.App {
 
 		credentialsFile := c.String("admin-credentials-file")
 		sr, err := sessionRequestBuilder.Build(credentialsFile)
-		if err != nil && !errors.Is(errors.Cause(err), ErrNoCredentialFile) && !os.IsNotExist(err) {
-			return errors.Wrapf(err, "failed to load API credentials from file %s", credentialsFile)
+		if err != nil && !errors.Is(err, ErrNoCredentialFile) && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to load API credentials from file %s: %w", credentialsFile, err)
 		}
 
 		s.HTTP = NewAuthenticatedHTTPClient(s.Logger, clientOpts, cookieAuth, sr)
@@ -202,7 +202,6 @@ func NewApp(s *Shell) *cli.App {
 				initOCRKeysSubCmd(s),
 				initOCR2KeysSubCmd(s),
 
-				keysCommand("Cosmos", NewCosmosKeysClient(s)),
 				keysCommand("Solana", NewSolanaKeysClient(s)),
 				keysCommand("StarkNet", NewStarkNetKeysClient(s)),
 				keysCommand("Aptos", NewAptosKeysClient(s)),
@@ -271,7 +270,7 @@ func NewApp(s *Shell) *cli.App {
 				lggrCfg := logger.Config{
 					LogLevel:    s.Config.Log().Level(),
 					Dir:         s.Config.Log().File().Dir(),
-					JsonConsole: s.Config.Log().JSONConsole(),
+					JSONConsole: s.Config.Log().JSONConsole(),
 					UnixTS:      s.Config.Log().UnixTimestamps(),
 					//nolint:gosec // filemaxsizesmb won't exceed max int
 					FileMaxSizeMB:  int(logFileMaxSizeMB),
@@ -306,7 +305,6 @@ func NewApp(s *Shell) *cli.App {
 			Usage: "Commands for handling transactions",
 			Subcommands: []cli.Command{
 				initEVMTxSubCmd(s),
-				initCosmosTxSubCmd(s),
 				initSolanaTxSubCmd(s),
 			},
 		},

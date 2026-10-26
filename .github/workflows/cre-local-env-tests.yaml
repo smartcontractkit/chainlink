@@ -385,10 +385,12 @@ jobs:
             fi
           fi
 
-          echo "duration_minutes=$duration_minutes" >> "${GITHUB_OUTPUT}"
-          echo "conclusion=$conclusion" >> "${GITHUB_OUTPUT}"
-          echo "reason=$reason" >> "${GITHUB_OUTPUT}"
-          echo "should_notify=$should_notify" >> "${GITHUB_OUTPUT}"
+          {
+            echo "duration_minutes=$duration_minutes"
+            echo "conclusion=$conclusion"
+            echo "reason=$reason"
+            echo "should_notify=$should_notify"
+          } | tee -a "${GITHUB_OUTPUT}"
 
       - name: Send slack notification
         if: steps.check-timeout.outputs.should_notify == 'true'

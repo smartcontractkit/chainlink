@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -124,6 +124,28 @@ func TestTelemetryConfig_ResourceAttributes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.ResourceAttributes())
+		})
+	}
+}
+
+func TestTelemetryConfig_ResourceAttributesShardIndex(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		sharding  toml.Sharding
+		telemetry toml.Telemetry
+		expected  string
+	}{
+		{"ShardingEnabled", toml.Sharding{ShardingEnabled: new(true), ShardIndex: new(uint16(2))}, toml.Telemetry{}, "2"},
+		{"ShardingDisabled", toml.Sharding{ShardingEnabled: new(false), ShardIndex: new(uint16(2))}, toml.Telemetry{}, ""},
+		{"ExplicitAttributeWins", toml.Sharding{ShardingEnabled: new(true), ShardIndex: new(uint16(2))}, toml.Telemetry{ResourceAttributes: map[string]string{"shardIndex": "7"}}, "7"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry, sh: &shardingConfig{s: tt.sharding}}
+			assert.Equal(t, tt.expected, tc.ResourceAttributes()["shardIndex"])
 		})
 	}
 }
@@ -260,8 +282,8 @@ func TestTelemetryConfig_DurableEmitterMaxQueuePayloadBytes(t *testing.T) {
 	}
 }
 
-func ptrDuration(d time.Duration) *config.Duration {
-	return config.MustNewDuration(d)
+func ptrDuration(d time.Duration) *commonconfig.Duration {
+	return commonconfig.MustNewDuration(d)
 }
 
 func TestTelemetryConfig_ChipIngressBufferSize(t *testing.T) {
@@ -499,6 +521,7 @@ func TestTelemetryConfig_LogExportTimeout(t *testing.T) {
 		})
 	}
 }
+
 func TestTelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
 	tests := []struct {
 		name      string

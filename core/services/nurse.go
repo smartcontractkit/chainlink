@@ -21,9 +21,9 @@ import (
 	"github.com/google/pprof/profile"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -92,7 +92,7 @@ func (n *Nurse) start(_ context.Context) error {
 	runtime.SetBlockProfileRate(n.cfg.BlockProfileRate())
 	runtime.SetMutexProfileFraction(n.cfg.MutexProfileFraction())
 
-	err := utils.EnsureDirAndMaxPerms(n.cfg.ProfileRoot(), 0744)
+	err := utils.EnsureDirAndMaxPerms(n.cfg.ProfileRoot(), 0o744)
 	if err != nil {
 		return err
 	}
@@ -166,18 +166,26 @@ func (n *Nurse) checkGoroutines() (bool, Meta) {
 	}
 }
 
-func (n *Nurse) gatherVitals(reason string, meta Meta) {
-	loggerFields := (logger.Fields{"reason": reason}).Merge(logger.Fields(meta))
+func metaFields(reason string, meta Meta, extra ...any) []any {
+	fields := make([]any, 0, 2+len(meta)*2+len(extra))
+	fields = append(fields, "reason", reason)
+	for k, v := range meta {
+		fields = append(fields, k, v)
+	}
+	fields = append(fields, extra...)
+	return fields
+}
 
-	n.eng.Debugw("Nurse is gathering vitals", loggerFields.Slice()...)
+func (n *Nurse) gatherVitals(reason string, meta Meta) {
+	n.eng.Debugw("Nurse is gathering vitals", metaFields(reason, meta)...)
 
 	size, err := n.totalProfileBytes()
 	if err != nil {
-		n.eng.Errorw("could not fetch total profile bytes", loggerFields.With("err", err).Slice()...)
+		n.eng.Errorw("could not fetch total profile bytes", metaFields(reason, meta, "err", err)...)
 		return
 	} else if size >= uint64(n.cfg.MaxProfileSize()) {
 		n.eng.Warnw("cannot write pprof profile, total profile size exceeds configured PPROF_MAX_PROFILE_SIZE",
-			loggerFields.With("total", size, "max", n.cfg.MaxProfileSize()).Slice()...,
+			metaFields(reason, meta, "total", size, "max", n.cfg.MaxProfileSize())...,
 		)
 		return
 	}
@@ -186,7 +194,7 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 
 	err = n.appendLog(now, reason, meta)
 	if err != nil {
-		n.eng.Warnw("cannot write pprof profile", loggerFields.With("err", err).Slice()...)
+		n.eng.Warnw("cannot write pprof profile", metaFields(reason, meta, "err", err)...)
 		return
 	}
 	var wg sync.WaitGroup
@@ -232,7 +240,6 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 
 	n.eng.Debugf("creating nurse log %s", filename)
 	file, err := os.Create(filename)
-
 	if err != nil {
 		return err
 	}
@@ -434,20 +441,23 @@ func (n *Nurse) totalProfileBytes() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	var size int64
+	var size uint64
 	for _, p := range profiles {
-		size += p.Size()
+		sz := p.Size()
+		if sz < 0 {
+			return 0, errors.New("negative profile size encountered")
+		}
+		size += uint64(sz)
 	}
 	if size > math.MaxInt64 {
 		return 0, errors.New("total profile size overflows int64")
 	}
-	return uint64(size), nil
+	return size, nil
 }
 
 func (n *Nurse) listProfiles() ([]fs.FileInfo, error) {
 	out := make([]fs.FileInfo, 0)
 	entries, err := os.ReadDir(n.cfg.ProfileRoot())
-
 	if err != nil {
 		return nil, err
 	}
