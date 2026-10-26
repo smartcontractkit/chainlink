@@ -3,6 +3,7 @@ package capabilities
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -24,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
@@ -1096,7 +1099,7 @@ func TestLauncher_OnNewRegistry_CallsLocalCapabilityManagerReconcile(t *testing.
 
 	reconcileCalled := make(chan struct{}, 1)
 	mockLCM := &mockLocalCapabilityManager{
-		reconcileFn: func(ctx context.Context, dons []regpkg.DON) error {
+		reconcileFn: func(ctx context.Context, dons []regpkg.DON, _ *capabilitiespb.OffchainCapabilitiesRegistry) error {
 			assert.Len(t, dons, 1, "should pass all DONs")
 			assert.Equal(t, capDonID, dons[0].ID)
 			reconcileCalled <- struct{}{}
@@ -1162,6 +1165,77 @@ func TestLauncher_OnNewRegistry_NilLocalCapabilityManager(t *testing.T) {
 
 	err = launcher.OnNewRegistry(t.Context(), localRegistry)
 	require.NoError(t, err)
+}
+
+func TestLauncher_OffchainRegistryUpdate(t *testing.T) {
+	t.Parallel()
+
+	storeVersion := func(t *testing.T, gc *globalconfig.GlobalConfig, v uint64) {
+		raw := fmt.Sprintf(`{"domain":"cre","env":"test","version":%d}`, v)
+		_, err := gc.Store(raw, raw)
+		require.NoError(t, err)
+	}
+	setup := func(t *testing.T, gate bool) (*launcher, *regpkg.RegistryMetadata, *globalconfig.GlobalConfig, <-chan uint64) {
+		lggr := logger.Test(t)
+		nodes := newNodes(4)
+		sharedPeer := mocks.NewSharedPeer(t)
+		sharedPeer.On("ID").Return(nodes[0])
+		sharedPeer.On("IsBootstrap").Return(false)
+		sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		localRegistry := buildLocalRegistry()
+		addDON(localRegistry, 1, uint32(0), uint8(1), true, true, nodes, []string{"zone-a"}, 1, nil)
+
+		versions := make(chan uint64, 10)
+		lcm := &mockLocalCapabilityManager{
+			reconcileFn: func(_ context.Context, _ []regpkg.DON, offchainReg *capabilitiespb.OffchainCapabilitiesRegistry) error {
+				versions <- offchainReg.GetVersion()
+				return nil
+			},
+		}
+		l, err := NewLauncher(lggr, sharedPeer, nil, remoteMocks.NewDispatcher(t), regpkg.NewRegistry(lggr), &mockDonNotifier{}, limits.Factory{}, false, 0)
+		require.NoError(t, err)
+		gc := globalconfig.New()
+		l.SetLocalCapabilityManager(lcm)
+		l.SetOffchainRegistry(gc, gate)
+		servicetest.Run(t, l)
+		return l, localRegistry, gc, versions
+	}
+
+	t.Run("gate on: update before first sync is picked up by the sync", func(t *testing.T) {
+		t.Parallel()
+		l, localRegistry, gc, versions := setup(t, true)
+		storeVersion(t, gc, 1)
+		require.Never(t, func() bool { return len(versions) > 0 }, 100*time.Millisecond, 10*time.Millisecond)
+
+		require.NoError(t, l.OnNewRegistry(t.Context(), localRegistry))
+		assert.Equal(t, uint64(1), <-versions)
+	})
+
+	t.Run("gate on: update re-runs with the last registry", func(t *testing.T) {
+		t.Parallel()
+		l, localRegistry, gc, versions := setup(t, true)
+		require.NoError(t, l.OnNewRegistry(t.Context(), localRegistry))
+		assert.Equal(t, uint64(0), <-versions)
+
+		storeVersion(t, gc, 2)
+		select {
+		case v := <-versions:
+			assert.Equal(t, uint64(2), v)
+		case <-time.After(5 * time.Second):
+			t.Fatal("offchain update did not trigger a reconcile")
+		}
+	})
+
+	t.Run("gate off: snapshot passed, update does not re-run", func(t *testing.T) {
+		t.Parallel()
+		l, localRegistry, gc, versions := setup(t, false)
+		storeVersion(t, gc, 1)
+		require.NoError(t, l.OnNewRegistry(t.Context(), localRegistry))
+		assert.Equal(t, uint64(1), <-versions)
+
+		storeVersion(t, gc, 2)
+		require.Never(t, func() bool { return len(versions) > 0 }, 200*time.Millisecond, 10*time.Millisecond)
+	})
 }
 
 // Unlike TestLauncher_ShardedCapabilityRoutingByFamily, this test has two capability DONs hosting
@@ -1386,7 +1460,7 @@ func TestLauncher_OnNewRegistry_FiltersRemoteWorkflowDONsByFamily(t *testing.T) 
 
 // mockLocalCapabilityManager is a test mock that records calls to Reconcile.
 type mockLocalCapabilityManager struct {
-	reconcileFn func(ctx context.Context, dons []regpkg.DON) error
+	reconcileFn func(ctx context.Context, dons []regpkg.DON, offchainReg *capabilitiespb.OffchainCapabilitiesRegistry) error
 }
 
 func (m *mockLocalCapabilityManager) Start(context.Context) error    { return nil }
@@ -1394,9 +1468,9 @@ func (m *mockLocalCapabilityManager) Close() error                   { return ni
 func (m *mockLocalCapabilityManager) Ready() error                   { return nil }
 func (m *mockLocalCapabilityManager) HealthReport() map[string]error { return nil }
 func (m *mockLocalCapabilityManager) Name() string                   { return "mockLocalCapMgr" }
-func (m *mockLocalCapabilityManager) Reconcile(ctx context.Context, dons []regpkg.DON) error {
+func (m *mockLocalCapabilityManager) Reconcile(ctx context.Context, dons []regpkg.DON, offchainReg *capabilitiespb.OffchainCapabilitiesRegistry) error {
 	if m.reconcileFn != nil {
-		return m.reconcileFn(ctx, dons)
+		return m.reconcileFn(ctx, dons, offchainReg)
 	}
 	return nil
 }
@@ -1448,5 +1522,59 @@ func TestLauncher_ShardIdentityFromConfig(t *testing.T) {
 		require.Zero(t, l.shardIndex)
 		require.NoError(t, l.Start(t.Context()))
 		require.NoError(t, l.Close())
+	})
+}
+
+func TestConsensusSignersFor(t *testing.T) {
+	t.Parallel()
+
+	ocrCapConfig := func(t *testing.T, signers ...[]byte) regpkg.CapabilityConfiguration {
+		cfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
+				capabilitiespb.OCR3ConfigDefaultKey: {Signers: signers},
+			},
+		})
+		require.NoError(t, err)
+		return regpkg.CapabilityConfiguration{Config: cfg}
+	}
+	localRegistry := &regpkg.RegistryMetadata{
+		IDsToCapabilities: map[string]regpkg.Capability{
+			"consensus@1.0.0":    {ID: "consensus@1.0.0", CapabilityType: capabilities.CapabilityTypeConsensus},
+			"consensus@2.0.0":    {ID: "consensus@2.0.0", CapabilityType: capabilities.CapabilityTypeConsensus},
+			"dontime@1.0.0":      {ID: "dontime@1.0.0", CapabilityType: capabilities.CapabilityTypeAction},
+			"cron-trigger@1.0.0": {ID: "cron-trigger@1.0.0", CapabilityType: capabilities.CapabilityTypeTrigger},
+		},
+	}
+
+	t.Run("returns signers of the consensus capability", func(t *testing.T) {
+		t.Parallel()
+		don := regpkg.DON{CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{
+			"consensus@1.0.0":    ocrCapConfig(t, []byte("signer0"), []byte("signer1")),
+			"dontime@1.0.0":      ocrCapConfig(t, []byte("other")),
+			"cron-trigger@1.0.0": {Config: []byte{}},
+		}}
+		signers, err := consensusSignersFor(don, localRegistry)
+		require.NoError(t, err)
+		require.Equal(t, []ocrtypes.OnchainPublicKey{[]byte("signer0"), []byte("signer1")}, signers)
+	})
+
+	t.Run("fails without a consensus OCR3 config", func(t *testing.T) {
+		t.Parallel()
+		don := regpkg.DON{CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: []byte{}},
+			"dontime@1.0.0":   ocrCapConfig(t, []byte("other")),
+		}}
+		_, err := consensusSignersFor(don, localRegistry)
+		require.ErrorContains(t, err, "no consensus capability")
+	})
+
+	t.Run("fails with multiple consensus OCR3 configs", func(t *testing.T) {
+		t.Parallel()
+		don := regpkg.DON{CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{
+			"consensus@1.0.0": ocrCapConfig(t, []byte("signer0")),
+			"consensus@2.0.0": ocrCapConfig(t, []byte("signer1")),
+		}}
+		_, err := consensusSignersFor(don, localRegistry)
+		require.ErrorContains(t, err, "multiple consensus capabilities")
 	})
 }

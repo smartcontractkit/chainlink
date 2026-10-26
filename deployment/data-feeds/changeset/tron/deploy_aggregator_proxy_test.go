@@ -3,7 +3,7 @@ package tron_test
 import (
 	"testing"
 
-	"github.com/fbsobreira/gotron-sdk/pkg/address"
+	"github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk/pkg/address"
 
 	"github.com/stretchr/testify/require"
 

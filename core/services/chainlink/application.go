@@ -55,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	configtoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -313,6 +314,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	atomicSettings := &loop.AtomicSettings{}
 	atomicSettings.SetGetter(commoncresettings.DefaultGetter)
 	shardAssignmentSettings := &loop.AtomicSettings{}
+	offchainCapRegistry := globalconfig.New()
 	limitsFactory := limits.Factory{
 		Meter:    meter,
 		Logger:   globalLogger.Named("Limits"),
@@ -417,6 +419,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(csaSigner, csaPubKey)
 
 	// Wire DurableEmitter for persistent chip ingress delivery when enabled
+	var durableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
 		emitterCfg := durableemitter.DefaultConfig()
 		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{
@@ -469,6 +472,13 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", setupErr)
 		}
 		srvcs = append(srvcs, durableEmitter)
+		// Wrap durableEmitter to return ErrEmitFailed on error.
+		durableEmit = func(ctx context.Context, body []byte, attrKVs ...any) error {
+			if emitErr := durableEmitter.Emit(ctx, body, attrKVs...); emitErr != nil {
+				return fmt.Errorf("%w: %w", durableemitter.ErrEmitFailed, emitErr)
+			}
+			return nil
+		}
 	}
 
 	creServices, err := cre.NewServices(
@@ -479,22 +489,24 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		relayChainInterops,
 		peerWrapper,
 		cre.Opts{
-			CapabilitiesRegistry:    opts.CapabilitiesRegistry,
-			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
-			CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
-			CapabilitiesSharedPeer:  opts.CapabilitiesSharedPeer,
-			FetcherFunc:             opts.FetcherFunc,
-			BillingClient:           opts.BillingClient,
-			LinkingClient:           opts.LinkingClient,
-			Meter:                   meter,
-			StorageClient:           opts.StorageClient,
-			DonTimeStore:            opts.DonTimeStore,
-			LimitsFactory:           limitsFactory,
-			UseLocalTimeProvider:    opts.UseLocalTimeProvider,
-			WorkflowKey:             workflowKey,
-			JWTGenerator:            jwtGenerator,
-			ShardOrchestratorClient: shardOrchestratorClient,
-			ShardAssignmentSettings: shardAssignmentSettings,
+			CapabilitiesRegistry:         opts.CapabilitiesRegistry,
+			ExecutionHandlers:            &confidentialrelay.ExecutionHandlers{},
+			CapabilitiesDispatcher:       opts.CapabilitiesDispatcher,
+			CapabilitiesSharedPeer:       opts.CapabilitiesSharedPeer,
+			FetcherFunc:                  opts.FetcherFunc,
+			BillingClient:                opts.BillingClient,
+			LinkingClient:                opts.LinkingClient,
+			Meter:                        meter,
+			DurableEmit:                  durableEmit,
+			StorageClient:                opts.StorageClient,
+			DonTimeStore:                 opts.DonTimeStore,
+			LimitsFactory:                limitsFactory,
+			UseLocalTimeProvider:         opts.UseLocalTimeProvider,
+			WorkflowKey:                  workflowKey,
+			JWTGenerator:                 jwtGenerator,
+			ShardOrchestratorClient:      shardOrchestratorClient,
+			ShardAssignmentSettings:      shardAssignmentSettings,
+			OffchainCapabilitiesRegistry: offchainCapRegistry,
 		},
 	)
 	if err != nil {
@@ -728,7 +740,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// surface a visible error in the UI rather than silently doing nothing.
 	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
-	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings)
+	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings, offchainCapRegistry)
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	stdcapDelegate := standardcapabilities.NewDelegate(
 		globalLogger,
@@ -920,7 +932,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		cfg.JobSpecReporter(),
 		jobSpawner,
 		feedsORM,
-		beholder.GetEmitter(),
+		beholder.GlobalEmitter(),
 		csaPubKeyHex,
 		static.Version,
 		hostname,

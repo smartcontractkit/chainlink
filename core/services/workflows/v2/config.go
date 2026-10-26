@@ -59,6 +59,9 @@ type EngineConfig struct {
 
 	BeholderEmitter custmsg.MessageEmitter
 
+	// EventEmitter emits workflow platform events. Defaults to events.DefaultEmitter().
+	EventEmitter *events.Emitter
+
 	Hooks         LifecycleHooks
 	BillingClient metering.BillingClient
 
@@ -129,7 +132,13 @@ type EngineLimiters struct {
 	ConfidentialWorkflowsEnabled                limits.GateLimiter
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
 	ShardingFailoverEnabled                     limits.GateLimiter
+	TimeoutBasedFailover                        limits.GateLimiter
+	TimeoutBasedFailoverWindow                  limits.TimeLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
+
+	// newTriggerEventQueue builds a trigger event queue from the same factory and
+	// setting as TriggerEventQueue, for a coordinator's trigger registration to own.
+	newTriggerEventQueue func() (limits.QueueLimiter[triggers.CoordinatedEvent], error)
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -165,6 +174,9 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	l.TriggerEventQueue, err = limits.MakeQueueLimiter[triggers.CoordinatedEvent](lf, cfg.TriggerEventQueueLimit)
 	if err != nil {
 		return err
+	}
+	l.newTriggerEventQueue = func() (limits.QueueLimiter[triggers.CoordinatedEvent], error) {
+		return limits.MakeQueueLimiter[triggers.CoordinatedEvent](lf, cfg.TriggerEventQueueLimit)
 	}
 	l.TriggerEventQueueTimeout, err = limits.MakeUpperBoundLimiter(lf, cfg.TriggerEventQueueTimeout)
 	if err != nil {
@@ -285,10 +297,15 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
-	shardingFailoverSetting := settings.Bool(false)
-	shardingFailoverSetting.Key = "ShardingFailoverEnabled"
-	shardingFailoverSetting.Scope = settings.ScopeGlobal
-	l.ShardingFailoverEnabled, err = limits.MakeGateLimiter(lf, shardingFailoverSetting)
+	l.ShardingFailoverEnabled, err = limits.MakeGateLimiter(lf, cresettings.Default.ShardingFailoverEnabled)
+	if err != nil {
+		return err
+	}
+	l.TimeoutBasedFailover, err = limits.MakeGateLimiter(lf, cresettings.Default.TimeoutBasedFailover)
+	if err != nil {
+		return err
+	}
+	l.TimeoutBasedFailoverWindow, err = lf.MakeTimeLimiter(cresettings.Default.TimeoutBasedFailoverWindow)
 	if err != nil {
 		return err
 	}
@@ -382,6 +399,19 @@ func (l *EngineLimiters) Close() error {
 		l.CentralizedWorkflowOwnerVerificationEnabled,
 		l.DONTimeRequestTimeout,
 	)
+}
+
+// Admission returns the limiters a trigger coordinator admits events with.
+// ExecutionConcurrency is this same instance, so coordinated and legacy
+// executions share every concurrency limit. Each registration gets its own
+// trigger event queue, built from the same setting as TriggerEventQueue, so an
+// engine evicting its workflow from these limiters never touches it.
+func (l *EngineLimiters) Admission() triggers.AdmissionLimiters {
+	return triggers.AdmissionLimiters{
+		NewTriggerEventQueue:     l.newTriggerEventQueue,
+		TriggerEventQueueTimeout: l.TriggerEventQueueTimeout,
+		ExecutionConcurrency:     l.ExecutionConcurrency,
+	}
 }
 
 type EngineFeatureFlags struct {
@@ -507,6 +537,10 @@ func (c *EngineConfig) Validate() error {
 
 	if c.BeholderEmitter == nil {
 		return errors.New("beholder emitter not set")
+	}
+
+	if c.EventEmitter == nil {
+		c.EventEmitter = events.DefaultEmitter()
 	}
 
 	if c.FeatureFlags == nil {

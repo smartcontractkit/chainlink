@@ -2,7 +2,7 @@ package tron
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/fbsobreira/gotron-sdk/pkg/address"
+	"github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk/pkg/address"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 

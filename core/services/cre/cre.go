@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -59,6 +60,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	artifactsV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
@@ -69,6 +71,7 @@ import (
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 // Keystore is the minimal interface needed from keystore for CRE
@@ -92,6 +95,9 @@ type Opts struct {
 	LinkingClient linkingclient.LinkingServiceClient
 	Meter         metric.Meter
 
+	// DurableEmit persists workflow events for durable delivery. Nil disables persistence.
+	DurableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
+
 	StorageClient storage.WorkflowClient
 
 	DonTimeStore  *dontime.Store
@@ -105,6 +111,10 @@ type Opts struct {
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 
 	ShardAssignmentSettings *loop.AtomicSettings
+
+	// OffchainCapabilitiesRegistry holds the offchain capabilities registry config delivered
+	// via the cresettings job (config_type=capabilities_registry). Read by the Launcher.
+	OffchainCapabilitiesRegistry *globalconfig.GlobalConfig
 }
 
 // Services contains all CRE-related services
@@ -460,14 +470,17 @@ func (s *Services) newRegistrySyncer(
 		opts.LimitsFactory,
 		shardingEnabled,
 		shardIndex,
+		capabilities.WithDurableEmit(opts.DurableEmit),
 	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
 	}
 	srvcs = append(srvcs, wfLauncher)
 
-	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	localCfg := cfg.Capabilities().Local()
+	wfLauncher.SetOffchainRegistry(opts.OffchainCapabilitiesRegistry, localCfg != nil && localCfg.UseOffchainRegistry())
+
+	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
 		// Both delegates are wired into a single LocalCapabilityManager.
 		// The newServicesFn routes to the correct delegate based on the capability ID:
@@ -490,7 +503,7 @@ func (s *Services) newRegistrySyncer(
 				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), oracleFactoryConfig, donID, ocr3Config)
 			}
 
-			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
+			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn, localCfg.UseOffchainRegistry())
 			if lcmErr != nil {
 				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
 			}
@@ -580,7 +593,7 @@ func (w *dispatcherWrapper) newSubservices(
 
 	signer := p2pmain.NewSigner(keyStore.P2P(), cfg.P2P().PeerID())
 
-	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr)
+	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr, opts.LimitsFactory)
 	if err != nil {
 		return nil, fmt.Errorf("could not create dispatcher: %w", err)
 	}
@@ -929,10 +942,10 @@ func newWorkflowRegistrySyncerV2(
 			CapRegistry:  opts.CapabilitiesRegistry,
 			RegTimeout:   engineLimiters.TriggerRegistrationsTime,
 			ChainAllowed: engineLimiters.ChainAllowed,
-			Settings:     engineLimiters.Settings,
 			Logger:       lggr,
 			Metrics:      wfmonitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), coordinatorMetrics),
 		},
+		engineLimiters.Admission(),
 		syncerV2.NewTriggerEngineRegistry(engineRegistry),
 		workflowLimits,
 		clockwork.NewRealClock(),
@@ -950,6 +963,8 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithShardResolver(shardResolver),
 		syncerV2.WithShardIndex(uint32(cfg.Sharding().ShardIndex())),
 		syncerV2.WithTriggerCoordinator(triggerCoordinator),
+		// Shared emitter across handler and spawned engines.
+		syncerV2.WithEventEmitter(events.NewEmitter(nil, events.WithDurableEmit(opts.DurableEmit))),
 	}
 	if shardingEnabled && dispatcher != nil {
 		handlerOpts = append(handlerOpts,
@@ -1020,6 +1035,7 @@ func newWorkflowRegistrySyncerV2(
 				syncerV2.WithModuleLRU(moduleLRU),
 				syncerV2.WithModuleStore(fileStore),
 				syncerV2.WithModuleCacheMetrics(cm),
+				syncerV2.WithModuleEngineVersion(static.Version),
 			)
 
 			lggr.Infow("Module cache enabled",
@@ -1027,6 +1043,7 @@ func newWorkflowRegistrySyncerV2(
 				"idleTimeout", mc.IdleTimeout(),
 				"maxLoaded", mc.MaxLoaded(),
 				"cacheDir", fileStore.CacheDir(),
+				"engineVersion", static.Version,
 			)
 		}
 	}

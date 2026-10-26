@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -103,6 +104,42 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 		err = cfg.Validate()
 		require.Contains(t, err.Error(), "invalid configuration: Insecure.DevWebServer: invalid value (true): insecure configs are not allowed on secure builds")
 	})
+}
+
+func TestGeneralConfigOpts_ConcurrentOverrideAndNew(t *testing.T) {
+	t.Parallel()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for range 100 {
+			_, err := GeneralConfigOpts{
+				OverrideFn: func(c *Config, s *Secrets) {
+					*c.Insecure.DevWebServer = true
+					*c.AuditLogger.Enabled = true
+				},
+			}.New()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for range 100 {
+			opts := GeneralConfigOpts{}
+			if _, err := opts.New(); err != nil {
+				t.Error(err)
+				return
+			}
+		}
+	}()
+
+	wg.Wait()
 }
 
 func TestValidateDB(t *testing.T) {

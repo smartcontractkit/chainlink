@@ -1681,25 +1681,29 @@ PerSenderBurst = 50 # Default
 ```toml
 GlobalRPS = 800 # Default
 ```
-GlobalRPS is the global rate limit for the dispatcher.
+GlobalRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ### GlobalBurst
 ```toml
 GlobalBurst = 1000 # Default
 ```
-GlobalBurst is the global burst limit for the dispatcher.
+GlobalBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ### PerSenderRPS
 ```toml
 PerSenderRPS = 10 # Default
 ```
-PerSenderRPS is the per-sender rate limit for the dispatcher.
+PerSenderRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ### PerSenderBurst
 ```toml
 PerSenderBurst = 50 # Default
 ```
-PerSenderBurst is the per-sender burst limit for the dispatcher.
+PerSenderBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ## Capabilities.GatewayConnector
 ```toml
@@ -1881,8 +1885,11 @@ UseOffchainRegistry = false # Default
 ```
 UseOffchainRegistry gates the offchain capabilities registry cutover. When false (default),
 capability config is sourced from the on-chain registry and the offchain registry is used for
-cross-validation telemetry only. When true, offchain capability config takes precedence over the
-on-chain config, key by key. Binary paths, the launch allowlist and OCR3 config are unaffected.
+cross-validation telemetry only. When true, spec_config is sourced exclusively from the offchain
+payload. Don2Don method_configs use the complete offchain map when the capability is present;
+missing DONs or capabilities retain the on-chain map. Binary paths, the launch allowlist and OCR3
+config are unaffected.
+An offchain capability's local_only flag disables its Don2Don client/server shims when true.
 The gate is per-node and reversible.
 
 ## AutoPprof
@@ -2950,6 +2957,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '5m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3071,6 +3079,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3195,6 +3204,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3314,6 +3324,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3433,6 +3444,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3553,6 +3565,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3673,6 +3686,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3794,6 +3808,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -3914,6 +3929,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4035,6 +4051,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4159,6 +4176,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4279,6 +4297,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4399,6 +4418,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4520,6 +4540,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4645,6 +4666,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -4767,6 +4789,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -4889,6 +4912,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5013,6 +5037,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5137,6 +5162,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '7m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5260,6 +5286,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5379,6 +5406,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5500,6 +5528,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5625,6 +5654,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '2m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5746,6 +5776,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '2m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5867,6 +5898,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -5991,6 +6023,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6115,6 +6148,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6240,6 +6274,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6361,6 +6396,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6484,6 +6520,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6605,6 +6642,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6730,6 +6768,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -6852,6 +6891,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -6973,6 +7013,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7093,6 +7134,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7212,6 +7254,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7333,6 +7376,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7458,6 +7502,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7581,6 +7626,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '0s'
 ResendAfterThreshold = '0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7701,6 +7747,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7822,6 +7869,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -7947,6 +7995,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8071,6 +8120,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8191,6 +8241,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8310,6 +8361,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8431,6 +8483,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8554,6 +8607,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8674,6 +8728,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8794,6 +8849,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -8914,6 +8970,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9034,6 +9091,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -9154,6 +9212,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9276,6 +9335,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9401,6 +9461,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9527,6 +9588,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9651,6 +9713,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9772,6 +9835,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -9895,6 +9959,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10016,6 +10081,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10137,6 +10203,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10261,6 +10328,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10385,6 +10453,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10510,6 +10579,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '7m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10635,6 +10705,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10759,6 +10830,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10878,6 +10950,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -10999,6 +11072,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '2m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11123,6 +11197,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11243,6 +11318,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11364,6 +11440,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11485,6 +11562,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -11601,7 +11679,7 @@ LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '40m0s'
+NoNewFinalizedHeadsThreshold = '4h0m0s'
 
 [Transactions]
 Enabled = true
@@ -11612,6 +11690,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -11738,6 +11817,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11859,6 +11939,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -11983,6 +12064,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -12105,6 +12187,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -12228,6 +12311,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12353,6 +12437,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12477,6 +12562,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12600,6 +12686,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12720,6 +12807,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12840,6 +12928,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -12961,6 +13050,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13086,6 +13176,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13209,6 +13300,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13328,6 +13420,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13448,6 +13541,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13571,6 +13665,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13690,6 +13785,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13811,6 +13907,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -13934,6 +14031,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14054,6 +14152,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14175,6 +14274,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14299,6 +14399,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -14398,7 +14499,7 @@ ChainType = 'scroll'
 FinalityDepth = 10
 SafeDepth = 0
 FinalityTagEnabled = true
-SafeTagSupported = true
+SafeTagSupported = false
 LinkContractAddress = '0x548C6944cba02B9D1C0570102c89de64D258d3Ac'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -14425,6 +14526,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -14550,6 +14652,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '3m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -14671,6 +14774,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '2m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14795,6 +14899,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -14920,6 +15025,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15045,6 +15151,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15169,6 +15276,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15292,6 +15400,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15413,6 +15522,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15538,6 +15648,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15662,6 +15773,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15786,6 +15898,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -15910,6 +16023,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -16030,6 +16144,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -16366,6 +16481,7 @@ MaxQueued = 250 # Default
 ReaperInterval = '1h' # Default
 ReaperThreshold = '168h' # Default
 ResendAfterThreshold = '1m' # Default
+UnknownErrorRetryTimeout = '0s' # Default
 ```
 
 
@@ -16426,6 +16542,12 @@ ReaperThreshold indicates how old an EthTx ought to be before it can be reaped.
 ResendAfterThreshold = '1m' # Default
 ```
 ResendAfterThreshold controls how long to wait before re-broadcasting a transaction that has not yet been confirmed.
+
+### UnknownErrorRetryTimeout
+```toml
+UnknownErrorRetryTimeout = '0s' # Default
+```
+UnknownErrorRetryTimeout is how long broadcaster keeps retrying a transaction that fails with unknown (unclassified) RPC errors, measured from the first such error, before marking it as fatally errored.
 
 ## EVM.Transactions.AutoPurge
 ```toml

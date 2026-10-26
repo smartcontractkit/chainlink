@@ -23,7 +23,6 @@ import (
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
@@ -246,7 +245,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	execLogger.Debug("Executing capability ...")
 	c.base.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
 	loggerLabels := c.base.eventLabels()
-	_ = events.EmitCapabilityStartedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, request.Method)
+	_ = c.base.cfg.EventEmitter.EmitCapabilityStartedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, request.Method)
 
 	execCtx, execCancel, err := c.base.cfg.LocalLimiters.CapabilityCallTime.WithTimeout(ctx)
 	if err != nil {
@@ -262,32 +261,32 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	executionDuration := executionEnd.Sub(executionStart)
 	c.executionProfile.recordStepEnd(meteringRef, executionEnd, err != nil)
 
-	c.base.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
+	c.base.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, executionDuration.Seconds())
 	if err != nil {
 		if capabilityError, ok := errors.AsType[caperrors.Error](err); ok {
 			if capabilityError.Origin() == caperrors.OriginUser {
 				execLogger.Debugw("Capability execution failed with user error", "userErr", err)
-				_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, err)
+				_ = c.base.cfg.EventEmitter.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, err)
 				c.base.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, capabilityError.Code().String()).IncrementCapabilityUserErrorCounter(ctx)
 				return nil, fmt.Errorf("capability execution failed with user error: %w", err)
 			}
 
 			execLogger.Debugw("Capability execution failed with system error", "systemErr", err)
-			_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
+			_ = c.base.cfg.EventEmitter.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
 			c.base.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, capabilityError.Code().String()).IncrementCapabilityFailureCounter(ctx)
 			c.base.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 			return nil, fmt.Errorf("failed to execute capability: %w", err)
 		}
 
 		execLogger.Debugw("Capability execution failed", "err", err)
-		_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
+		_ = c.base.cfg.EventEmitter.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
 		c.base.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, caperrors.Internal.String()).IncrementCapabilityFailureCounter(ctx)
 		c.base.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
 
 	execLogger.Debug("Capability execution succeeded")
-	_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, nil)
+	_ = c.base.cfg.EventEmitter.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, nil)
 
 	if meterReport != nil {
 		if err = meterReport.Settle(meteringRef, capResp.Metadata); err != nil {
@@ -338,7 +337,7 @@ func (c *ExecutionHelper) EmitUserMetric(ctx context.Context, metric *eventsv2.W
 		return err
 	}
 	metric.Name = userMetricPrefix + metric.Name + suffix
-	return events.EmitUserMetric(ctx, c.base.eventLabels(), metric)
+	return c.base.cfg.EventEmitter.EmitUserMetric(ctx, c.base.eventLabels(), metric)
 }
 
 // dontimeCapabilityID matches the capability ID registered by the OCR2 delegate

@@ -571,7 +571,7 @@ func (g *generalConfig) Tracing() coreconfig.Tracing {
 }
 
 func (g *generalConfig) Telemetry() coreconfig.Telemetry {
-	return &telemetryConfig{s: g.c.Telemetry}
+	return &telemetryConfig{s: g.c.Telemetry, sh: &shardingConfig{s: g.c.Sharding}}
 }
 
 func (g *generalConfig) ResourceAttributes() map[string]string {
