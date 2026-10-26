@@ -339,9 +339,9 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 }
 
 // waitForSlot waits for an executor slot in a separate goroutine until the request deadline and then
-// runs onMessage. If too many messages are already waiting, or no slot frees up before the deadline
-// and the execution was not claimed by another message, the message is rejected so that the requester
-// gets an error instead of a silent timeout.
+// runs onMessage. If another message claims the execution in the meantime, onMessage runs right away
+// without a slot. If too many messages are already waiting, or no slot frees up before the deadline,
+// the message is rejected so that the requester gets an error instead of a silent timeout.
 func (r *server) waitForSlot(ctx context.Context, cfg *dynamicServerConfig, msg *types.MessageBody, reqAndMsgID requestAndMsgID, onMessage func(context.Context)) {
 	if r.waitingForSlot.Add(1) > r.maxWaitingForSlot {
 		r.waitingForSlot.Add(-1)
@@ -358,11 +358,14 @@ func (r *server) waitForSlot(ctx context.Context, cfg *dynamicServerConfig, msg 
 			waitCtx, cancelDeadline := context.WithDeadline(waitCtx, reqAndMsgID.request.Deadline())
 			defer cancelDeadline()
 
-			err := r.parallelExecutor.ExecuteTaskWithWaitContext(waitCtx, ctx, onMessage)
+			err := r.parallelExecutor.ExecuteTaskWithWaitContext(waitCtx, reqAndMsgID.request.Claimed(), ctx, onMessage)
 			switch {
 			case err == nil:
-			case errors.Is(err, context.DeadlineExceeded):
+			case errors.Is(err, remote.ErrWaitAborted):
 				// Another message claimed the execution while this one was waiting, so no slot is needed.
+				onMessage(ctx)
+			case errors.Is(err, context.DeadlineExceeded):
+				// The claim may have raced with the deadline.
 				if reqAndMsgID.request.ExecutionClaimed() {
 					onMessage(ctx)
 					return

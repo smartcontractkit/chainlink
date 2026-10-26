@@ -127,3 +127,29 @@ func Test_TryExecuteTask_FailsFastWhenParallelExecutionLimitReached(t *testing.T
 	}, 5*time.Second, 10*time.Millisecond)
 	assert.Eventually(t, executed.Load, 5*time.Second, 10*time.Millisecond)
 }
+
+func Test_ExecuteTaskWithWaitContext_AbortsWaitWhenAbortChannelClosed(t *testing.T) {
+	t.Parallel()
+	tp := remote.NewParallelExecutor(1, "test_parallel_executor")
+	servicetest.Run(t, tp)
+
+	release := make(chan struct{})
+	defer close(release)
+	require.NoError(t, tp.TryExecuteTask(t.Context(), func(ctx context.Context) { <-release }))
+
+	abortWait := make(chan struct{})
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- tp.ExecuteTaskWithWaitContext(t.Context(), abortWait, t.Context(), func(ctx context.Context) {
+			assert.Fail(t, "task must not run after wait was aborted")
+		})
+	}()
+
+	close(abortWait)
+	select {
+	case err := <-errCh:
+		require.ErrorIs(t, err, remote.ErrWaitAborted)
+	case <-time.After(5 * time.Second):
+		require.FailNow(t, "wait was not aborted")
+	}
+}
