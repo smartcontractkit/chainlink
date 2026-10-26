@@ -98,6 +98,15 @@ const (
 	maxNodesetWatcherLines = 20000
 )
 
+// shardWatcherKeptLogNeedles are the only lines the watcher records. A nodeset logs ~35k
+// lines/min, so recording everything fills maxNodesetWatcherLines within a minute and
+// silently drops the evidence later phases wait for.
+var shardWatcherKeptLogNeedles = []string{
+	executableRequestReceivedLogNeedle,
+	registerTriggerLogNeedle,
+	triggerEventACKLogNeedle,
+}
+
 // shardedCapabilitiesTopology carries the topology guard output shared by both routing
 // scenarios: the two workflow shards, their shard indices (the terms the shard-assignment
 // TOML is authored in), the in-family EVM capability DON of each shard, and the workflow
@@ -300,6 +309,16 @@ func requireShardedCapabilityRoutingTables(t *testing.T, testEnv *ttypes.TestEnv
 func logLinesMatchAny(lines []string, needles ...string) bool {
 	for _, line := range lines {
 		if lineContainsAll(line, needles...) {
+			return true
+		}
+	}
+	return false
+}
+
+// lineContainsAny reports whether the line contains at least one of the needles.
+func lineContainsAny(line string, needles ...string) bool {
+	for _, needle := range needles {
+		if strings.Contains(line, needle) {
 			return true
 		}
 	}
@@ -567,6 +586,9 @@ func (w *shardNodesetLogWatcher) scan(ctx context.Context, containerName, nodese
 			return
 		}
 		line := scanner.Text()
+		if !lineContainsAny(line, shardWatcherKeptLogNeedles...) {
+			continue
+		}
 		w.mu.Lock()
 		if len(w.lines[nodesetName]) < maxNodesetWatcherLines {
 			w.lines[nodesetName] = append(w.lines[nodesetName], line)
