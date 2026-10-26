@@ -430,6 +430,7 @@ jobs:
           trunk-upload-only: ${{ matrix.type.trunk-auto-quarantine != 'true' }}
           # unique name per matrix job to avoid 409 conflict when multiple jobs upload in the same workflow run
           artifact-name: ${{ matrix.type.cmd }}_test_logs
+          trunk-test-collection-id: "NNIoAFxX" # chainlink-unit
 
       - name: Print Races
         id: print-races

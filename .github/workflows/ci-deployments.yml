@@ -208,6 +208,7 @@ jobs:
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
           trunk-upload-only: false
           artifact-name: "go_deployment_tests_logs_shard_${{ matrix.shard-id }}"
+          trunk-test-collection-id: "NNIoAFxX" # chainlink-unit
       - name: Print postgres logs
         if: ${{ always() }}
         uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
