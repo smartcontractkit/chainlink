@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type stubHTTPClient struct {
@@ -42,6 +43,16 @@ func TestDirectFetcherFunc(t *testing.T) {
 		assert.Equal(t, req.URL, c.got[0].URL)
 		assert.Equal(t, uint32(42), c.got[0].MaxResponseBytes)
 		assert.Zero(t, c.got[0].Timeout, "client default timeout applies")
+	})
+
+	t.Run("zero request cap defaults to 1GB", func(t *testing.T) {
+		t.Parallel()
+		c := &stubHTTPClient{resp: &network.HTTPResponse{StatusCode: 200}}
+		r := req
+		r.MaxResponseBytes = 0
+		_, err := NewDirectFetcherFunc(c, nil, lggr)(t.Context(), "id", r)
+		require.NoError(t, err)
+		assert.Equal(t, uint32(utils.GB), c.got[0].MaxResponseBytes)
 	})
 
 	t.Run("request timeout is passed through", func(t *testing.T) {
@@ -104,7 +115,7 @@ func TestDirectFetcherFunc(t *testing.T) {
 func TestNewDirectHTTPClient_BlocksInternalAndNonHTTPS(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
-	client, err := NewDirectHTTPClient(lggr, 20*time.Second, 100_000_000)
+	client, err := NewDirectHTTPClient(lggr, 100_000_000)
 	require.NoError(t, err)
 	f := NewDirectFetcherFunc(client, nil, lggr)
 

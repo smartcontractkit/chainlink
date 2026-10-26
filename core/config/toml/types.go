@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"math"
 	"net"
 	"net/url"
 	"reflect"
@@ -2557,8 +2556,6 @@ type WorkflowRegistry struct {
 	MaxActivationRetries    *int
 	FetchMode               *string
 	FetchAllowedHosts       *[]string
-	FetchTimeout            *commonconfig.Duration
-	FetchMaxResponseSize    *utils.FileSize
 	WorkflowStorage         WorkflowStorage
 	ModuleCache             ModuleCache
 	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
@@ -2609,14 +2606,6 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 		r.FetchAllowedHosts = f.FetchAllowedHosts
 	}
 
-	if f.FetchTimeout != nil {
-		r.FetchTimeout = f.FetchTimeout
-	}
-
-	if f.FetchMaxResponseSize != nil {
-		r.FetchMaxResponseSize = f.FetchMaxResponseSize
-	}
-
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
 	r.ModuleCache.setFrom(&f.ModuleCache)
 
@@ -2650,14 +2639,6 @@ func (r *WorkflowRegistry) ValidateConfig() error {
 				return configutils.InvalidError{Name: fmt.Sprintf("FetchAllowedHosts[%d]", i), Value: h, Msg: "must be a bare hostname without scheme, port or path"}
 			}
 		}
-	}
-
-	if r.FetchTimeout != nil && r.FetchTimeout.Duration() <= 0 {
-		return configutils.InvalidError{Name: "FetchTimeout", Value: r.FetchTimeout.String(), Msg: "must be positive"}
-	}
-
-	if r.FetchMaxResponseSize != nil && (*r.FetchMaxResponseSize == 0 || *r.FetchMaxResponseSize > math.MaxUint32) {
-		return configutils.InvalidError{Name: "FetchMaxResponseSize", Value: r.FetchMaxResponseSize.String(), Msg: "must be between 1b and 4.29gb"}
 	}
 
 	if len(r.AdditionalSourcesConfig) > MaxAdditionalSources {

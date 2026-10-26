@@ -13,19 +13,26 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var ErrHostNotAllowed = errors.New("host is not in the allowed fetch hosts")
+var ErrHostNotAllowed = errors.New("host is not in the allowlist")
+
+// defaultMaxResponseBytes applies to requests without their own cap, which normally come from the dynamic artifact limits.
+const (
+	defaultMaxResponseBytes = uint32(utils.GB)
+	defaultTimeout          = 300 * time.Second
+)
 
 // NewDirectHTTPClient returns an HTTP client for fetching workflow artifacts without the Gateway.
 // Only HTTPS on port 443 is allowed. Internal IPs are blocked and redirects are disabled.
-// timeout applies to requests without their own timeout. maxResponseBytes caps every response; requests can only lower it.
-func NewDirectHTTPClient(lggr logger.Logger, timeout time.Duration, maxResponseBytes uint32) (network.HTTPClient, error) {
+// Requests without their own timeout use defaultTimeout. maxResponseBytes is a hard backstop; requests can only lower it.
+func NewDirectHTTPClient(lggr logger.Logger, maxResponseBytes uint32) (network.HTTPClient, error) {
 	return network.NewHTTPClient(network.HTTPClientConfig{
 		AllowedSchemes:   []string{"https"},
 		AllowedPorts:     []int{443},
 		AllowedMethods:   []string{http.MethodGet},
-		DefaultTimeout:   timeout,
+		DefaultTimeout:   defaultTimeout,
 		MaxResponseBytes: maxResponseBytes,
 	}, lggr)
 }
@@ -54,11 +61,15 @@ func NewDirectFetcherFunc(client network.HTTPClient, allowedHosts []string, lggr
 			}
 		}
 
+		maxResponseBytes := req.MaxResponseBytes
+		if maxResponseBytes == 0 {
+			maxResponseBytes = defaultMaxResponseBytes
+		}
 		resp, err := client.Send(ctx, network.HTTPRequest{
 			Method:           http.MethodGet,
 			URL:              req.URL,
 			Timeout:          time.Duration(req.TimeoutMs) * time.Millisecond,
-			MaxResponseBytes: req.MaxResponseBytes,
+			MaxResponseBytes: maxResponseBytes,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("direct fetch failed: %w", err)

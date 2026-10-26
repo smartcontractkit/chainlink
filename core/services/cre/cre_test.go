@@ -65,8 +65,6 @@ func (w wfRegTestStub) MaxConcurrency() int                     { return 0 }
 func (w wfRegTestStub) MaxActivationRetries() int               { return 0 }
 func (w wfRegTestStub) FetchMode() string                       { return w.fetchMode }
 func (w wfRegTestStub) FetchAllowedHosts() []string             { return nil }
-func (w wfRegTestStub) FetchTimeout() time.Duration             { return 20 * time.Second }
-func (w wfRegTestStub) FetchMaxResponseSize() utils.FileSize    { return 100 * utils.MB }
 func (w wfRegTestStub) WorkflowStorage() config.WorkflowStorage { return wfRegStorageStub{} }
 func (w wfRegTestStub) ModuleCache() config.ModuleCache         { return wfRegModuleCacheStub{} }
 func (w wfRegTestStub) AdditionalSources() []config.AdditionalWorkflowSource {

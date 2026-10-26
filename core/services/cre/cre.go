@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -822,7 +823,7 @@ func newFetcherServiceV2(
 	}
 
 	if direct {
-		httpClient, err := syncerV2.NewDirectHTTPClient(lggr, wfReg.FetchTimeout(), uint32(wfReg.FetchMaxResponseSize())) //nolint:gosec // validated in config to fit uint32
+		httpClient, err := syncerV2.NewDirectHTTPClient(lggr, math.MaxUint32)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to create direct fetch http client: %w", err)
 		}

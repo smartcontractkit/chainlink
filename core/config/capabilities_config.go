@@ -42,8 +42,6 @@ type CapabilitiesWorkflowRegistry interface {
 	MaxActivationRetries() int
 	FetchMode() string
 	FetchAllowedHosts() []string
-	FetchTimeout() time.Duration
-	FetchMaxResponseSize() utils.FileSize
 	WorkflowStorage() WorkflowStorage
 	ModuleCache() ModuleCache
 	AdditionalSources() []AdditionalWorkflowSource

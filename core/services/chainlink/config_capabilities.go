@@ -230,14 +230,6 @@ func (c *capabilitiesWorkflowRegistry) FetchAllowedHosts() []string {
 	return *c.c.FetchAllowedHosts
 }
 
-func (c *capabilitiesWorkflowRegistry) FetchTimeout() time.Duration {
-	return c.c.FetchTimeout.Duration()
-}
-
-func (c *capabilitiesWorkflowRegistry) FetchMaxResponseSize() utils.FileSize {
-	return *c.c.FetchMaxResponseSize
-}
-
 func (c *capabilitiesWorkflowRegistry) WorkflowStorage() config.WorkflowStorage {
 	return &workflowStorage{
 		c: c.c.WorkflowStorage,

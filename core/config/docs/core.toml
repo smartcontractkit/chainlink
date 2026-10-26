@@ -554,10 +554,6 @@ FetchMode = 'gateway' # Default
 # FetchAllowedHosts restricts the hosts the node may fetch workflow artifacts from when FetchMode is 'direct'.
 # Hosts are matched exactly and case-insensitively, and must include the host of signed storage URLs. Empty allows any host.
 FetchAllowedHosts = [] # Default
-# FetchTimeout is the default timeout for a single artifact download when FetchMode is 'direct'.
-FetchTimeout = '20s' # Default
-# FetchMaxResponseSize caps the size of a single artifact download when FetchMode is 'direct'. Must not exceed 4.29gb.
-FetchMaxResponseSize = '100.00mb' # Default
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 # URL is the location for the workflow storage service to be communicated with.

@@ -309,8 +309,6 @@ MaxConcurrency = 12
 MaxActivationRetries = 100
 FetchMode = 'gateway'
 FetchAllowedHosts = []
-FetchTimeout = '20s'
-FetchMaxResponseSize = '100.00mb'
 AdditionalSources = []
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]

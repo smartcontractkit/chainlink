@@ -1092,8 +1092,6 @@ func TestWorkflowRegistry_ValidateFetchConfig(t *testing.T) {
 		name    string
 		mode    *string
 		hosts   *[]string
-		timeout *commonconfig.Duration
-		maxSize *utils.FileSize
 		wantErr string
 	}{
 		{name: "unset"},
@@ -1103,15 +1101,11 @@ func TestWorkflowRegistry_ValidateFetchConfig(t *testing.T) {
 		{name: "host with scheme", hosts: &[]string{"https://example.com"}, wantErr: "FetchAllowedHosts[0]"},
 		{name: "host with port", hosts: &[]string{"example.com:443"}, wantErr: "FetchAllowedHosts[0]"},
 		{name: "empty host", hosts: &[]string{" "}, wantErr: "FetchAllowedHosts[0]"},
-		{name: "valid timeout and size", timeout: commonconfig.MustNewDuration(time.Minute), maxSize: new(utils.FileSize(utils.GB))},
-		{name: "zero timeout", timeout: commonconfig.MustNewDuration(0), wantErr: "FetchTimeout"},
-		{name: "zero size", maxSize: new(utils.FileSize(0)), wantErr: "FetchMaxResponseSize"},
-		{name: "size over uint32", maxSize: new(utils.FileSize(5 * utils.GB)), wantErr: "FetchMaxResponseSize"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			r := WorkflowRegistry{FetchMode: tt.mode, FetchAllowedHosts: tt.hosts, FetchTimeout: tt.timeout, FetchMaxResponseSize: tt.maxSize}
+			r := WorkflowRegistry{FetchMode: tt.mode, FetchAllowedHosts: tt.hosts}
 			err := r.ValidateConfig()
 			if tt.wantErr == "" {
 				require.NoError(t, err)
