@@ -9,7 +9,9 @@ import (
 )
 
 func TestPluginConfig_Unmarshal(t *testing.T) {
+	t.Parallel()
 	t.Run("unmarshals valid JSON", func(t *testing.T) {
+		t.Parallel()
 		raw := `{"shardConfigAddr": "0x1234567890abcdef"}`
 		var cfg PluginConfig
 		err := cfg.Unmarshal([]byte(raw))
@@ -18,6 +20,7 @@ func TestPluginConfig_Unmarshal(t *testing.T) {
 	})
 
 	t.Run("unmarshals empty config", func(t *testing.T) {
+		t.Parallel()
 		raw := `{}`
 		var cfg PluginConfig
 		err := cfg.Unmarshal([]byte(raw))
@@ -26,6 +29,7 @@ func TestPluginConfig_Unmarshal(t *testing.T) {
 	})
 
 	t.Run("fails on invalid JSON", func(t *testing.T) {
+		t.Parallel()
 		raw := `{invalid}`
 		var cfg PluginConfig
 		err := cfg.Unmarshal([]byte(raw))
@@ -34,6 +38,7 @@ func TestPluginConfig_Unmarshal(t *testing.T) {
 }
 
 func TestPluginConfig_UnmarshalTOML(t *testing.T) {
+	t.Parallel()
 	t.Run("unmarshals from TOML", func(t *testing.T) {
 		rawToml := `shardConfigAddr = "0xdeadbeef"`
 		var cfg PluginConfig
@@ -44,7 +49,9 @@ func TestPluginConfig_UnmarshalTOML(t *testing.T) {
 }
 
 func TestPluginConfig_Validate(t *testing.T) {
+	t.Parallel()
 	t.Run("valid address passes", func(t *testing.T) {
+		t.Parallel()
 		cfg := PluginConfig{
 			ShardConfigAddr: "0x1234567890123456789012345678901234567890",
 		}
@@ -53,6 +60,7 @@ func TestPluginConfig_Validate(t *testing.T) {
 	})
 
 	t.Run("empty address fails", func(t *testing.T) {
+		t.Parallel()
 		cfg := PluginConfig{
 			ShardConfigAddr: "",
 		}
@@ -62,6 +70,7 @@ func TestPluginConfig_Validate(t *testing.T) {
 	})
 
 	t.Run("invalid address fails", func(t *testing.T) {
+		t.Parallel()
 		cfg := PluginConfig{
 			ShardConfigAddr: "not-an-address",
 		}
@@ -71,6 +80,7 @@ func TestPluginConfig_Validate(t *testing.T) {
 	})
 
 	t.Run("short address fails", func(t *testing.T) {
+		t.Parallel()
 		cfg := PluginConfig{
 			ShardConfigAddr: "0x1234",
 		}

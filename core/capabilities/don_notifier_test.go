@@ -13,6 +13,7 @@ import (
 )
 
 func TestDonNotifier_WaitForDon(t *testing.T) {
+	t.Parallel()
 	notifier := capabilities.NewDonNotifier()
 	don := commoncap.DON{
 		ID: 1,
@@ -43,6 +44,7 @@ func TestDonNotifier_WaitForDon(t *testing.T) {
 }
 
 func TestDonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
+	t.Parallel()
 	notifier := capabilities.NewDonNotifier()
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -54,6 +56,7 @@ func TestDonNotifier_WaitForDon_ContextTimeout(t *testing.T) {
 }
 
 func TestDonNotifier_DonUpdate(t *testing.T) {
+	t.Parallel()
 	notifier := capabilities.NewDonNotifier()
 	notifyChs := []chan struct{}{
 		make(chan struct{}),

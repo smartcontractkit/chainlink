@@ -8,6 +8,7 @@ import (
 )
 
 func TestMerge(t *testing.T) {
+	t.Parallel()
 	vars := map[string]any{
 		"jb": map[string]any{
 			"databaseID": "some-job-id",

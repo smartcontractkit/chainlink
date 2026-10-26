@@ -66,6 +66,7 @@ func (fakeReportingPlugin) Close() error {
 var _ types.ReportingPlugin = &fakeReportingPlugin{}
 
 func TestPlugin_MustInstantiate(t *testing.T) {
+	t.Parallel()
 	// Ensure instantiation without panic for no override backend.
 	var reportingPlugin = &fakeReportingPlugin{}
 	promPlugin := New(reportingPlugin, "test", "EVM", big.NewInt(1), types.ReportingPluginConfig{}, nil)
@@ -77,7 +78,7 @@ func TestPlugin_MustInstantiate(t *testing.T) {
 	require.NotNil(t, promPlugin)
 }
 
-func TestPlugin_GetLatencies(t *testing.T) {
+func TestPlugin_GetLatencies(t *testing.T) { //nolint:paralleltest // mutates package-level defaultCleanupInterval
 	synctest.Test(t, func(t *testing.T) {
 		{
 			// Use arbitrary report timestamp and label values.

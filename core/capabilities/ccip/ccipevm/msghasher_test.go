@@ -50,6 +50,7 @@ var extraDataCodec = ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainE
 // NOTE: these test cases are only EVM <-> EVM.
 // Update these cases once we have non-EVM examples.
 func TestMessageHasher_EVM2EVM(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	d := testSetup(t)
 
@@ -60,6 +61,7 @@ func TestMessageHasher_EVM2EVM(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("tc_%d", i), func(tt *testing.T) {
+			tt.Parallel()
 			testHasherEVM2EVM(ctx, tt, d, tc, tc.chainSelector)
 		})
 	}
@@ -226,6 +228,7 @@ func testSetup(t *testing.T) *testSetupData {
 }
 
 func TestMessageHasher_againstRmnSharedVector(t *testing.T) {
+	t.Parallel()
 	transactor := evmtestutils.MustNewSimTransactor(t)
 	b := simulated.NewBackend(types.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},
@@ -240,6 +243,7 @@ func TestMessageHasher_againstRmnSharedVector(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("vec1", func(t *testing.T) {
+		t.Parallel()
 		const (
 			messageID           = "c6f553ab71282f01324bbdbcc82e22a7e66efbcd108881ecc4cdbd728aed9b1e"
 			onRampAddress       = "0000000000000000000000007a2088a1bfc9d81c55368ae168c2c02570cb814f"
@@ -287,6 +291,7 @@ func TestMessageHasher_againstRmnSharedVector(t *testing.T) {
 	})
 
 	t.Run("vec2", func(t *testing.T) {
+		t.Parallel()
 		// source chain tx: https://sepolia.etherscan.io/tx/0x3b64b5cb2c972a3f5064801187f17360c2025fbcc51e11b67b25c7949daeec24#eventlog
 		var (
 			// header fields
@@ -366,6 +371,7 @@ func TestMessageHasher_againstRmnSharedVector(t *testing.T) {
 	})
 
 	t.Run("solana", func(t *testing.T) {
+		t.Parallel()
 		key, err := solanago.NewRandomPrivateKey()
 		require.NoError(t, err)
 
@@ -460,6 +466,7 @@ func TestMessageHasher_againstRmnSharedVector(t *testing.T) {
 	})
 
 	t.Run("other vectors", func(t *testing.T) {
+		t.Parallel()
 		// These test vectors are from real ccip transactions on sepolia.
 		// onramp address: 0x89559ce6904d4c4b0f6aab9065ad02b1ed531be4
 		// sequence numbers 386 to 419.
