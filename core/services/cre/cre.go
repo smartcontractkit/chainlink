@@ -793,7 +793,9 @@ func newFetcherServiceV2(
 		return opts.FetcherFunc, nil, []commonsrv.Service{}, nil
 	}
 
-	if gatewayConnectorWrapper == nil {
+	wfReg := capCfg.WorkflowRegistry()
+	direct := wfReg.FetchMode() == config.WorkflowFetchModeDirect
+	if gatewayConnectorWrapper == nil && !direct {
 		return nil, nil, nil, errors.New("unable to create workflow registry syncer without gateway connector")
 	}
 
@@ -817,6 +819,15 @@ func newFetcherServiceV2(
 
 	if storageClient == nil {
 		return nil, nil, nil, errors.New("must have a storage client")
+	}
+
+	if direct {
+		httpClient, err := syncerV2.NewDirectHTTPClient(lggr, wfReg.FetchTimeout(), uint32(wfReg.FetchMaxResponseSize())) //nolint:gosec // validated in config to fit uint32
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to create direct fetch http client: %w", err)
+		}
+		fetcher := syncerV2.NewFetcherService(lggr, nil, storageClient)
+		return syncerV2.NewDirectFetcherFunc(httpClient, wfReg.FetchAllowedHosts(), lggr), fetcher.RetrieveURL, []commonsrv.Service{}, nil
 	}
 
 	fetcher := syncerV2.NewFetcherService(lggr, gatewayConnectorWrapper, storageClient)

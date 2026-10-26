@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"net"
 	"net/url"
 	"reflect"
@@ -2554,6 +2555,10 @@ type WorkflowRegistry struct {
 	SyncStrategy            *string
 	MaxConcurrency          *int
 	MaxActivationRetries    *int
+	FetchMode               *string
+	FetchAllowedHosts       *[]string
+	FetchTimeout            *commonconfig.Duration
+	FetchMaxResponseSize    *utils.FileSize
 	WorkflowStorage         WorkflowStorage
 	ModuleCache             ModuleCache
 	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
@@ -2596,6 +2601,22 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 		r.MaxActivationRetries = f.MaxActivationRetries
 	}
 
+	if f.FetchMode != nil {
+		r.FetchMode = f.FetchMode
+	}
+
+	if f.FetchAllowedHosts != nil {
+		r.FetchAllowedHosts = f.FetchAllowedHosts
+	}
+
+	if f.FetchTimeout != nil {
+		r.FetchTimeout = f.FetchTimeout
+	}
+
+	if f.FetchMaxResponseSize != nil {
+		r.FetchMaxResponseSize = f.FetchMaxResponseSize
+	}
+
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
 	r.ModuleCache.setFrom(&f.ModuleCache)
 
@@ -2613,6 +2634,30 @@ const MaxAdditionalSources = 5
 func (r *WorkflowRegistry) ValidateConfig() error {
 	if err := r.WorkflowStorage.ValidateConfig(); err != nil {
 		return err
+	}
+
+	if r.FetchMode != nil {
+		switch *r.FetchMode {
+		case coreconfig.WorkflowFetchModeGateway, coreconfig.WorkflowFetchModeDirect:
+		default:
+			return configutils.InvalidError{Name: "FetchMode", Value: *r.FetchMode, Msg: "must be 'gateway' or 'direct'"}
+		}
+	}
+
+	if r.FetchAllowedHosts != nil {
+		for i, h := range *r.FetchAllowedHosts {
+			if strings.TrimSpace(h) == "" || strings.Contains(h, "/") || strings.Contains(h, ":") {
+				return configutils.InvalidError{Name: fmt.Sprintf("FetchAllowedHosts[%d]", i), Value: h, Msg: "must be a bare hostname without scheme, port or path"}
+			}
+		}
+	}
+
+	if r.FetchTimeout != nil && r.FetchTimeout.Duration() <= 0 {
+		return configutils.InvalidError{Name: "FetchTimeout", Value: r.FetchTimeout.String(), Msg: "must be positive"}
+	}
+
+	if r.FetchMaxResponseSize != nil && (*r.FetchMaxResponseSize == 0 || *r.FetchMaxResponseSize > math.MaxUint32) {
+		return configutils.InvalidError{Name: "FetchMaxResponseSize", Value: r.FetchMaxResponseSize.String(), Msg: "must be between 1b and 4.29gb"}
 	}
 
 	if len(r.AdditionalSourcesConfig) > MaxAdditionalSources {

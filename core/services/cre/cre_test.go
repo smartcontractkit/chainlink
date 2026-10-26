@@ -8,10 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	registrysyncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 	registrysyncerV2Mocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2/mocks"
+	syncerV2Mocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -27,6 +29,7 @@ func (*registryListenerStub) OnNewRegistry(context.Context, *registry.RegistryMe
 type wfRegTestStub struct {
 	addr           string
 	additionalURLs []string
+	fetchMode      string
 }
 
 type wfRegAddSrcStub struct{ u string }
@@ -60,6 +63,10 @@ func (w wfRegTestStub) RelayID() commontypes.RelayID            { return commont
 func (w wfRegTestStub) SyncStrategy() string                    { return "" }
 func (w wfRegTestStub) MaxConcurrency() int                     { return 0 }
 func (w wfRegTestStub) MaxActivationRetries() int               { return 0 }
+func (w wfRegTestStub) FetchMode() string                       { return w.fetchMode }
+func (w wfRegTestStub) FetchAllowedHosts() []string             { return nil }
+func (w wfRegTestStub) FetchTimeout() time.Duration             { return 20 * time.Second }
+func (w wfRegTestStub) FetchMaxResponseSize() utils.FileSize    { return 100 * utils.MB }
 func (w wfRegTestStub) WorkflowStorage() config.WorkflowStorage { return wfRegStorageStub{} }
 func (w wfRegTestStub) ModuleCache() config.ModuleCache         { return wfRegModuleCacheStub{} }
 func (w wfRegTestStub) AdditionalSources() []config.AdditionalWorkflowSource {
@@ -100,4 +107,34 @@ func TestWireRegistrySyncerV2(t *testing.T) {
 	require.Same(t, registrySyncer, services[1])
 
 	var _ registrysyncerV2.Listener = (*registryListenerStub)(nil)
+}
+
+type capabilitiesStub struct {
+	config.Capabilities
+	wfReg config.CapabilitiesWorkflowRegistry
+}
+
+func (c capabilitiesStub) WorkflowRegistry() config.CapabilitiesWorkflowRegistry { return c.wfReg }
+
+func TestNewFetcherServiceV2_FetchMode(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	opts := Opts{StorageClient: syncerV2Mocks.NewWorkflowClient(t)}
+
+	t.Run("gateway mode requires gateway connector", func(t *testing.T) {
+		t.Parallel()
+		capCfg := capabilitiesStub{wfReg: wfRegTestStub{fetchMode: config.WorkflowFetchModeGateway}}
+		_, _, _, err := newFetcherServiceV2(opts, capCfg, lggr, nil)
+		require.ErrorContains(t, err, "without gateway connector")
+	})
+
+	t.Run("direct mode does not need gateway connector", func(t *testing.T) {
+		t.Parallel()
+		capCfg := capabilitiesStub{wfReg: wfRegTestStub{fetchMode: config.WorkflowFetchModeDirect}}
+		fetch, retrieve, srvs, err := newFetcherServiceV2(opts, capCfg, lggr, nil)
+		require.NoError(t, err)
+		require.NotNil(t, fetch)
+		require.NotNil(t, retrieve)
+		require.Empty(t, srvs)
+	})
 }
