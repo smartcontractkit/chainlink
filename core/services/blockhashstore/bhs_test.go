@@ -25,6 +25,7 @@ import (
 )
 
 func TestStoreRotatesFromAddresses(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	ethClient := client.NewNullClient(big.NewInt(evmtest.NullClientChainID), logger.Test(t))

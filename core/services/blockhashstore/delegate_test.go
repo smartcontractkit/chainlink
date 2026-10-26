@@ -99,6 +99,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	defaultWaitBlocks := int32(finalityDepth) //nolint:gosec // G115: guarded above by finalityDepth > math.MaxInt32
 
 	t.Run("happy", func(t *testing.T) {
+		t.Parallel()
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks, EVMChainID: (*sqlutil.Big)(testutils.FixtureChainID)}}
 		services, err := delegate.ServicesForSpec(t.Context(), spec)
 
@@ -107,6 +108,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	})
 
 	t.Run("happy with coordinators", func(t *testing.T) {
+		t.Parallel()
 		coordinatorV2Plus := cltest.NewEIP55Address()
 
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
@@ -121,12 +123,14 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	})
 
 	t.Run("missing BlockhashStoreSpec", func(t *testing.T) {
+		t.Parallel()
 		spec := job.Job{BlockhashStoreSpec: nil}
 		_, err := delegate.ServicesForSpec(t.Context(), spec)
 		assert.Error(t, err)
 	})
 
 	t.Run("wrong EVMChainID", func(t *testing.T) {
+		t.Parallel()
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 			EVMChainID: sqlutil.NewI(123),
 		}}
@@ -135,6 +139,9 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	})
 
 	t.Run("missing EnabledKeysForChain", func(t *testing.T) {
+		t.Parallel()
+		// This case deletes the sending key, so it needs its own keystore fixture.
+		delegate, testData := createTestDelegate(t)
 		ctx := t.Context()
 		_, err := testData.ethKeyStore.Delete(ctx, testData.sendingKey.ID())
 		require.NoError(t, err)
