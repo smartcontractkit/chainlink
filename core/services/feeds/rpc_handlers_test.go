@@ -35,6 +35,7 @@ func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 }
 
 func Test_RPCHandlers_ProposeJob(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx                  = t.Context()
 		jobID                = uuid.New()
@@ -62,6 +63,7 @@ func Test_RPCHandlers_ProposeJob(t *testing.T) {
 }
 
 func Test_RPCHandlers_DeleteJob(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx   = t.Context()
 		jobID = uuid.New()
@@ -82,6 +84,7 @@ func Test_RPCHandlers_DeleteJob(t *testing.T) {
 }
 
 func Test_RPCHandlers_RevokeJob(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx   = t.Context()
 		jobID = uuid.New()
@@ -102,6 +105,7 @@ func Test_RPCHandlers_RevokeJob(t *testing.T) {
 }
 
 func Test_RPCHandlers_GetJobRuns(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx   = t.Context()
 		jobID = uuid.New()
@@ -157,6 +161,7 @@ func Test_RPCHandlers_GetJobRuns(t *testing.T) {
 }
 
 func Test_RPCHandlers_GetJobRuns_InvalidUUID(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	h := setupTestHandlers(t)
 
@@ -170,6 +175,7 @@ func Test_RPCHandlers_GetJobRuns_InvalidUUID(t *testing.T) {
 }
 
 func Test_RPCHandlers_GetJobRuns_DefaultLimit(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx   = t.Context()
 		jobID = uuid.New()
@@ -192,6 +198,7 @@ func Test_RPCHandlers_GetJobRuns_DefaultLimit(t *testing.T) {
 }
 
 func Test_RPCHandlers_GetJobRuns_ExceedsMaxLimit(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx   = t.Context()
 		jobID = uuid.New()

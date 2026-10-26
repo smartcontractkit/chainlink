@@ -5,6 +5,7 @@ import (
 )
 
 func Test_connectionsManager_IsConnected(t *testing.T) {
+	t.Parallel()
 	type fields struct {
 		connections map[int64]*connection
 	}
@@ -62,6 +63,7 @@ func Test_connectionsManager_IsConnected(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mgr := &connectionsManager{
 				connections: tt.fields.connections,
 			}
