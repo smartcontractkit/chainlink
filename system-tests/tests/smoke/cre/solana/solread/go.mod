@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/smartcontractkit/chain-selectors v1.0.107

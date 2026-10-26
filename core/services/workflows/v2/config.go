@@ -59,6 +59,9 @@ type EngineConfig struct {
 
 	BeholderEmitter custmsg.MessageEmitter
 
+	// EventEmitter emits workflow platform events. Defaults to events.DefaultEmitter().
+	EventEmitter *events.Emitter
+
 	Hooks         LifecycleHooks
 	BillingClient metering.BillingClient
 
@@ -534,6 +537,10 @@ func (c *EngineConfig) Validate() error {
 
 	if c.BeholderEmitter == nil {
 		return errors.New("beholder emitter not set")
+	}
+
+	if c.EventEmitter == nil {
+		c.EventEmitter = events.DefaultEmitter()
 	}
 
 	if c.FeatureFlags == nil {

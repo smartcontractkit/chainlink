@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -17,6 +18,7 @@ import (
 	stellarcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/stellar"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
@@ -63,71 +65,20 @@ func (r *writeReportExcludeSignaturesHasher) Hash(ctx context.Context, msg *type
 
 	req.Metadata = applyMetadataFields(ctx, req.Metadata, r.cfg)
 
-	family, familyErr := getWriteReportFamily(msg)
+	family, familyErr := getWriteReportFamily(msg.CapabilityId)
 	if familyErr != nil {
 		return [32]byte{}, familyErr
 	}
 
-	var payload *anypb.Any
-	switch family {
-	case writeReportFamilyEVM:
-		var wrReq evmcappb.WriteReportRequest
-		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
-			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
-		}
-		if wrReq.Report == nil {
-			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
-		}
+	wrReq, err := unmarshalWriteReportRequest(family, req.Payload)
+	if err != nil {
+		return [32]byte{}, err
+	}
 
-		wrReq.Report.Sigs = nil // exclude signatures from hash
-		payload, err = anypb.New(&wrReq)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
-		}
-	case writeReportFamilySolana:
-		var wrReq solcappb.WriteReportRequest
-		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
-			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
-		}
-		if wrReq.Report == nil {
-			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
-		}
-
-		wrReq.Report.Sigs = nil // exclude signatures from hash
-		payload, err = anypb.New(&wrReq)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
-		}
-	case writeReportFamilyAptos:
-		var wrReq aptoscappb.WriteReportRequest
-		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
-			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
-		}
-		if wrReq.Report == nil {
-			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
-		}
-
-		wrReq.Report.Sigs = nil // exclude signatures from hash
-		payload, err = anypb.New(&wrReq)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
-		}
-	case writeReportFamilyStellar:
-		var wrReq stellarcappb.WriteReportRequest
-		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
-			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
-		}
-		if wrReq.Report == nil {
-			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
-		}
-
-		wrReq.Report.Sigs = nil // exclude signatures from hash
-		payload, err = anypb.New(&wrReq)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
-		}
-	default:
-		return [32]byte{}, fmt.Errorf("unexpected report family: %s", family)
+	wrReq.GetReport().Sigs = nil // exclude signatures from hash
+	payload, err := anypb.New(wrReq)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
 	}
 
 	req.Payload = payload
@@ -148,8 +99,38 @@ var (
 	writeReportFamilyStellar writeReportFamily = "stellar"
 )
 
-func getWriteReportFamily(msg *types.MessageBody) (writeReportFamily, error) {
-	ss := strings.Split(msg.CapabilityId, ":")
+// writeReportRequest is implemented by the WriteReportRequest of every supported chain family.
+type writeReportRequest interface {
+	proto.Message
+	GetReport() *sdk.ReportResponse
+}
+
+func unmarshalWriteReportRequest(family writeReportFamily, payload *anypb.Any) (writeReportRequest, error) {
+	var wrReq writeReportRequest
+	switch family {
+	case writeReportFamilyEVM:
+		wrReq = &evmcappb.WriteReportRequest{}
+	case writeReportFamilySolana:
+		wrReq = &solcappb.WriteReportRequest{}
+	case writeReportFamilyAptos:
+		wrReq = &aptoscappb.WriteReportRequest{}
+	case writeReportFamilyStellar:
+		wrReq = &stellarcappb.WriteReportRequest{}
+	default:
+		return nil, fmt.Errorf("unexpected report family: %s", family)
+	}
+
+	if err := payload.UnmarshalTo(wrReq); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
+	}
+	if wrReq.GetReport() == nil {
+		return nil, errors.New("WriteReportRequest.Report is nil")
+	}
+	return wrReq, nil
+}
+
+func getWriteReportFamily(capabilityID string) (writeReportFamily, error) {
+	ss := strings.Split(capabilityID, ":")
 	if len(ss) < 1 {
 		return "", errors.New("failed to parse family from capability id")
 	}

@@ -50,10 +50,10 @@ var executingWorkflows atomic.Int64
 
 var (
 	ErrDuplicateExecution      = errors.New("duplicate execution")
-	ErrShardDeniedNotOwner     = errors.New("shard ownership denied: not owner")
-	ErrShardDeniedOrchestrator = errors.New("shard ownership denied: orchestrator error")
+	ErrShardDeniedNotOwner     = fmt.Errorf("shard ownership denied: not owner: %w", triggers.ErrAdmissionDenied)
+	ErrShardDeniedOrchestrator = fmt.Errorf("shard ownership denied: orchestrator error: %w", triggers.ErrAdmissionDenied)
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
-	ErrAdmissionCache          = errors.New("admission: event cached for failover")
+	ErrAdmissionCache          = triggers.ErrAdmissionCached
 
 	ErrEngineDraining = errors.New("engine is draining")
 	ErrEngineClosed   = errors.New("engine is closed")
@@ -184,7 +184,7 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 
 	// Store logger and other fields
 	engine.setLogger(beholderLogger)
-	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2)
+	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2, metering.WithEventEmitter(cfg.EventEmitter))
 	engine.metrics = metricsLabeler
 	engine.loggerLabels.Store(&labelsMap)
 	engine.localNode.Store(&localNode)
@@ -587,8 +587,8 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	// instead of vanishing.
 	emitDroppedExecution := func(cause error, class events.ErrorClassification) {
 		executionStatus = store.StatusErrored
-		_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, store.StatusErrored, executionID, cause, class, lggr)
+		_ = e.cfg.EventEmitter.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
+		_ = e.cfg.EventEmitter.EmitExecutionFinishedEvent(ctx, loggerLabels, store.StatusErrored, executionID, cause, class, lggr)
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, store.StatusErrored)
 	}
 
@@ -676,7 +676,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	if e.orgID == "" {
 		e.metrics.IncrementOrgIDMissingCounter(ctx, e.orgIDMissingReason)
 	}
-	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
+	_ = e.cfg.EventEmitter.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
 	registrationID := triggers.RegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
 	err = e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID)
@@ -691,10 +691,10 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	execErrClass := events.ErrorClassificationUnspecified
 	var execHelper *ExecutionHelper
 	defer func() {
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, execErrClass, lggr)
+		_ = e.cfg.EventEmitter.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, execErrClass, lggr)
 		if execHelper != nil {
 			endTime := e.cfg.Clock.Now()
-			profile, emitErr := events.EmitExecutionProfile(
+			profile, emitErr := e.cfg.EventEmitter.EmitExecutionProfile(
 				ctx,
 				e.cfg.WorkflowID,
 				executionID,
@@ -973,7 +973,7 @@ func (e *baseEngine) emitUserLogs(ctx context.Context, userLogChan chan *protoev
 			}
 		}
 
-		if err := events.EmitUserLogs(emitCtx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
+		if err := e.cfg.EventEmitter.EmitUserLogs(emitCtx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
 			e.logger().Errorw("Failed to emit user logs", "err", err)
 		}
 		count++

@@ -461,9 +461,18 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 		c.eng.Go(func(context.Context) {
 			defer cw.executions.Done()
 			defer free()
-			// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
-			if err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event); err != nil {
+			// WithoutCancel: unregistering stops ingress, it must not kill an execution already running,
+			// nor the ACK of an event that was denied.
+			execCtx := context.WithoutCancel(ctx)
+			if err := engine.ExecuteTrigger(execCtx, event); err != nil {
 				cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
+				if errors.Is(err, ErrAdmissionCached) {
+					// A cached event (ErrAdmissionCached) is deliberately left un-ACKed.
+					return
+				}
+				if errors.Is(err, ErrAdmissionDenied) {
+					c.dropDeniedEvent(execCtx, cw, event)
+				}
 			}
 		})
 	}
@@ -484,6 +493,18 @@ func (c *coordinator) coordinatedEngine(cw *coordinatedWorkflow, event Coordinat
 		return nil, false
 	}
 	return engine, true
+}
+
+// dropDeniedEvent handles an event the engine's admission check rejected. The event will never execute, so it is
+// ACKed and counted as dropped.
+func (c *coordinator) dropDeniedEvent(ctx context.Context, cw *coordinatedWorkflow, event CoordinatedEvent) {
+	eventID := event.Event.Event.ID
+	registrationID := RegistrationID(cw.wid.Hex(), event.TriggerIndex)
+	if err := Ack(ctx, cw.lggr, cw.metrics, event.TriggerCapID, registrationID, eventID, cw.handles[registrationID]); err != nil {
+		cw.lggr.Errorw("Failed to ACK trigger event after admission denial", "triggerID", event.TriggerCapID, "eventID", eventID, "err", err)
+	}
+	cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID).
+		IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonAdmissionDenied)
 }
 
 // releaseWhenDrained drops the registration's handles and closes its queue

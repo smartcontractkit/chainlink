@@ -381,7 +381,7 @@ func TestOffchainMethodConfigs_ServedMethodsReplaceAndRestore(t *testing.T) {
 			pass := func(snapshot *offchainMethodConfigs) {
 				t.Helper()
 				launcher.pruneStaleShims(t.Context(), computeWantedShimKeys(nil, []regpkg.DON{capDON}, snapshot))
-				launcher.serveCapabilities(t.Context(), capNodes[0], capDON, []regpkg.DON{wfDON}, snapshot)
+				launcher.serveCapabilities(t.Context(), capNodes[0], capDON, []regpkg.DON{wfDON}, snapshot, nil)
 			}
 			serverCount := func() int {
 				return len(launcher.cachedShims.executableServers) + len(launcher.cachedShims.triggerPublishers)
@@ -425,7 +425,7 @@ func TestOffchainMethodConfigs_LocalOnlySkipsRemoteShims(t *testing.T) {
 	// With LocalOnly set, both paths must skip the capability before accessing remote metadata
 	// or the dispatcher. The mock has no expectations, so any registration fails the test.
 	launcher.addRemoteCapabilities(t.Context(), regpkg.DON{}, don, nil, snapshot)
-	launcher.serveCapabilities(t.Context(), newNodes(1)[0], don, nil, snapshot)
+	launcher.serveCapabilities(t.Context(), newNodes(1)[0], don, nil, snapshot, nil)
 	assert.Empty(t, launcher.cachedShims.combinedClients)
 	assert.Empty(t, launcher.cachedShims.triggerSubscribers)
 	assert.Empty(t, launcher.cachedShims.triggerPublishers)
