@@ -36,6 +36,7 @@ func (m *mockArbiterScaler) ConsensusWantShards(ctx context.Context, req *ringpb
 }
 
 func TestTransmitter_NewTransmitter(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	tx := NewTransmitter(lggr, store, nil, "test-account")
@@ -43,6 +44,7 @@ func TestTransmitter_NewTransmitter(t *testing.T) {
 }
 
 func TestTransmitter_FromAccount(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	tx := NewTransmitter(lggr, store, nil, "my-account")
@@ -53,6 +55,7 @@ func TestTransmitter_FromAccount(t *testing.T) {
 }
 
 func TestTransmitter_Transmit(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	mock := &mockArbiterScaler{}
@@ -87,6 +90,7 @@ func TestTransmitter_Transmit(t *testing.T) {
 }
 
 func TestTransmitter_Transmit_NilArbiter(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	tx := NewTransmitter(lggr, store, nil, "test-account")
@@ -105,6 +109,7 @@ func TestTransmitter_Transmit_NilArbiter(t *testing.T) {
 }
 
 func TestTransmitter_Transmit_TransitionState(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	mock := &mockArbiterScaler{}
@@ -126,6 +131,7 @@ func TestTransmitter_Transmit_TransitionState(t *testing.T) {
 }
 
 func TestTransmitter_Transmit_InvalidReport(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	tx := NewTransmitter(lggr, store, nil, "test-account")
@@ -137,6 +143,7 @@ func TestTransmitter_Transmit_InvalidReport(t *testing.T) {
 }
 
 func TestTransmitter_Transmit_ArbiterError(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	mock := &mockArbiterScaler{err: context.DeadlineExceeded}
@@ -155,6 +162,7 @@ func TestTransmitter_Transmit_ArbiterError(t *testing.T) {
 }
 
 func TestTransmitter_Transmit_StaleEntriesPruned(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	mock := &mockArbiterScaler{}
@@ -201,6 +209,7 @@ func TestTransmitter_Transmit_StaleEntriesPruned(t *testing.T) {
 }
 
 func TestTransmitter_Transmit_NilState(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	tx := NewTransmitter(lggr, store, nil, "test-account")
