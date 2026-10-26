@@ -163,6 +163,7 @@ func newTestValidator(t *testing.T, issuer, audience string) *jwtBasedAuth {
 // --- tests ---
 
 func TestJWTBasedAuth_ValidToken(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -183,6 +184,7 @@ func TestJWTBasedAuth_ValidToken(t *testing.T) {
 }
 
 func TestJWTBasedAuth_ValidTokenWithoutWorkflowOwner(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -217,6 +219,7 @@ func TestJWTBasedAuth_ValidTokenWithoutWorkflowOwner(t *testing.T) {
 }
 
 func TestJWTBasedAuth_AuthResultExpiryIncludesValidationLeeway(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -259,6 +262,7 @@ func TestJWTBasedAuth_AuthResultExpiryIncludesValidationLeeway(t *testing.T) {
 }
 
 func TestAuthorizer_RejectsJWTReplayDuringValidationLeewayWindow(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -309,6 +313,7 @@ func TestAuthorizer_RejectsJWTReplayDuringValidationLeewayWindow(t *testing.T) {
 }
 
 func TestJWTBasedAuth_ExpiredToken(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -327,6 +332,7 @@ func TestJWTBasedAuth_ExpiredToken(t *testing.T) {
 }
 
 func TestJWTBasedAuth_WrongIssuer(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -343,6 +349,7 @@ func TestJWTBasedAuth_WrongIssuer(t *testing.T) {
 }
 
 func TestJWTBasedAuth_WrongAudience(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -359,6 +366,7 @@ func TestJWTBasedAuth_WrongAudience(t *testing.T) {
 }
 
 func TestJWTBasedAuth_MissingOrgID(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -376,6 +384,7 @@ func TestJWTBasedAuth_MissingOrgID(t *testing.T) {
 }
 
 func TestJWTBasedAuth_MissingVaultSecretManagementClaim(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -393,6 +402,7 @@ func TestJWTBasedAuth_MissingVaultSecretManagementClaim(t *testing.T) {
 }
 
 func TestJWTBasedAuth_VaultSecretManagementClaimNotTrue(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -410,6 +420,7 @@ func TestJWTBasedAuth_VaultSecretManagementClaimNotTrue(t *testing.T) {
 }
 
 func TestJWTBasedAuth_MissingRequestDigest(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -432,6 +443,7 @@ func TestJWTBasedAuth_MissingRequestDigest(t *testing.T) {
 }
 
 func TestJWTBasedAuth_MissingAuthorizationDetails(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -449,6 +461,7 @@ func TestJWTBasedAuth_MissingAuthorizationDetails(t *testing.T) {
 }
 
 func TestJWTBasedAuth_InvalidSignature(t *testing.T) {
+	t.Parallel()
 	goodKey := generateTestRSAKey(t, "key-1")
 	badKey := generateTestRSAKey(t, "key-1") // same kid, different key material
 	jwksServer := newTestJWKSServer(t, goodKey)
@@ -466,6 +479,7 @@ func TestJWTBasedAuth_InvalidSignature(t *testing.T) {
 }
 
 func TestJWTBasedAuth_EmptyToken(t *testing.T) {
+	t.Parallel()
 	v, err := NewJWTBasedAuth(JWTBasedAuthConfig{
 		IssuerURL: "https://example.auth0.com/",
 		Audience:  "https://api.test.chain.link",
@@ -479,6 +493,7 @@ func TestJWTBasedAuth_EmptyToken(t *testing.T) {
 }
 
 func TestJWTBasedAuth_JWKSKeyRotation(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -525,6 +540,7 @@ func TestJWTBasedAuth_JWKSKeyRotation(t *testing.T) {
 }
 
 func TestJWTBasedAuth_AuthorizationDetailsFromTypedArray(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -555,6 +571,7 @@ func TestJWTBasedAuth_AuthorizationDetailsFromTypedArray(t *testing.T) {
 }
 
 func TestJWTBasedAuth_UnsupportedAlgorithm(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -575,6 +592,7 @@ func TestJWTBasedAuth_UnsupportedAlgorithm(t *testing.T) {
 }
 
 func TestJWTBasedAuth_JWKSServerUnavailable(t *testing.T) {
+	t.Parallel()
 	// Start a server that always returns 500
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.well-known/jwks.json", func(w http.ResponseWriter, _ *http.Request) {
@@ -597,6 +615,7 @@ func TestJWTBasedAuth_JWKSServerUnavailable(t *testing.T) {
 }
 
 func TestJWTBasedAuth_StartRefreshesJWKSPeriodically(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -614,6 +633,7 @@ func TestJWTBasedAuth_StartRefreshesJWKSPeriodically(t *testing.T) {
 }
 
 func TestNewJWTBasedAuth_InvalidConfig(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	var v *jwtBasedAuth
 
@@ -666,6 +686,7 @@ func TestNewJWTBasedAuth_AcceptsRequestWhenTokenMissing(t *testing.T) {
 }
 
 func TestJWTBasedAuth_AuthorizeCreateRequestFromRawJSON(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -713,6 +734,7 @@ func TestJWTBasedAuth_AuthorizeCreateRequestFromRawJSON(t *testing.T) {
 }
 
 func TestJWTBasedAuth_RejectsMissingOAuthScope(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -751,6 +773,7 @@ func TestJWTBasedAuth_RejectsMissingOAuthScope(t *testing.T) {
 }
 
 func TestJWTBasedAuth_RejectsMismatchedOAuthScope(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -790,6 +813,7 @@ func TestJWTBasedAuth_RejectsMismatchedOAuthScope(t *testing.T) {
 }
 
 func TestJWTBasedAuth_RejectsMultipleVaultOAuthScopes(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -829,6 +853,7 @@ func TestJWTBasedAuth_RejectsMultipleVaultOAuthScopes(t *testing.T) {
 }
 
 func TestJWTBasedAuth_AcceptsOpenIDPlusSingleVaultScope(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -870,6 +895,7 @@ func TestJWTBasedAuth_AcceptsOpenIDPlusSingleVaultScope(t *testing.T) {
 }
 
 func TestJWTBasedAuth_AcceptsPermissionsClaimInsteadOfScope(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -911,6 +937,7 @@ func TestJWTBasedAuth_AcceptsPermissionsClaimInsteadOfScope(t *testing.T) {
 }
 
 func TestJWTBasedAuth_AuthorizeCreateRequestWithoutWorkflowOwnerWhenIdentifiersUseOrgID(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -954,6 +981,7 @@ func TestJWTBasedAuth_AuthorizeCreateRequestWithoutWorkflowOwnerWhenIdentifiersU
 }
 
 func TestJWTBasedAuth_RejectsCreateRequestWithoutWorkflowOwnerWhenIdentifierOwnerDiffers(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -997,6 +1025,7 @@ func TestJWTBasedAuth_RejectsCreateRequestWithoutWorkflowOwnerWhenIdentifierOwne
 }
 
 func TestJWTBasedAuth_AuthorizeRequest_RejectsMissingTenantClaim(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -1037,6 +1066,7 @@ func TestJWTBasedAuth_AuthorizeRequest_RejectsMissingTenantClaim(t *testing.T) {
 }
 
 func TestJWTBasedAuth_AuthorizeRequest_RejectsTenantAgainstJobSpecMismatch(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -1089,6 +1119,7 @@ func TestJWTBasedAuth_AuthorizeRequest_RejectsTenantAgainstJobSpecMismatch(t *te
 }
 
 func TestJWTBasedAuth_InvalidTenantNumericClaim(t *testing.T) {
+	t.Parallel()
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 

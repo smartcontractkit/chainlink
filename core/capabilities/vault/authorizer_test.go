@@ -18,6 +18,7 @@ import (
 )
 
 func TestAuthorizer_RejectsJWTBasedAuthWhenUnavailable(t *testing.T) {
+	t.Parallel()
 	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{})
 	require.NoError(t, err)
 
@@ -38,6 +39,7 @@ func TestAuthorizer_RejectsJWTBasedAuthWhenUnavailable(t *testing.T) {
 }
 
 func TestAuthorizer_UsesJWTWhenGateEnabled(t *testing.T) {
+	t.Parallel()
 	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{Id: &vaultcommon.SecretIdentifier{Owner: "0xworkflow", Namespace: "ns", Key: "k"}, EncryptedValue: "cipher"},
@@ -67,6 +69,7 @@ func TestAuthorizer_UsesJWTWhenGateEnabled(t *testing.T) {
 }
 
 func TestAuthorizer_DelegatesDigestVerificationToJWTAuth(t *testing.T) {
+	t.Parallel()
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "1",
 		Method: vaulttypes.MethodPublicKeyGet,
@@ -86,6 +89,7 @@ func TestAuthorizer_DelegatesDigestVerificationToJWTAuth(t *testing.T) {
 }
 
 func TestAuthorizer_RejectsJWTReplay(t *testing.T) {
+	t.Parallel()
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "1",
 		Method: vaulttypes.MethodPublicKeyGet,
@@ -109,6 +113,7 @@ func TestAuthorizer_RejectsJWTReplay(t *testing.T) {
 }
 
 func TestAuthorizer_RejectsAllowListBasedAuthReplay(t *testing.T) {
+	t.Parallel()
 	allowListBasedAuth := vaultmocks.NewAuthorizer(t)
 	// Use a method without secret identifiers so the owner-binding check is a no-op.
 	req := jsonrpc.Request[json.RawMessage]{ID: "1", Method: vaulttypes.MethodPublicKeyGet}
@@ -128,6 +133,7 @@ func TestAuthorizer_RejectsAllowListBasedAuthReplay(t *testing.T) {
 }
 
 func TestAuthorizer_PropagatesJWTValidationErrors(t *testing.T) {
+	t.Parallel()
 	// JWT mock fails before owner binding; params are irrelevant here.
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "1",
@@ -146,6 +152,7 @@ func TestAuthorizer_PropagatesJWTValidationErrors(t *testing.T) {
 }
 
 func TestAuthorizer_AllowListPath_RejectsCreateOwnerMismatch(t *testing.T) {
+	t.Parallel()
 	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{Id: &vaultcommon.SecretIdentifier{Owner: "0xother", Namespace: "ns", Key: "k"}, EncryptedValue: "cipher"},
@@ -170,6 +177,7 @@ func TestAuthorizer_AllowListPath_RejectsCreateOwnerMismatch(t *testing.T) {
 }
 
 func TestAuthorizer_AllowListPath_RejectsUpdateOwnerMismatch(t *testing.T) {
+	t.Parallel()
 	params, err := json.Marshal(vaultcommon.UpdateSecretsRequest{
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{Id: &vaultcommon.SecretIdentifier{Owner: "0xother", Namespace: "ns", Key: "k"}, EncryptedValue: "cipher"},
@@ -194,6 +202,7 @@ func TestAuthorizer_AllowListPath_RejectsUpdateOwnerMismatch(t *testing.T) {
 }
 
 func TestAuthorizer_AllowListPath_RejectsDeleteOwnerMismatch(t *testing.T) {
+	t.Parallel()
 	params, err := json.Marshal(vaultcommon.DeleteSecretsRequest{
 		Ids: []*vaultcommon.SecretIdentifier{
 			{Owner: "0xother", Namespace: "ns", Key: "k"},
@@ -218,6 +227,7 @@ func TestAuthorizer_AllowListPath_RejectsDeleteOwnerMismatch(t *testing.T) {
 }
 
 func TestAuthorizer_AllowListPath_RejectsListOwnerMismatch(t *testing.T) {
+	t.Parallel()
 	params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
 		Owner:     "0xother",
 		Namespace: "ns",

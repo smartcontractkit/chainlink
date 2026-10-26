@@ -13,6 +13,7 @@ import (
 )
 
 func TestMarshaledProof(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)

@@ -38,6 +38,7 @@ func newTestRequestLifecycleTracker(t *testing.T) *RequestLifecycleTracker {
 }
 
 func TestCapability_CapabilityCall(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -137,6 +138,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 }
 
 func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -354,6 +356,7 @@ func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
 	})
 
 	t.Run("rejects key with invalid characters on a later batched item", func(t *testing.T) {
+		t.Parallel()
 		capability, _ := newCapability(t)
 		gsr := &vault.GetSecretsRequest{
 			Requests: []*vault.SecretRequest{
@@ -402,6 +405,7 @@ func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
 	})
 
 	t.Run("rejects key that exceeds configured max length on a later batched item", func(t *testing.T) {
+		t.Parallel()
 		getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultIdentifierKeySizeLimit":"3b"}}`))
 		require.NoError(t, err)
 		lf := limits.Factory{Settings: getter}
@@ -457,6 +461,7 @@ func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
 }
 
 func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name          string
 		workflowOwner string
@@ -531,6 +536,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			lggr := logger.TestLogger(t)
 			clock := clockwork.NewFakeClock()
 			expiry := 10 * time.Second
@@ -610,6 +616,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 }
 
 func TestCapability_CapabilityCall_UsesMetadataWorkflowOwner(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -683,6 +690,7 @@ func TestCapability_CapabilityCall_UsesMetadataWorkflowOwner(t *testing.T) {
 }
 
 func TestCapability_CapabilityCall_ForwardsRequestGetSecretsIdentity(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -775,6 +783,7 @@ func TestCapability_CapabilityCall_ForwardsRequestGetSecretsIdentity(t *testing.
 }
 
 func TestCapability_CapabilityCall_BackfillsGetSecretsWorkflowOwnerFromFirstSecretOwner(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -868,6 +877,7 @@ func TestCapability_CapabilityCall_BackfillsGetSecretsWorkflowOwnerFromFirstSecr
 }
 
 func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -944,6 +954,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 }
 
 func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	fakeClock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -1016,6 +1027,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 }
 
 func TestCapability_CRUD(t *testing.T) {
+	t.Parallel()
 	owner := "0x0001020304050607080900010203040506070809"
 	requestID := owner + "::" + "test-request-id"
 	sid := &vault.SecretIdentifier{
@@ -1658,6 +1670,7 @@ func TestCapability_CRUD(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			lggr := logger.TestLogger(t)
 			clock := clockwork.NewFakeClock()
 			expiry := 10 * time.Second
@@ -1704,6 +1717,7 @@ func TestCapability_CRUD(t *testing.T) {
 }
 
 func TestCapability_Lifecycle(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -1734,6 +1748,7 @@ func TestCapability_Lifecycle(t *testing.T) {
 }
 
 func TestCapability_PublicKeyGet(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second

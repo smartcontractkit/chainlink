@@ -32,7 +32,9 @@ import (
 )
 
 func TestNewGatewayHandler(t *testing.T) {
+	t.Parallel()
 	t.Run("successful creation", func(t *testing.T) {
+		t.Parallel()
 		cfg := serviceCfg()
 		configBytes, err := json.Marshal(cfg)
 		require.NoError(t, err)
@@ -54,6 +56,7 @@ func TestNewGatewayHandler(t *testing.T) {
 	})
 
 	t.Run("invalid config JSON", func(t *testing.T) {
+		t.Parallel()
 		invalidConfig := []byte(`{invalid json}`)
 		donConfig := &config.DONConfig{DonID: "test-don"}
 		mockDon := handlermocks.NewDON(t)
@@ -67,6 +70,7 @@ func TestNewGatewayHandler(t *testing.T) {
 	})
 
 	t.Run("applies default config values", func(t *testing.T) {
+		t.Parallel()
 		cfg := ServiceConfig{
 			// CleanUpPeriodMs not set - should get default
 		}
@@ -87,9 +91,11 @@ func TestNewGatewayHandler(t *testing.T) {
 }
 
 func TestHandleNodeMessage(t *testing.T) {
-	handler, _ := createTestHandler(t)
+	t.Parallel()
 
 	t.Run("successful node message handling", func(t *testing.T) {
+		t.Parallel()
+		handler, _ := createTestHandler(t)
 		mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
@@ -131,6 +137,8 @@ func TestHandleNodeMessage(t *testing.T) {
 	})
 
 	t.Run("successful node message handling with MultiHeaders", func(t *testing.T) {
+		t.Parallel()
+		handler, _ := createTestHandler(t)
 		mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
@@ -211,6 +219,8 @@ func TestHandleNodeMessage(t *testing.T) {
 	})
 
 	t.Run("returns cached response if available", func(t *testing.T) {
+		t.Parallel()
+		handler, _ := createTestHandler(t)
 		outboundReq := gateway_common.OutboundHTTPRequest{
 			Method:    "GET",
 			URL:       "https://return-cached.com/api",
@@ -257,6 +267,8 @@ func TestHandleNodeMessage(t *testing.T) {
 	})
 
 	t.Run("status code 500 is not cached", func(t *testing.T) {
+		t.Parallel()
+		handler, _ := createTestHandler(t)
 		outboundReq := gateway_common.OutboundHTTPRequest{
 			Method:    "GET",
 			URL:       "https://status-500.com/api",
@@ -300,6 +312,8 @@ func TestHandleNodeMessage(t *testing.T) {
 	})
 
 	t.Run("empty request ID", func(t *testing.T) {
+		t.Parallel()
+		handler, _ := createTestHandler(t)
 		rawRes := json.RawMessage([]byte(`{}`))
 		resp := &jsonrpc.Response[json.RawMessage]{
 			ID:     "",
@@ -313,6 +327,8 @@ func TestHandleNodeMessage(t *testing.T) {
 	})
 
 	t.Run("invalid JSON in response result", func(t *testing.T) {
+		t.Parallel()
+		handler, _ := createTestHandler(t)
 		rawRes := json.RawMessage([]byte(`{invalid json}`))
 		resp := &jsonrpc.Response[json.RawMessage]{
 			ID:     fmt.Sprintf("%s/%s", gateway_common.MethodHTTPAction, uuid.New().String()),
@@ -327,6 +343,7 @@ func TestHandleNodeMessage(t *testing.T) {
 }
 
 func TestServiceLifecycle(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 
 	t.Run("start and stop", func(t *testing.T) {
@@ -346,6 +363,7 @@ func TestServiceLifecycle(t *testing.T) {
 }
 
 func TestHandleNodeMessage_RoutesToTriggerHandler(t *testing.T) {
+	t.Parallel()
 	// This test covers the case where the response ID does not contain a "/"
 	// and should be routed to the triggerHandler.HandleNodeTriggerResponse.
 	mockTriggerHandler := triggermocks.NewHTTPTriggerHandler(t)
@@ -370,6 +388,7 @@ func TestHandleNodeMessage_RoutesToTriggerHandler(t *testing.T) {
 }
 
 func TestHandleNodeMessage_UnsupportedMethod(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 	rawRes := json.RawMessage([]byte(`{}`))
 	resp := &jsonrpc.Response[json.RawMessage]{
@@ -384,6 +403,7 @@ func TestHandleNodeMessage_UnsupportedMethod(t *testing.T) {
 }
 
 func TestHandleNodeMessage_EmptyID(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 	rawRes := json.RawMessage([]byte(`{}`))
 	resp := &jsonrpc.Response[json.RawMessage]{
@@ -435,6 +455,7 @@ func (m *mockResponseCache) DeleteExpired(ctx context.Context) int {
 }
 
 func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
+	t.Parallel()
 	cfg := serviceCfg()
 	cfg.CleanUpPeriodMs = 100 // fast cleanup for test
 
@@ -524,6 +545,7 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*gatewayHandl
 }
 
 func TestCreateHTTPRequestCallback(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	requestID := "test-request-id"
@@ -543,6 +565,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	}
 
 	t.Run("successful HTTP request with latency measurement", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
@@ -566,6 +589,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	})
 
 	t.Run("HTTP send error sets IsExternalEndpointError to true", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
@@ -585,6 +609,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	})
 
 	t.Run("response with MultiHeaders is passed through correctly", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
@@ -635,6 +660,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	})
 
 	t.Run("response with empty MultiHeaders still sets Headers", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
@@ -662,6 +688,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	})
 
 	t.Run("HTTP read error sets IsExternalEndpointError to true", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
@@ -681,6 +708,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 	})
 
 	t.Run("other errors set IsExternalEndpointError to false", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestHandler(t)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
@@ -702,6 +730,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 }
 
 func TestMakeOutgoingRequest_SendResponseUsesIndependentContext(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 	mockDon := handler.shards[0].ConnMgr.(*handlermocks.DON)
 	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
@@ -913,7 +942,9 @@ func TestHTTPActionLatencyMetrics(t *testing.T) {
 
 // TestMakeOutgoingRequestCachingBehavior tests the specific caching logic in makeOutgoingRequest
 func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
+	t.Parallel()
 	t.Run("MaxAgeMs=0 and Store=true calls Set", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestHandler(t)
 		mockCache := newMockResponseCache()
 		handler.responseCache = mockCache
@@ -958,6 +989,7 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 	})
 
 	t.Run("MaxAgeMs=0 and Store=false does not call Set", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestHandler(t)
 		mockCache := newMockResponseCache()
 		handler.responseCache = mockCache
@@ -1002,6 +1034,7 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 	})
 
 	t.Run("MaxAgeMs>0 calls CachedFetch", func(t *testing.T) {
+		t.Parallel()
 		handler, _ := createTestHandler(t)
 		mockCache := newMockResponseCache()
 		handler.responseCache = mockCache
@@ -1083,7 +1116,9 @@ func expectSuccessfulRequest(mockHTTPClient *httpmocks.HTTPClient, mockDon *hand
 }
 
 func TestGatewayHandler_MakeOutgoingRequest_NodeRateLimiting(t *testing.T) {
+	t.Parallel()
 	t.Run("per-node rate limiting", func(t *testing.T) {
+		t.Parallel()
 		handler, resp, mockHTTPClient, mockDon := setupRateLimitingTest(t, ServiceConfig{})
 		handler.globalNodeRateLimiter = limits.GlobalRateLimiter(100, 100)    // high global rate
 		handler.perNodeRateLimiters["node1"] = limits.GlobalRateLimiter(1, 1) // very low per-node rate to trigger limits
@@ -1104,6 +1139,7 @@ func TestGatewayHandler_MakeOutgoingRequest_NodeRateLimiting(t *testing.T) {
 	})
 
 	t.Run("global rate limiting", func(t *testing.T) {
+		t.Parallel()
 		handler, resp, mockHTTPClient, mockDon := setupRateLimitingTest(t, ServiceConfig{})
 		handler.globalNodeRateLimiter = limits.GlobalRateLimiter(1, 1)            // very low global rate to trigger limits
 		handler.perNodeRateLimiters["node1"] = limits.GlobalRateLimiter(100, 100) // high per-node rate for node1
@@ -1131,6 +1167,7 @@ var defaultTestHTTPClientFactory network.HTTPClientFactory = func(config network
 }
 
 func TestGatewayHandler_Send_NoMtls_UsesDefaultClient(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
@@ -1146,6 +1183,7 @@ func TestGatewayHandler_Send_NoMtls_UsesDefaultClient(t *testing.T) {
 }
 
 func TestGatewayHandler_Send_MtlsBlockedByRateLimit(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(0, 0)
 	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
@@ -1174,6 +1212,7 @@ func TestGatewayHandler_Send_MtlsBlockedByRateLimit(t *testing.T) {
 // limiter is enforced inside the HTTP client (on the request's capped-timeout
 // context); that enforcement is covered by the network package tests.
 func TestGatewayHandler_Send_MtlsPassesConcurrencyLimiterToFactory(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
 
@@ -1205,6 +1244,7 @@ func TestGatewayHandler_Send_MtlsPassesConcurrencyLimiterToFactory(t *testing.T)
 }
 
 func TestGatewayHandler_Send_MtlsUsesFactory(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
 
@@ -1244,6 +1284,7 @@ func TestGatewayHandler_Send_MtlsUsesFactory(t *testing.T) {
 }
 
 func TestGatewayHandler_Send_MtlsFactoryError(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
 
@@ -1271,6 +1312,7 @@ func TestGatewayHandler_Send_MtlsFactoryError(t *testing.T) {
 // requests with bogus certificates. It uses the real HTTP client factory so that the
 // production code path is what rejects the certificate as invalid.
 func TestGatewayHandler_Send_InvalidMtlsCertDoesNotConsumeGlobalTokens(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 	// Burst of exactly 1: only a single mtls request may pass the rate limiter.
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(1, 1)
@@ -1302,6 +1344,7 @@ func TestGatewayHandler_Send_InvalidMtlsCertDoesNotConsumeGlobalTokens(t *testin
 // client. This is the core property that prevents auth'd connections from
 // leaking between users.
 func TestGatewayHandler_Send_MtlsRoutesThroughCallbackOnly_DefaultClientUntouched(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
 
@@ -1330,6 +1373,7 @@ func TestGatewayHandler_Send_MtlsRoutesThroughCallbackOnly_DefaultClientUntouche
 }
 
 func TestGatewayHandler_Send_MtlsBlockedRequestIsValidationError(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(0, 0)
 	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
@@ -1357,6 +1401,7 @@ func TestGatewayHandler_Send_MtlsBlockedRequestIsValidationError(t *testing.T) {
 // rate (cresettings.Default.GatewayHTTPActionMtlsRequestRate) has a zero burst,
 // meaning mtls is blocked out of the box.
 func TestGatewayHandler_Send_MtlsRateLimitEnabledByDefault(t *testing.T) {
+	t.Parallel()
 	handler, _ := createTestHandler(t)
 	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
 		return httpmocks.NewHTTPClient(t), nil
