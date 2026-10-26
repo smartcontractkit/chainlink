@@ -176,9 +176,12 @@ func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
 	urlStr = strings.Replace(urlStr, "http", "ws", 1)
 	parsedURL, err := url.Parse(urlStr)
 	require.NoError(t, err)
+	// The server rejects the oversized response and closes the socket. Depending on
+	// timing, the client's write may fail with a broken pipe, so Connect can error.
 	conn, err := client.Connect(t.Context(), parsedURL)
-	require.NoError(t, err)
-	require.NotNil(t, conn)
+	if err == nil {
+		t.Cleanup(func() { _ = conn.Close() })
+	}
 
 	<-waitCh
 }
