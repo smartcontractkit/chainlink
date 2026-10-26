@@ -50,6 +50,7 @@ func (noopChipIngressPublisher) RegisterSchemas(ctx context.Context, schemas ...
 }
 
 func TestChipIngressBatchWorker_BuildCloudEventBatch(t *testing.T) {
+	t.Parallel()
 	maxBatchSize := 3
 	chTelemetry := make(chan TelemPayload, 10)
 	// #nosec G115 -- maxBatchSize is a small positive constant, safe to convert to uint
@@ -104,6 +105,7 @@ func TestChipIngressBatchWorker_BuildCloudEventBatch(t *testing.T) {
 }
 
 func TestChipIngressBatchWorker_BuildCloudEventBatchUsesMapping(t *testing.T) {
+	t.Parallel()
 	chTelemetry := make(chan TelemPayload, 1)
 	worker := NewChipIngressBatchWorker(
 		1,

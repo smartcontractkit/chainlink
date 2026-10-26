@@ -90,6 +90,7 @@ var randomExecuteReport = func(t *testing.T, chainSelector uint64, gasLimit *big
 }
 
 func TestExecutePluginCodecV1(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	mockExtraDataCodec := &mocks.SourceChainExtraDataCodec{}
 	destGasAmount := rand.Uint32()
@@ -161,6 +162,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			codec := NewExecutePluginCodecV1(ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap))
 			// randomExecuteReport now uses the new encoding internally
 			report := tc.report(randomExecuteReport(t, tc.chainSelector, tc.gasLimit, tc.destGasAmount))
@@ -193,6 +195,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 // Go equivalent of test_deserialize_execution_report
 // https://github.com/smartcontractkit/chainlink-aptos/blob/4a9525abbbc024af87ed6277c57dcf8aa58dd268/contracts/ccip/ccip_offramp/tests/offramp_test.move#L453
 func TestExecutePluginCodecV1_Decode(t *testing.T) {
+	t.Parallel()
 	expectedSender, err := hexutil.Decode("0xd87929a32cf0cbdc9e2d07ffc7c33344079de727")
 	require.NoError(t, err)
 	expectedData, err := hexutil.Decode("0x68656c6c6f20434349505265636569766572") // "hello CCIPReceiver"

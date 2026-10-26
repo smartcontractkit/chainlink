@@ -8,6 +8,7 @@ import (
 )
 
 func TestBatchSplit(t *testing.T) {
+	t.Parallel()
 	list := make([]int, 0, 100)
 	for i := range 100 {
 		list = append(list, i)
@@ -33,6 +34,7 @@ func TestBatchSplit(t *testing.T) {
 
 	for _, r := range runs {
 		t.Run(r.name, func(t *testing.T) {
+			t.Parallel()
 			batch, err := BatchSplit(r.input, r.max)
 			if r.expectErr {
 				assert.Error(t, err)

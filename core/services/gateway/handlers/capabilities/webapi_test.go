@@ -7,6 +7,7 @@ import (
 )
 
 func TestResponseValidate(t *testing.T) {
+	t.Parallel()
 	tt := []struct {
 		name        string
 		response    Response
@@ -41,6 +42,7 @@ func TestResponseValidate(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			err := tc.response.Validate()
 
 			if tc.expectError != "" {

@@ -8,6 +8,7 @@ import (
 )
 
 func TestWaitTimeoutUsesDeadlineBudgetNotDefaultCap(t *testing.T) {
+	t.Parallel()
 	if d, ok := t.Deadline(); ok {
 		expectBefore := time.Until(d) * 9 / 10
 		got := WaitTimeout(t)
@@ -22,6 +23,7 @@ func TestWaitTimeoutUsesDeadlineBudgetNotDefaultCap(t *testing.T) {
 }
 
 func TestWaitTimeoutCustom(t *testing.T) {
+	t.Parallel()
 	requested := 10 * time.Second
 
 	if d, ok := t.Deadline(); ok {

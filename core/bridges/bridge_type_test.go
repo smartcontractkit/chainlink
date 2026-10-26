@@ -52,6 +52,7 @@ func TestBridgeType_Authenticate(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			ok, err := bridges.AuthenticateBridgeType(bt, test.token)
 			require.NoError(t, err)
 

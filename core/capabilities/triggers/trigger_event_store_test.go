@@ -26,6 +26,7 @@ func makePendingEvent(triggerID, eventID string, payload []byte, offset time.Dur
 }
 
 func TestTriggerEventStore_InsertListDelete_DeleteEventsForTrigger(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	ds := pgtest.NewSqlxDB(t)
 	store := trigger.NewTriggerEventStore(ds)
@@ -69,6 +70,7 @@ func TestTriggerEventStore_InsertListDelete_DeleteEventsForTrigger(t *testing.T)
 }
 
 func TestTriggerEventStore_UpdateDelivery(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	ds := pgtest.NewSqlxDB(t)
 	store := trigger.NewTriggerEventStore(ds)
