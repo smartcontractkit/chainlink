@@ -7527,6 +7527,8 @@ func TestPlugin_ValidateObservation_CiphertextSize(t *testing.T) {
 			t.Parallel()
 			rdr := &kv{m: make(map[string]response)}
 
+			// Local err: parallel subtests must not share the outer variable.
+			var err error
 			var anyp *anypb.Any
 			switch tc.obs.RequestType {
 			case vaultcommon.RequestType_CREATE_SECRETS:
