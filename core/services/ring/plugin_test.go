@@ -2,6 +2,7 @@ package ring
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -468,12 +469,10 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 		resultCh <- shard
 	}()
 
-	// Give goroutine time to enqueue request
-	time.Sleep(10 * time.Millisecond)
-
-	// Verify request is pending for OCR consensus
-	pending := store.GetPendingAllocations()
-	require.Contains(t, pending, "workflow-123")
+	// Wait for the goroutine to enqueue its request for OCR consensus
+	require.Eventually(t, func() bool {
+		return slices.Contains(store.GetPendingAllocations(), "workflow-123")
+	}, 5*time.Second, time.Millisecond)
 
 	// Simulate OCR round with observations showing no healthy shards
 	// The pending allocation "workflow-123" should be included in observation
