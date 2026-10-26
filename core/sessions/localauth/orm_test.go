@@ -66,6 +66,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 			db := pgtest.NewSqlxDB(t)
 			orm := localauth.NewORM(db, test.sessionDuration, logger.TestSugared(t), &audit.LoggerService{})
@@ -134,6 +135,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 }
 
 func TestORM_DeleteUserCascade(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db, orm := setupORM(t)
 
@@ -220,6 +222,7 @@ func TestORM_CreateSession(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			sessionRequest := sessions.SessionRequest{
 				Email:    test.email,
 				Password: test.password,

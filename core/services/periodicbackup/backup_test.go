@@ -31,6 +31,7 @@ func must(t testing.TB, s string) *url.URL {
 }
 
 func TestPeriodicBackup_RunBackup(t *testing.T) {
+	t.Parallel()
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *must(t, string(env.DatabaseURL.Get())), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
@@ -50,6 +51,7 @@ func TestPeriodicBackup_RunBackup(t *testing.T) {
 }
 
 func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
+	t.Parallel()
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeLite)
 	periodicBackup := mustNewDatabaseBackup(t, *must(t, string(env.DatabaseURL.Get())), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
@@ -69,6 +71,7 @@ func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 }
 
 func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
+	t.Parallel()
 	backupConfig := newTestConfig(time.Minute, nil, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *must(t, string(env.DatabaseURL.Get())), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
@@ -87,6 +90,7 @@ func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 }
 
 func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
+	t.Parallel()
 	altURL, _ := url.Parse("postgresql://invalid:some-pass@invalid") // betterleaks:allow
 	backupConfig := newTestConfig(time.Minute, altURL, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *must(t, string(env.DatabaseURL.Get())), os.TempDir(), backupConfig)
@@ -98,12 +102,14 @@ func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
 }
 
 func TestPeriodicBackup_FrequencyTooSmall(t *testing.T) {
+	t.Parallel()
 	backupConfig := newTestConfig(time.Second, nil, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *must(t, string(env.DatabaseURL.Get())), os.TempDir(), backupConfig)
 	assert.True(t, periodicBackup.frequencyIsTooSmall())
 }
 
 func TestPeriodicBackup_AlternativeOutputDir(t *testing.T) {
+	t.Parallel()
 	backupDir := filepath.Join(os.TempDir(), "alternative")
 	backupConfig := newTestConfig(time.Second, nil, backupDir, config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *must(t, string(env.DatabaseURL.Get())), os.TempDir(), backupConfig)
