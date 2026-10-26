@@ -379,6 +379,18 @@ func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
 	ExecuteManualShardAssignmentTest(t, testEnv)
 }
 
+// Test_CRE_V2_ShardManualAssignmentCoordinated runs manual shard assignment with the
+// coordinated engine enabled.
+//
+//nolint:paralleltest // mutates CRE settings and shard assignment on the shared environment
+func Test_CRE_V2_ShardManualAssignmentCoordinated(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
+	)
+	ExecuteManualShardAssignmentCoordinatedTest(t, testEnv)
+}
+
 //nolint:paralleltest // mutates CRE settings and shard assignment on the shared environment
 func Test_CRE_V2_ShardManualAssignmentBothSpecs(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
@@ -413,6 +425,18 @@ func Test_CRE_V2_FailoverManualSwap(t *testing.T) {
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-failover-don.toml"),
 	)
 	ExecuteFailoverManualSwapTest(t, testEnv)
+}
+
+// Test_CRE_V2_FailoverManualSwapCoordinated runs the manual failover swap with the
+// coordinated engine enabled.
+//
+//nolint:paralleltest // the test owns the shard assignment of the topology it runs on
+func Test_CRE_V2_FailoverManualSwapCoordinated(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-failover-coordinated-don.toml"),
+	)
+	ExecuteFailoverManualSwapCoordinatedTest(t, testEnv)
 }
 
 //nolint:paralleltest // the test owns the sharded topology it runs on

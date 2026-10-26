@@ -53,10 +53,10 @@ var (
 	ErrEngineDraining     = triggers.ErrEngineDraining
 	ErrEngineClosed       = triggers.ErrEngineClosed
 
-	ErrShardDeniedNotOwner     = errors.New("shard ownership denied: not owner")
-	ErrShardDeniedOrchestrator = errors.New("shard ownership denied: orchestrator error")
+	ErrShardDeniedNotOwner     = fmt.Errorf("shard ownership denied: not owner: %w", triggers.ErrAdmissionDenied)
+	ErrShardDeniedOrchestrator = fmt.Errorf("shard ownership denied: orchestrator error: %w", triggers.ErrAdmissionDenied)
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
-	ErrAdmissionCache          = errors.New("admission: event cached for failover")
+	ErrAdmissionCache          = triggers.ErrAdmissionCached
 
 	ErrQueueFull     = errors.New("trigger event queue is full")
 	ErrEnqueueFailed = errors.New("failed to enqueue trigger event")

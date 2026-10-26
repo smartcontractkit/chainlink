@@ -3,6 +3,7 @@ package triggers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -212,6 +213,62 @@ func TestCoordinator_NoDeliver(t *testing.T) {
 			require.Eventually(t, func() bool {
 				return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", dropped) == 2
 			}, 5*time.Second, 5*time.Millisecond)
+		})
+	}
+}
+
+// TestCoordinator_DeliverAdmission covers what the coordinator does with an
+// admission error from the engine (e.g. the shard failover manager on a sharded
+// node). A denied event is ACKed and counted as an admission_denied drop, while a cached event
+// is left un-ACKed so the secondary can replay it.
+//
+//nolint:paralleltest // swaps the global beholder client
+func TestCoordinator_DeliverAdmission(t *testing.T) {
+	tests := []struct {
+		name        string
+		engineErr   error
+		wantAck     bool
+		wantDropped int64
+	}{
+		{
+			name:        "denied is ACKed and counted",
+			engineErr:   fmt.Errorf("shard ownership denied: not owner: %w", ErrAdmissionDenied),
+			wantAck:     true,
+			wantDropped: 1,
+		},
+		{name: "cached is left for replay", engineErr: ErrAdmissionCached},
+		{name: "other error is not ACKed", engineErr: errors.New("metering reserve failed")},
+		{name: "executed is not ACKed by the coordinator"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			reader := useTestMeter(t) // before the fixture, so its metrics are read back
+			f := newCoordinatorFixture(t)
+			f.engine.err = tc.engineErr
+			trigger, eventCh := f.expectTrigger(t)
+			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+			if tc.wantAck {
+				trigger.EXPECT().AckEvent(mock.Anything, RegistrationID(validWorkflowID, 0), "evt-1", testMethod).Return(nil).Once()
+			}
+
+			_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+			require.NoError(t, err)
+			eventCh <- triggerEvent("evt-1")
+			// Wait for the admitter to deliver the event: unregistering first
+			// would drop it from the queue.
+			require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 10*time.Millisecond)
+
+			// The registration is only released once its executions have
+			// returned, so the delivery, including any ACK and drop metric, is complete.
+			require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+			require.Eventually(t, func() bool { return !f.registered() }, 5*time.Second, 10*time.Millisecond)
+
+			if !tc.wantAck {
+				trigger.AssertNotCalled(t, "AckEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+			}
+			denied := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonAdmissionDenied}
+			assert.Equal(t, tc.wantDropped, counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", denied),
+				"admission_denied drops")
 		})
 	}
 }
@@ -692,6 +749,8 @@ func TestCoordinator_DropObservability(t *testing.T) {
 			{"duplicate execution", ErrDuplicateExecution},
 			{"engine draining", ErrEngineDraining},
 			{"engine closed", ErrEngineClosed},
+			{"admission cached", ErrAdmissionCached},
+			{"admission denied", fmt.Errorf("not owner: %w", ErrAdmissionDenied)},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
@@ -699,7 +758,8 @@ func TestCoordinator_DropObservability(t *testing.T) {
 				f := newCoordinatorFixtureWithLogger(t, lggr)
 				trigger, eventCh := f.expectTrigger(t)
 				trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
-				f.engine.executeErr = tc.err
+				trigger.EXPECT().AckEvent(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+				f.engine.err = tc.err
 				_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 				require.NoError(t, err)
 
@@ -716,7 +776,7 @@ func TestCoordinator_DropObservability(t *testing.T) {
 			f := newCoordinatorFixtureWithLogger(t, lggr)
 			trigger, eventCh := f.expectTrigger(t)
 			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
-			f.engine.executeErr = errors.New("boom")
+			f.engine.err = errors.New("boom")
 			_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 			require.NoError(t, err)
 
