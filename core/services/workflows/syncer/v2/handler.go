@@ -1014,21 +1014,23 @@ func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, 
 	var manager *ShardFailoverManager
 	if h.shardingEnabled && h.dispatcher != nil {
 		manager = NewShardFailoverManager(ShardFailoverManagerConfig{
-			ShardingEnabled:            h.shardingEnabled,
-			MyDONID:                    h.myDonID,
-			MyShardIndex:               h.myShardIndex,
-			WorkflowID:                 workflowID,
-			WorkflowOwner:              owner,
-			ShardResolver:              h.shardResolver,
-			ShardOrchestratorClient:    h.shardOrchestratorClient,
-			ShardRoutingSteady:         h.shardRoutingSteady,
-			ShardingFailoverGate:       h.engineLimiters.ShardingFailoverEnabled,
-			TimeoutBasedFailoverGate:   h.engineLimiters.TimeoutBasedFailover,
-			TimeoutBasedFailoverWindow: h.engineLimiters.TimeoutBasedFailoverWindow,
-			Communicator:               h.getShardFailoverComm(),
-			ShardDonLookup:             h.shardDonLookup,
-			DonSubscriber:              h.workflowDonSubscriber,
-			Logger:                     h.lggr,
+			ShardingEnabled:         h.shardingEnabled,
+			MyDONID:                 h.myDonID,
+			MyShardIndex:            h.myShardIndex,
+			WorkflowID:              workflowID,
+			WorkflowOwner:           owner,
+			ShardResolver:           h.shardResolver,
+			ShardOrchestratorClient: h.shardOrchestratorClient,
+			ShardRoutingSteady:      h.shardRoutingSteady,
+			ShardDonLookup:          h.shardDonLookup,
+			DonSubscriber:           h.workflowDonSubscriber,
+			Failover: FailoverConfig{
+				ShardingFailoverGate:       h.engineLimiters.ShardingFailoverEnabled,
+				TimeoutBasedFailoverGate:   h.engineLimiters.TimeoutBasedFailover,
+				TimeoutBasedFailoverWindow: h.engineLimiters.TimeoutBasedFailoverWindow,
+				Communicator:               h.getShardFailoverComm(),
+			},
+			Logger: h.lggr,
 		})
 		manager.WireHooks(cfg)
 	}
