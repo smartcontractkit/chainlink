@@ -594,6 +594,9 @@ func (m *ShardFailoverManager) Subscribe(ctx context.Context) ([]*sdkpb.TriggerS
 // Tenant delegates to the wrapped engine.
 func (m *ShardFailoverManager) Tenant() contexts.CRE { return m.engine.Tenant() }
 
+// SdkName delegates to the wrapped engine, same reasoning as Tenant.
+func (m *ShardFailoverManager) SdkName() string { return m.engine.SdkName() }
+
 // IsCoordinated delegates to the wrapped engine, so the registry classifies the
 // manager as whichever engine it wraps.
 func (m *ShardFailoverManager) IsCoordinated() bool { return m.engine.IsCoordinated() }
