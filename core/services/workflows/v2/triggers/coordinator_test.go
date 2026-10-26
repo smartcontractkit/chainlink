@@ -13,7 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
@@ -704,4 +707,156 @@ func TestCoordinator_Admission(t *testing.T) {
 		require.Eventually(t, func() bool { return len(f.engine.executed()) == 3 }, 5*time.Second, 5*time.Millisecond)
 		assert.Equal(t, []string{"evt-1", "evt-2", "evt-3"}, f.engine.executedIDs(), "evt-3 keeps the deadline stamped at dispatch")
 	})
+}
+
+// TestCoordinator_AvailableCapacity checks that AvailableCapacity reports how many
+// executions can still start at each scope: per workflow, per owner, per org, and globally.
+func TestCoordinator_AvailableCapacity(t *testing.T) {
+	t.Parallel()
+
+	t.Run("reports free capacity at every scope across registered workflows", func(t *testing.T) {
+		t.Parallel()
+		pools := limits.MultiResourcePoolLimiter[int]{
+			limits.GlobalResourcePoolLimiter(3), // workflow
+			limits.GlobalResourcePoolLimiter(5), // owner
+			limits.GlobalResourcePoolLimiter(7), // org
+			limits.GlobalResourcePoolLimiter(9), // global
+		}
+		admission := newTestAdmission()
+		admission.ExecutionConcurrency = pools
+		f := newCoordinatorFixtureWithAdmission(t, admission)
+		trigger, _ := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		got, err := f.c.AvailableCapacity(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, 9, got.Global, "global has no tenant key, so it is read without a per-workflow context")
+		assert.Equal(t, map[string]int{validWorkflowID: 3}, got.PerWorkflow)
+		assert.Equal(t, map[string]int{testOwner: 5}, got.PerOwner)
+		assert.Equal(t, map[string]int{testOrg: 7}, got.PerOrg)
+	})
+
+	t.Run("a running execution takes one slot at every scope until it finishes", func(t *testing.T) {
+		t.Parallel()
+		admission := newTestAdmission()
+		admission.ExecutionConcurrency = limits.MultiResourcePoolLimiter[int]{
+			limits.GlobalResourcePoolLimiter(3), // workflow
+			limits.GlobalResourcePoolLimiter(5), // owner
+			limits.GlobalResourcePoolLimiter(7), // org
+			limits.GlobalResourcePoolLimiter(9), // global
+		}
+		f := newCoordinatorFixtureWithAdmission(t, admission)
+		trigger, eventCh := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+		release := f.holdExecutions(t)
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		capacity := func(wf, owner, org, global int) Capacity {
+			return Capacity{
+				Global:      global,
+				PerWorkflow: map[string]int{validWorkflowID: wf},
+				PerOwner:    map[string]int{testOwner: owner},
+				PerOrg:      map[string]int{testOrg: org},
+			}
+		}
+		requireCapacity := func(want Capacity, msg string) {
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				got, err := f.c.AvailableCapacity(t.Context())
+				if assert.NoError(c, err) {
+					assert.Equal(c, want, got)
+				}
+			}, 5*time.Second, 5*time.Millisecond, msg)
+		}
+
+		requireCapacity(capacity(3, 5, 7, 9), "registering takes no execution slot")
+
+		eventCh <- triggerEvent("evt-1")
+		require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+		requireCapacity(capacity(2, 4, 6, 8), "the running execution holds one slot at every scope")
+
+		release()
+		requireCapacity(capacity(3, 5, 7, 9), "the slot is given back at every scope when the execution finishes")
+	})
+
+	t.Run("reads each owner and org pool once, however many workflows share it", func(t *testing.T) {
+		t.Parallel()
+		wf, owner, org, global := newCountingPool(3), newCountingPool(5), newCountingPool(7), newCountingPool(9)
+		c := &coordinator{
+			admission: AdmissionLimiters{ExecutionConcurrency: limits.MultiResourcePoolLimiter[int]{wf, owner, org, global}},
+			workflows: newWorkflowRegistry(),
+		}
+		// Three workflows of one owner in one org.
+		for _, id := range []string{"wf-a", "wf-b", "wf-c"} {
+			c.workflows.set(id, &coordinatedWorkflow{cre: contexts.CRE{Org: testOrg, Owner: testOwner, Workflow: id}})
+		}
+
+		got, err := c.AvailableCapacity(t.Context())
+		require.NoError(t, err)
+		assert.Len(t, got.PerWorkflow, 3)
+		assert.Equal(t, int32(3), wf.availables.Load(), "one read per workflow")
+		assert.Equal(t, int32(1), owner.availables.Load(), "the shared owner is read once")
+		assert.Equal(t, int32(1), org.availables.Load(), "the shared org is read once")
+		assert.Equal(t, int32(1), global.availables.Load())
+	})
+
+	t.Run("returns an error when the shared limiter does not break down by scope", func(t *testing.T) {
+		t.Parallel()
+		// The default fixture uses one pool with no scopes, so there is nothing per scope
+		// to report. AvailableCapacity must return an error, not empty or wrong numbers.
+		f := newCoordinatorFixture(t)
+
+		_, err := f.c.AvailableCapacity(t.Context())
+		require.ErrorIs(t, err, ErrCapacityNotSupported)
+	})
+}
+
+// BenchmarkCoordinator_AvailableCapacity measures how long one AvailableCapacity
+// call takes on a node with 1,000 workflows, 100 owners and 10 orgs. The pools are
+// built like the production ones, so each read does a real settings lookup.
+//
+//	go test -run '^$' -bench AvailableCapacity -benchmem ./core/services/workflows/v2/triggers/
+func BenchmarkCoordinator_AvailableCapacity(b *testing.B) {
+	const workflows, owners, orgs = 1000, 100, 10
+
+	getter, err := settings.NewJSONGetter([]byte(`{}`))
+	require.NoError(b, err)
+	lf := limits.Factory{Logger: logger.Nop(), Settings: getter}
+	scopeLimits := []settings.Setting[int]{
+		cresettings.Default.PerWorkflow.ExecutionConcurrencyLimit,
+		cresettings.Default.PerOwner.WorkflowExecutionConcurrencyLimit,
+		cresettings.Default.PerOrg.WorkflowExecutionConcurrencyLimit,
+		cresettings.Default.WorkflowExecutionConcurrencyLimit,
+	}
+	pools := make(limits.MultiResourcePoolLimiter[int], 0, len(scopeLimits))
+	for _, setting := range scopeLimits {
+		pool, makeErr := limits.MakeResourcePoolLimiter(lf, setting)
+		require.NoError(b, makeErr)
+		b.Cleanup(func() { _ = pool.Close() })
+		pools = append(pools, pool)
+	}
+
+	c := &coordinator{admission: AdmissionLimiters{ExecutionConcurrency: pools}, workflows: newWorkflowRegistry()}
+	for i := range workflows {
+		id := fmt.Sprintf("%064x", i)
+		c.workflows.set(id, &coordinatedWorkflow{cre: contexts.CRE{
+			Org:      fmt.Sprintf("org-%d", i%orgs),
+			Owner:    fmt.Sprintf("%040x", i%owners),
+			Workflow: id,
+		}})
+	}
+
+	ctx := b.Context()
+	// The first read of each tenant creates its pool entry; measure steady state.
+	_, err = c.AvailableCapacity(ctx)
+	require.NoError(b, err)
+
+	for b.Loop() {
+		if _, err := c.AvailableCapacity(ctx); err != nil {
+			b.Fatal(err)
+		}
+	}
 }

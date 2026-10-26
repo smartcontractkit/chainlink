@@ -25,6 +25,12 @@ import (
 // a workflowID the coordinator never registered.
 var ErrWorkflowNotCoordinated = errors.New("workflow not registered with the trigger coordinator")
 
+// ErrCapacityNotSupported is returned by AvailableCapacity when the coordinator's
+// ExecutionConcurrency limiter is not the 4-element [workflow, owner, org, global]
+// limits.MultiResourcePoolLimiter[int] shape NewLimiters builds in production (for
+// example, a test fixture using a single unscoped pool).
+var ErrCapacityNotSupported = errors.New("execution concurrency limiter does not report per-scope capacity")
+
 const (
 	defaultDrainTimeout = 10 * time.Minute
 	shutdownTimeout     = 5 * time.Second
@@ -67,6 +73,15 @@ type Coordinator interface {
 	// Returns ErrWorkflowNotCoordinated if workflowID was never registered here.
 	// A failed capability unregistration is returned and retried on the next call.
 	UnregisterTriggers(ctx context.Context, workflowID string) error
+
+	// AvailableCapacity reports free execution-concurrency capacity at every
+	// scope. Each scope is read separately, with no lock across scopes, so an
+	// execution that starts or finishes during the call can make scopes
+	// disagree slightly. Treat the result as an approximate reading, not a
+	// reservation: capacity it reports as free can be taken before it is used.
+	// Returns ErrCapacityNotSupported if the shared ExecutionConcurrency
+	// limiter does not break down by scope.
+	AvailableCapacity(ctx context.Context) (Capacity, error)
 }
 
 // RegisteredEngine is what EngineRegistry.Get returns: a sink the coordinator
@@ -99,6 +114,19 @@ type AdmissionLimiters struct {
 	// instance.  Sharing it makes legacy and coordinated executions count
 	// against the same workflow, owner, org and global limits.
 	ExecutionConcurrency limits.ResourcePoolLimiter[int]
+}
+
+// Capacity is a snapshot of free execution-concurrency capacity, read from the
+// shared ExecutionConcurrency pool. PerOrg, PerOwner and PerWorkflow cover only
+// the tenants of workflows registered with this coordinator right now: neither
+// the pool nor the settings behind it expose a way to list every tenant ID that
+// has ever been seen or configured, so a tenant with no active registration
+// never appears here, even if it has a custom limit configured in settings.
+type Capacity struct {
+	Global      int
+	PerOrg      map[string]int
+	PerOwner    map[string]int
+	PerWorkflow map[string]int
 }
 
 // EngineRegistry is the coordinator's read-only view of running engines. It is
@@ -335,6 +363,57 @@ func (c *coordinator) UnregisterTriggers(ctx context.Context, workflowID string)
 	cw.lggr.Infow("Unregistered triggers, retaining handles until drained", "numTriggers", len(cw.handles))
 	cw.metrics.IncrementWorkflowUnregisteredCounter(ctx)
 	return nil
+}
+
+func (c *coordinator) AvailableCapacity(ctx context.Context) (Capacity, error) {
+	pools, ok := c.admission.ExecutionConcurrency.(limits.MultiResourcePoolLimiter[int])
+	if !ok || len(pools) != 4 {
+		return Capacity{}, ErrCapacityNotSupported
+	}
+	// Order fixed by NewLimiters (config.go): workflow, owner, org, global.
+	wfPool, ownerPool, orgPool, globalPool := pools[0], pools[1], pools[2], pools[3]
+
+	// Global has no tenant key: it is one pool shared by everyone, so it needs no
+	// per-workflow context and is read even with zero workflows registered.
+	global, err := globalPool.Available(ctx)
+	if err != nil {
+		return Capacity{}, fmt.Errorf("global scope: %w", err)
+	}
+
+	capacity := Capacity{
+		Global:      global,
+		PerOrg:      map[string]int{},
+		PerOwner:    map[string]int{},
+		PerWorkflow: map[string]int{},
+	}
+	for _, cw := range c.workflows.all() {
+		tenantCtx := contexts.WithCRE(ctx, cw.cre)
+
+		wf, err := wfPool.Available(tenantCtx)
+		if err != nil {
+			return Capacity{}, fmt.Errorf("workflow scope (%s): %w", cw.cre.Workflow, err)
+		}
+		capacity.PerWorkflow[cw.cre.Workflow] = wf
+
+		// Many workflows share an owner or org; its pool gives the same answer for
+		// each of them, so its read once.
+		if _, seen := capacity.PerOwner[cw.cre.Owner]; !seen {
+			owner, err := ownerPool.Available(tenantCtx)
+			if err != nil {
+				return Capacity{}, fmt.Errorf("owner scope (%s): %w", cw.cre.Owner, err)
+			}
+			capacity.PerOwner[cw.cre.Owner] = owner
+		}
+
+		if _, seen := capacity.PerOrg[cw.cre.Org]; !seen {
+			org, err := orgPool.Available(tenantCtx)
+			if err != nil {
+				return Capacity{}, fmt.Errorf("org scope (%s): %w", cw.cre.Org, err)
+			}
+			capacity.PerOrg[cw.cre.Org] = org
+		}
+	}
+	return capacity, nil
 }
 
 func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
@@ -656,4 +735,15 @@ func (r *workflowRegistry) pending() map[string]*coordinatedWorkflow {
 		}
 	}
 	return pending
+}
+
+// all returns every currently registered workflow, a snapshot taken under the lock.
+func (r *workflowRegistry) all() []*coordinatedWorkflow {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	all := make([]*coordinatedWorkflow, 0, len(r.workflows))
+	for _, cw := range r.workflows {
+		all = append(all, cw)
+	}
+	return all
 }
