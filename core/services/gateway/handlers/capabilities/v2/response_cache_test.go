@@ -48,6 +48,7 @@ func createTestResponse(statusCode int, body string) gateway_common.OutboundHTTP
 }
 
 func TestIsCacheableStatusCode(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		statusCode int
@@ -85,6 +86,7 @@ func TestIsCacheableStatusCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := isCacheableStatusCode(tt.statusCode)
 			require.Equal(t, tt.expected, result)
 		})
@@ -92,15 +94,18 @@ func TestIsCacheableStatusCode(t *testing.T) {
 }
 
 func TestRequestHash(t *testing.T) {
+	t.Parallel()
 	req := createTestRequest("GET", "https://example.com")
 
 	t.Run("generates consistent hash", func(t *testing.T) {
+		t.Parallel()
 		hash1 := req.Hash()
 		hash2 := req.Hash()
 		require.Equal(t, hash1, hash2)
 	})
 
 	t.Run("different requests generate different hashes", func(t *testing.T) {
+		t.Parallel()
 		req1 := createTestRequest("GET", "https://example.com/path1")
 		req2 := createTestRequest("GET", "https://example.com/path2")
 
@@ -110,6 +115,7 @@ func TestRequestHash(t *testing.T) {
 	})
 
 	t.Run("same request with different method generates different hash", func(t *testing.T) {
+		t.Parallel()
 		req1 := createTestRequest("GET", "https://example.com")
 		req2 := createTestRequest("POST", "https://example.com")
 
@@ -119,6 +125,7 @@ func TestRequestHash(t *testing.T) {
 	})
 
 	t.Run("having different cacheSettings results in the same Hash", func(t *testing.T) {
+		t.Parallel()
 		req1 := createTestRequest("GET", "https://example.com")
 		req1.CacheSettings = gateway_common.CacheSettings{
 			MaxAgeMs: 5000,
@@ -137,6 +144,7 @@ func TestRequestHash(t *testing.T) {
 	})
 
 	t.Run("having different workflowID results in same Hash", func(t *testing.T) {
+		t.Parallel()
 		req1 := createTestRequest("GET", "https://example.com")
 		req1.WorkflowID = "workflow-123"
 
@@ -149,6 +157,7 @@ func TestRequestHash(t *testing.T) {
 	})
 
 	t.Run("having same workflowOwner results in the same Hash", func(t *testing.T) {
+		t.Parallel()
 		req1 := createTestRequest("GET", "https://example.com")
 		req1.WorkflowOwner = "workflow-owner-123"
 
@@ -161,6 +170,7 @@ func TestRequestHash(t *testing.T) {
 	})
 
 	t.Run("having different workflowOwner results in different Hash", func(t *testing.T) {
+		t.Parallel()
 		req1 := createTestRequest("GET", "https://example.com")
 		req1.WorkflowOwner = "workflow-owner-123"
 
@@ -176,17 +186,20 @@ func TestRequestHash(t *testing.T) {
 }
 
 func TestIsExpiredOrNotCached(t *testing.T) {
-	testMetrics := createCacheTestMetrics(t)
-	cache := newResponseCache(logger.Test(t), 1000, testMetrics) // 1 second TTL
+	t.Parallel()
 
 	req := createTestRequest("GET", "https://example.com")
 
 	t.Run("returns true for non-existent entry", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 1000, createCacheTestMetrics(t))
 		result := cache.isExpiredOrNotCached(req)
 		require.True(t, result)
 	})
 
 	t.Run("returns false for non-expired entry", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 1000, createCacheTestMetrics(t))
 		cache.cache[req.Hash()] = &cachedResponse{
 			response: createTestResponse(200, "test"),
 			storedAt: time.Now(),
@@ -197,6 +210,8 @@ func TestIsExpiredOrNotCached(t *testing.T) {
 	})
 
 	t.Run("returns true for expired entry", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 1000, createCacheTestMetrics(t))
 		cache.cache[req.Hash()] = &cachedResponse{
 			response: createTestResponse(200, "test"),
 			storedAt: time.Now().Add(-2 * time.Second),
@@ -208,10 +223,11 @@ func TestIsExpiredOrNotCached(t *testing.T) {
 }
 
 func TestFetch(t *testing.T) {
-	testMetrics := createCacheTestMetrics(t)
-	cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
+	t.Parallel()
 
 	t.Run("calls fetchFn when cache miss", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 10000, createCacheTestMetrics(t))
 		req := createTestRequest("GET", "https://example.com/miss")
 		expectedResp := createTestResponse(200, "fresh data")
 
@@ -228,6 +244,8 @@ func TestFetch(t *testing.T) {
 	})
 
 	t.Run("returns cached response when cache hit", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 10000, createCacheTestMetrics(t))
 		req := createTestRequest("GET", "https://example.com/hit")
 		cachedResp := createTestResponse(200, "cached data")
 
@@ -250,6 +268,8 @@ func TestFetch(t *testing.T) {
 	})
 
 	t.Run("calls fetchFn when cached entry is expired by MaxAgeMs", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 10000, createCacheTestMetrics(t))
 		req := createTestRequest("GET", "https://example.com/expired")
 		req.CacheSettings.MaxAgeMs = 100
 
@@ -272,6 +292,8 @@ func TestFetch(t *testing.T) {
 	})
 
 	t.Run("caches cacheable responses when storeOnFetch is true", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 10000, createCacheTestMetrics(t))
 		req := createTestRequest("GET", "https://example.com/cacheable")
 		response := createTestResponse(200, "cacheable response")
 
@@ -287,6 +309,8 @@ func TestFetch(t *testing.T) {
 	})
 
 	t.Run("does not cache when storeOnFetch is false", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 10000, createCacheTestMetrics(t))
 		req := createTestRequest("GET", "https://example.com/nostore")
 		response := createTestResponse(200, "should not be stored")
 
@@ -304,6 +328,8 @@ func TestFetch(t *testing.T) {
 	})
 
 	t.Run("does not cache non-cacheable responses", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 10000, createCacheTestMetrics(t))
 		req := createTestRequest("GET", "https://example.com/noncacheable")
 		response := createTestResponse(500, "server error")
 
@@ -322,6 +348,7 @@ func TestFetch(t *testing.T) {
 }
 
 func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
+	t.Parallel()
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 
@@ -356,6 +383,7 @@ func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
 }
 
 func TestFetch_ConcurrentSameKey_Deduplicated(t *testing.T) {
+	t.Parallel()
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 
@@ -394,6 +422,7 @@ func TestFetch_ConcurrentSameKey_Deduplicated(t *testing.T) {
 // This is not a production bug (callers with storeOnFetch=false bypass Fetch entirely),
 // but it makes the contract explicit.
 func TestFetch_StoreOnFetch_FlightLeaderDecides(t *testing.T) {
+	t.Parallel()
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 
@@ -443,6 +472,7 @@ func TestFetch_StoreOnFetch_FlightLeaderDecides(t *testing.T) {
 }
 
 func TestFetch_PanicInFetchFn_PropagatedToCaller(t *testing.T) {
+	t.Parallel()
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 
@@ -457,6 +487,7 @@ func TestFetch_PanicInFetchFn_PropagatedToCaller(t *testing.T) {
 }
 
 func TestFetch_PanicInFetchFn_PropagatedToAllWaiters(t *testing.T) {
+	t.Parallel()
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 
@@ -486,10 +517,11 @@ func TestFetch_PanicInFetchFn_PropagatedToAllWaiters(t *testing.T) {
 }
 
 func TestSet(t *testing.T) {
-	testMetrics := createCacheTestMetrics(t)
-	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
+	t.Parallel()
 
 	t.Run("sets cacheable response", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 10000, createCacheTestMetrics(t))
 		req := createTestRequest("GET", "https://example.com/set")
 		response := createTestResponse(200, "response to cache")
 
@@ -501,6 +533,8 @@ func TestSet(t *testing.T) {
 	})
 
 	t.Run("does not set non-cacheable response", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 10000, createCacheTestMetrics(t))
 		req := createTestRequest("GET", "https://example.com/nonset")
 		response := createTestResponse(500, "server error")
 
@@ -511,6 +545,8 @@ func TestSet(t *testing.T) {
 	})
 
 	t.Run("does not overwrite non-expired entry", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 10000, createCacheTestMetrics(t))
 		req := createTestRequest("GET", "https://example.com/nooverwrite")
 		originalResponse := createTestResponse(200, "original")
 		newResponse := createTestResponse(200, "new")
@@ -526,6 +562,8 @@ func TestSet(t *testing.T) {
 	})
 
 	t.Run("overwrites expired entry", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 10000, createCacheTestMetrics(t))
 		req := createTestRequest("GET", "https://example.com/overwrite")
 
 		cache.cache[req.Hash()] = &cachedResponse{
@@ -543,10 +581,11 @@ func TestSet(t *testing.T) {
 }
 
 func TestDeleteExpired(t *testing.T) {
-	testMetrics := createCacheTestMetrics(t)
-	cache := newResponseCache(logger.Test(t), 1000, testMetrics)
+	t.Parallel()
 
 	t.Run("deletes expired entries and returns count", func(t *testing.T) {
+		t.Parallel()
+		cache := newResponseCache(logger.Test(t), 1000, createCacheTestMetrics(t))
 		expiredReq1 := createTestRequest("GET", "https://example.com/expired1")
 		expiredReq2 := createTestRequest("GET", "https://example.com/expired2")
 		validReq := createTestRequest("GET", "https://example.com/valid")
@@ -578,15 +617,17 @@ func TestDeleteExpired(t *testing.T) {
 	})
 
 	t.Run("returns zero when cache is empty", func(t *testing.T) {
-		testMetrics := createCacheTestMetrics(t)
-		emptyCache := newResponseCache(logger.Test(t), 1000, testMetrics)
+		t.Parallel()
+		emptyCache := newResponseCache(logger.Test(t), 1000, createCacheTestMetrics(t))
 		count := emptyCache.DeleteExpired(t.Context())
 		require.Equal(t, 0, count)
 	})
 }
 
 func TestEdgeCases(t *testing.T) {
+	t.Parallel()
 	t.Run("zero TTL cache", func(t *testing.T) {
+		t.Parallel()
 		testMetrics := createCacheTestMetrics(t)
 		cache := newResponseCache(logger.Test(t), 0, testMetrics)
 
@@ -600,6 +641,7 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("handles nil response headers", func(t *testing.T) {
+		t.Parallel()
 		testMetrics := createCacheTestMetrics(t)
 		cache := newResponseCache(logger.Test(t), 5000, testMetrics)
 
@@ -620,6 +662,7 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("handles empty request", func(t *testing.T) {
+		t.Parallel()
 		testMetrics := createCacheTestMetrics(t)
 		cache := newResponseCache(logger.Test(t), 5000, testMetrics)
 
