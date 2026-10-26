@@ -20,6 +20,7 @@ func createTestMetrics(t *testing.T) *metrics.Metrics {
 }
 
 func TestWorkflowMetadataAggregator_StartStop(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	testMetrics := createTestMetrics(t)
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 100*time.Millisecond, testMetrics)
@@ -63,6 +64,7 @@ func createTestWorkflowMetadata(workflowID, workflowName, workflowOwner, workflo
 }
 
 func TestWorkflowMetadataAggregator_Collect(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	testMetrics := createTestMetrics(t)
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second, testMetrics)
@@ -121,6 +123,7 @@ func TestWorkflowMetadataAggregator_Collect(t *testing.T) {
 }
 
 func TestWorkflowMetadataAggregator_CollectDifferentObservations(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	testMetrics := createTestMetrics(t)
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 10*time.Second, testMetrics)
@@ -165,6 +168,7 @@ func TestWorkflowMetadataAggregator_CollectDifferentObservations(t *testing.T) {
 }
 
 func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	threshold := 2
 	testMetrics := createTestMetrics(t)
@@ -226,6 +230,7 @@ func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
 }
 
 func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	threshold := 2
 	testMetrics := createTestMetrics(t)
@@ -277,6 +282,7 @@ func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder(t *testing.T) {
 }
 
 func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder_SameWorkflowNameOwnerTag(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	threshold := 2
 	testMetrics := createTestMetrics(t)
@@ -342,6 +348,7 @@ func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder_SameWorkflowNam
 }
 
 func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -381,6 +388,7 @@ func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 }
 
 func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -422,9 +430,11 @@ func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *tes
 }
 
 func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 
 	t.Run("empty workflow ID", func(t *testing.T) {
+		t.Parallel()
 		testMetrics := createTestMetrics(t)
 		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
@@ -440,6 +450,7 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty workflow name", func(t *testing.T) {
+		t.Parallel()
 		testMetrics := createTestMetrics(t)
 		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
@@ -455,6 +466,7 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty workflow owner", func(t *testing.T) {
+		t.Parallel()
 		testMetrics := createTestMetrics(t)
 		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
@@ -470,6 +482,7 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty workflow tag", func(t *testing.T) {
+		t.Parallel()
 		testMetrics := createTestMetrics(t)
 		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 
@@ -485,6 +498,7 @@ func TestWorkflowMetadataAggregator_Collect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty node address", func(t *testing.T) {
+		t.Parallel()
 		testMetrics := createTestMetrics(t)
 		agg := NewWorkflowMetadataAggregator(lggr, 1, 10*time.Second, testMetrics)
 

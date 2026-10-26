@@ -11,6 +11,7 @@ import (
 )
 
 func TestHandleShutdown(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -25,6 +26,7 @@ func TestHandleShutdown(t *testing.T) {
 
 	for name, sig := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			ctx, cancel := context.WithCancel(t.Context())
 			go HandleShutdown(func(string) {
 				cancel()
@@ -33,7 +35,7 @@ func TestHandleShutdown(t *testing.T) {
 			// have to wait for ossignal.Notify
 			time.Sleep(time.Second)
 
-			err = proc.Signal(sig)
+			err := proc.Signal(sig)
 			require.NoError(t, err)
 
 			select {

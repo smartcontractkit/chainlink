@@ -12,6 +12,7 @@ import (
 )
 
 func TestIngressAgentBatch(t *testing.T) {
+	t.Parallel()
 	telemetryBatchClient := mocks.NewTelemetryService(t)
 	ingressAgentBatch := telemetry.NewIngressAgentWrapper(telemetryBatchClient)
 	monitoringEndpoint := ingressAgentBatch.GenMonitoringEndpoint("test-network", "test-chainID", "0xa", synchronization.OCR)

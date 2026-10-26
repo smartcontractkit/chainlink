@@ -46,7 +46,9 @@ func (m *mockArbiterScalerClient) ConsensusWantShards(_ context.Context, _ *ring
 }
 
 func TestRingStoreIntegration(t *testing.T) {
+	t.Parallel()
 	t.Run("RingStore can be created and used", func(t *testing.T) {
+		t.Parallel()
 		store := ring.NewStore()
 		require.NotNil(t, store)
 
@@ -67,6 +69,7 @@ func TestRingStoreIntegration(t *testing.T) {
 	})
 
 	t.Run("RingStore routes to multiple shards", func(t *testing.T) {
+		t.Parallel()
 		store := ring.NewStore()
 
 		store.SetShardHealth(0, true)
@@ -92,6 +95,7 @@ func TestRingStoreIntegration(t *testing.T) {
 	})
 
 	t.Run("RingStore caches workflow allocations", func(t *testing.T) {
+		t.Parallel()
 		store := ring.NewStore()
 
 		store.SetShardHealth(0, true)
@@ -112,6 +116,7 @@ func TestRingStoreIntegration(t *testing.T) {
 }
 
 func TestRingFactoryIntegration(t *testing.T) {
+	t.Parallel()
 	t.Run("RingFactory can be created", func(t *testing.T) {
 		lggr := logger.Test(t)
 		store := ring.NewStore()

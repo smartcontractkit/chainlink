@@ -13,6 +13,7 @@ import (
 )
 
 func TestProofFlagToBits(t *testing.T) {
+	t.Parallel()
 	genFlags := func(indexesSet []int, size int) []bool {
 		bools := make([]bool, size)
 		for _, indexSet := range indexesSet {
@@ -56,6 +57,7 @@ func TestProofFlagToBits(t *testing.T) {
 }
 
 func TestEvmWord(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		inp uint64
 		exp common.Hash
@@ -66,6 +68,7 @@ func TestEvmWord(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("test %d", tc.inp), func(t *testing.T) {
+			t.Parallel()
 			h := EvmWord(tc.inp)
 			assert.Equal(t, tc.exp, h)
 		})
@@ -73,6 +76,7 @@ func TestEvmWord(t *testing.T) {
 }
 
 func TestABIEncodeDecode(t *testing.T) {
+	t.Parallel()
 	abiStr := `[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`
 	values := []any{struct {
 		Int1 *big.Int `json:"int1"`

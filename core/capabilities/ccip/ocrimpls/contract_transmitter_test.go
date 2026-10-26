@@ -57,6 +57,7 @@ import (
 )
 
 func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
+	t.Parallel()
 	type testCase struct {
 		name                string
 		pluginType          uint8
@@ -184,11 +185,13 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 
 // Test EVM -> SVM extra data decoding in contract transmitter
 func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
+	t.Parallel()
 	extraDataCodec := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
 		chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
 	})
 	t.Run("fails when multiple reports are included", func(t *testing.T) {
+		t.Parallel()
 		reports := []ccipocr3.ExecutePluginReportSingleChain{{}, {}}
 		reportWithInfo := ccipocr3.ExecuteReportInfo{
 			AbstractReports: reports,
@@ -205,6 +208,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 		require.Contains(t, err.Error(), "unexpected report length, expected 1, got 2")
 	})
 	t.Run("fails when multiple report contains multiple messages", func(t *testing.T) {
+		t.Parallel()
 		reports := []ccipocr3.ExecutePluginReportSingleChain{{
 			Messages: []ccipocr3.Message{{}, {}},
 		}}
@@ -223,6 +227,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 		require.Contains(t, err.Error(), "unexpected message length, expected 1, got 2")
 	})
 	t.Run("fails with invalid extra args", func(t *testing.T) {
+		t.Parallel()
 		// invalid encoded extra args
 		encoded := []byte{1, 2, 3, 4}
 
@@ -255,6 +260,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 		require.Contains(t, err.Error(), "unknown extra args tag")
 	})
 	t.Run("fails with invalid extra exec data", func(t *testing.T) {
+		t.Parallel()
 		// invalid encoded extra args
 		encoded := []byte{31, 59, 58, 186, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170}
 		encodedExecData := []byte{1, 2, 3, 4}
@@ -291,6 +297,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to decode token amount dest exec data: decode dest gas amount: abi decode uint32: abi: cannot marshal in to go type: length insufficient 4 require 32")
 	})
 	t.Run("Successfully decodes valid EVM -> SOL report", func(t *testing.T) {
+		t.Parallel()
 		// hardcode abi encoded extra args for simplicity
 		encoded := []byte{31, 59, 58, 186, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170}
 		destGasAmount := uint32(10000)

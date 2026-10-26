@@ -10,6 +10,7 @@ import (
 )
 
 func TestTrace(t *testing.T) {
+	t.Parallel()
 	lgr, observed := TestLoggerObserved(t, zapcore.DebugLevel)
 	lgr.SetLogLevel(zapcore.InfoLevel)
 

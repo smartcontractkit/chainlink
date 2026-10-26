@@ -11,6 +11,7 @@ import (
 )
 
 func TestDeferableWriteCloser_Close(t *testing.T) {
+	t.Parallel()
 	d := t.TempDir()
 	f, err := os.Create(filepath.Join(d, "test-file"))
 	require.NoError(t, err)

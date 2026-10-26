@@ -11,6 +11,7 @@ import (
 )
 
 func TestMessage_Validate(t *testing.T) {
+	t.Parallel()
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageID: "abcd",

@@ -15,6 +15,7 @@ import (
 )
 
 func Test_ReportsGeneratedGauge(t *testing.T) {
+	t.Parallel()
 	pluginObservationSize := 5
 	pluginOutcomeSize := 3
 
@@ -126,6 +127,7 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 }
 
 func Test_DurationHistograms(t *testing.T) {
+	t.Parallel()
 	// Capture initial histogram sample counts (accumulate across -count=N)
 	initEvmQueryTrue := counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "query", "true")
 	initEvmQueryFalse := counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "query", "false")

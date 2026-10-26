@@ -51,6 +51,7 @@ func Test_PublicKey_UnmarshalJSON(t *testing.T) {
 }
 
 func Test_PublicKey_Scan(t *testing.T) {
+	t.Parallel()
 	pubKey, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
@@ -73,6 +74,7 @@ func Test_PublicKey_Scan(t *testing.T) {
 }
 
 func Test_PublicKey_Value(t *testing.T) {
+	t.Parallel()
 	pubKey, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
