@@ -60,7 +60,7 @@ require (
 	github.com/moby/moby/client v0.4.1
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.35.1
-	github.com/smartcontractkit/chain-selectors v1.0.107
+	github.com/smartcontractkit/chain-selectors v1.0.112
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260908155618-50f521d70e62
 	github.com/smartcontractkit/chainlink-common v0.11.2-ccip2.58.1
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0

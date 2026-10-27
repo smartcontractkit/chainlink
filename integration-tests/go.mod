@@ -27,7 +27,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.35.1
 	github.com/segmentio/ksuid v1.0.4
-	github.com/smartcontractkit/chain-selectors v1.0.107
+	github.com/smartcontractkit/chain-selectors v1.0.112
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260729172123-588778bf8e20
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260908155618-50f521d70e62
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260812212436-23ab1060f955
