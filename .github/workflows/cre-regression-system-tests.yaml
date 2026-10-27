@@ -78,38 +78,12 @@ jobs:
         id: spot
         uses: $/.github/actions/setup-runner-spot
 
-      # TODO(DX-5101): replace this inline grep/jq matrix step with `ci matrix system --suite cre-regression`
       - name: Define test matrix
         id: define-matrix
         shell: bash
         env:
-          RUN_ID: ${{ github.run_id }}
-          RUN_ATTEMPT: ${{ github.run_attempt }}
-          SPOT_FLAG: ${{ steps.spot.outputs.spot_flag }}
-        run: |
-          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/regression/cre/*_test.go)
-
-          per_test_configs='{
-            "Test_CRE_V2_Stellar_Regression": "configs/workflow-gateway-don-stellar.toml",
-            "Test_CRE_V2_Solana_Regression": "configs/workflow-don-solana.toml"
-          }'
-
-          tests=$(echo "$test_names" | jq -c -R -s \
-            --argjson run_id "$RUN_ID" \
-            --arg run_attempt "$RUN_ATTEMPT" \
-            --argjson per "$per_test_configs" \
-            --arg spot_flag "$SPOT_FLAG" '
-            split("\n") | map(select(length>0))
-            | to_entries
-            | map({
-                test_name: .value,
-                test_id: .key,
-                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/\($spot_flag)/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
-                configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")
-              })
-          ')
-
-          echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
+          RUNNER_SPOT_FLAG: ${{ steps.spot.outputs.spot_flag }}
+        run: ci matrix system --suite cre-regression
 
   run-system-tests:
     name: ${{ matrix.tests.test_name }} ${{ matrix.tests.topology != '' && format(' ({0})', matrix.tests.topology) || '' }}
@@ -159,17 +133,40 @@ jobs:
           persist-credentials: false
 
       - name: Set up Go
-        id: setup-go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+        uses: actions/setup-go@v7
         with:
-          go_mod_path: system-tests/tests/go.mod
-          no_cache: true
+          go-version-file: system-tests/tests/go.mod
+          # The tests run a pre-compiled binary; only the toolchain is needed here.
+          # Modules they resolve at runtime come from the warmed cache below.
+          cache: false
+
+      - name: Restore CRE runtime module cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/cre-runtime-gomod
+          key: cre-runtime-gomod-${{ hashFiles('system-tests/tests/smoke/cre/**/go.sum', 'system-tests/tests/regression/cre/**/go.sum', 'core/scripts/go.sum', 'go.sum') }}
+
+      - name: Point Go at the runtime module cache
+        shell: bash
+        run: echo "GOMODCACHE=${{ runner.temp }}/cre-runtime-gomod" >> "$GITHUB_ENV"
 
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6
         with:
           path: system-tests/tests/bin/
           key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
+
+      - name: Add pre-compiled test tools to PATH
+        shell: bash
+        run: |
+          BIN="$GITHUB_WORKSPACE/system-tests/tests/bin"
+          echo "$BIN" >> "$GITHUB_PATH"
+          # A standalone workflow_dispatch run has no compile-tests job to pre-install
+          # gotestsum, so only install when the binary cache was cold.
+          if [[ ! -x "$BIN/gotestsum" ]]; then
+            echo "gotestsum missing from the test binary cache; installing"
+            GOBIN="$BIN" go install gotest.tools/gotestsum@v1.13.0
+          fi
 
       # Required to pull private ECR images such as Job Distributor (main) and Chip Ingress (main),
       # and also the Chainlink image when inputs.ecr is "sdlc".
@@ -198,9 +195,6 @@ jobs:
           registry-type: public
         env:
           AWS_REGION: us-east-1
-
-      - name: Setup gotestsum
-        uses: ./.github/actions/setup-gotestsum
 
       - name: Start local CRE${{ matrix.tests.cre_version }}
         id: start-local-cre
