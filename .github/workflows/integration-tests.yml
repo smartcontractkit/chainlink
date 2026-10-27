@@ -617,10 +617,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    env:
-      # setup-github-token rewrites git to use the token, so private modules resolve
-      # without the extra git config ctf-setup-go used to add.
-      GOPRIVATE: github.com/smartcontractkit/*
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@efac073ea2507ec18797de3a81704201ade11d9d # v2.3.1
@@ -701,6 +697,9 @@ jobs:
       # downloads and compiles rather than short-circuiting on a cache hit.
       - name: Prep Go module cache & workspace
         shell: bash
+        # A cold download takes 1-4 minutes; fail fast on a stalled fetch
+        # instead of blocking the merge queue.
+        timeout-minutes: 10
         env:
           GOTMPDIR: ${{ github.workspace }}/.gotmp
         run: |
@@ -709,13 +708,7 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/system-tests/tests/bin"
           mkdir -p "$GITHUB_WORKSPACE/integration-tests/bin"
 
-          # Restored mod cache contains shallow VCS clones that can be in an
-          # inconsistent state after tar restore, breaking fetches of new
-          # pseudo-versions ("shallow file has changed since we read it").
-          # Drop them; only private repos re-clone, public zips stay cached.
-          rm -rf "$(go env GOMODCACHE)/cache/vcs"
-
-          # Pre-download dependencies sequentially to prevent parallel git fetch races
+          # Pre-download dependencies once, before the parallel compile steps
           go mod download
           if [[ "${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}" == "true" ]]; then
             (cd "$GITHUB_WORKSPACE/system-tests/tests" && go mod download)
