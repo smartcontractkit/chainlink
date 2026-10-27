@@ -67,11 +67,22 @@ type clientResponse struct {
 	Err    error
 }
 
+// messageFields are the fields of the outgoing MessageBody that the caller controls.
+type messageFields struct {
+	CapabilityID     string
+	CapabilityDonID  uint32
+	CallerDonID      uint32
+	Method           string
+	Payload          []byte
+	MessageID        []byte
+	CapabilityMethod string
+}
+
 type ClientRequest struct {
 	id                       string
 	dispatcher               types.Dispatcher
 	peers                    []p2ptypes.PeerID
-	newMessage               func() *types.MessageBody
+	message                  messageFields
 	responseCh               chan clientResponse
 	createdAt                time.Time
 	responseIDCount          map[[32]byte]int
@@ -118,7 +129,21 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 
 	lggr = logger.With(lggr, "requestId", requestID) // cap ID and method name included in the parent logger
 
-	return newClientRequest(lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, minResponsesToAggregate)
+	if remoteCapabilityInfo.DON == nil {
+		return nil, errors.New("remote capability info missing DON")
+	}
+
+	msg := messageFields{
+		CapabilityID:     remoteCapabilityInfo.ID,
+		CapabilityDonID:  remoteCapabilityInfo.DON.ID,
+		CallerDonID:      localDonInfo.ID,
+		Method:           types.MethodExecute,
+		Payload:          rawRequest,
+		MessageID:        []byte(requestID),
+		CapabilityMethod: capMethodName,
+	}
+
+	return newClientRequest(lggr, requestID, remoteCapabilityInfo, dispatcher, requestTimeout, msg, workflowExecutionID, req.Metadata.ReferenceID, signers, minResponsesToAggregate)
 }
 
 var (
@@ -138,9 +163,8 @@ func requiredConfirmations(f uint8, minResponsesToAggregate uint32) int {
 }
 
 func newClientRequest(lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
-	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	methodType string, rawRequest []byte, workflowExecutionID, stepRef, capMethodName string,
-	signers [][]byte, minResponsesToAggregate uint32,
+	dispatcher types.Dispatcher, requestTimeout time.Duration, message messageFields,
+	workflowExecutionID, stepRef string, signers [][]byte, minResponsesToAggregate uint32,
 ) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
@@ -152,23 +176,11 @@ func newClientRequest(lggr logger.Logger, requestID string, remoteCapabilityInfo
 		responseReceived[peerID] = false
 	}
 
-	newMessage := func() *types.MessageBody {
-		return &types.MessageBody{
-			CapabilityId:     remoteCapabilityInfo.ID,
-			CapabilityDonId:  remoteCapabilityDonInfo.ID,
-			CallerDonId:      localDonInfo.ID,
-			Method:           methodType,
-			Payload:          rawRequest,
-			MessageId:        []byte(requestID),
-			CapabilityMethod: capMethodName,
-		}
-	}
-
 	return &ClientRequest{
 		id:                            requestID,
 		dispatcher:                    dispatcher,
 		peers:                         remoteCapabilityDonInfo.Members,
-		newMessage:                    newMessage,
+		message:                       message,
 		createdAt:                     time.Now(),
 		requestTimeout:                requestTimeout,
 		requiredResponseConfirmations: requiredConfirmations(remoteCapabilityDonInfo.F, minResponsesToAggregate),
@@ -191,7 +203,15 @@ func newClientRequest(lggr logger.Logger, requestID string, remoteCapabilityInfo
 func (c *ClientRequest) Send() {
 	for _, peerID := range c.peers {
 		// the dispatcher mutates the message, so each peer gets its own
-		message := c.newMessage()
+		message := &types.MessageBody{
+			CapabilityId:     c.message.CapabilityID,
+			CapabilityDonId:  c.message.CapabilityDonID,
+			CallerDonId:      c.message.CallerDonID,
+			Method:           c.message.Method,
+			Payload:          c.message.Payload,
+			MessageId:        c.message.MessageID,
+			CapabilityMethod: c.message.CapabilityMethod,
+		}
 		if err := c.dispatcher.Send(peerID, message); err != nil {
 			c.lggr.Errorw("failed to send message", "peerID", peerID, "error", err)
 		}
