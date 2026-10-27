@@ -37,11 +37,10 @@ func (m *mockPipeline) TerminalDotIDs() []string {
 func Test_Registry(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
-	runner := &mockRunner{}
 
 	t.Run("Get", func(t *testing.T) {
 		t.Parallel()
-		sr := newRegistry(lggr, runner)
+		sr := newRegistry(lggr, &mockRunner{})
 
 		sr.pipelines[1] = &mockPipeline{run: &pipeline.Run{ID: 1}}
 		sr.pipelines[2] = &mockPipeline{run: &pipeline.Run{ID: 2}}
@@ -65,7 +64,7 @@ func Test_Registry(t *testing.T) {
 	})
 	t.Run("Register", func(t *testing.T) {
 		t.Parallel()
-		sr := newRegistry(lggr, runner)
+		sr := newRegistry(lggr, &mockRunner{})
 
 		// registers new pipeline with multiple stream IDs
 		assert.Empty(t, sr.pipelines)

@@ -180,6 +180,7 @@ func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
 	// timing, the client's write may fail with a broken pipe, so Connect can error.
 	conn, err := client.Connect(t.Context(), parsedURL)
 	if err == nil {
+		require.NotNil(t, conn)
 		t.Cleanup(func() { _ = conn.Close() })
 	}
 
