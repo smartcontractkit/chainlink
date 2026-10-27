@@ -2,6 +2,7 @@ package environment
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"slices"
@@ -18,8 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 // Role addresses the extension stacks answer to on ctf, as defined by their CTF components; configs/extensions/README.md
@@ -34,39 +33,74 @@ const (
 
 var artifactStorePort = mustPort(storage.ArtifactStorePort)
 
-// extensionsNodeConfig points workflow DON nodes at the extension roles: workflows come from cre-workflow-source and
-// artifacts from cre-artifact-api / cre-artifact-store.
-func extensionsNodeConfig(input cre.GenerateConfigsInput, configs cre.NodeIndexToConfigOverride) (cre.NodeIndexToConfigOverride, error) {
-	if !input.DonMetadata.HasFlag(cre.WorkflowDON) {
-		return configs, nil
+// extensionsNodeOverrides points workflow DON nodes at the extension roles: workflows come from cre-workflow-source and
+// artifacts from cre-artifact-api / cre-artifact-store. It's appended to user_config_overrides, which the node loads
+// last, so the TOML merges with the user's own AdditionalSources instead of being replaced by them.
+var extensionsNodeOverrides = fmt.Sprintf(`
+[CRE.WorkflowFetcher]
+URL = ''
+
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+URL = '%s'
+TLSEnabled = false
+ArtifactStorageHost = '%s'
+
+[[Capabilities.WorkflowRegistry.AdditionalSources]]
+URL = '%s'
+TLSEnabled = false
+Name = '%s'
+`, artifactAPIRole, artifactStoreRole, workflowSourceRole, extensionsSourceName)
+
+// extensionsManagedSections are the node config tables extensionsNodeOverrides sets. Like frameworkManagedSections,
+// setting them in a workflow nodeset's user_config_overrides would desynchronize the nodes from the extensions.
+var extensionsManagedSections = [][]string{
+	{"CRE", "WorkflowFetcher"},
+	{"Capabilities", "WorkflowRegistry", "WorkflowStorage"},
+}
+
+func addExtensionsNodeOverrides(nodeSets []*cre.NodeSet) {
+	for _, ns := range nodeSets {
+		if !slices.Contains(ns.DONTypes, cre.WorkflowDON) {
+			continue
+		}
+		for _, spec := range ns.NodeSpecs {
+			spec.Node.UserConfigOverrides += "\n" + extensionsNodeOverrides
+		}
 	}
+}
 
-	out := make(cre.NodeIndexToConfigOverride, len(configs))
-	for idx, raw := range configs {
-		var c corechainlink.Config
-		if err := toml.Unmarshal([]byte(raw), &c); err != nil {
-			return nil, errors.Wrapf(err, "failed to unmarshal config of node %d in DON %s", idx, input.DonMetadata.Name)
+func validateExtensionsNodeOverrides(nodeSets []*cre.NodeSet) error {
+	for _, ns := range nodeSets {
+		if !slices.Contains(ns.DONTypes, cre.WorkflowDON) {
+			continue
 		}
-
-		c.CRE.WorkflowFetcher = &coretoml.WorkflowFetcherConfig{URL: new("")}
-		c.Capabilities.WorkflowRegistry.WorkflowStorage = coretoml.WorkflowStorage{
-			URL:                 new(artifactAPIRole),
-			TLSEnabled:          new(false),
-			ArtifactStorageHost: new(artifactStoreRole),
+		for i, spec := range ns.NodeSpecs {
+			var parsed map[string]any
+			if err := toml.Unmarshal([]byte(spec.Node.UserConfigOverrides), &parsed); err != nil {
+				return errors.Wrapf(err, "user_config_overrides of nodeset %q node %d is not valid TOML", ns.Name, i)
+			}
+			for _, section := range extensionsManagedSections {
+				if hasTable(parsed, section) {
+					return errors.Errorf("[%s] is set by extensions and cannot be set in user_config_overrides of workflow nodeset %q node %d",
+						strings.Join(section, "."), ns.Name, i)
+				}
+			}
 		}
-		c.Capabilities.WorkflowRegistry.AdditionalSourcesConfig = append(c.Capabilities.WorkflowRegistry.AdditionalSourcesConfig, coretoml.AdditionalWorkflowSource{
-			URL:        new(workflowSourceRole),
-			TLSEnabled: new(false),
-			Name:       new(extensionsSourceName),
-		})
-
-		marshalled, err := toml.Marshal(c)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to marshal config of node %d in DON %s", idx, input.DonMetadata.Name)
-		}
-		out[idx] = string(marshalled)
 	}
-	return out, nil
+	return nil
+}
+
+func hasTable(m map[string]any, path []string) bool {
+	for _, key := range path {
+		v, ok := m[key]
+		if !ok {
+			return false
+		}
+		if m, ok = v.(map[string]any); !ok {
+			return true
+		}
+	}
+	return true
 }
 
 // validateExtensions rejects, before the environment starts, extensions config that can't work: a non-Docker provider,
@@ -88,6 +122,9 @@ func validateExtensions(ctx context.Context, in *envconfig.Config) (string, erro
 	}
 	if len(families) != 1 {
 		return "", errors.Errorf("extensions support exactly one workflow DON family, found %v", families)
+	}
+	if err := validateExtensionsNodeOverrides(in.NodeSets); err != nil {
+		return "", err
 	}
 
 	return families[0], ensureExtensionsImages(ctx, in.Extensions)

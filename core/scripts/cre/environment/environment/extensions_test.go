@@ -8,30 +8,40 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-const extensionsTestNodeConfig = `
-[CRE.WorkflowFetcher]
-URL = 'file:///home/chainlink/workflows'
-
+const extensionsTestUserOverrides = `
 [[Capabilities.WorkflowRegistry.AdditionalSources]]
 URL = 'grpc-source:50051'
 Name = 'existing'
 `
 
-func TestExtensionsNodeConfig_workflowDON(t *testing.T) {
+func extensionsTestNodeSet(donType, userOverrides string) *cre.NodeSet {
+	return &cre.NodeSet{
+		Input:     &ns.Input{Name: donType},
+		DONTypes:  []string{donType},
+		NodeSpecs: []*cre.NodeSpecWithRole{{Input: &clnode.Input{Node: &clnode.NodeInput{UserConfigOverrides: userOverrides}}}},
+	}
+}
+
+func TestAddExtensionsNodeOverrides(t *testing.T) {
 	t.Parallel()
 
-	out, err := extensionsNodeConfig(extensionsTestInput(cre.WorkflowDON), cre.NodeIndexToConfigOverride{0: extensionsTestNodeConfig, 1: extensionsTestNodeConfig})
-	require.NoError(t, err)
-	require.Len(t, out, 2)
+	workflow := extensionsTestNodeSet(cre.WorkflowDON, extensionsTestUserOverrides)
+	gateway := extensionsTestNodeSet(cre.GatewayDON, extensionsTestUserOverrides)
+	addExtensionsNodeOverrides([]*cre.NodeSet{workflow, gateway})
+
+	require.Equal(t, extensionsTestUserOverrides, gateway.NodeSpecs[0].Node.UserConfigOverrides)
 
 	var c corechainlink.Config
-	require.NoError(t, toml.Unmarshal([]byte(out[1]), &c))
+	require.NoError(t, toml.Unmarshal([]byte(workflow.NodeSpecs[0].Node.UserConfigOverrides), &c))
 	require.Empty(t, *c.CRE.WorkflowFetcher.URL)
 
 	storage := c.Capabilities.WorkflowRegistry.WorkflowStorage
@@ -46,17 +56,30 @@ func TestExtensionsNodeConfig_workflowDON(t *testing.T) {
 	require.False(t, *sources[1].TLSEnabled)
 }
 
-func TestExtensionsNodeConfig_otherDONsUnchanged(t *testing.T) {
+func TestValidateExtensionsNodeOverrides(t *testing.T) {
 	t.Parallel()
 
-	configs := cre.NodeIndexToConfigOverride{0: extensionsTestNodeConfig}
-	out, err := extensionsNodeConfig(extensionsTestInput(cre.GatewayDON), configs)
-	require.NoError(t, err)
-	require.Equal(t, configs, out)
-}
-
-func extensionsTestInput(flag cre.CapabilityFlag) cre.GenerateConfigsInput {
-	return cre.GenerateConfigsInput{DonMetadata: &cre.DonMetadata{Name: "don", Flags: []string{flag}}}
+	tests := []struct {
+		name      string
+		nodeSet   *cre.NodeSet
+		wantError string
+	}{
+		{"additional sources merge", extensionsTestNodeSet(cre.WorkflowDON, extensionsTestUserOverrides), ""},
+		{"fetcher", extensionsTestNodeSet(cre.WorkflowDON, "[CRE.WorkflowFetcher]\nURL = 'file:///home/chainlink/workflows'\n"), "[CRE.WorkflowFetcher]"},
+		{"storage as dotted key", extensionsTestNodeSet(cre.WorkflowDON, "[Capabilities.WorkflowRegistry]\nWorkflowStorage.URL = 'x'\n"), "[Capabilities.WorkflowRegistry.WorkflowStorage]"},
+		{"other DONs", extensionsTestNodeSet(cre.GatewayDON, "[CRE.WorkflowFetcher]\nURL = 'x'\n"), ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateExtensionsNodeOverrides([]*cre.NodeSet{tt.nodeSet})
+			if tt.wantError == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantError)
+		})
+	}
 }
 
 func TestValidateExtensions_rejectsBeforeStart(t *testing.T) {

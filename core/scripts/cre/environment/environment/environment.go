@@ -365,6 +365,9 @@ func startCmd() *cobra.Command {
 			features := feature_set.New()
 			gatewayWhitelistConfig := defaultGatewayWhitelistConfig(in, extraAllowedGatewayPorts)
 			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, nil, features, nil, envDependencies, gatewayWhitelistConfig)
+			if startErr == nil && in.Extensions != nil {
+				startErr = errors.Wrap(startExtensions(cmdContext, in.Extensions, extensionsDonFamily, output), "failed to start extensions")
+			}
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -406,12 +409,6 @@ func startCmd() *cobra.Command {
 			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil, "")
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
-			}
-
-			if in.Extensions != nil {
-				if err := startExtensions(cmdContext, in.Extensions, extensionsDonFamily, output); err != nil {
-					return errors.Wrap(err, "failed to start extensions")
-				}
 			}
 
 			if withChipIngressStack {
@@ -882,7 +879,7 @@ func StartCLIEnvironment(
 		ContractVersions:        env.ContractVersions(),
 	}
 	if in.Extensions != nil {
-		universalSetupInput.ConfigFactoryFunctions = append(universalSetupInput.ConfigFactoryFunctions, extensionsNodeConfig)
+		addExtensionsNodeOverrides(in.NodeSets)
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 20*time.Minute)
