@@ -247,6 +247,7 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	if err = c.storeRequest(req); err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to store request: %w", err)
 	}
+	req.Send()
 
 	var respResult []byte
 	var respErr error

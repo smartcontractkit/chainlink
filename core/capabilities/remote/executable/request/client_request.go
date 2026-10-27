@@ -69,6 +69,9 @@ type clientResponse struct {
 
 type ClientRequest struct {
 	id                       string
+	dispatcher               types.Dispatcher
+	peers                    []p2ptypes.PeerID
+	newMessage               func() *types.MessageBody
 	responseCh               chan clientResponse
 	createdAt                time.Time
 	responseIDCount          map[[32]byte]int
@@ -93,7 +96,7 @@ type ClientRequest struct {
 }
 
 // NewClientExecuteRequest creates a new client request for a remote executable capability.
-// The request is sent to all members of the remote capability DON at once.
+// The request is not sent until Send is called.
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, capMethodName string,
@@ -147,7 +150,10 @@ func newClientRequest(lggr logger.Logger, requestID string, remoteCapabilityInfo
 	responseReceived := make(map[p2ptypes.PeerID]bool, len(remoteCapabilityDonInfo.Members))
 	for _, peerID := range remoteCapabilityDonInfo.Members {
 		responseReceived[peerID] = false
-		message := &types.MessageBody{
+	}
+
+	newMessage := func() *types.MessageBody {
+		return &types.MessageBody{
 			CapabilityId:     remoteCapabilityInfo.ID,
 			CapabilityDonId:  remoteCapabilityDonInfo.ID,
 			CallerDonId:      localDonInfo.ID,
@@ -156,13 +162,13 @@ func newClientRequest(lggr logger.Logger, requestID string, remoteCapabilityInfo
 			MessageId:        []byte(requestID),
 			CapabilityMethod: capMethodName,
 		}
-		if err := dispatcher.Send(peerID, message); err != nil {
-			lggr.Errorw("failed to send message", "peerID", peerID, "error", err)
-		}
 	}
 
 	return &ClientRequest{
 		id:                            requestID,
+		dispatcher:                    dispatcher,
+		peers:                         remoteCapabilityDonInfo.Members,
+		newMessage:                    newMessage,
 		createdAt:                     time.Now(),
 		requestTimeout:                requestTimeout,
 		requiredResponseConfirmations: requiredConfirmations(remoteCapabilityDonInfo.F, minResponsesToAggregate),
@@ -178,6 +184,18 @@ func newClientRequest(lggr logger.Logger, requestID string, remoteCapabilityInfo
 		workflowExecutionID:           workflowExecutionID,
 		referenceID:                   stepRef,
 	}, nil
+}
+
+// Send dispatches the request to all remote capability peers. Callers must register the
+// request to receive responses before calling Send, since peers may reply immediately.
+func (c *ClientRequest) Send() {
+	for _, peerID := range c.peers {
+		// the dispatcher mutates the message, so each peer gets its own
+		message := c.newMessage()
+		if err := c.dispatcher.Send(peerID, message); err != nil {
+			c.lggr.Errorw("failed to send message", "peerID", peerID, "error", err)
+		}
+	}
 }
 
 func (c *ClientRequest) ID() string {

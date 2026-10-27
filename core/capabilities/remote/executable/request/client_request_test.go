@@ -82,6 +82,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		defer req.Cancel(errors.New("test end"))
 
 		require.NoError(t, err)
+		req.Send()
 
 		nm, err := values.NewMap(map[string]any{"response": "response2"})
 		require.NoError(t, err)
@@ -140,6 +141,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, "", nil, 0)
 		require.NoError(t, err)
+		req.Send()
 		defer req.Cancel(errors.New("test end"))
 
 		msg := &types.MessageBody{
@@ -175,6 +177,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, "", nil, 0)
 		require.NoError(t, err)
+		req.Send()
 		defer req.Cancel(errors.New("test end"))
 
 		msg := &types.MessageBody{
@@ -207,6 +210,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, "", nil, 0)
 		require.NoError(t, err)
+		req.Send()
 		defer req.Cancel(errors.New("test end"))
 
 		drainInitialPeerSends(t, dispatcher, len(capabilityPeers))
@@ -250,6 +254,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, "", nil, 0)
 		require.NoError(t, err)
+		req.Send()
 		defer req.Cancel(errors.New("test end"))
 
 		drainInitialPeerSends(t, dispatcher, len(capabilityPeers))
@@ -295,6 +300,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, "", nil, 0)
 		require.NoError(t, err)
+		req.Send()
 		defer req.Cancel(errors.New("test end"))
 
 		drainInitialPeerSends(t, dispatcher, len(capabilityPeers))
@@ -355,6 +361,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, "", nil, 0)
 		require.NoError(t, err)
+		req.Send()
 		defer req.Cancel(errors.New("test end"))
 
 		drainInitialPeerSends(t, dispatcher, len(capabilityPeers))
@@ -463,6 +470,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 				workflowDonInfo, dispatcher, 10*time.Minute, "", ocrSigners, 0)
 			require.NoError(t, err)
+			req.Send()
 			defer req.Cancel(errors.New("test end"))
 
 			for range N {
@@ -494,6 +502,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 				workflowDonInfo, dispatcher, 10*time.Minute, "", ocrSigners, 0)
 			require.NoError(t, err)
+			req.Send()
 			defer req.Cancel(errors.New("test end"))
 
 			for range N {
@@ -549,6 +558,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 				workflowDonInfo, dispatcher, 10*time.Minute, "", ocrSigners, 0)
 			require.NoError(t, err)
+			req.Send()
 			defer req.Cancel(errors.New("test end"))
 
 			for range N {
@@ -594,6 +604,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 				workflowDonInfo, dispatcher, 10*time.Minute, "", ocrSigners, 0)
 			require.NoError(t, err)
+			req.Send()
 			defer req.Cancel(errors.New("test end"))
 
 			for range N {
@@ -648,6 +659,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			0,
 		)
 		require.NoError(t, err)
+		req.Send()
 		defer req.Cancel(errors.New("test end"))
 
 		// Despite the context being cancelled,
@@ -727,6 +739,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, "", nil, 0)
 		require.NoError(t, err)
+		req.Send()
 		defer req.Cancel(errors.New("test end"))
 
 		msg.Sender = capabilityPeers[0][:]
@@ -874,6 +887,7 @@ func TestRequiredConfirmations(t *testing.T) {
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), testCapReq, capInfo,
 			testWorkflowDonInfo, dispatcher, 10*time.Minute, "", nil, 0)
 		require.NoError(t, err)
+		req.Send()
 		defer req.Cancel(errors.New("test end"))
 
 		rawResp, marshalErr := pb.MarshalCapabilityResponse(testCapResp)
@@ -918,6 +932,7 @@ func TestRequiredConfirmations(t *testing.T) {
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), testCapReq, capInfo,
 			testWorkflowDonInfo, dispatcher, 10*time.Minute, "", nil, 5)
 		require.NoError(t, err)
+		req.Send()
 		defer req.Cancel(errors.New("test end"))
 
 		rawResp, marshalErr := pb.MarshalCapabilityResponse(testCapResp)
