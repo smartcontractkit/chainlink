@@ -4,9 +4,10 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
 
 func TestBuildCapabilityConfig(t *testing.T) {
