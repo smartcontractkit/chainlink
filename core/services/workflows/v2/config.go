@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -79,6 +80,13 @@ type EngineConfig struct {
 
 	// OrgResolver is used to resolve organization IDs from workflow owners
 	OrgResolver orgresolver.OrgResolver
+
+	// MeterRecordsEnabled emits a cre:workflow:compute usage record per execution.
+	MeterRecordsEnabled bool
+	// MeteringIdentity is the node's [Metering] deployment dimensions; the engine adds service, pool and DON.
+	MeteringIdentity resourcemanager.DeploymentIdentity
+	// UsageEmitter delivers compute usage records; required when MeterRecordsEnabled.
+	UsageEmitter resourcemanager.Emitter
 
 	// includes additional logging of events internal to user workflows
 	DebugMode bool
@@ -523,6 +531,9 @@ func (c *EngineConfig) Validate() error {
 	}
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
+	}
+	if c.MeterRecordsEnabled && c.UsageEmitter == nil {
+		return errors.New("usage emitter not set")
 	}
 
 	_, err := types.WorkflowIDFromHex(c.WorkflowID)

@@ -109,6 +109,11 @@ type eventHandler struct {
 	// disabled: its handler-facing methods are nil-receiver safe no-ops.
 	specMeter *SpecMeter
 
+	// meterRecordsEnabled gates the engines' compute usage records; meteringIdentity is the node's [Metering] dimensions.
+	meterRecordsEnabled bool
+	meteringIdentity    resourcemanager.DeploymentIdentity
+	usageEmitter        resourcemanager.Emitter
+
 	orgResolver    orgresolver.OrgResolver
 	secretsFetcher v2.SecretsFetcher
 	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
@@ -199,6 +204,16 @@ func WithTriggerCoordinator(tc triggers.Coordinator) func(*eventHandler) {
 func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.billingClient = client
+	}
+}
+
+// WithUsageMetering enables compute usage records on the engines, delivered
+// through emitter; dep is the node's [Metering] dimensions.
+func WithUsageMetering(dep resourcemanager.DeploymentIdentity, emitter resourcemanager.Emitter) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.meterRecordsEnabled = true
+		e.meteringIdentity = dep
+		e.usageEmitter = emitter
 	}
 }
 
@@ -1531,6 +1546,9 @@ func (h *eventHandler) newV2EngineConfig(
 		WorkflowRegistryAddress:           h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector:     h.workflowRegistryChainSelector,
 		OrgResolver:                       h.orgResolver,
+		MeterRecordsEnabled:               h.meterRecordsEnabled,
+		MeteringIdentity:                  h.meteringIdentity,
+		UsageEmitter:                      h.usageEmitter,
 		SecretsFetcher:                    h.secretsFetcher,
 		OverrideFetcher:                   h.overrideFetcherForOwner(owner),
 		DebugMode:                         h.debugMode,

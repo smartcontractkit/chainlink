@@ -714,6 +714,29 @@ func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.Billi
 // registry from the don notifier (the engine runs on the workflow DON), so it
 // is intentionally left empty here. Service/resource_pool are stamped by
 // syncer.NewSpecMeter.
+// newDeploymentIdentity returns the node's [Metering] deployment dimensions.
+// emitFunc adapts the injected durable emit func to resourcemanager.Emitter.
+type emitFunc func(ctx context.Context, body []byte, attrKVs ...any) error
+
+func (f emitFunc) Emit(ctx context.Context, body []byte, attrKVs ...any) error {
+	return f(ctx, body, attrKVs...)
+}
+
+func newDeploymentIdentity(cfg Config) resourcemanager.DeploymentIdentity {
+	m := cfg.Metering()
+	if m == nil {
+		return resourcemanager.DeploymentIdentity{}
+	}
+	return resourcemanager.DeploymentIdentity{
+		Product:         m.Product(),
+		Tenant:          m.Tenant(),
+		NumericTenantID: m.NumericTenantID(),
+		Environment:     m.Environment(),
+		Zone:            m.Zone(),
+		NodeID:          m.NodeID(),
+	}
+}
+
 func newSyncerMeterIdentity(cfg Config) resourcemanager.ResourceIdentity {
 	m := cfg.Metering()
 	if m == nil {
@@ -992,6 +1015,15 @@ func newWorkflowRegistrySyncerV2(
 			return nil, nil, fmt.Errorf("unable to create workflow spec meter: %w", smErr)
 		}
 		handlerOpts = append(handlerOpts, syncerV2.WithSpecMeter(specMeter))
+	}
+
+	// Compute usage records share the [Metering].MeterRecordsEnabled gate.
+	if meterRecordsEnabled {
+		if opts.DurableEmit != nil { // injected, not the global, so tests can supply their own
+			handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(newDeploymentIdentity(cfg), emitFunc(opts.DurableEmit)))
+		} else {
+			lggr.Warnw("Compute usage metering enabled without a durable emitter; compute usage records disabled")
+		}
 	}
 
 	mc := wfReg.ModuleCache()
