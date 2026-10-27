@@ -177,6 +177,9 @@ NOOPs = "NOOPs"
 noop = "noop"
 noops = "noops"
 
+# common prefix, e.g. mis-write
+mis = "mis"
+
 # ned = name for secondary noop
 ned = "ned"
 # short for strategy

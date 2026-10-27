@@ -663,6 +663,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-integration-tests-v1-
 
+      # Single writer for the shared `integration-tests-v1` caches: this job runs
+      # on every develop push; the in-memory compile job restores only.
       - name: Restore and save Go caches (develop)
         if: github.ref_name == 'develop'
         uses: actions/cache@v6

@@ -212,22 +212,12 @@ jobs:
           go-version-file: integration-tests/go.mod
           cache: false
 
-      # Shares the `integration-tests-v1` caches with the E2E compile job.
-      # develop is the single writer; PRs and the merge queue restore only.
-      - name: Restore Go caches (PR & merge queue)
-        if: github.ref_name != 'develop'
+      # Shares the `integration-tests-v1` caches with the E2E compile job in
+      # integration-tests.yml, which is the single writer (it runs on every
+      # develop push; this workflow only reaches develop via dispatch). Restore
+      # only, so the two jobs can never race to save the same key.
+      - name: Restore Go caches
         uses: actions/cache/restore@v6
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-integration-tests-v1-${{ hashFiles('system-tests/tests/go.sum', 'integration-tests/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-integration-tests-v1-
-
-      - name: Restore and save Go caches (develop)
-        if: github.ref_name == 'develop'
-        uses: actions/cache@v6
         with:
           path: |
             ~/go/pkg/mod
