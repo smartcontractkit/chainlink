@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -233,6 +234,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -353,6 +355,118 @@ func TestSecretsFetcher_DecryptsBinaryShares(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
+		workflowEncryptionKey,
+		nil,
+	)
+
+	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
+		Requests: []*sdkpb.SecretRequest{{Id: "R1", Namespace: "Bar"}},
+	})
+	require.NoError(t, err)
+	require.Len(t, resp, 1)
+	require.Nil(t, resp[0].GetError())
+	assert.Equal(t, rawSecret, resp[0].GetSecret().Value)
+}
+
+// TestSecretsFetcher_ToleratesDuplicateShares pins the regression where a
+// single faulty vault node (or a not-yet-upgraded node returning an
+// OCR-aggregated response) contributes its decryption share twice: without
+// deduplication, tdh2easy.Aggregate receives more shares than distinct node
+// indices and every workflow node fails to decrypt the secret.
+func TestSecretsFetcher_ToleratesDuplicateShares(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+	reg := registry.NewRegistry(lggr)
+	peer := RandomUTF8BytesWord()
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	workflowKeyBytes := workflowEncryptionKey.PublicKey()
+
+	rawSecret := "Raw Secret Value"
+	f, n := 2, 3
+	_, vaultPublicKey, privateShares, err := tdh2easy.GenerateKeys(f, n)
+	require.NoError(t, err)
+	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
+	require.NoError(t, err)
+	reg.SetRegistryMetadata(createLocalRegistryWithThreshold(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes, 2))
+
+	cipher, err := tdh2easy.Encrypt(vaultPublicKey, []byte(rawSecret))
+	require.NoError(t, err)
+	cipherBytes, err := cipher.Marshal()
+	require.NoError(t, err)
+
+	// Two Decrypt calls on the same private share yield different proof
+	// scalars but the same u_i and node index: a duplicate by index, not by
+	// bytes.
+	decryptionShare0, err := tdh2easy.Decrypt(cipher, privateShares[0])
+	require.NoError(t, err)
+	decryptionShare0Bytes, err := decryptionShare0.Marshal()
+	require.NoError(t, err)
+	decryptionShare0b, err := tdh2easy.Decrypt(cipher, privateShares[0])
+	require.NoError(t, err)
+	decryptionShare0bBytes, err := decryptionShare0b.Marshal()
+	require.NoError(t, err)
+	decryptionShare1, err := tdh2easy.Decrypt(cipher, privateShares[1])
+	require.NoError(t, err)
+	decryptionShare1Bytes, err := decryptionShare1.Marshal()
+	require.NoError(t, err)
+
+	encryptedDecryptionShare0, err := workflowEncryptionKey.Encrypt(decryptionShare0Bytes)
+	require.NoError(t, err)
+	encryptedDecryptionShare0b, err := workflowEncryptionKey.Encrypt(decryptionShare0bBytes)
+	require.NoError(t, err)
+	encryptedDecryptionShare1, err := workflowEncryptionKey.Encrypt(decryptionShare1Bytes)
+	require.NoError(t, err)
+
+	owner := "1234567890abcdef1234567890abcdef12345678"
+	normalizedOwner, err := normalizeOwner(owner)
+	require.NoError(t, err)
+
+	mc := vaultMock.Vault{
+		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
+			return &vault.GetSecretsResponse{
+				Responses: []*vault.SecretResponse{
+					{
+						Id: &vault.SecretIdentifier{
+							Key:       "R1",
+							Namespace: "Bar",
+							Owner:     normalizedOwner,
+						},
+						Result: &vault.SecretResponse_Data{
+							Data: &vault.SecretData{
+								EncryptedValue: hex.EncodeToString(cipherBytes),
+								EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+									{
+										BinaryShares: [][]byte{
+											encryptedDecryptionShare0,
+											encryptedDecryptionShare0b,
+											encryptedDecryptionShare1,
+										},
+										EncryptionKey: hex.EncodeToString(workflowKeyBytes[:]),
+									},
+								},
+							},
+						},
+					},
+				},
+			}, nil
+		},
+	}
+	require.NoError(t, reg.Add(t.Context(), mc))
+
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
+		reg,
+		lggr,
+		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewUpperBoundLimiter[int](5),
+		nil,
+		"",
+		owner,
+		"workflowName",
+		"workflowID",
+		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -415,6 +529,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -464,6 +579,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -525,6 +641,7 @@ func TestSecretsFetcher_VaultCapabilityRequestOmitsWorkflowIDMetadata(t *testing
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -591,6 +708,7 @@ func TestSecretsFetcher_VaultBatchLeavesOrgAndWorkflowIdentityUnset(t *testing.T
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -650,6 +768,7 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -726,6 +845,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -830,6 +950,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -915,13 +1036,17 @@ func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registry.RegistryM
 }
 
 func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPublicKey [32]byte, vaultPublicKey []byte) *registry.RegistryMetadata {
+	return createLocalRegistryWithThreshold(t, pid, workflowPublicKey, vaultPublicKey, 1)
+}
+
+func createLocalRegistryWithThreshold(t *testing.T, pid ragetypes.PeerID, workflowPublicKey [32]byte, vaultPublicKey []byte, threshold int) *registry.RegistryMetadata {
 	workflowDonNodes := []p2ptypes.PeerID{
 		pid,
 	}
 
 	valueMap, err := values.Wrap(VaultCapabilityRegistryConfig{
 		VaultPublicKey: hex.EncodeToString(vaultPublicKey),
-		Threshold:      1,
+		Threshold:      threshold,
 	})
 	require.NoError(t, err)
 	config := &capabilitiespb.CapabilityConfig{
@@ -1000,6 +1125,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
 		"wf",
 		"wfID",
 		"phaseID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -1053,6 +1179,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimitOnRawSecrets(t *testing.T) {
 			"wf",
 			"wfID",
 			"phaseID",
+			time.Time{},
 			workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 			nil,
 		)
@@ -1179,6 +1306,7 @@ func TestSecretsFetcher_VaultFirstThenLocalOverridesForVaultFailures(t *testing.
 		"workflowName",
 		"workflowID",
 		"phaseID",
+		time.Time{},
 		workflowEncryptionKey,
 		local,
 	)
@@ -1262,6 +1390,7 @@ func TestSecretsFetcher_LocalOverridesWhenVaultExecuteFails(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"phaseID",
+		time.Time{},
 		workflowEncryptionKey,
 		local,
 	)
