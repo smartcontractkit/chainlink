@@ -135,6 +135,12 @@ jobs:
             "Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger": [
                {"topology":"workflow-sharded-capabilities","configs":"configs/workflow-sharded-capabilities-don.toml"}
              ],
+            "Test_CRE_V2_ShardedCapabilitiesCallIsolation": [
+               {"topology":"workflow-sharded-capabilities","configs":"configs/workflow-sharded-capabilities-don.toml"}
+             ],
+            "Test_CRE_V2_ShardedCapabilitiesDon2DonDiscoveryRouting": [
+               {"topology":"workflow-sharded-capabilities","configs":"configs/workflow-sharded-capabilities-don.toml"}
+             ],
             "Test_CRE_V2_ShardRingOCROverrides": [
                 {"topology":"workflow-gateway-sharded-ringocr-overrides","configs":"configs/workflow-gateway-sharded-ringocr-overrides.toml"}
               ],

@@ -400,6 +400,8 @@ func Test_CRE_V2_ShardManualAssignmentBothSpecs(t *testing.T) {
 	ExecuteManualShardAssignmentBothSpecs(t, testEnv)
 }
 
+// The sharded-capabilities scenarios are separate tests (and CI jobs) so each fits in the 7m test timeout.
+
 //nolint:paralleltest // the test owns the sharded topology it runs on
 func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
@@ -407,6 +409,24 @@ func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {
 		t_helpers.GetTestConfig(t, "/configs/workflow-sharded-capabilities-don.toml"),
 	)
 	ExecuteManualShardAssignmentWithEVMLogTriggerTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardedCapabilitiesCallIsolation(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-sharded-capabilities-don.toml"),
+	)
+	ExecuteShardedCapabilityCallIsolationTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardedCapabilitiesDon2DonDiscoveryRouting(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-sharded-capabilities-don.toml"),
+	)
+	ExecuteDon2DonDiscoveryRoutingTest(t, testEnv)
 }
 
 //nolint:paralleltest // subtests share the same sharding config

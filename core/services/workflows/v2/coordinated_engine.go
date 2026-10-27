@@ -87,6 +87,10 @@ func (e *coordinatedEngine) Tenant() contexts.CRE {
 	return e.base.Tenant()
 }
 
+func (e *coordinatedEngine) SdkName() string {
+	return e.base.SdkName()
+}
+
 // IsCoordinated reports that this engine makes no trigger admission decisions.
 // An external coordinator must own this
 func (e *coordinatedEngine) IsCoordinated() bool {
