@@ -1244,6 +1244,7 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 		underlying := &errTrigger{info: capInfo, err: userErr}
 
 		dispatcher := mocks.NewDispatcher(t)
+		allowRegistrationChecks(dispatcher)
 		config := &commoncap.RemoteTriggerConfig{
 			RegistrationRefresh:     100 * time.Millisecond,
 			RegistrationExpiry:      100 * time.Second,
@@ -1297,6 +1298,7 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 		underlying := &errTrigger{info: capInfo, err: errors.New("transient system failure")}
 
 		dispatcher := mocks.NewDispatcher(t)
+		allowRegistrationChecks(dispatcher)
 		config := &commoncap.RemoteTriggerConfig{
 			RegistrationRefresh:     100 * time.Millisecond,
 			RegistrationExpiry:      100 * time.Second,
