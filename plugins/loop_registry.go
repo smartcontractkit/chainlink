@@ -194,8 +194,9 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.MeterZone = m.cfgMetering.Zone()
 		envCfg.MeterNodeID = m.cfgMetering.NodeID()
 		fault := m.cfgMetering.FaultInjection()
-		envCfg.MeterFaultMode = fault.Mode
-		envCfg.MeterFaultRate = fault.Rate
+		envCfg.MeterFaultOrgs = fault.Orgs
+		envCfg.MeterFaultDropRate = fault.DropRate
+		envCfg.MeterFaultPerturbRate = fault.PerturbRate
 		envCfg.MeterFaultDelta = fault.Delta
 		envCfg.MeterFaultNodeRate = fault.NodeRate
 	}

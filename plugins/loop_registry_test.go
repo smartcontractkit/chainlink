@@ -1,7 +1,6 @@
 package plugins
 
 import (
-	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"net/url"
 	"testing"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -141,7 +141,7 @@ func (m mockCfgMetering) Environment() string         { return "production" }
 func (m mockCfgMetering) Zone() string                { return "wf-zone-a" }
 func (m mockCfgMetering) NodeID() string              { return "clp-cre-wf-zone-a-1" }
 func (m mockCfgMetering) FaultInjection() resourcemanager.UsageFaultInjection {
-	return resourcemanager.UsageFaultInjection{Mode: "perturb", Rate: 0.1, Delta: 7, NodeRate: 0.5}
+	return resourcemanager.UsageFaultInjection{Orgs: []string{"org-canary"}, DropRate: 0.01, PerturbRate: 0.1, Delta: -7, NodeRate: 0.5}
 }
 
 type mockPrometheusBridge struct{}
@@ -313,10 +313,11 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, "production", envCfg.MeterEnvironment)
 	require.Equal(t, "wf-zone-a", envCfg.MeterZone)
 	require.Equal(t, "clp-cre-wf-zone-a-1", envCfg.MeterNodeID)
-	require.Equal(t, "perturb", envCfg.MeterFaultMode)
-	require.Equal(t, 0.1, envCfg.MeterFaultRate)
-	require.Equal(t, int64(7), envCfg.MeterFaultDelta)
-	require.Equal(t, 0.5, envCfg.MeterFaultNodeRate)
+	require.InDelta(t, 0.01, envCfg.MeterFaultDropRate, 0)
+	require.InDelta(t, 0.1, envCfg.MeterFaultPerturbRate, 0)
+	require.Equal(t, []string{"org-canary"}, envCfg.MeterFaultOrgs)
+	require.Equal(t, int64(-7), envCfg.MeterFaultDelta)
+	require.InDelta(t, 0.5, envCfg.MeterFaultNodeRate, 0)
 	require.Equal(t, []string{"event_id"}, envCfg.TelemetryMetricViewsDenyAttributes)
 	require.NotNil(t, envCfg.TelemetryMetricCardinalityLimit)
 	require.Equal(t, 100000, *envCfg.TelemetryMetricCardinalityLimit)

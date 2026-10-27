@@ -2621,30 +2621,37 @@ NodeID is the node's logical name, e.g. 'clp-cre-wf-zone-a-1' (not the CSA publi
 ## Metering.FaultInjection
 ```toml
 [Metering.FaultInjection]
-Mode = '' # Default
-Rate = 0.0 # Default
+Orgs = [] # Default
+DropRate = 0.0 # Default
+PerturbRate = 0.0 # Default
 Delta = 0 # Default
 NodeRate = 1.0 # Default
 ```
-FaultInjection drops or perturbs a deterministic sample of usage records so billing reconcilers can measure their recall. Test environments only.
+FaultInjection drops and perturbs two independent deterministic samples of usage records so both billing reconcilers can measure their recall. Only records of the allowlisted orgs (the canaries) are touched.
 
-### Mode
+### Orgs
 ```toml
-Mode = '' # Default
+Orgs = [] # Default
 ```
-Mode is '' (off), 'drop' (skip emission on every node) or 'perturb' (add Delta to the value on NodeRate of the nodes).
+Orgs are the org ids whose records may be faulted; required when any rate is set.
 
-### Rate
+### DropRate
 ```toml
-Rate = 0.0 # Default
+DropRate = 0.0 # Default
 ```
-Rate is the fraction of usage events selected, keyed on the event id (0..1).
+DropRate is the fraction of usage events whose emission is skipped on every node, keyed on the event id (0..1).
+
+### PerturbRate
+```toml
+PerturbRate = 0.0 # Default
+```
+PerturbRate is the fraction of usage events whose value gets Delta added on NodeRate of the nodes, keyed on the event id (0..1). An event in both samples is dropped.
 
 ### Delta
 ```toml
 Delta = 0 # Default
 ```
-Delta is added to the value in perturb mode.
+Delta is added to the value in a perturb; negative only, so a leak can never overbill.
 
 ### NodeRate
 ```toml

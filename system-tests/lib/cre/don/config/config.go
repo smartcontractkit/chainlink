@@ -571,12 +571,13 @@ func meteringNodeConfig(donMetadata *cre.DonMetadata, nodeIndex int, fault *cre.
 		Zone:                  new(donMetadata.Name),
 		NodeID:                new(donMetadata.Name + "-node-" + strconv.Itoa(nodeIndex)),
 	}
-	if fault != nil && fault.Mode != "" {
+	if fault != nil && (fault.DropRate > 0 || fault.PerturbRate > 0) {
 		cfg.FaultInjection = coretoml.MeteringFaultInjection{
-			Mode:     new(fault.Mode),
-			Rate:     new(fault.Rate),
-			Delta:    new(fault.Delta),
-			NodeRate: new(fault.NodeRate),
+			Orgs:        new(fault.Orgs),
+			DropRate:    new(fault.DropRate),
+			PerturbRate: new(fault.PerturbRate),
+			Delta:       new(fault.Delta),
+			NodeRate:    new(fault.NodeRate),
 		}
 	}
 	return cfg

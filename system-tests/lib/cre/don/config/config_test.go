@@ -47,15 +47,16 @@ func TestMeteringNodeConfig_FaultInjection(t *testing.T) {
 	t.Parallel()
 
 	dm := &cre.DonMetadata{Name: "workflow"}
-	got := meteringNodeConfig(dm, 0, &cre.MeteringFaultInjection{Mode: "perturb", Rate: 1, Delta: 1, NodeRate: 0.5})
+	got := meteringNodeConfig(dm, 0, &cre.MeteringFaultInjection{Orgs: []string{"org-canary"}, DropRate: 0.01, PerturbRate: 1, Delta: -1, NodeRate: 0.5})
 
-	assert.Equal(t, "perturb", derefStr(got.FaultInjection.Mode))
-	assert.InDelta(t, 1.0, *got.FaultInjection.Rate, 0)
-	assert.Equal(t, int64(1), *got.FaultInjection.Delta)
+	assert.InDelta(t, 0.01, *got.FaultInjection.DropRate, 0)
+	assert.InDelta(t, 1.0, *got.FaultInjection.PerturbRate, 0)
+	assert.Equal(t, []string{"org-canary"}, *got.FaultInjection.Orgs)
+	assert.Equal(t, int64(-1), *got.FaultInjection.Delta)
 	assert.InDelta(t, 0.5, *got.FaultInjection.NodeRate, 0)
 
 	off := meteringNodeConfig(dm, 0, &cre.MeteringFaultInjection{})
-	assert.Nil(t, off.FaultInjection.Mode)
+	assert.Nil(t, off.FaultInjection.DropRate)
 }
 
 func TestMeteringNodeConfig_NodeIDUniqueness(t *testing.T) {

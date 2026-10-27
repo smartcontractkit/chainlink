@@ -455,10 +455,11 @@ type GenerateConfigsInput struct {
 
 // MeteringFaultInjection mirrors [Metering.FaultInjection] for topology configs.
 type MeteringFaultInjection struct {
-	Mode     string  `toml:"mode"`
-	Rate     float64 `toml:"rate"`
-	Delta    int64   `toml:"delta"`
-	NodeRate float64 `toml:"node_rate"`
+	Orgs        []string `toml:"orgs"`
+	DropRate    float64  `toml:"drop_rate"`
+	PerturbRate float64  `toml:"perturb_rate"`
+	Delta       int64    `toml:"delta"`
+	NodeRate    float64  `toml:"node_rate"`
 }
 
 func (g *GenerateConfigsInput) Validate() error {

@@ -372,8 +372,9 @@ Zone = ''
 NodeID = ''
 
 [Metering.FaultInjection]
-Mode = ''
-Rate = 0.0
+Orgs = []
+DropRate = 0.0
+PerturbRate = 0.0
 Delta = 0
 NodeRate = 1.0
 

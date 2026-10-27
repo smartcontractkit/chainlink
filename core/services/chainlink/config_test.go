@@ -572,10 +572,11 @@ func TestConfig_Marshal(t *testing.T) {
 		Zone:                  new("wf-zone-a"),
 		NodeID:                new("clp-cre-wf-zone-a-1"),
 		FaultInjection: toml.MeteringFaultInjection{
-			Mode:     new("perturb"),
-			Rate:     new(0.1),
-			Delta:    new(int64(7)),
-			NodeRate: new(0.5),
+			Orgs:        &[]string{"org-canary"},
+			DropRate:    new(0.01),
+			PerturbRate: new(0.1),
+			Delta:       new(int64(-7)),
+			NodeRate:    new(0.5),
 		},
 	}
 	full.CRE = toml.CreConfig{

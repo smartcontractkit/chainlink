@@ -3,6 +3,7 @@ package toml
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"net/url"
 	"strings"
 	"testing"
@@ -1070,48 +1071,58 @@ func TestMetering_ValidateConfig(t *testing.T) {
 			errorMsg:    "requires MeterRecordsEnabled to be true",
 		},
 		{
-			name: "fault injection perturb with records enabled",
+			name: "fault injection drop and perturb with records enabled",
 			config: &Metering{
 				MeterRecordsEnabled: new(true),
 				NodeID:              new("clp-cre-wf-zone-a-1"),
-				FaultInjection:      MeteringFaultInjection{Mode: new("perturb"), Rate: new(0.1), Delta: new(int64(7)), NodeRate: new(0.5)},
+				FaultInjection:      MeteringFaultInjection{Orgs: &[]string{"org-canary"}, DropRate: new(0.01), PerturbRate: new(0.1), Delta: new(int64(-7)), NodeRate: new(0.5)},
 			},
 			expectError: false,
 		},
 		{
-			name: "fault injection unknown mode",
+			name: "fault injection without an org allowlist",
 			config: &Metering{
 				MeterRecordsEnabled: new(true),
 				NodeID:              new("clp-cre-wf-zone-a-1"),
-				FaultInjection:      MeteringFaultInjection{Mode: new("corrupt"), Rate: new(0.1)},
+				FaultInjection:      MeteringFaultInjection{DropRate: new(0.1)},
 			},
 			expectError: true,
-			errorMsg:    "FaultInjection.Mode",
+			errorMsg:    "FaultInjection.Orgs",
+		},
+		{
+			name: "fault injection perturb with a positive delta",
+			config: &Metering{
+				MeterRecordsEnabled: new(true),
+				NodeID:              new("clp-cre-wf-zone-a-1"),
+				FaultInjection:      MeteringFaultInjection{Orgs: &[]string{"org-canary"}, PerturbRate: new(0.1), Delta: new(int64(7)), NodeRate: new(0.5)},
+			},
+			expectError: true,
+			errorMsg:    "FaultInjection.Delta",
+		},
+		{
+			name: "fault injection NaN rate",
+			config: &Metering{
+				MeterRecordsEnabled: new(true),
+				NodeID:              new("clp-cre-wf-zone-a-1"),
+				FaultInjection:      MeteringFaultInjection{Orgs: &[]string{"org-canary"}, DropRate: new(math.NaN())},
+			},
+			expectError: true,
+			errorMsg:    "FaultInjection.DropRate",
 		},
 		{
 			name: "fault injection rate out of range",
 			config: &Metering{
 				MeterRecordsEnabled: new(true),
 				NodeID:              new("clp-cre-wf-zone-a-1"),
-				FaultInjection:      MeteringFaultInjection{Mode: new("drop"), Rate: new(1.5)},
+				FaultInjection:      MeteringFaultInjection{Orgs: &[]string{"org-canary"}, DropRate: new(1.5)},
 			},
 			expectError: true,
-			errorMsg:    "FaultInjection.Rate",
-		},
-		{
-			name: "fault injection rate without mode",
-			config: &Metering{
-				MeterRecordsEnabled: new(true),
-				NodeID:              new("clp-cre-wf-zone-a-1"),
-				FaultInjection:      MeteringFaultInjection{Rate: new(0.1)},
-			},
-			expectError: true,
-			errorMsg:    "requires FaultInjection.Mode",
+			errorMsg:    "FaultInjection.DropRate",
 		},
 		{
 			name: "fault injection without records enabled",
 			config: &Metering{
-				FaultInjection: MeteringFaultInjection{Mode: new("drop"), Rate: new(0.1)},
+				FaultInjection: MeteringFaultInjection{Orgs: &[]string{"org-canary"}, DropRate: new(0.1)},
 			},
 			expectError: true,
 			errorMsg:    "requires MeterRecordsEnabled to be true",
