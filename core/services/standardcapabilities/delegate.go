@@ -168,6 +168,10 @@ func (d *Delegate) NewServices(
 ) ([]job.ServiceCtx, error) {
 	log := logger.Sugared(logger.Named(d.logger, "StandardCapabilities")).Named(strconv.Itoa(int(jobID))).Named(jobName)
 
+	if app, ok := v2App(command); ok {
+		return d.newServicesV2(ctx, log, command, app, configJSON, capabilityDonID)
+	}
+
 	// Warn when neither the job spec nor the TOML config provide bootstrap peers.
 	// The oracle factory will fail at startup if it can't find peers, so the error
 	// surfaces anyway — but logging here gives an earlier, clearer signal.
@@ -396,6 +400,29 @@ func (d *Delegate) NewServices(
 	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, dependencies)
 
 	return []job.ServiceCtx{standardCapability}, nil
+}
+
+func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command, app, configJSON string, capabilityDonID uint32) ([]job.ServiceCtx, error) {
+	// The capability ID depends on the capability, not on how it runs, so look it up by app name.
+	if capabilityID := conversions.GetCapabilityIDFromCommand(app, configJSON); capabilityDonID == 0 && capabilityID != "" {
+		capabilityDonID = resolveCapabilityDonID(ctx, log, d.registry, d.getPeerID, capabilityID)
+		log.Debugw("Resolved capability DON ID from registry", "capabilityID", capabilityID, "donID", capabilityDonID)
+	}
+
+	s, err := NewStandardCapabilitiesV2(StandardCapabilitiesV2Params{
+		Log:             log,
+		Command:         command,
+		App:             app,
+		ConfigJSON:      configJSON,
+		CapabilityDonID: capabilityDonID,
+		PluginRegistrar: d.cfg,
+		Registry:        d.registry,
+		CRESettings:     d.creSettings,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return []job.ServiceCtx{s}, nil
 }
 
 // resolveCapabilityDonID best-effort resolves the on-chain DON ID this node is

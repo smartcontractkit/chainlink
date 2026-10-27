@@ -415,3 +415,5 @@ tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
 // Exclude Juno's placeholder dependency. It is only intended to be resolved via
 // Juno's local replace directive and is not used directly by chainlink
 exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
+
+replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
