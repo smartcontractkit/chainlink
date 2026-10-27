@@ -146,8 +146,8 @@ func mustSharedVaultShardPair(t *testing.T, testEnv *ttypes.TestEnvironment, top
 		require.FailNowf(t, "wrong topology for the sharded shared-vault tests",
 			"expected at least 2 shard DONs, found %d. This test requires the topology pair %s: "+
 				"2 workflow shard DONs without the vault capability + 1 shared vault DON. If this fails in CI, the test is missing from the "+
-				"per-test topology mapping (.github/workflows/cre-system-tests.yaml PER_TEST_TOPOLOGIES_JSON and "+
-				"tools/ci/internal/matrix/system.go defaultCRESmokePerTestTopologies) and ran against the default config. "+
+				"per-test topology mapping (tools/ci/internal/matrix/system.go defaultCRESmokePerTestTopologies) "+
+				"and ran against the default config. "+
 				"Running DONs: %v", len(shardDONs), topologyHint, donNames(testEnv))
 	}
 
