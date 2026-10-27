@@ -1,19 +1,17 @@
 package httpaction
 
 import (
-	"bytes"
-	"encoding/json"
 	"testing"
-	"text/template"
 
+	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestConfigTemplatePreservesLegacyGatewayMode(t *testing.T) {
+func TestBuildCapabilityConfig(t *testing.T) {
 	t.Parallel()
-
-	values := map[string]any{
+	input := map[string]any{
 		"IncomingGlobalBurst":    10,
 		"IncomingGlobalRPS":      20,
 		"IncomingPerSenderBurst": 30,
@@ -23,21 +21,37 @@ func TestConfigTemplatePreservesLegacyGatewayMode(t *testing.T) {
 		"OutgoingPerSenderBurst": 70,
 		"OutgoingPerSenderRPS":   80,
 		"ProxyMode":              "direct",
-		"GatewayConnection":      map[string]any{"initialIntervalMs": 100},
-		"HTTPClient":             map[string]any{"allowedPorts": []int{443}},
+		"GatewayConnection":      map[string]any{"initialIntervalMs": 200},
+		"HTTPClient":             map[string]any{"allowedPorts": []int{8443}},
 	}
-
-	tmpl, err := template.New("http-action-config").Parse(configTemplate)
+	config, err := BuildCapabilityConfig(input, true)
 	require.NoError(t, err)
+	require.True(t, config.LocalOnly)
+	spec, err := values.FromMapValueProto(config.SpecConfig)
+	require.NoError(t, err)
+	raw, err := spec.Unwrap()
+	require.NoError(t, err)
+	decoded := raw.(map[string]any)
+	assert.Contains(t, decoded, "incomingRateLimiter")
+	assert.Contains(t, decoded, "outgoingRateLimiter")
+	assert.Equal(t, "direct", decoded["proxyMode"])
+	assert.Contains(t, decoded, "gatewayConnection")
+	assert.Contains(t, decoded, "httpClient")
+}
 
-	var rendered bytes.Buffer
-	require.NoError(t, tmpl.Execute(&rendered, values))
+func TestPostEnvStartupDoesNotCreateJobs(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, (&HTTPAction{}).PostEnvStartup(t.Context(), zerolog.Nop(), nil, nil, nil))
+}
 
-	var config map[string]any
-	require.NoError(t, json.Unmarshal(rendered.Bytes(), &config))
-	assert.Contains(t, config, "incomingRateLimiter")
-	assert.Contains(t, config, "outgoingRateLimiter")
-	assert.Equal(t, "gateway", config["proxyMode"], "baseline nodes require a proxy mode; newer nodes apply node TOML overrides")
-	assert.NotContains(t, config, "gatewayConnection")
-	assert.NotContains(t, config, "httpClient")
+func TestBuildCapabilityConfigDefaultsToGateway(t *testing.T) {
+	t.Parallel()
+	config, err := BuildCapabilityConfig(nil, false)
+	require.NoError(t, err)
+	spec, err := values.FromMapValueProto(config.SpecConfig)
+	require.NoError(t, err)
+	raw, err := spec.Unwrap()
+	require.NoError(t, err)
+	assert.Equal(t, "gateway", raw.(map[string]any)["proxyMode"])
+	assert.False(t, config.LocalOnly)
 }

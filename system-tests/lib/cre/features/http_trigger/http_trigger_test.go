@@ -1,19 +1,17 @@
 package httptrigger
 
 import (
-	"bytes"
-	"encoding/json"
 	"testing"
-	"text/template"
 
+	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestConfigTemplateOmitsNodeConfig(t *testing.T) {
+func TestBuildCapabilityConfig(t *testing.T) {
 	t.Parallel()
-
-	values := map[string]any{
+	input := map[string]any{
 		"IncomingGlobalBurst":          10,
 		"IncomingGlobalRPS":            20,
 		"IncomingPerSenderBurst":       30,
@@ -22,30 +20,37 @@ func TestConfigTemplateOmitsNodeConfig(t *testing.T) {
 		"OutgoingGlobalRPS":            60,
 		"OutgoingPerSenderBurst":       70,
 		"OutgoingPerSenderRPS":         80,
-		"MetadataBatchSize":            50,
-		"SendChannelBufferSize":        1000,
-		"MaxAuthorizedKeysPerWorkflow": 100,
-		"RequestCacheTTL":              86400,
-		"GatewayConnection":            map[string]any{"maxPushMetadataDurationMs": 30000},
-		"MaxPushMetadataDurationMs":    30000,
-		"MaxPullMetadataDurationMs":    30000,
+		"MetadataBatchSize":            25,
+		"SendChannelBufferSize":        500,
+		"MaxAuthorizedKeysPerWorkflow": 10,
+		"RequestCacheTTL":              3600,
+		"GatewayConnection":            map[string]any{"retryConfig": map[string]any{"initialIntervalMs": 200}},
+		"MaxPushMetadataDurationMs":    45000,
+		"MaxPullMetadataDurationMs":    46000,
 	}
-
-	tmpl, err := template.New("http-trigger-config").Parse(configTemplate)
+	config, err := BuildCapabilityConfig(input, true)
 	require.NoError(t, err)
+	require.True(t, config.LocalOnly)
+	spec, err := values.FromMapValueProto(config.SpecConfig)
+	require.NoError(t, err)
+	raw, err := spec.Unwrap()
+	require.NoError(t, err)
+	decoded := raw.(map[string]any)
+	assert.Contains(t, decoded, "incomingRateLimiter")
+	assert.Contains(t, decoded, "outgoingRateLimiter")
+	assert.EqualValues(t, 25, decoded["metadataBatchSize"])
+	assert.EqualValues(t, 500, decoded["sendChannelBufferSize"])
+	assert.EqualValues(t, 10, decoded["maxAuthorizedKeysPerWorkflow"])
+	assert.EqualValues(t, 3600, decoded["requestCacheTTL"])
+	assert.Contains(t, decoded, "gatewayConnection")
+	gateway := decoded["gatewayConnection"].(map[string]any)
+	assert.EqualValues(t, 45000, gateway["maxPushMetadataDurationMs"])
+	assert.EqualValues(t, 46000, gateway["maxPullMetadataDurationMs"])
+	assert.NotContains(t, decoded, "maxPushMetadataDurationMs")
+	assert.NotContains(t, decoded, "maxPullMetadataDurationMs")
+}
 
-	var rendered bytes.Buffer
-	require.NoError(t, tmpl.Execute(&rendered, values))
-
-	var config map[string]any
-	require.NoError(t, json.Unmarshal(rendered.Bytes(), &config))
-	assert.Contains(t, config, "incomingRateLimiter")
-	assert.Contains(t, config, "outgoingRateLimiter")
-	assert.NotContains(t, config, "metadataBatchSize")
-	assert.NotContains(t, config, "sendChannelBufferSize")
-	assert.NotContains(t, config, "maxAuthorizedKeysPerWorkflow")
-	assert.NotContains(t, config, "requestCacheTTL")
-	assert.NotContains(t, config, "gatewayConnection")
-	assert.NotContains(t, config, "maxPushMetadataDurationMs")
-	assert.NotContains(t, config, "maxPullMetadataDurationMs")
+func TestPostEnvStartupDoesNotCreateJobs(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, (&HTTPTrigger{}).PostEnvStartup(t.Context(), zerolog.Nop(), nil, nil, nil))
 }

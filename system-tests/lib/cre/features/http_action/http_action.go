@@ -1,30 +1,19 @@
 package httpaction
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"text/template"
+	"maps"
 
-	"dario.cat/mergo"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
-	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
-	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/httpconfig"
 )
 
 const flag = cre.HTTPActionCapability
@@ -61,15 +50,22 @@ func (o *HTTPAction) PreEnvStartup(
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
 
+	capabilityConfig, ok := don.CapabilityConfigs[flag]
+	if !ok {
+		return nil, fmt.Errorf("config for %q capability not found for DON %s", flag, don.Name)
+	}
+	registryConfig, err := BuildCapabilityConfig(capabilityConfig.Values, don.HasOnlyLocalCapabilities())
+	if err != nil {
+		return nil, err
+	}
+
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
 		Capability: kcr.CapabilitiesRegistryCapability{
 			LabelledName:   "http-actions",
 			Version:        "1.0.0-alpha",
 			CapabilityType: 1, // ACTION
 		},
-		Config: &capabilitiespb.CapabilityConfig{
-			LocalOnly: don.HasOnlyLocalCapabilities(),
-		},
+		Config: registryConfig,
 	}}
 
 	return &cre.PreEnvStartupOutput{
@@ -77,117 +73,20 @@ func (o *HTTPAction) PreEnvStartup(
 	}, nil
 }
 
-// configTemplate renders the http-action capability's job-spec config.
-// Gateway mode remains in the job spec for baseline nodes in mixed-version
-// DONs. Nodes supporting [Capabilities.HTTPAction] override it with node TOML.
-// Gateway tuning and HTTP client restrictions are sourced only from node TOML.
-const configTemplate = `
-{
-	"proxyMode": "gateway",
-	"incomingRateLimiter": {
-		"globalBurst": {{printf "%v" .IncomingGlobalBurst}},
-		"globalRPS": {{printf "%v" .IncomingGlobalRPS}},
-		"perSenderBurst": {{printf "%v" .IncomingPerSenderBurst}},
-		"perSenderRPS": {{printf "%v" .IncomingPerSenderRPS}}
-	},
-	"outgoingRateLimiter": {
-		"globalBurst": {{printf "%v" .OutgoingGlobalBurst}},
-		"globalRPS": {{printf "%v" .OutgoingGlobalRPS}},
-		"perSenderBurst": {{printf "%v" .OutgoingPerSenderBurst}},
-		"perSenderRPS": {{printf "%v" .OutgoingPerSenderRPS}}
-	}
+// BuildCapabilityConfig supplies service configuration through registry spec_config.
+func BuildCapabilityConfig(input map[string]any, localOnly bool) (*capabilitiespb.CapabilityConfig, error) {
+	config := map[string]any{"ProxyMode": "gateway"}
+	maps.Copy(config, input)
+	return httpconfig.Build(config, localOnly)
 }
-`
 
 func (o *HTTPAction) PostEnvStartup(
-	ctx context.Context,
-	testLogger zerolog.Logger,
-	don *cre.Don,
-	dons *cre.Dons,
-	creEnv *cre.Environment,
+	_ context.Context,
+	_ zerolog.Logger,
+	_ *cre.Don,
+	_ *cre.Dons,
+	_ *cre.Environment,
 ) error {
-	capabilityConfig, ok := don.GetCapabilityConfig(flag)
-	if !ok {
-		return fmt.Errorf("config for '%s' capability not found for %s DON", flag, don.GetName())
-	}
-
-	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryName)
-	if cErr != nil {
-		return errors.Wrap(cErr, "failed to get command for HTTP Action capability")
-	}
-
-	var nodeSet cre.NodeSetWithCapabilityConfigs
-	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
-		if ns.GetName() == don.Name {
-			nodeSet = ns
-			break
-		}
-	}
-	if nodeSet == nil {
-		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
-	}
-
-	templateData := capabilityConfig.Values
-	tmpl, tmplErr := template.New(flag + "-config").Parse(configTemplate)
-	if tmplErr != nil {
-		return errors.Wrapf(tmplErr, "failed to parse %s config template", flag)
-	}
-
-	var configBuffer bytes.Buffer
-	if err := tmpl.Execute(&configBuffer, templateData); err != nil {
-		return errors.Wrapf(err, "failed to execute %s config template", flag)
-	}
-	configStr := configBuffer.String()
-
-	if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
-		return fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
-	}
-
-	workerInput := cre_jobs.ProposeJobSpecInput{
-		Domain:      offchain.ProductLabel,
-		Environment: creEnv.CldfEnvironment.Name,
-		DONName:     don.Name,
-		JobName:     "http-action-worker",
-		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
-		DONFilters: []offchain.TargetDONFilter{
-			{Key: offchain.FilterKeyDONName, Value: don.Name},
-		},
-		Template: job_types.Cron,
-		Inputs: job_types.JobSpecInput{
-			"command": command,
-			"config":  configStr,
-		},
-	}
-	if creEnv.FreshExternalJobIDs {
-		workerInput.Inputs["externalJobID"] = uuid.NewString()
-	}
-
-	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
-	if workerVerErr != nil {
-		return fmt.Errorf("precondition verification failed for HTTP Action worker job: %w", workerVerErr)
-	}
-
-	workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
-	if workerErr != nil {
-		return fmt.Errorf("failed to propose HTTP Action worker job spec: %w", workerErr)
-	}
-
-	specs := make(map[string][]string)
-	for _, r := range workerReport.Reports {
-		out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
-		if !ok {
-			return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
-		}
-		mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
-		if mErr != nil {
-			return fmt.Errorf("failed to merge worker job specs: %w", mErr)
-		}
-	}
-
-	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
-	if approveErr != nil {
-		return fmt.Errorf("failed to approve HTTP Action jobs: %w", approveErr)
-	}
-
+	// The capability manager launches the service from registry spec_config.
 	return nil
 }

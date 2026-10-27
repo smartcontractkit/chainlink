@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -166,47 +165,22 @@ func TestAddWorkerNodeConfig_MeteringDisabled(t *testing.T) {
 	assert.Equal(t, routerURL, *config.Telemetry.ChipIngressEndpoint)
 }
 
-func TestAddWorkerNodeConfig_HTTPCapabilityCompatibility(t *testing.T) {
+func TestAddWorkerNodeConfig_HTTPRegistryLaunch(t *testing.T) {
 	t.Parallel()
-
-	for _, explicitOverrides := range []bool{false, true} {
-		t.Run(strconv.FormatBool(explicitOverrides), func(t *testing.T) {
-			t.Parallel()
-
-			input := corechainlink.Config{}
-			if explicitOverrides {
-				input.Capabilities.HTTPAction.ProxyMode = new("direct")
-				input.Capabilities.HTTPAction.HTTPClient.AllowedPorts = []int{8443}
-				input.Capabilities.HTTPTrigger.MetadataBatchSize = new(uint16(25))
-			}
-			don := capabilitiesDonMetadata()
-			don.Flags = append(don.Flags, cre.HTTPActionCapability, cre.HTTPTriggerCapability)
-			config, err := addWorkerNodeConfig(input, nil, testPeeringData(), capabilitiesCommonInputs("chip-router:50051"), don, &cre.NodeMetadata{
-				Index: 0,
-				Roles: []string{cre.WorkerNode},
-			})
-			require.NoError(t, err)
-
-			encoded, err := toml.Marshal(config)
-			require.NoError(t, err)
-			if explicitOverrides {
-				assert.Equal(t, input.Capabilities.HTTPAction, config.Capabilities.HTTPAction)
-				assert.Equal(t, input.Capabilities.HTTPTrigger, config.Capabilities.HTTPTrigger)
-				assert.Contains(t, string(encoded), "[Capabilities.HTTPAction]")
-				assert.Contains(t, string(encoded), "[Capabilities.HTTPTrigger]")
-				return
-			}
-
-			// Baseline nodes reject these tables even when they contain only defaults.
-			assert.NotContains(t, string(encoded), "[Capabilities.HTTPAction")
-			assert.NotContains(t, string(encoded), "[Capabilities.HTTPTrigger")
-			opts := corechainlink.GeneralConfigOpts{SkipEnv: true, Config: config}
-			effective, err := opts.New()
-			require.NoError(t, err)
-			assert.Equal(t, "gateway", effective.Capabilities().HTTPAction().ProxyMode())
-			assert.Equal(t, coretoml.HTTPActionCapability{}, config.Capabilities.HTTPAction)
-		})
-	}
+	don := capabilitiesDonMetadata()
+	don.Flags = append(don.Flags, cre.HTTPActionCapability, cre.HTTPTriggerCapability)
+	don.RegistryBasedLaunchAllowlist = []string{"cron-trigger@1.0.0"}
+	config, err := addWorkerNodeConfig(corechainlink.Config{}, nil, testPeeringData(), capabilitiesCommonInputs("chip-router:50051"), don, &cre.NodeMetadata{Index: 0, Roles: []string{cre.WorkerNode}})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"cron-trigger@1.0.0", "http-actions@1.0.0-alpha", "http-trigger@1.0.0-alpha"}, config.Capabilities.Local.RegistryBasedLaunchAllowlist)
+	encoded, err := toml.Marshal(config)
+	require.NoError(t, err)
+	assert.NotContains(t, string(encoded), "[Capabilities.HTTPAction")
+	assert.NotContains(t, string(encoded), "[Capabilities.HTTPTrigger")
+	// Reapplying configuration must not duplicate registry launch entries.
+	config, err = addWorkerNodeConfig(config, nil, testPeeringData(), capabilitiesCommonInputs("chip-router:50051"), don, &cre.NodeMetadata{Index: 0, Roles: []string{cre.WorkerNode}})
+	require.NoError(t, err)
+	assert.Len(t, config.Capabilities.Local.RegistryBasedLaunchAllowlist, 3)
 }
 
 func capabilitiesDonMetadata() *cre.DonMetadata {
