@@ -327,11 +327,9 @@ func (m *ShardFailoverManager) cacheEvent(ctx context.Context, event triggers.Co
 	failoverAt := m.timeoutBasedFailoverDeadline(ctx)
 	m.mu.Lock()
 	m.cache[eventID] = cachedEvent{event: event, cachedAt: time.Now(), failoverAt: failoverAt}
-	cached := int64(len(m.cache))
 	m.mu.Unlock()
 	fm := shardFailoverMetrics()
 	fm.RecordTriggerCached(ctx)
-	fm.UpdateCachedEvents(ctx, cached)
 	m.cfg.Logger.Infow("secondary shard: cached trigger event for failover",
 		"eventID", eventID,
 		"myShardIndex", m.cfg.MyShardIndex,
@@ -461,7 +459,6 @@ func (m *ShardFailoverManager) popCachedEvent(eventID string, exit string) (trig
 	delete(m.cache, eventID)
 	fm := shardFailoverMetrics()
 	fm.RecordCacheExit(context.Background(), exit, 1)
-	fm.UpdateCachedEvents(context.Background(), int64(len(m.cache)))
 	return ce.event, true
 }
 
@@ -471,14 +468,12 @@ func (m *ShardFailoverManager) removeCachedEvent(eventID string) {
 	if cached {
 		delete(m.cache, eventID)
 	}
-	size := int64(len(m.cache))
 	m.mu.Unlock()
 	if !cached {
 		return
 	}
 	fm := shardFailoverMetrics()
 	fm.RecordCacheExit(context.Background(), monitoring.ShardFailoverCacheExitDrained, 1)
-	fm.UpdateCachedEvents(context.Background(), size)
 }
 
 func (m *ShardFailoverManager) pruneLoop(ctx context.Context) {
@@ -506,14 +501,12 @@ func (m *ShardFailoverManager) pruneExpiredCachedEvents(ctx context.Context) {
 			expired++
 		}
 	}
-	size := int64(len(m.cache))
 	m.mu.Unlock()
 	if expired == 0 {
 		return
 	}
 	fm := shardFailoverMetrics()
 	fm.RecordCacheExit(ctx, monitoring.ShardFailoverCacheExitExpired, int64(expired))
-	fm.UpdateCachedEvents(ctx, size)
 }
 
 // wireFailover sets up the communicator for ExecutionStatusUpdate messages.

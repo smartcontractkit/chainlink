@@ -78,7 +78,7 @@ func collectFailoverTotals(t *testing.T) failoverTotals {
 					}
 				}
 			case "platform_shard_failover_replay_duration_seconds":
-				if h, ok := m.Data.(metricdata.Histogram[int64]); ok {
+				if h, ok := m.Data.(metricdata.Histogram[float64]); ok {
 					for _, dp := range h.DataPoints {
 						totals.replayCount[failoverOutcome(dp.Attributes)] += dp.Count
 					}
@@ -133,7 +133,9 @@ func newFailoverTestManager(t *testing.T, engine *recordingEngine) *ShardFailove
 // invariant: cached = drained + replayed + expired + still-cached. Every
 // cached event leaves exactly one counted exit, a verdict for an event that
 // was never cached is not an exit, and replays record their outcome and
-// duration.
+// duration. The cached-events gauge is a node-wide total across all managers,
+// so it is asserted as a delta from its pre-test value (the singleton
+// accumulates across tests in this package).
 //
 //nolint:paralleltest // asserts deltas on process-global failover metrics
 func TestShardFailoverManager_CacheExitFunnel(t *testing.T) {
@@ -142,6 +144,7 @@ func TestShardFailoverManager_CacheExitFunnel(t *testing.T) {
 	failing := newFailoverTestManager(t, &recordingEngine{execErr: errors.New("engine boom")})
 
 	before := collectFailoverTotals(t)
+	cachedBaseline, _ := failoverGauge(t, "platform_shard_failover_cached_events")
 
 	for _, id := range []string{"evt-drain", "evt-replay", "evt-expire", "evt-keep"} {
 		require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent(id)), triggers.ErrAdmissionCached)
@@ -172,7 +175,7 @@ func TestShardFailoverManager_CacheExitFunnel(t *testing.T) {
 	drained := after.cacheExit[monitoring.ShardFailoverCacheExitDrained] - before.cacheExit[monitoring.ShardFailoverCacheExitDrained]
 	replayed := after.cacheExit[monitoring.ShardFailoverCacheExitReplayed] - before.cacheExit[monitoring.ShardFailoverCacheExitReplayed]
 	expired := after.cacheExit[monitoring.ShardFailoverCacheExitExpired] - before.cacheExit[monitoring.ShardFailoverCacheExitExpired]
-	stillCached := int64(len(m.cacheIDs()))
+	stillCached := int64(len(m.cacheIDs()) + len(failing.cacheIDs()))
 
 	assert.Equal(t, int64(5), cached, "events cached across both managers")
 	assert.Equal(t, int64(1), drained, "drained exits")
@@ -188,7 +191,7 @@ func TestShardFailoverManager_CacheExitFunnel(t *testing.T) {
 
 	cachedGauge, ok := failoverGauge(t, "platform_shard_failover_cached_events")
 	require.True(t, ok, "cached_events gauge recorded")
-	assert.Equal(t, stillCached, cachedGauge, "cached_events gauge tracks the cache size")
+	assert.Equal(t, cachedBaseline+stillCached, cachedGauge, "cached_events gauge tracks the node-wide total across managers")
 }
 
 // TestShardFailoverManager_ReplayMiss covers the miss replay outcome: a
@@ -222,7 +225,8 @@ func TestShardFailoverManager_ReplayMiss(t *testing.T) {
 
 // TestShardFailoverManager_PruneExpiresCachedEvents covers the expired exit:
 // events older than the 10-minute expiry are pruned with no verdict ever
-// arriving, and the cached_events gauge returns to 0.
+// arriving, and the cached_events gauge returns to its pre-test value (the
+// node-wide total drops by the pruned batch; 0 when nothing else is cached).
 //
 //nolint:paralleltest // asserts deltas on process-global failover metrics
 func TestShardFailoverManager_PruneExpiresCachedEvents(t *testing.T) {
@@ -230,6 +234,7 @@ func TestShardFailoverManager_PruneExpiresCachedEvents(t *testing.T) {
 	m := newFailoverTestManager(t, &recordingEngine{})
 
 	before := collectFailoverTotals(t)
+	cachedBaseline, _ := failoverGauge(t, "platform_shard_failover_cached_events")
 
 	require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent("evt-1")), triggers.ErrAdmissionCached)
 	require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent("evt-2")), triggers.ErrAdmissionCached)
@@ -248,7 +253,7 @@ func TestShardFailoverManager_PruneExpiresCachedEvents(t *testing.T) {
 	assert.Empty(t, m.cacheIDs(), "cache emptied by the prune")
 	cachedGauge, ok := failoverGauge(t, "platform_shard_failover_cached_events")
 	require.True(t, ok, "cached_events gauge recorded")
-	assert.Equal(t, int64(0), cachedGauge, "cached_events gauge back to 0 after prune")
+	assert.Equal(t, cachedBaseline, cachedGauge, "cached_events gauge back to its pre-test value after the prune")
 }
 
 // TestShardFailoverManager_TimeoutBasedFailoverCacheExits covers the two

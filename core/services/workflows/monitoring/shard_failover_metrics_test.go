@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +13,45 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
+
+// newTestShardFailoverMetrics swaps the beholder client for a manual reader
+// and returns a fresh metrics instance bound to it, so each test asserts
+// absolute values free of the singleton's cross-test state.
+func newTestShardFailoverMetrics(t *testing.T) (*sdkmetric.ManualReader, *ShardFailoverMetrics) {
+	t.Helper()
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	prev := beholder.GetClient()
+	t.Cleanup(func() { beholder.SetClient(prev) })
+	client := beholder.NoopClientConfig{}.New()
+	client.Meter = mp.Meter("test")
+	client.MeterProvider = mp
+	beholder.SetClient(client)
+	fm, err := newShardFailoverMetrics()
+	require.NoError(t, err)
+	return reader, fm
+}
+
+// cachedEventsGaugeValue returns the last recorded value of the node-wide
+// cached-events gauge.
+func cachedEventsGaugeValue(t *testing.T, reader *sdkmetric.ManualReader) int64 {
+	t.Helper()
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(t.Context(), &rm))
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != "platform_shard_failover_cached_events" {
+				continue
+			}
+			if g, ok := m.Data.(metricdata.Gauge[int64]); ok {
+				for _, dp := range g.DataPoints {
+					return dp.Value
+				}
+			}
+		}
+	}
+	return 0
+}
 
 //nolint:paralleltest // swaps the global beholder client behind the metrics singleton
 func TestShardFailoverMetrics_Emissions(t *testing.T) {
@@ -31,15 +71,15 @@ func TestShardFailoverMetrics_Emissions(t *testing.T) {
 	ctx := t.Context()
 	fm.SetFailoverEnabled(ctx, true)
 	fm.RecordTriggerCached(ctx)
-	fm.UpdateCachedEvents(ctx, 2)
+	fm.RecordTriggerCached(ctx)
 	fm.RecordCacheExit(ctx, ShardFailoverCacheExitExpired, 2)
 	fm.RecordReplay(ctx, ShardFailoverReplaySucceeded)
 	fm.RecordReplayDuration(ctx, ShardFailoverReplaySucceeded, 1500*time.Millisecond)
+	fm.RecordReplayDuration(ctx, ShardFailoverReplaySucceeded, 400*time.Millisecond)
 
 	var nilFM *ShardFailoverMetrics
 	nilFM.SetFailoverEnabled(ctx, true)
 	nilFM.RecordTriggerCached(ctx)
-	nilFM.UpdateCachedEvents(ctx, 1)
 	nilFM.RecordCacheExit(ctx, ShardFailoverCacheExitDrained, 1)
 	nilFM.RecordReplay(ctx, ShardFailoverReplayFailed)
 	nilFM.RecordReplayDuration(ctx, ShardFailoverReplayFailed, time.Second)
@@ -49,8 +89,8 @@ func TestShardFailoverMetrics_Emissions(t *testing.T) {
 
 	gauges := make(map[string]int64)
 	sums := make(map[string]map[string]int64)
-	histCounts := make(map[string]map[string]uint64)
 	units := make(map[string]string)
+	var replayHist *metricdata.HistogramDataPoint[float64]
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
 			units[m.Name] = m.Unit
@@ -67,25 +107,113 @@ func TestShardFailoverMetrics_Emissions(t *testing.T) {
 					}
 					sums[m.Name][outcome] += dp.Value
 				}
-			case metricdata.Histogram[int64]:
+			case metricdata.Histogram[float64]:
 				for _, dp := range data.DataPoints {
-					outcome := attrOutcome(dp.Attributes)
-					if histCounts[m.Name] == nil {
-						histCounts[m.Name] = make(map[string]uint64)
+					if attrOutcome(dp.Attributes) == ShardFailoverReplaySucceeded {
+						replayHist = &dp
 					}
-					histCounts[m.Name][outcome] += dp.Count
 				}
 			}
 		}
 	}
 
 	assert.Equal(t, int64(1), gauges["platform_shard_failover_enabled"])
-	assert.Equal(t, int64(2), gauges["platform_shard_failover_cached_events"])
-	assert.Equal(t, int64(1), sums["platform_shard_failover_trigger_cached"][""])
+	assert.Equal(t, int64(0), gauges["platform_shard_failover_cached_events"], "node-wide total returns to 0 after every cached event exits")
+	assert.Equal(t, int64(2), sums["platform_shard_failover_trigger_cached"][""])
 	assert.Equal(t, int64(2), sums["platform_shard_failover_cache_exit"][ShardFailoverCacheExitExpired])
 	assert.Equal(t, int64(1), sums["platform_shard_failover_replay"][ShardFailoverReplaySucceeded])
-	assert.Equal(t, uint64(1), histCounts["platform_shard_failover_replay_duration_seconds"][ShardFailoverReplaySucceeded])
 	assert.Equal(t, "s", units["platform_shard_failover_replay_duration_seconds"])
+
+	require.NotNil(t, replayHist, "replay duration histogram recorded")
+	assert.Equal(t, uint64(2), replayHist.Count)
+	assert.InDelta(t, 1.9, replayHist.Sum, 1e-9, "1500ms records as 1.5 and 400ms as 0.4, not truncated whole seconds")
+	assert.Equal(t, []float64{0.25, 0.5, 1, 2, 5, 10, 30, 120, 300}, replayHist.Bounds)
+	// 0.4 lands in the (0.25, 0.5] bucket (index 1) and 1.5 in the (1, 2]
+	// bucket (index 3); the 10th entry is the implied (300, +inf) bucket.
+	assert.Equal(t, []uint64{0, 1, 0, 1, 0, 0, 0, 0, 0, 0}, replayHist.BucketCounts)
+}
+
+// TestShardFailoverMetrics_CachedEventsGaugeAggregatesAcrossManagers proves
+// the cached-events gauge is the node-wide total: two managers interleaving
+// cache and exit calls leave the gauge at the SUM of both caches, not the last
+// writer's per-manager length, and the funnel invariant
+// cached = drained + replayed + expired + still-cached holds against the
+// internal total.
+//
+//nolint:paralleltest // swaps the global beholder client
+func TestShardFailoverMetrics_CachedEventsGaugeAggregatesAcrossManagers(t *testing.T) {
+	reader, fm := newTestShardFailoverMetrics(t)
+	ctx := t.Context()
+
+	// manager A caches one, manager B caches two, manager A caches one more
+	fm.RecordTriggerCached(ctx)
+	fm.RecordTriggerCached(ctx)
+	fm.RecordTriggerCached(ctx)
+	assert.Equal(t, int64(3), cachedEventsGaugeValue(t, reader), "gauge reads the sum of both managers' caches, not the last writer's length")
+
+	// manager A replays one, manager B expires one
+	fm.RecordCacheExit(ctx, ShardFailoverCacheExitReplayed, 1)
+	fm.RecordCacheExit(ctx, ShardFailoverCacheExitExpired, 1)
+
+	stillCached := cachedEventsGaugeValue(t, reader)
+	assert.Equal(t, int64(1), stillCached, "gauge reads the sum after exits from both managers")
+	assert.Equal(t, stillCached, fm.cachedTotal.Load(), "gauge records the internal node-wide total")
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(ctx, &rm))
+	sums := make(map[string]map[string]int64)
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if sum, ok := m.Data.(metricdata.Sum[int64]); ok {
+				for _, dp := range sum.DataPoints {
+					outcome := attrOutcome(dp.Attributes)
+					if sums[m.Name] == nil {
+						sums[m.Name] = make(map[string]int64)
+					}
+					sums[m.Name][outcome] += dp.Value
+				}
+			}
+		}
+	}
+	cached := sums["platform_shard_failover_trigger_cached"][""]
+	drained := sums["platform_shard_failover_cache_exit"][ShardFailoverCacheExitDrained]
+	replayed := sums["platform_shard_failover_cache_exit"][ShardFailoverCacheExitReplayed]
+	expired := sums["platform_shard_failover_cache_exit"][ShardFailoverCacheExitExpired]
+	assert.Equal(t, int64(3), cached)
+	assert.Equal(t, int64(1), replayed)
+	assert.Equal(t, int64(1), expired)
+	assert.Equal(t, cached, drained+replayed+expired+stillCached, "cache funnel invariant against the node-wide total")
+}
+
+// TestShardFailoverMetrics_ConcurrentManagers hammers the shared instruments
+// from concurrent goroutines the way concurrent managers do: the node-wide
+// total must stay exact (run with -race).
+//
+//nolint:paralleltest // swaps the global beholder client
+func TestShardFailoverMetrics_ConcurrentManagers(t *testing.T) {
+	reader, fm := newTestShardFailoverMetrics(t)
+	ctx := t.Context()
+
+	const managers = 8
+	const perManager = 50
+	var wg sync.WaitGroup
+	for range managers {
+		wg.Go(func() {
+			for j := range perManager {
+				fm.RecordTriggerCached(ctx)
+				if j%2 == 0 {
+					fm.RecordCacheExit(ctx, ShardFailoverCacheExitReplayed, 1)
+				}
+			}
+		})
+	}
+	wg.Wait()
+
+	assert.Equal(t, int64(200), fm.cachedTotal.Load(), "every manager caches 50 and exits 25: 8*(50-25)")
+	// One more event after the goroutines joined re-records the gauge; it must
+	// read the exact node-wide total, not any single manager's length.
+	fm.RecordTriggerCached(ctx)
+	assert.Equal(t, int64(201), cachedEventsGaugeValue(t, reader))
 }
 
 func attrOutcome(attrs attribute.Set) string {

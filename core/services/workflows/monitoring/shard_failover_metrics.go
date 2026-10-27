@@ -3,6 +3,7 @@ package monitoring
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -26,14 +27,21 @@ const (
 )
 
 // ShardFailoverMetrics are the process-global failover instruments, emitted by
-// the ShardFailoverManager and the syncer through the shared unlabeled meter.
+// the per-workflow ShardFailoverManager instances and the syncer through the
+// shared unlabeled meter. The instruments are per-node aggregates with no
+// per-workflow labels, so all managers on this node emit through this one
+// singleton: cachedTotal carries the node-wide total of cached events, because
+// gauges overwrite rather than sum — per-manager cache lengths would be
+// last-writer-wins and hide the other managers' cached events.
 type ShardFailoverMetrics struct {
 	enabledGauge          metric.Int64Gauge
 	triggerCachedCounter  metric.Int64Counter
 	cachedEventsGauge     metric.Int64Gauge
 	cacheExitCounter      metric.Int64Counter
 	replayCounter         metric.Int64Counter
-	replayDurationSeconds metric.Int64Histogram
+	replayDurationSeconds metric.Float64Histogram
+
+	cachedTotal atomic.Int64
 }
 
 var (
@@ -63,7 +71,7 @@ func newShardFailoverMetrics() (*ShardFailoverMetrics, error) {
 		return nil, err
 	}
 	m.cachedEventsGauge, err = beholder.GetMeter().Int64Gauge("platform_shard_failover_cached_events",
-		metric.WithDescription("Trigger events currently cached for failover replay"))
+		metric.WithDescription("Trigger events currently cached for failover replay, node-wide across all failover managers on this node"))
 	if err != nil {
 		return nil, err
 	}
@@ -77,10 +85,10 @@ func newShardFailoverMetrics() (*ShardFailoverMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
-	m.replayDurationSeconds, err = beholder.GetMeter().Int64Histogram("platform_shard_failover_replay_duration_seconds",
+	m.replayDurationSeconds, err = beholder.GetMeter().Float64Histogram("platform_shard_failover_replay_duration_seconds",
 		metric.WithDescription("Duration of failover replays of cached trigger events"),
 		metric.WithUnit("s"),
-		metric.WithExplicitBucketBoundaries(0.5, 1, 2, 5, 10, 30, 60, 120, 300))
+		metric.WithExplicitBucketBoundaries(0.25, 0.5, 1, 2, 5, 10, 30, 120, 300))
 	if err != nil {
 		return nil, err
 	}
@@ -99,29 +107,25 @@ func (m *ShardFailoverMetrics) SetFailoverEnabled(ctx context.Context, enabled b
 	m.enabledGauge.Record(ctx, enabledVal)
 }
 
-// RecordTriggerCached counts one trigger event cached for failover.
+// RecordTriggerCached counts one trigger event cached for failover and bumps
+// the node-wide cached-events total.
 func (m *ShardFailoverMetrics) RecordTriggerCached(ctx context.Context) {
 	if m == nil {
 		return
 	}
 	m.triggerCachedCounter.Add(ctx, 1)
+	m.cachedEventsGauge.Record(ctx, m.cachedTotal.Add(1))
 }
 
-// UpdateCachedEvents records the current number of cached trigger events.
-func (m *ShardFailoverMetrics) UpdateCachedEvents(ctx context.Context, n int64) {
-	if m == nil {
-		return
-	}
-	m.cachedEventsGauge.Record(ctx, n)
-}
-
-// RecordCacheExit counts n cached events leaving the cache. outcome must be a
+// RecordCacheExit counts n cached events leaving the cache and lowers the
+// node-wide cached-events total by n. outcome must be a
 // ShardFailoverCacheExit* constant.
 func (m *ShardFailoverMetrics) RecordCacheExit(ctx context.Context, outcome string, n int64) {
 	if m == nil {
 		return
 	}
 	m.cacheExitCounter.Add(ctx, n, metric.WithAttributes(attribute.String("outcome", outcome)))
+	m.cachedEventsGauge.Record(ctx, m.cachedTotal.Add(-n))
 }
 
 // RecordReplay counts one failover replay attempt. outcome must be a
@@ -133,11 +137,11 @@ func (m *ShardFailoverMetrics) RecordReplay(ctx context.Context, outcome string)
 	m.replayCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", outcome)))
 }
 
-// RecordReplayDuration records the duration of one failover replay. outcome
-// must be a ShardFailoverReplay* constant.
+// RecordReplayDuration records the duration of one failover replay, in
+// fractional seconds. outcome must be a ShardFailoverReplay* constant.
 func (m *ShardFailoverMetrics) RecordReplayDuration(ctx context.Context, outcome string, d time.Duration) {
 	if m == nil {
 		return
 	}
-	m.replayDurationSeconds.Record(ctx, int64(d/time.Second), metric.WithAttributes(attribute.String("outcome", outcome)))
+	m.replayDurationSeconds.Record(ctx, d.Seconds(), metric.WithAttributes(attribute.String("outcome", outcome)))
 }
