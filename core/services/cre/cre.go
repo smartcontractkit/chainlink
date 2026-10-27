@@ -24,7 +24,6 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
@@ -715,6 +714,13 @@ func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.Billi
 // is intentionally left empty here. Service/resource_pool are stamped by
 // syncer.NewSpecMeter.
 // newDeploymentIdentity returns the node's [Metering] deployment dimensions.
+// emitFunc adapts the injected durable emit func to resourcemanager.Emitter.
+type emitFunc func(ctx context.Context, body []byte, attrKVs ...any) error
+
+func (f emitFunc) Emit(ctx context.Context, body []byte, attrKVs ...any) error {
+	return f(ctx, body, attrKVs...)
+}
+
 func newDeploymentIdentity(cfg Config) resourcemanager.DeploymentIdentity {
 	m := cfg.Metering()
 	if m == nil {
@@ -1001,8 +1007,8 @@ func newWorkflowRegistrySyncerV2(
 
 	// Compute usage records share the [Metering].MeterRecordsEnabled gate.
 	if meterRecordsEnabled {
-		if d := durableemitter.GetGlobalEmitter(); d != nil {
-			handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(newDeploymentIdentity(cfg), d))
+		if opts.DurableEmit != nil { // injected, not the global, so tests can supply their own
+			handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(newDeploymentIdentity(cfg), emitFunc(opts.DurableEmit)))
 		} else {
 			lggr.Warnw("Compute usage metering enabled without a durable emitter; compute usage records disabled")
 		}
