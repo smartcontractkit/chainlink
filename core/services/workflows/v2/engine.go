@@ -307,7 +307,17 @@ func (e *engine) put(ctx context.Context, event triggers.CoordinatedEvent) error
 		if ackErr := e.base.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {
 			e.base.logger().Errorw("failed to ACK trigger after admission denial", "eventID", eventID, "err", ackErr)
 		}
-		e.base.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonAdmissionDenied)
+		tm := e.base.metrics.With(platform.KeyTriggerID, triggerID)
+		switch {
+		case errors.Is(err, ErrShardDeniedNotOwner):
+			tm.IncrementShardExecutionDeniedNotOwnerCounter(ctx)
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonShardDeniedNotOwner)
+		case errors.Is(err, ErrShardDeniedOrchestrator):
+			tm.IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx)
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonShardDeniedOrchestrator)
+		default:
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonAdmissionDenied)
+		}
 		return err
 	}
 
