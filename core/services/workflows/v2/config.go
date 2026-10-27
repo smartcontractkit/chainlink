@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -59,6 +60,15 @@ type EngineConfig struct {
 	GlobalWorkflowLimit limits.ResourceLimiter[int] // global + PerOwner.WorkflowLimit
 
 	BeholderEmitter custmsg.MessageEmitter
+
+	// EventEmitter emits workflow platform events. Defaults to events.DefaultEmitter().
+	EventEmitter *events.Emitter
+
+	// Meter is the OTel meter the engine registers its metrics on. If nil,
+	// newBaseEngine falls back to beholder.GetMeter() at engine construction
+	// time, preserving the default read timing. It is deliberately NOT
+	// resolved in Validate.
+	Meter metric.Meter
 
 	Hooks         LifecycleHooks
 	BillingClient metering.BillingClient
@@ -139,6 +149,8 @@ type EngineLimiters struct {
 	ConfidentialWorkflowsEnabled                limits.GateLimiter
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
 	ShardingFailoverEnabled                     limits.GateLimiter
+	TimeoutBasedFailover                        limits.GateLimiter
+	TimeoutBasedFailoverWindow                  limits.TimeLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
 
 	// newTriggerEventQueue builds a trigger event queue from the same factory and
@@ -306,6 +318,14 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
+	l.TimeoutBasedFailover, err = limits.MakeGateLimiter(lf, cresettings.Default.TimeoutBasedFailover)
+	if err != nil {
+		return err
+	}
+	l.TimeoutBasedFailoverWindow, err = lf.MakeTimeLimiter(cresettings.Default.TimeoutBasedFailoverWindow)
+	if err != nil {
+		return err
+	}
 	l.DONTimeRequestTimeout, err = lf.MakeTimeLimiter(cfg.DONTime.RequestTimeout)
 	if err != nil {
 		return err
@@ -405,8 +425,9 @@ func (l *EngineLimiters) Close() error {
 // engine evicting its workflow from these limiters never touches it.
 func (l *EngineLimiters) Admission() triggers.AdmissionLimiters {
 	return triggers.AdmissionLimiters{
-		NewTriggerEventQueue: l.newTriggerEventQueue,
-		ExecutionConcurrency: l.ExecutionConcurrency,
+		NewTriggerEventQueue:     l.newTriggerEventQueue,
+		TriggerEventQueueTimeout: l.TriggerEventQueueTimeout,
+		ExecutionConcurrency:     l.ExecutionConcurrency,
 	}
 }
 
@@ -536,6 +557,10 @@ func (c *EngineConfig) Validate() error {
 
 	if c.BeholderEmitter == nil {
 		return errors.New("beholder emitter not set")
+	}
+
+	if c.EventEmitter == nil {
+		c.EventEmitter = events.DefaultEmitter()
 	}
 
 	if c.FeatureFlags == nil {

@@ -10,16 +10,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
-var defaults toml.Core
-
-func init() {
-	if err := configdoc.DefaultsOnly(strings.NewReader(coreTOML), &defaults, commonconfig.DecodeTOML); err != nil {
+func CoreDefaults() (c toml.Core) {
+	if err := configdoc.DefaultsOnly(strings.NewReader(coreTOML), &c, commonconfig.DecodeTOML); err != nil {
 		log.Fatalf("Failed to initialize defaults from docs: %v", err)
 	}
-}
-
-func CoreDefaults() (c toml.Core) {
-	c.SetFrom(&defaults)
 	c.Database.DriverName = pgcommon.DriverPostgres // not user visible - overridden for tests only
 	c.Tracing.Attributes = make(map[string]string)
 	return c

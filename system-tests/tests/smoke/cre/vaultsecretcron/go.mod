@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecretcron
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/smartcontractkit/cre-sdk-go v1.5.0

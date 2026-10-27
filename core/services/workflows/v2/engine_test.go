@@ -70,9 +70,10 @@ import (
 
 const triggerID = "basic-test-trigger@1.0.0"
 
-//nolint:paralleltest // swaps the global beholder client to assert the trigger subscription source metric
 func TestEngine_Init(t *testing.T) {
-	reader := setupInitFailureTestMeter(t)
+	t.Parallel()
+
+	meter, reader := newTestMeter(t)
 
 	module := modulemocks.NewModuleV2(t)
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -83,6 +84,7 @@ func TestEngine_Init(t *testing.T) {
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
+	cfg.Meter = meter
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -102,10 +104,10 @@ func TestEngine_Init(t *testing.T) {
 
 	require.NoError(t, <-initDoneCh)
 
-	// count may include foreign increments from parallel engine tests sharing
-	// the swapped meter; just confirm a "wasm" source was recorded
-	_, gotSources := collectCounterByAttr(t, reader, "platform_engine_trigger_subscription_source_total", "source")
-	require.Contains(t, gotSources, "wasm")
+	// the meter is private to this test, so the count is exact
+	gotCount, gotSources := collectCounterByAttr(t, reader, "platform_engine_trigger_subscription_source_total", "source")
+	require.Equal(t, int64(1), gotCount)
+	require.Equal(t, []string{"wasm"}, gotSources)
 
 	module.EXPECT().Close().Once()
 	require.NoError(t, engine.Close())
@@ -576,9 +578,10 @@ func TestEngine_Subscribe_CachedTriggerSubscriptions(t *testing.T) {
 		{Id: "id_1", Method: "method"},
 	}
 
-	//nolint:paralleltest // swaps the global beholder client to assert the trigger subscription source metric
 	t.Run("gate enabled: cache is used, WASM never executed", func(t *testing.T) {
-		reader := setupInitFailureTestMeter(t)
+		t.Parallel()
+
+		meter, reader := newTestMeter(t)
 
 		module := modulemocks.NewModuleV2(t)
 		module.EXPECT().Start()
@@ -601,6 +604,7 @@ func TestEngine_Subscribe_CachedTriggerSubscriptions(t *testing.T) {
 		cfg.CapRegistry = capreg
 		cfg.CachedTriggerSubscriptions = cachedSubs
 		cfg.CachedTriggerSubscriptionsEnabled = true
+		cfg.Meter = meter
 		initDoneCh := make(chan error, 1)
 		cfg.Hooks = v2.LifecycleHooks{
 			OnInitialized: func(err error) { initDoneCh <- err },
@@ -611,10 +615,10 @@ func TestEngine_Subscribe_CachedTriggerSubscriptions(t *testing.T) {
 		servicetest.Run(t, engine)
 		require.NoError(t, <-initDoneCh)
 
-		// count may include foreign increments from parallel engine tests
-		// sharing the swapped meter; just confirm a "cache" source was recorded
-		_, gotSources := collectCounterByAttr(t, reader, "platform_engine_trigger_subscription_source_total", "source")
-		require.Contains(t, gotSources, "cache")
+		// the meter is private to this subtest, so the count is exact
+		gotCount, gotSources := collectCounterByAttr(t, reader, "platform_engine_trigger_subscription_source_total", "source")
+		require.Equal(t, int64(1), gotCount)
+		require.Equal(t, []string{"cache"}, gotSources)
 	})
 
 	t.Run("gate disabled: cache is ignored, falls back to WASM", func(t *testing.T) {
@@ -1931,6 +1935,8 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 }
 
 func TestEngine_WASMBinary_With_Config(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -1983,7 +1989,9 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		giveName:   giveName,
 		giveNumber: giveNum,
 	}
-	beholderObserver := beholdertest.NewObserver(t)
+	rec := beholdertest.NewRecorder()
+	cfg.EventEmitter = workflowEvents.NewEmitter(rec, workflowEvents.WithNoDurableEmit())
+	cfg.BeholderEmitter = custmsg.NewLabelerWithEmitter(rec)
 
 	t.Run("OK received expected config", func(t *testing.T) {
 		t.Parallel()
@@ -2022,7 +2030,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 
 		require.Equal(t, execID, <-executionFinishedCh)
 
-		requireUserLogs(t, beholderObserver, []string{
+		requireUserLogs(t, rec, []string{
 			"onTrigger called",
 		})
 
@@ -3234,9 +3242,9 @@ func beholderBaseMessages(t *testing.T, rec *beholdertest.Recorder) []beholder.M
 	return rec.Messages(t, "beholder_entity", beholderEntityBaseMessage)
 }
 
-func beholderUserLogMessages(t *testing.T, observer beholdertest.Observer) []beholder.Message {
+func beholderUserLogMessages(t *testing.T, rec *beholdertest.Recorder) []beholder.Message {
 	t.Helper()
-	return observer.Messages(t, "beholder_entity", fmt.Sprintf("%s.%s", workflowEvents.ProtoPkg, workflowEvents.UserLogs))
+	return rec.Messages(t, "beholder_entity", fmt.Sprintf("%s.%s", workflowEvents.ProtoPkg, workflowEvents.UserLogs))
 }
 
 // eventLabelsMatchStatus returns observed BaseMessages and the label set still being
@@ -3367,8 +3375,7 @@ func userLogMatchStatus(msgs []beholder.Message, expectedSubstrings []string) (o
 	return observed, expectedSubstrings[nextToFind:]
 }
 
-// requireUserLogs fails the test if the expected user log messages are not eventually found in the beholder observer.
-func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expectedSubstrings []string) {
+func requireUserLogs(t *testing.T, rec *beholdertest.Recorder, expectedSubstrings []string) {
 	t.Helper()
 	if len(expectedSubstrings) == 0 {
 		return
@@ -3376,7 +3383,7 @@ func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expec
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		observed, missing := userLogMatchStatus(
-			beholderUserLogMessages(t, beholderObserver),
+			beholderUserLogMessages(t, rec),
 			expectedSubstrings,
 		)
 		if len(missing) > 0 {

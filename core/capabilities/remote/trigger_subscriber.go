@@ -91,6 +91,35 @@ type subRegState struct {
 	// bucket is the index into triggerSubscriber.registrationBuckets
 	// assigned randomly so resends spread across the refresh window
 	bucket int
+	// sendMu serializes deliveries with closing callback; done unblocks a delivery waiting on a full callback.
+	sendMu sync.Mutex
+	done   chan struct{}
+}
+
+func (r *subRegState) deliver(resp commoncap.TriggerResponse, stopCh <-chan struct{}) bool {
+	r.sendMu.Lock()
+	defer r.sendMu.Unlock()
+	// callback is closed only after done, so checking done first avoids sending on a closed channel.
+	select {
+	case <-r.done:
+		return false
+	default:
+	}
+	select {
+	case r.callback <- resp:
+		return true
+	case <-r.done:
+	case <-stopCh:
+	}
+	return false
+}
+
+// close must be called at most once.
+func (r *subRegState) close() {
+	close(r.done)
+	r.sendMu.Lock()
+	defer r.sendMu.Unlock()
+	close(r.callback)
 }
 
 type registrationPayloads struct {
@@ -299,6 +328,7 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 			callback: make(chan commoncap.TriggerResponse, sendChannelBufferSize),
 			payloads: payloads,
 			bucket:   bucket,
+			done:     make(chan struct{}),
 		}
 		triggerMap[request.TriggerID] = regState
 		s.registrationBuckets[bucket][regState] = struct{}{}
@@ -436,17 +466,13 @@ func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commo
 	}
 	state := triggerMap[request.TriggerID]
 	if state != nil {
-		if state.callback != nil {
-			close(state.callback)
-		}
+		state.close()
 		delete(s.registrationBuckets[state.bucket], state)
 	}
 	delete(triggerMap, request.TriggerID)
 	if len(triggerMap) == 0 {
 		delete(s.registeredWorkflows, request.Metadata.WorkflowID)
 	}
-	// Registrations will quickly expire on all remote nodes.
-	// Alternatively, we could send UnregisterTrigger messages right away.
 	return nil
 }
 
@@ -554,7 +580,9 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			s.mu.Unlock()
 			s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
 			s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID)
-			registration.callback <- aggregatedResponse
+			if !registration.deliver(aggregatedResponse, s.stopCh) {
+				s.lggr.Warnw("dropped aggregated trigger event: trigger unregistered or subscriber stopping", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID)
+			}
 		}
 	case types.MethodTriggerRegistrationCheck:
 		meta := msg.GetTriggerEventMetadata()

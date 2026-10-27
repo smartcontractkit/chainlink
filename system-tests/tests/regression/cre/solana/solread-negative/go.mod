@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/solread-negative
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260604190002-3650885b31f6

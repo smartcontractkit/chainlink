@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
@@ -26,6 +24,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
@@ -62,6 +61,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	artifactsV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
@@ -72,6 +72,7 @@ import (
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 // Keystore is the minimal interface needed from keystore for CRE
@@ -95,6 +96,9 @@ type Opts struct {
 	LinkingClient linkingclient.LinkingServiceClient
 	Meter         metric.Meter
 
+	// DurableEmit persists workflow events for durable delivery. Nil disables persistence.
+	DurableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
+
 	StorageClient storage.WorkflowClient
 
 	DonTimeStore  *dontime.Store
@@ -117,7 +121,6 @@ type Opts struct {
 // Services contains all CRE-related services
 type Services struct {
 	commonsrv.Service
-	eng *commonsrv.Engine
 
 	BillingClient metering.BillingClient
 
@@ -149,10 +152,7 @@ func (s *Services) close() error {
 // workflowRegistryConfigured is true when the workflow registry syncer should start:
 // a non-empty on-chain contract address and/or additional (e.g. gRPC) sources.
 func workflowRegistryConfigured(workflowRegistry config.CapabilitiesWorkflowRegistry) bool {
-	if strings.TrimSpace(workflowRegistry.Address()) != "" {
-		return true
-	}
-	return len(workflowRegistry.AdditionalSources()) > 0
+	return strings.TrimSpace(workflowRegistry.Address()) != "" || len(workflowRegistry.AdditionalSources()) > 0
 }
 
 // newSubservices initializes and returns all CRE child services
@@ -350,7 +350,6 @@ func newGatewayConnectorWrapper(
 // It manages the lifecycle of the shared peer and dispatcher as subservices.
 type dispatcherWrapper struct {
 	commonsrv.Service
-	eng *commonsrv.Engine
 
 	dispatcher        remotetypes.Dispatcher
 	don2DonSharedPeer p2ptypes.SharedPeer
@@ -467,6 +466,7 @@ func (s *Services) newRegistrySyncer(
 		opts.LimitsFactory,
 		shardingEnabled,
 		shardIndex,
+		capabilities.WithDurableEmit(opts.DurableEmit),
 	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
@@ -564,10 +564,7 @@ func (w *dispatcherWrapper) newSubservices(
 	if opts.CapabilitiesDispatcher != nil && opts.CapabilitiesSharedPeer != nil {
 		w.dispatcher = opts.CapabilitiesDispatcher
 		w.don2DonSharedPeer = opts.CapabilitiesSharedPeer
-		if w.don2DonSharedPeer != nil {
-			return []commonsrv.Service{w.don2DonSharedPeer, w.dispatcher}, nil
-		}
-		return []commonsrv.Service{w.dispatcher}, nil
+		return []commonsrv.Service{w.don2DonSharedPeer, w.dispatcher}, nil
 	}
 
 	if !capCfg.SharedPeering().Enabled() {
@@ -589,7 +586,7 @@ func (w *dispatcherWrapper) newSubservices(
 
 	signer := p2pmain.NewSigner(keyStore.P2P(), cfg.P2P().PeerID())
 
-	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr)
+	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr, opts.LimitsFactory)
 	if err != nil {
 		return nil, fmt.Errorf("could not create dispatcher: %w", err)
 	}
@@ -620,7 +617,7 @@ func newDispatcherWrapper(
 	w := &dispatcherWrapper{}
 
 	var initErr error
-	w.Service, w.eng = commonsrv.Config{
+	w.Service = commonsrv.Config{
 		Name: "DispatcherWrapper",
 		NewSubServices: func(lggr logger.Logger) []commonsrv.Service {
 			subs, err := w.newSubservices(lggr, cfg, opts, keyStore, singletonPeerWrapper)
@@ -630,7 +627,7 @@ func newDispatcherWrapper(
 			}
 			return subs
 		},
-	}.NewServiceEngine(lggr)
+	}.NewService(lggr)
 
 	if initErr != nil {
 		return nil, initErr
@@ -792,7 +789,7 @@ func chainSelector(chainID, networkID string) (string, error) {
 		return "", fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
 	}
 
-	return strconv.FormatUint(wrChainDetails.ChainSelector, 10), err
+	return strconv.FormatUint(wrChainDetails.ChainSelector, 10), nil
 }
 
 func newFetcherServiceV2(
@@ -893,12 +890,12 @@ func newWorkflowRegistrySyncerV2(
 
 	selector, err := chainSelector(wfReg.ChainID(), wfReg.NetworkID())
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
+		return nil, nil, err
 	}
 
 	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
 	if err != nil {
-		return nil, nil, errors.New("failed to instantiate contract reader factory")
+		return nil, nil, fmt.Errorf("failed to instantiate contract reader factory: %w", err)
 	}
 
 	var shardOrchestratorClient shardorchestrator.ClientInterface
@@ -965,7 +962,7 @@ func newWorkflowRegistrySyncerV2(
 
 	handlerOpts := []syncerV2.EventHandlerOption{
 		syncerV2.WithBillingClient(billingClient),
-		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
+		syncerV2.WithWorkflowRegistry(wfReg.Address(), selector),
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
 		syncerV2.WithCachedTriggerSubscriptionsEnabled(cfg.CRE().CachedTriggerSubscriptionsEnabled()),
@@ -975,6 +972,8 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithShardResolver(shardResolver),
 		syncerV2.WithShardIndex(uint32(cfg.Sharding().ShardIndex())),
 		syncerV2.WithTriggerCoordinator(triggerCoordinator),
+		// Shared emitter across handler and spawned engines.
+		syncerV2.WithEventEmitter(events.NewEmitter(nil, events.WithDurableEmit(opts.DurableEmit))),
 	}
 	if shardingEnabled && dispatcher != nil {
 		handlerOpts = append(handlerOpts,
@@ -1009,11 +1008,11 @@ func newWorkflowRegistrySyncerV2(
 		}
 	}
 
-	mc := capCfg.WorkflowRegistry().ModuleCache()
+	mc := wfReg.ModuleCache()
 	cacheEnabled := mc.Enabled()
 	diskMonitorEnabled := mc.DiskMonitorEnabled() || cacheEnabled
 
-	if diskMonitorEnabled || cacheEnabled {
+	if diskMonitorEnabled {
 		fileStore, fsErr := artifactsV2.NewFileModuleStore(mc.CacheDir(), cacheEnabled)
 		if fsErr != nil {
 			return nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
@@ -1039,21 +1038,22 @@ func newWorkflowRegistrySyncerV2(
 				return nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
 			}
 
-			lruOpts := []func(*syncerV2.ModuleLRU){
+			var idleTimeout time.Duration
+			if mc.IdleEviction() {
+				idleTimeout = mc.IdleTimeout()
+			}
+			moduleLRU := syncerV2.NewModuleLRU(
+				clockwork.NewRealClock(),
 				syncerV2.WithMaxLoadedModules(mc.MaxLoaded()),
 				syncerV2.WithCacheMetrics(cm),
-			}
-			if mc.IdleEviction() {
-				lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(mc.IdleTimeout()))
-			} else {
-				lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(0))
-			}
-			moduleLRU := syncerV2.NewModuleLRU(clockwork.NewRealClock(), lruOpts...)
+				syncerV2.WithIdleTimeout(idleTimeout),
+			)
 
 			handlerOpts = append(handlerOpts,
 				syncerV2.WithModuleLRU(moduleLRU),
 				syncerV2.WithModuleStore(fileStore),
 				syncerV2.WithModuleCacheMetrics(cm),
+				syncerV2.WithModuleEngineVersion(static.Version),
 			)
 
 			lggr.Infow("Module cache enabled",
@@ -1061,6 +1061,7 @@ func newWorkflowRegistrySyncerV2(
 				"idleTimeout", mc.IdleTimeout(),
 				"maxLoaded", mc.MaxLoaded(),
 				"cacheDir", fileStore.CacheDir(),
+				"engineVersion", static.Version,
 			)
 		}
 	}
@@ -1112,7 +1113,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithMaxConcurrency(wfReg.MaxConcurrency()),
 		syncerV2.WithMaxActivationRetries(wfReg.MaxActivationRetries()),
 	}
-	if cfg.Sharding().ShardingEnabled() {
+	if shardingEnabled {
 		registryOpts = append(registryOpts,
 			syncerV2.WithShardEnabled(true),
 			syncerV2.WithShardFailoverEnabled(engineLimiters.ShardingFailoverEnabled),
@@ -1205,7 +1206,7 @@ func NewServices(
 	s := &Services{}
 
 	var subservicesErr error
-	s.Service, s.eng = commonsrv.Config{
+	s.Service = commonsrv.Config{
 		Name: "CRE",
 		NewSubServices: func(subLggr logger.Logger) []commonsrv.Service {
 			srvs, err := s.newSubservices(
@@ -1224,7 +1225,7 @@ func NewServices(
 			return srvs
 		},
 		Close: s.close,
-	}.NewServiceEngine(lggr)
+	}.NewService(lggr)
 
 	if subservicesErr != nil {
 		return nil, subservicesErr

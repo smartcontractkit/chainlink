@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -50,16 +51,17 @@ import (
 var executingWorkflows atomic.Int64
 
 var (
-	ErrDuplicateExecution      = errors.New("duplicate execution")
-	ErrShardDeniedNotOwner     = errors.New("shard ownership denied: not owner")
-	ErrShardDeniedOrchestrator = errors.New("shard ownership denied: orchestrator error")
-	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
-	ErrAdmissionCache          = errors.New("admission: event cached for failover")
+	ErrDuplicateExecution = triggers.ErrDuplicateExecution
+	ErrEngineDraining     = triggers.ErrEngineDraining
+	ErrEngineClosed       = triggers.ErrEngineClosed
 
-	ErrEngineDraining = errors.New("engine is draining")
-	ErrEngineClosed   = errors.New("engine is closed")
-	ErrQueueFull      = errors.New("trigger event queue is full")
-	ErrEnqueueFailed  = errors.New("failed to enqueue trigger event")
+	ErrShardDeniedNotOwner     = fmt.Errorf("shard ownership denied: not owner: %w", triggers.ErrAdmissionDenied)
+	ErrShardDeniedOrchestrator = fmt.Errorf("shard ownership denied: orchestrator error: %w", triggers.ErrAdmissionDenied)
+	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
+	ErrAdmissionCache          = triggers.ErrAdmissionCached
+
+	ErrQueueFull     = errors.New("trigger event queue is full")
+	ErrEnqueueFailed = errors.New("failed to enqueue trigger event")
 
 	ErrZeroTriggerSubscriptions = errors.New("workflow subscribed to zero triggers")
 )
@@ -142,7 +144,11 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 		return nil, nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	em, err := monitoring.InitMonitoringResources()
+	meter := cfg.Meter
+	if meter == nil {
+		meter = beholder.GetMeter()
+	}
+	em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not initialize monitoring resources: %w", err)
 	}
@@ -187,7 +193,7 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 
 	// Store logger and other fields
 	engine.setLogger(beholderLogger)
-	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2)
+	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2, metering.WithEventEmitter(cfg.EventEmitter))
 	engine.metrics = metricsLabeler
 	// Disabled metering is a no-op inside the resource manager.
 	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter, FaultInjection: cfg.UsageFaultInjection})
@@ -384,6 +390,11 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 // init. Every field it reads is written before OnInitialized fires.
 func (e *baseEngine) Tenant() contexts.CRE {
 	return contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
+}
+
+// SdkName is the SDK the workflow binary was built with.
+func (e *baseEngine) SdkName() string {
+	return e.cfg.SdkName
 }
 
 // Drain marks the engine as draining and prevents new executions from starting.
@@ -595,8 +606,8 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	// instead of vanishing.
 	emitDroppedExecution := func(cause error, class events.ErrorClassification) {
 		executionStatus = store.StatusErrored
-		_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, store.StatusErrored, executionID, cause, class, lggr)
+		_ = e.cfg.EventEmitter.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
+		_ = e.cfg.EventEmitter.EmitExecutionFinishedEvent(ctx, loggerLabels, store.StatusErrored, executionID, cause, class, lggr)
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, store.StatusErrored)
 	}
 
@@ -684,7 +695,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	if e.orgID == "" {
 		e.metrics.IncrementOrgIDMissingCounter(ctx, e.orgIDMissingReason)
 	}
-	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
+	_ = e.cfg.EventEmitter.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
 	registrationID := triggers.RegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
 	err = e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID)
@@ -699,10 +710,10 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	execErrClass := events.ErrorClassificationUnspecified
 	var execHelper *ExecutionHelper
 	defer func() {
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, execErrClass, lggr)
+		_ = e.cfg.EventEmitter.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, execErrClass, lggr)
 		if execHelper != nil {
 			endTime := e.cfg.Clock.Now()
-			profile, emitErr := events.EmitExecutionProfile(
+			profile, emitErr := e.cfg.EventEmitter.EmitExecutionProfile(
 				ctx,
 				e.cfg.WorkflowID,
 				executionID,
@@ -962,7 +973,7 @@ func (e *baseEngine) emitUserLogs(ctx context.Context, userLogChan chan *protoev
 			}
 		}
 
-		if err := events.EmitUserLogs(emitCtx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
+		if err := e.cfg.EventEmitter.EmitUserLogs(emitCtx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
 			e.logger().Errorw("Failed to emit user logs", "err", err)
 		}
 		count++

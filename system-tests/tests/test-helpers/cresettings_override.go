@@ -30,6 +30,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -42,10 +43,11 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
+	cldf_operations "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	cre_job_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_pkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -68,8 +70,16 @@ const (
 	creSettingsLogScanTail = "50000"
 	creSettingsLogScanSkew = time.Minute
 
-	// how long reverting to the baseline may take across all targeted DONs.
+	// how long reverting to the baseline may take across all targeted DONs
+	// (including retries while a just-restarted DON's nodes reconnect to the JD).
 	creSettingsRevertTimeout = 5 * time.Minute
+
+	// how often a failed revert delivery is retried within the revert budget.
+	creSettingsRevertRetryInterval = 5 * time.Second
+
+	// creSettingsSkipRevertEnv skips the automatic baseline revert on throwaway
+	// environments (CI); local shared environments need the baseline restored.
+	creSettingsSkipRevertEnv = "CRE_SETTINGS_SKIP_REVERT"
 )
 
 // Only one CRE settings override may be active at a time. Overrides mutate settings on
@@ -230,6 +240,7 @@ func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, opts ...Option)
 	for _, opt := range opts {
 		require.NoError(t, opt(files), "invalid CRE settings option")
 	}
+
 	combined, combineErr := cre_jobs.CombineCRESettingsFiles(t.TempDir(), files)
 	require.NoError(t, combineErr, "failed to combine CRE settings files")
 	overrideDoc := map[string]any{}
@@ -260,7 +271,12 @@ func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, opts ...Option)
 	h := &CRESettingsHandle{env: env, owner: owner}
 	// Register cleanup up front, so the override is reverted and the slot released even if
 	// a delivery below fails partway through.
-	t.Cleanup(func() { h.restore(t, false /* not fatal: the test already finished */) })
+	if os.Getenv(creSettingsSkipRevertEnv) == "true" {
+		t.Logf("[cresettings] %s set: skipping the automatic baseline revert (throwaway environment)", creSettingsSkipRevertEnv)
+		t.Cleanup(func() { releaseCRESettingsOverride(owner) })
+	} else {
+		t.Cleanup(func() { h.restore(t, false /* not fatal: the test already finished */) })
+	}
 
 	deliveredSince := time.Now()
 	for _, don := range targets {
@@ -350,7 +366,20 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 	deliveredSince := time.Now()
 	for _, tg := range h.targets {
 		t.Logf("[cresettings] DON %q: reverting to baseline (hash %s)", tg.don.Name, shortHash(tg.baselineHash))
-		err := deliverCRESettings(ctx, h.env, tg.don, tg.baselineTOML)
+
+		// A just-restarted node may not have reconnected to the JD yet, and a
+		// proposal to a disconnected node fails with "node is not connected";
+		// retry each delivery until the revert budget is spent.
+		var err error
+		deadline := time.Now().Add(creSettingsRevertTimeout)
+		for {
+			err = deliverCRESettings(ctx, h.env, tg.don, tg.baselineTOML)
+			if err == nil || time.Now().After(deadline) {
+				break
+			}
+			t.Logf("[cresettings] DON %q: reverting failed (%v), retrying until %s", tg.don.Name, err, deadline.Format(time.Kitchen))
+			time.Sleep(creSettingsRevertRetryInterval)
+		}
 		if err != nil {
 			if fatal {
 				require.NoErrorf(t, err, "failed to revert CRE settings on DON %q", tg.don.Name)
@@ -371,6 +400,9 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 // which failed with "no job proposal found"). Application is confirmed best-effort via
 // the nodes' "Updated settings" logs (see logSettingsConvergence).
 //
+// The proposal is preceded by the changeset's catalog verification
+// (cre_jobs.VerifyCRESettings) so misspelled settings keys fail the delivery.
+//
 // The CLDF environment is used with ctx in place of its own context, which is bound to
 // t.Context() of the test that built the environment.
 func deliverCRESettings(ctx context.Context, env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string) error {
@@ -378,23 +410,26 @@ func deliverCRESettings(ctx context.Context, env *ttypes.TestEnvironment, don *c
 	cldfEnv.GetContext = func() context.Context { return ctx }
 	cldfEnv.OperationsBundle.GetContext = cldfEnv.GetContext
 
-	input := cre_jobs.ProposeJobSpecInput{
-		Domain:      offchain.ProductLabel,
-		Environment: cldfEnv.Name,
-		DONName:     don.Name,
-		JobName:     "cre-settings",
-		ExtraLabels: map[string]string{cre.CapabilityLabelKey: "cre-settings-override"},
-		DONFilters: []offchain.TargetDONFilter{
-			{Key: offchain.FilterKeyDONName, Value: don.Name},
-		},
-		Template: job_types.CRESettings,
-		Inputs:   job_types.JobSpecInput{"settings": settingsTOML},
-	}
-
-	if err := (cre_jobs.ProposeJobSpec{}).VerifyPreconditions(cldfEnv, input); err != nil {
+	if err := cre_jobs.VerifyCRESettings(settingsTOML); err != nil {
 		return fmt.Errorf("verify settings job preconditions: %w", err)
 	}
-	if _, err := (cre_jobs.ProposeJobSpec{}).Apply(cldfEnv, input); err != nil {
+
+	_, err := cldf_operations.ExecuteOperation(
+		cldfEnv.OperationsBundle,
+		cre_job_ops.ProposeCRESettingsJobs,
+		cre_job_ops.ProposeCRESettingsJobsDeps{Env: cldfEnv},
+		cre_job_ops.ProposeCRESettingsJobsInput{
+			Domain:      offchain.ProductLabel,
+			Environment: cldfEnv.Name,
+			DONName:     don.Name,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: don.Name},
+			},
+			ExtraLabels: map[string]string{cre.CapabilityLabelKey: "cre-settings-override"},
+			Settings:    settingsTOML,
+		},
+	)
+	if err != nil {
 		return fmt.Errorf("propose settings job: %w", err)
 	}
 	return nil

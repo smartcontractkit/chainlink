@@ -47,6 +47,14 @@ func (m *mockCfgTracing) SamplingRatio() float64  { return 0.1 }
 func (m *mockCfgTracing) TLSCertPath() string     { return "/path/to/cert.pem" }
 func (m *mockCfgTracing) Mode() string            { return "tls" }
 
+type mockCfgApp struct {
+	coreconfig.AppConfig // nil; only ResourceAttributes is used
+}
+
+func (mockCfgApp) ResourceAttributes() map[string]string {
+	return map[string]string{"foo": "bar"}
+}
+
 type mockCfgTelemetry struct{}
 
 func (m mockCfgTelemetry) DurableEmitterMaxQueuePayloadBytes() int64 { return 1024 * 1024 }
@@ -242,6 +250,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 		cfgMercury:       mockCfgMercury,
 		cfgTracing:       mockCfgTracing,
 		cfgTelemetry:     mockCfgTelemetry,
+		cfgApp:           mockCfgApp{},
 		cfgMetering:      mockCfgMetering,
 	}
 

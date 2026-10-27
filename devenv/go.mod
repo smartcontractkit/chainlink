@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/devenv
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/avast/retry-go/v4 v4.7.0
@@ -431,8 +431,6 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
-
-replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
 
 // Force downgrade to avoid breaking change. Copied from dskit's go.mod:
 //

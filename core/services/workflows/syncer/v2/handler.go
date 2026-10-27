@@ -86,6 +86,7 @@ type eventHandler struct {
 	engineRegistry       *EngineRegistry
 	emitter              custmsg.MessageEmitter
 	emitterMu            sync.RWMutex
+	eventEmitter         *events.Emitter
 	engineFactory        engineFactoryFn
 	engineLimiters       *v2.EngineLimiters
 	featureFlags         *v2.EngineFeatureFlags
@@ -150,6 +151,7 @@ type eventHandler struct {
 	dispatcher              remotetypes.Dispatcher
 	shardDonLookup          func(ctx context.Context, shardID uint32) *commoncap.DON
 	shardFailoverComm       *sharding.ShardFailoverCommunicator
+	shardFailoverCommMu     sync.Mutex
 
 	metrics *metrics
 }
@@ -160,6 +162,13 @@ type EventHandlerOption = func(*eventHandler)
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.engineRegistry = er
+	}
+}
+
+// WithEventEmitter sets the workflow status emitter.
+func WithEventEmitter(e *events.Emitter) func(*eventHandler) {
+	return func(eh *eventHandler) {
+		eh.eventEmitter = e
 	}
 }
 
@@ -419,6 +428,10 @@ func NewEventHandler(
 		o(eh)
 	}
 
+	if eh.eventEmitter == nil {
+		eh.eventEmitter = events.DefaultEmitter()
+	}
+
 	eh.Service, eh.eng = services.Config{
 		Name: "EventHandler",
 		// The workflow store, the spec meter and the trigger coordinator are
@@ -462,8 +475,11 @@ func (h *eventHandler) close() error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Close()
 	}
-	if h.shardFailoverComm != nil {
-		_ = h.shardFailoverComm.Close()
+	h.shardFailoverCommMu.Lock()
+	comm := h.shardFailoverComm
+	h.shardFailoverCommMu.Unlock()
+	if comm != nil {
+		_ = comm.Close()
 	}
 	es := h.engineRegistry.PopAll()
 	// No metering is emitted on close: meter records anchor on workflow-spec
@@ -527,7 +543,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
+			if err2 := h.eventEmitter.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
@@ -570,7 +586,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
+			if err2 := h.eventEmitter.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
@@ -627,7 +643,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		var herr error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), "", "", herr); err2 != nil {
+			if err2 := h.eventEmitter.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), "", "", herr); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
@@ -908,13 +924,11 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 }
 
 // useCoordinatedEngine reads the CoordinatedEngine flag. A node without a
-// TriggerCoordinator always takes the legacy path, and so does a sharded node:
-// sharding and the coordinated engine are not yet compatible.
+// TriggerCoordinator always takes the legacy path. On a sharded node the
+// coordinated engine is wrapped in a ShardFailoverManager, which the
+// coordinator delivers through, so shard admission still applies.
 func (h *eventHandler) useCoordinatedEngine(ctx context.Context, workflowID string) bool {
 	if h.triggerCoordinator == nil || h.featureFlags == nil || h.featureFlags.CoordinatedEngine == nil {
-		return false
-	}
-	if h.shardingEnabled && h.dispatcher != nil {
 		return false
 	}
 	open, err := h.featureFlags.CoordinatedEngine.IsOpen(ctx)
@@ -992,6 +1006,16 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 	return cfg, nil
 }
 
+// getShardFailoverComm lazily creates the communicator; newEngine runs concurrently.
+func (h *eventHandler) getShardFailoverComm() *sharding.ShardFailoverCommunicator {
+	h.shardFailoverCommMu.Lock()
+	defer h.shardFailoverCommMu.Unlock()
+	if h.shardFailoverComm == nil {
+		h.shardFailoverComm = sharding.NewShardFailoverCommunicator(h.dispatcher, h.myDonID, h.lggr)
+	}
+	return h.shardFailoverComm
+}
+
 // newEngine is the default engineFactoryFn: it builds the module stack and
 // EngineConfig, wires sharding, and calls one of the two engine constructors.
 //
@@ -1006,9 +1030,6 @@ func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, 
 
 	var manager *ShardFailoverManager
 	if h.shardingEnabled && h.dispatcher != nil {
-		if h.shardFailoverComm == nil {
-			h.shardFailoverComm = sharding.NewShardFailoverCommunicator(h.dispatcher, h.myDonID, h.lggr)
-		}
 		manager = NewShardFailoverManager(ShardFailoverManagerConfig{
 			ShardingEnabled:         h.shardingEnabled,
 			MyDONID:                 h.myDonID,
@@ -1018,11 +1039,15 @@ func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, 
 			ShardResolver:           h.shardResolver,
 			ShardOrchestratorClient: h.shardOrchestratorClient,
 			ShardRoutingSteady:      h.shardRoutingSteady,
-			FailoverGate:            h.engineLimiters.ShardingFailoverEnabled,
-			Communicator:            h.shardFailoverComm,
 			ShardDonLookup:          h.shardDonLookup,
 			DonSubscriber:           h.workflowDonSubscriber,
-			Logger:                  h.lggr,
+			Failover: FailoverConfig{
+				ShardingFailoverGate:       h.engineLimiters.ShardingFailoverEnabled,
+				TimeoutBasedFailoverGate:   h.engineLimiters.TimeoutBasedFailover,
+				TimeoutBasedFailoverWindow: h.engineLimiters.TimeoutBasedFailoverWindow,
+				Communicator:               h.getShardFailoverComm(),
+			},
+			Logger: h.lggr,
 		})
 		manager.WireHooks(cfg)
 	}
@@ -1517,6 +1542,7 @@ func (h *eventHandler) newV2EngineConfig(
 			defer h.emitterMu.RUnlock()
 			return h.emitter
 		}(),
+		EventEmitter:  h.eventEmitter,
 		BillingClient: h.billingClient,
 
 		WorkflowRegistryAddress:           h.workflowRegistryAddress,
@@ -1646,7 +1672,7 @@ func (h *eventHandler) EmitActivationAbandoned(
 	)
 	h.emitterMu.RUnlock()
 
-	return events.EmitWorkflowActivationAbandonedV2(
+	return h.eventEmitter.EmitWorkflowActivationAbandonedV2(
 		ctx,
 		cma.Labels(),
 		payload.BinaryURL,
