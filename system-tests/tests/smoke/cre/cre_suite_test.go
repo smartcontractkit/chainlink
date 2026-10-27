@@ -379,6 +379,18 @@ func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
 	ExecuteManualShardAssignmentTest(t, testEnv)
 }
 
+// Test_CRE_V2_ShardManualAssignmentCoordinated runs manual shard assignment with the
+// coordinated engine enabled.
+//
+//nolint:paralleltest // mutates CRE settings and shard assignment on the shared environment
+func Test_CRE_V2_ShardManualAssignmentCoordinated(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
+	)
+	ExecuteManualShardAssignmentCoordinatedTest(t, testEnv)
+}
+
 //nolint:paralleltest // mutates CRE settings and shard assignment on the shared environment
 func Test_CRE_V2_ShardManualAssignmentBothSpecs(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
@@ -388,6 +400,8 @@ func Test_CRE_V2_ShardManualAssignmentBothSpecs(t *testing.T) {
 	ExecuteManualShardAssignmentBothSpecs(t, testEnv)
 }
 
+// The sharded-capabilities scenarios are separate tests (and CI jobs) so each fits in the 7m test timeout.
+
 //nolint:paralleltest // the test owns the sharded topology it runs on
 func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
@@ -395,6 +409,24 @@ func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {
 		t_helpers.GetTestConfig(t, "/configs/workflow-sharded-capabilities-don.toml"),
 	)
 	ExecuteManualShardAssignmentWithEVMLogTriggerTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardedCapabilitiesCallIsolation(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-sharded-capabilities-don.toml"),
+	)
+	ExecuteShardedCapabilityCallIsolationTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardedCapabilitiesDon2DonDiscoveryRouting(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-sharded-capabilities-don.toml"),
+	)
+	ExecuteDon2DonDiscoveryRoutingTest(t, testEnv)
 }
 
 //nolint:paralleltest // subtests share the same sharding config
@@ -415,6 +447,18 @@ func Test_CRE_V2_FailoverManualSwap(t *testing.T) {
 	ExecuteFailoverManualSwapTest(t, testEnv)
 }
 
+// Test_CRE_V2_FailoverManualSwapCoordinated runs the manual failover swap with the
+// coordinated engine enabled.
+//
+//nolint:paralleltest // the test owns the shard assignment of the topology it runs on
+func Test_CRE_V2_FailoverManualSwapCoordinated(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-failover-coordinated-don.toml"),
+	)
+	ExecuteFailoverManualSwapCoordinatedTest(t, testEnv)
+}
+
 //nolint:paralleltest // the test owns the sharded topology it runs on
 func Test_CRE_V2_ShardManualAssignmentSharedVault(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
@@ -431,6 +475,34 @@ func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-failover.toml"),
 	)
 	ExecuteShardFailoverSharedVaultTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardFailoverAutoOnPrimaryDeath(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-failover.toml"),
+	)
+	ExecuteShardFailoverAutoTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardFailoverPrimaryRecovery(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-failover.toml"),
+	)
+	ExecuteShardFailoverPrimaryRecoveryTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology and the observability stack it runs on
+func Test_CRE_V2_ShardFailoverCentralizedEventRouting(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-shared-vault-failover.toml"),
+		"--with-dashboards",
+	)
+	ExecuteShardFailoverCentralizedEventRoutingTest(t, testEnv)
 }
 
 //nolint:paralleltest // the test owns the sharded topology and the enclave host env it runs on

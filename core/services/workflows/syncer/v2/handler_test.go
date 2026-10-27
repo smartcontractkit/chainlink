@@ -59,6 +59,7 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
@@ -133,6 +134,8 @@ func (m *mockEngine) Subscribe(context.Context) ([]*sdk.TriggerSubscription, err
 }
 
 func (m *mockEngine) Tenant() contexts.CRE { return contexts.CRE{} }
+
+func (m *mockEngine) SdkName() string { return "" }
 
 func (m *mockEngine) Drain() bool { return false }
 
@@ -1044,6 +1047,135 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 	})
 }
 
+// Test_workflowRegisteredHandler_ModuleEngineVersion verifies the handler-level
+// wiring of WithModuleEngineVersion: the version supplied at construction must
+// be persisted alongside the cached module binary, carried by the
+// EvictableModule the engine runs on, and enforced on disk reload.
+func Test_workflowRegisteredHandler_ModuleEngineVersion(t *testing.T) {
+	t.Parallel()
+	payload, err := anypb.New(&basictrigger.Outputs{CoolOutput: "foo"})
+	require.NoError(t, err)
+
+	var (
+		ctx           = t.Context()
+		lggr          = logger.TestLogger(t)
+		lf            = limits.Factory{Logger: lggr}
+		db            = pgtest.NewSqlxDB(t)
+		orm           = artifacts.NewWorkflowRegistryDS(db, lggr)
+		emitter       = custmsg.NewLabeler()
+		engineVersion = "2.99.0-test"
+
+		binary                = wasmtest.GetTestBinary(t, noTeeV2Cmd, true)
+		encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+		config                = []byte("")
+		wfOwner               = testutils.NewAddress().Bytes()
+		workflowName          = testutils.RandomizeName(t.Name())
+		workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	)
+
+	giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, workflowName, binary, config, "")
+	require.NoError(t, err)
+	wfIDString := hex.EncodeToString(giveWFID[:])
+
+	binaryURL := "http://example.com/" + wfIDString + "/binary"
+	configURL := "http://example.com/" + wfIDString + "/config"
+	signedBinaryURL := binaryURL + "?auth=abc123"
+	signedConfigURL := configURL + "?auth=abc123"
+
+	fetcher := newMockFetcher(map[string]mockFetchResp{
+		wfIDString + "-ARTIFACT_TYPE_BINARY": {Body: []byte(signedBinaryURL), Err: nil},
+		wfIDString + "-ARTIFACT_TYPE_CONFIG": {Body: []byte(signedConfigURL), Err: nil},
+		signedBinaryURL:                      {Body: encodedBinary, Err: nil},
+		signedConfigURL:                      {Body: config, Err: nil},
+	})
+	artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+		ArtifactStorageHost: "example.com",
+	}))
+	require.NoError(t, err)
+
+	moduleStore, err := artifacts.NewFileModuleStore(t.TempDir(), false)
+	require.NoError(t, err)
+	cacheMetrics, err := NewCacheMetrics()
+	require.NoError(t, err)
+	moduleLRU := NewModuleLRU(clockwork.NewFakeClock(), WithMaxLoadedModules(10))
+
+	er := NewEngineRegistry()
+	wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+	registry := capreg.NewRegistry(lggr)
+	registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
+	triggerResponse := commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{
+			TriggerType: "basic-test-capture",
+			ID:          "id",
+			Payload:     payload,
+		},
+	}
+	trigger := &fireOnceTrigger{testActionBase{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-trigger@1.0.0", commoncap.CapabilityTypeCombined, "test capture")}, triggerResponse}
+	require.NoError(t, registry.Add(ctx, trigger))
+	action := &captureAction{
+		t:              t,
+		testActionBase: testActionBase{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-action@1.0.0", commoncap.CapabilityTypeCombined, "test action")},
+	}
+	action.shouldRun.Store(true)
+	require.NoError(t, registry.Add(ctx, action))
+
+	limiters, err := v2.NewLimiters(lf, nil)
+	require.NoError(t, err)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+	require.NoError(t, err)
+	featureFlags, err := v2.NewFeatureFlags(lf, nil)
+	require.NoError(t, err)
+
+	h, err := NewEventHandler(lggr, wfStore, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+		WithEngineRegistry(er),
+		withTestOrgResolver(),
+		WithModuleLRU(moduleLRU),
+		WithModuleStore(moduleStore),
+		WithModuleCacheMetrics(cacheMetrics),
+		WithModuleEngineVersion(engineVersion),
+	)
+	require.NoError(t, err)
+	servicetest.Run(t, h)
+
+	event := WorkflowRegisteredEvent{
+		Status:        WorkflowStatusActive,
+		WorkflowID:    giveWFID,
+		WorkflowOwner: wfOwner,
+		WorkflowName:  workflowName,
+		WorkflowTag:   "workflow-tag",
+		BinaryURL:     binaryURL,
+		ConfigURL:     configURL,
+	}
+
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
+	require.NoError(t, h.workflowRegisteredEvent(ctx, event))
+
+	assert.Eventually(t, action.ran.Load, 10*time.Second, time.Millisecond)
+
+	_, cachedVersion, ok, err := moduleStore.GetModule(wfIDString)
+	require.NoError(t, err)
+	require.True(t, ok, "module binary must be cached on registration")
+	require.Equal(t, engineVersion, cachedVersion)
+
+	moduleLRU.mu.Lock()
+	em := moduleLRU.modules[wfIDString]
+	moduleLRU.mu.Unlock()
+	require.NotNil(t, em, "workflow module must be registered with the module LRU")
+	require.Equal(t, engineVersion, em.engineVersion)
+
+	// Enforcement: a cached binary persisted by a different engine version
+	// must be rejected on reload, not reused across process upgrades.
+	em.forceEvictForTest()
+	require.NoError(t, moduleStore.StoreModule(wfIDString, binary, "older-engine-version"))
+	_, err = em.ensureLoaded(ctx)
+	require.ErrorIs(t, err, ErrEngineVersionMismatch)
+	_, _, ok, err = moduleStore.GetModule(wfIDString)
+	require.NoError(t, err)
+	require.False(t, ok, "stale cached module must be deleted after a version mismatch")
+}
+
 type testCase struct {
 	Name             string
 	BinaryURLFactory func(string) string
@@ -1907,14 +2039,15 @@ func (m *mockLinkingService) GetOrganizationFromWorkflowOwner(ctx context.Contex
 	}, nil
 }
 
-//nolint:paralleltest // beholdertest.NewObserver(t) cannot be used in parallel tests because it relies on global state
 func Test_Handler_OrganizationID(t *testing.T) {
+	t.Parallel()
+
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
 
-	observer := beholdertest.NewObserver(t)
-	emitter := custmsg.NewLabeler()
+	rec := beholdertest.NewRecorder()
+	emitter := custmsg.NewLabelerWithEmitter(rec)
 	ctx := t.Context()
 
 	// Set up mock gRPC server for linking service
@@ -1930,7 +2063,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 			}
 		}
 	}()
-	defer s.Stop()
+	t.Cleanup(s.Stop)
 	linkingURL := lis.Addr().String()
 
 	var (
@@ -1978,7 +2111,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 	require.NoError(t, err)
 
-	artifactStore, err := artifacts.NewStore(lggr, mockORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+	artifactStore, err := artifacts.NewStore(lggr, mockORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, emitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
 		ArtifactStorageHost: "example.com",
 	}))
 	require.NoError(t, err)
@@ -1986,7 +2119,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	// Create gRPC client and orgResolver
 	conn, err := grpc.NewClient(linkingURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
-	defer conn.Close()
+	t.Cleanup(func() { conn.Close() })
 
 	linkingClient := linkingclient.NewLinkingServiceClient(conn)
 	orgResolverConfig := orgresolver.Config{
@@ -1997,12 +2130,13 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	}
 	orgResolver, err := orgresolver.NewOrgResolverWithClient(orgResolverConfig, linkingClient, lggr)
 	require.NoError(t, err)
-	defer orgResolver.Close()
+	t.Cleanup(func() { orgResolver.Close() })
 
 	h, err := NewEventHandler(lggr, store, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 		WithEngineRegistry(er),
 		WithEngineFactoryFn(mockEngineFactory),
 		WithOrgResolver(orgResolver),
+		WithEventEmitter(events.NewEmitter(rec, events.WithNoDurableEmit())),
 	)
 	require.NoError(t, err)
 
@@ -2030,26 +2164,26 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify that WorkflowActivated message was emitted with orgID
-	allMessages := observer.Messages(t)
+	allMessages := rec.Messages(t, "beholder_entity", "workflows.v2.WorkflowActivated")
 
 	var orgIDFound bool
 	for _, msg := range allMessages {
-		if msg.Attrs["beholder_entity"] == "workflows.v2.WorkflowActivated" {
-			var payload eventsv2.WorkflowActivated
-			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+		var payload eventsv2.WorkflowActivated
+		require.NoError(t, proto.Unmarshal(msg.Body, &payload))
 
-			if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
-				orgIDFound = true
-				break
-			}
+		if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
+			orgIDFound = true
+			break
 		}
 	}
 	require.True(t, orgIDFound, "Expected WorkflowActivated message with orgID to be emitted")
 
 	// Test deletion event
 	t.Run("WorkflowDeleted event includes org ID in labels", func(t *testing.T) {
-		deleteObserver := beholdertest.NewObserver(t)
-		deleteEmitter := custmsg.NewLabeler()
+		t.Parallel()
+
+		deleteRec := beholdertest.NewRecorder()
+		deleteEmitter := custmsg.NewLabelerWithEmitter(deleteRec)
 
 		mockDeleteORM := mocks.NewORM(t)
 		spec := &job.WorkflowSpec{
@@ -2061,7 +2195,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		mockDeleteORM.EXPECT().GetWorkflowSpec(mock.Anything, types.WorkflowID(giveWFID).Hex()).Return(spec, nil)
 		mockDeleteORM.EXPECT().DeleteWorkflowSpec(mock.Anything, types.WorkflowID(giveWFID).Hex()).Return(&job.WorkflowSpec{}, nil)
 
-		deleteArtifactStore, err := artifacts.NewStore(lggr, mockDeleteORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+		deleteArtifactStore, err := artifacts.NewStore(lggr, mockDeleteORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, deleteEmitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
 			ArtifactStorageHost: "example.com",
 		}))
 		require.NoError(t, err)
@@ -2070,6 +2204,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(mockEngineFactory),
 			WithOrgResolver(orgResolver),
+			WithEventEmitter(events.NewEmitter(deleteRec, events.WithNoDurableEmit())),
 		)
 		require.NoError(t, err)
 
@@ -2085,17 +2220,15 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify that WorkflowDeleted message was emitted with orgID
-		deleteMessages := deleteObserver.Messages(t)
+		deleteMessages := deleteRec.Messages(t, "beholder_entity", "workflows.v2.WorkflowDeleted")
 		var deleteOrgIDFound bool
 		for _, msg := range deleteMessages {
-			if msg.Attrs["beholder_entity"] == "workflows.v2.WorkflowDeleted" {
-				var payload eventsv2.WorkflowDeleted
-				require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+			var payload eventsv2.WorkflowDeleted
+			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
 
-				if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
-					deleteOrgIDFound = true
-					break
-				}
+			if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
+				deleteOrgIDFound = true
+				break
 			}
 		}
 		require.True(t, deleteOrgIDFound, "Expected WorkflowDeleted message with orgID to be emitted")

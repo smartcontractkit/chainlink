@@ -113,8 +113,7 @@ func TestValidate(t *testing.T) {
 	require.ErrorContains(t, Validate(`{"version":0}`), "version must be >= 1")
 	require.ErrorContains(t, Validate(`{"version":1,"dons":{"":{}}}`), "empty DON name")
 	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"":{}}}}}`), "empty capability ID")
-	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"c@1.0.0":{"ocr3Configs":{"default":{"f":1}}}}}}}`), "only spec_config and method_configs are supported")
-	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"c@1.0.0":{"localOnly":true}}}}}`), "only spec_config and method_configs are supported")
+	require.ErrorContains(t, Validate(`{"version":1,"dons":{"don-7":{"capabilities":{"c@1.0.0":{"ocr3Configs":{"default":{"f":1}}}}}}}`), "only spec_config, method_configs and local_only are supported")
 
 	t.Run("malformed spec_config is rejected at ingestion", func(t *testing.T) {
 		t.Parallel()
@@ -366,4 +365,28 @@ func TestValidate_MethodConfigs(t *testing.T) {
 		raw := `{"version":1,"dons":{"don-1":{"capabilities":{"write-chain_evm_1@1.0.0":{"methodConfigs":{"Write":{"remoteExecutableConfigTypo":{"requestTimeout":"30s","serverMaxParallelRequests":10}}}}}}}}`
 		require.Error(t, Validate(raw))
 	})
+}
+
+func TestGlobalConfig_LocalOnly(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name      string
+		config    string
+		localOnly bool
+	}{
+		{"enabled", `{"localOnly":true}`, true},
+		{"proto field name", `{"local_only":true}`, true},
+		{"disabled", `{"localOnly":false}`, false},
+		{"omitted", `{}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			raw := fmt.Sprintf(`{"version":1,"dons":{"don-1":{"capabilities":{"cap@1.0.0":%s}}}}`, tc.config)
+			gc := New()
+			_, err := gc.Store(raw, "payload")
+			require.NoError(t, err)
+			assert.Equal(t, tc.localOnly, gc.LoadParsed().GetDons()["don-1"].GetCapabilities()["cap@1.0.0"].GetLocalOnly())
+		})
+	}
+	require.Error(t, Validate(`{"version":1,"dons":{"don-1":{"capabilities":{"cap@1.0.0":{"localOnly":"true"}}}}}`))
 }

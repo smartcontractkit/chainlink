@@ -67,6 +67,7 @@ type AppConfig interface {
 	BridgeStatusReporter() BridgeStatusReporter
 	JobSpecReporter() JobSpecReporter
 	Sharding() Sharding
+	ResourceAttributes() map[string]string
 	LOOPP() LOOPP
 }
 

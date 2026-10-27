@@ -424,6 +424,50 @@ func TestTriggerSubscriber_UnregisterOneTriggerKeepsOther(t *testing.T) {
 	require.NotNil(t, resp.Event.Outputs)
 }
 
+func TestTriggerSubscriber_UnregisterWhileDeliveryBlocked(t *testing.T) {
+	t.Parallel()
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+	}
+	req := commoncap.TriggerRegistrationRequest{TriggerID: "trigger1", Metadata: commoncap.RequestMetadata{WorkflowID: workflowID1}}
+	subscriber, capDon, callbackCh := newTriggerSubscriberForTest(t, 1, config, req)
+	sender := capDon.Members[0][:]
+
+	// Fill the callback buffer without consuming it.
+	for i := range cap(callbackCh) {
+		subscriber.Receive(t.Context(), buildTriggerEventWithTriggerID(t, sender, workflowID1, "trigger1", fmt.Sprintf("event-%d", i)))
+	}
+	require.Len(t, callbackCh, cap(callbackCh))
+
+	blockedMsg := buildTriggerEventWithTriggerID(t, sender, workflowID1, "trigger1", "event-blocked")
+	receiveDone := make(chan struct{})
+	go func() {
+		defer close(receiveDone)
+		subscriber.Receive(t.Context(), blockedMsg)
+	}()
+	select {
+	case <-receiveDone:
+		t.Fatal("Receive should block on a full callback channel")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req))
+	select {
+	case <-receiveDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Receive still blocked after UnregisterTrigger")
+	}
+
+	n := 0
+	for range callbackCh {
+		n++
+	}
+	require.Equal(t, cap(callbackCh), n)
+}
+
 type subscriberSvc interface {
 	remote.TriggerSubscriber
 	services.Service

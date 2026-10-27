@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/synctest"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -536,4 +537,49 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 
 		require.NoError(t, fixture.Client.Close())
 	})
+}
+
+func Test_Client_Execute_InjectsDurableEmit(t *testing.T) {
+	t.Parallel()
+
+	capabilityID := "test_capability@1.0.0"
+	donInfo := commoncap.DON{ID: 1, Members: []p2ptypes.PeerID{NewP2PPeerID(t)}, F: 0}
+	capInfo := commoncap.CapabilityInfo{ID: capabilityID, CapabilityType: commoncap.CapabilityTypeAction, DON: &donInfo}
+
+	inputs, err := values.NewMap(map[string]any{"input": "value"})
+	require.NoError(t, err)
+
+	var (
+		mu       sync.Mutex
+		gotAttrs []any
+	)
+	client := executable.NewClient(capabilityID, "execute", &noopDispatcher{}, logger.Test(t),
+		executable.WithDurableEmit(func(_ context.Context, _ []byte, attrKVs ...any) error {
+			mu.Lock()
+			defer mu.Unlock()
+			gotAttrs = attrKVs
+			return nil
+		}))
+	require.NoError(t, client.SetConfig(capInfo, donInfo, time.Minute, nil, 0))
+	servicetest.Run(t, client)
+
+	// Cancel up front: Execute emits the transmission schedule before it waits
+	// for a response quorum, so the durable sink must have been called by then.
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	_, err = client.Execute(ctx, commoncap.CapabilityRequest{
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID:          workflowID1,
+			WorkflowExecutionID: workflowExecutionID1,
+			ReferenceID:         stepReferenceID1,
+		},
+		Inputs: inputs,
+	})
+	require.ErrorIs(t, err, executable.ErrContextDoneBeforeResponseQuorum)
+
+	entity := request.TransmissionEventProtoPkg + "." + request.TransmissionEventEntity
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Equal(t, []any{"source", "platform", "type", entity}, gotAttrs)
 }

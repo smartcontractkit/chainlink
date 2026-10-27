@@ -94,6 +94,7 @@ var (
 	defaultLabels = map[string]string{
 		platform.KeyWorkflowOwner:       "accountId",
 		platform.KeyWorkflowID:          "workflowId",
+		platform.KeyWorkflowName:        "workflowName",
 		platform.KeyWorkflowVersion:     workflowV2,
 		platform.KeyWorkflowExecutionID: "workflowExecutionId",
 		platform.KeyDonID:               "42",
@@ -1042,7 +1043,7 @@ func Test_Report_FormatReport(t *testing.T) {
 		meteringReport := report.FormatReport()
 		require.Equal(t, &eventspb.WorkflowMetadata{
 			WorkflowOwner:           "accountId",
-			WorkflowName:            "workflowId",
+			WorkflowName:            "workflowName",
 			Version:                 workflowV2,
 			WorkflowID:              "workflowId",
 			WorkflowExecutionID:     "workflowExecutionId",
@@ -1856,8 +1857,17 @@ func Test_Report_SendReceipt(t *testing.T) {
 }
 
 func Test_Report_EmitReceipt(t *testing.T) {
-	t.Run("happy path", func(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver is not thread-safe
-		beholderTester := beholdertest.NewObserver(t)
+	t.Parallel()
+
+	t.Run("happy path", func(t *testing.T) {
+		t.Parallel()
+
+		rec := beholdertest.NewRecorder()
+		var durableAttrs []any
+		emitter := events.NewEmitter(rec, events.WithDurableEmit(func(_ context.Context, _ []byte, attrKVs ...any) error {
+			durableAttrs = attrKVs
+			return nil
+		}))
 		billingClient := mocks.NewBillingClient(t)
 
 		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
@@ -1871,15 +1881,19 @@ func Test_Report_EmitReceipt(t *testing.T) {
 		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
 			Return(&emptypb.Empty{}, nil)
 
-		report := newTestReport(t, logger.Nop(), billingClient)
+		report := newTestReport(t, logger.Nop(), billingClient, WithEventEmitter(emitter))
 
 		require.NoError(t, report.Reserve(t.Context()))
 
 		require.NoError(t, report.EmitReceipt(t.Context()))
 
-		assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity)))
+		meteringEntity := fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity)
+		assert.Equal(t, 1, rec.Len(t, "beholder_entity", meteringEntity))
 
-		messages := beholderTester.Messages(t, "beholder_entity", fmt.Sprintf("%s.%s", events.ProtoPkg, events.MeteringReportEntity))
+		// Receipts must also reach the durable emitter, not just beholder.
+		assert.Equal(t, []any{"source", "platform", "type", meteringEntity}, durableAttrs)
+
+		messages := rec.Messages(t, "beholder_entity", meteringEntity)
 
 		for _, msg := range messages {
 			entity := msg.Attrs["beholder_entity"]
@@ -1943,7 +1957,8 @@ func Test_Report_EmitReceipt(t *testing.T) {
 						SpendValue:    "42",
 						SpendValueCre: "0.0000000000",
 					},
-				}}
+				},
+			}
 		}
 
 		assert.Equal(t, expected, report.FormatReport().Steps)
@@ -2305,10 +2320,10 @@ func TestRatiosFromConfig(t *testing.T) {
 	})
 }
 
-func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient) *Report {
+func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient, opts ...Option) *Report {
 	t.Helper()
 
-	meteringReport, err := NewReport(t.Context(), defaultLabels, lggr, client, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector, workflowV2)
+	meteringReport, err := NewReport(t.Context(), defaultLabels, lggr, client, defaultMetrics(t), dummyRegistryAddress, dummyChainSelector, workflowV2, opts...)
 	require.NoError(t, err)
 
 	return meteringReport

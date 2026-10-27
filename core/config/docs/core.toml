@@ -607,13 +607,17 @@ ContractVersion = '1.0.0' # Default
 ReceiverBufferSize = 10000 # Default
 
 [Capabilities.Dispatcher.RateLimit]
-# GlobalRPS is the global rate limit for the dispatcher.
+# GlobalRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
+# cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 GlobalRPS = 800 # Default
-# GlobalBurst is the global burst limit for the dispatcher.
+# GlobalBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
+# cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 GlobalBurst = 1000 # Default
-# PerSenderRPS is the per-sender rate limit for the dispatcher.
+# PerSenderRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
+# cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 PerSenderRPS = 10 # Default
-# PerSenderBurst is the per-sender burst limit for the dispatcher.
+# PerSenderBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
+# cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 PerSenderBurst = 50 # Default
 
 [Capabilities.GatewayConnector]
@@ -679,6 +683,7 @@ RegistryBasedLaunchAllowlist = [] # Default
 # payload. Don2Don method_configs use the complete offchain map when the capability is present;
 # missing DONs or capabilities retain the on-chain map. Binary paths, the launch allowlist and OCR3
 # config are unaffected.
+# An offchain capability's local_only flag disables its Don2Don client/server shims when true.
 # The gate is per-node and reversible.
 UseOffchainRegistry = false # Default
 

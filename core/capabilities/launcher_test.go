@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -1522,4 +1523,169 @@ func TestLauncher_ShardIdentityFromConfig(t *testing.T) {
 		require.NoError(t, l.Start(t.Context()))
 		require.NoError(t, l.Close())
 	})
+}
+
+func TestConsensusSignersFor(t *testing.T) {
+	t.Parallel()
+
+	ocrCapConfig := func(t *testing.T, signers ...[]byte) regpkg.CapabilityConfiguration {
+		cfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
+				capabilitiespb.OCR3ConfigDefaultKey: {Signers: signers},
+			},
+		})
+		require.NoError(t, err)
+		return regpkg.CapabilityConfiguration{Config: cfg}
+	}
+	localRegistry := &regpkg.RegistryMetadata{
+		IDsToCapabilities: map[string]regpkg.Capability{
+			"consensus@1.0.0":    {ID: "consensus@1.0.0", CapabilityType: capabilities.CapabilityTypeConsensus},
+			"consensus@2.0.0":    {ID: "consensus@2.0.0", CapabilityType: capabilities.CapabilityTypeConsensus},
+			"dontime@1.0.0":      {ID: "dontime@1.0.0", CapabilityType: capabilities.CapabilityTypeAction},
+			"cron-trigger@1.0.0": {ID: "cron-trigger@1.0.0", CapabilityType: capabilities.CapabilityTypeTrigger},
+		},
+	}
+
+	t.Run("returns signers of the consensus capability", func(t *testing.T) {
+		t.Parallel()
+		don := regpkg.DON{CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{
+			"consensus@1.0.0":    ocrCapConfig(t, []byte("signer0"), []byte("signer1")),
+			"dontime@1.0.0":      ocrCapConfig(t, []byte("other")),
+			"cron-trigger@1.0.0": {Config: []byte{}},
+		}}
+		signers, err := consensusSignersFor(don, localRegistry)
+		require.NoError(t, err)
+		require.Equal(t, []ocrtypes.OnchainPublicKey{[]byte("signer0"), []byte("signer1")}, signers)
+	})
+
+	t.Run("fails without a consensus OCR3 config", func(t *testing.T) {
+		t.Parallel()
+		don := regpkg.DON{CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: []byte{}},
+			"dontime@1.0.0":   ocrCapConfig(t, []byte("other")),
+		}}
+		_, err := consensusSignersFor(don, localRegistry)
+		require.ErrorContains(t, err, "no consensus capability")
+	})
+
+	t.Run("fails with multiple consensus OCR3 configs", func(t *testing.T) {
+		t.Parallel()
+		don := regpkg.DON{CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{
+			"consensus@1.0.0": ocrCapConfig(t, []byte("signer0")),
+			"consensus@2.0.0": ocrCapConfig(t, []byte("signer1")),
+		}}
+		_, err := consensusSignersFor(don, localRegistry)
+		require.ErrorContains(t, err, "multiple consensus capabilities")
+	})
+}
+
+func TestLauncher_AddRemoteCapabilities_SkipsCapabilitiesHostedByMyDON(t *testing.T) {
+	t.Parallel()
+
+	const localCapID = "evm:ChainSelector:5009297550715157269@1.0.0"
+	const remoteCapID = "evm:ChainSelector:16015286601757825753@1.0.0"
+	cfg := func() regpkg.CapabilityConfiguration { return regpkg.CapabilityConfiguration{Config: []byte{1}} }
+	myDON := regpkg.DON{ID: 2, Name: "mine", CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{localCapID: cfg()}}
+	remote := regpkg.DON{ID: 1, Name: "remote", CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{localCapID: cfg(), remoteCapID: cfg()}}
+
+	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
+	launcher, err := NewLauncher(lggr, mocks.NewSharedPeer(t), nil, remoteMocks.NewDispatcher(t), regpkg.NewRegistry(lggr), &mockDonNotifier{}, limits.Factory{}, false, 0)
+	require.NoError(t, err)
+
+	// The local registry has no capabilities, so the non-local capability fails its lookup. The locally
+	// hosted one must be skipped before any lookup or parsing happens.
+	launcher.addRemoteCapabilities(t.Context(), myDON, remote, &regpkg.RegistryMetadata{}, nil)
+
+	skipped := observedLogs.FilterMessage("skipping remote capability hosted locally by my DON").All()
+	require.Len(t, skipped, 1)
+	assert.Equal(t, localCapID, skipped[0].ContextMap()["capabilityID"])
+	for _, e := range observedLogs.FilterLevelExact(zapcore.ErrorLevel).All() {
+		assert.NotEqual(t, localCapID, e.ContextMap()["capabilityID"], "locally hosted capability must not be processed as remote")
+	}
+	assert.Empty(t, launcher.cachedShims.combinedClients)
+}
+
+// A chain capability DON mistakenly configured as a workflow DON (AcceptsWorkflows=true) hosts a capability
+// locally. When another DON in the same family is later given a config for the same capability, the node must
+// keep serving its local capability and must not try to add a remote shim for the duplicate.
+func TestLauncher_OnNewRegistry_PrefersLocalCapabilityOverDuplicateInFamily(t *testing.T) {
+	t.Parallel()
+	lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
+	reg := regpkg.NewRegistry(lggr)
+	fullTriggerCapID := "streams-trigger@1.0.0"
+	mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
+		fullTriggerCapID,
+		capabilities.CapabilityTypeTrigger,
+		"streams trigger",
+	))
+	require.NoError(t, reg.Add(t.Context(), mt))
+
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	misconfiguredDonNodes, remoteWorkflowDonNodes, capabilityDonNodes := newNodes(4), newNodes(4), newNodes(4)
+	triggerCapIDHash := RandomUTF8BytesWord()
+	misconfiguredDonID := uint32(1)
+	remoteWfDonID := uint32(2)
+	capDonID := uint32(3)
+
+	triggerCfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{
+			"StreamsTrigger": {
+				RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+						RegistrationRefresh:     durationpb.New(1 * time.Second),
+						MinResponsesToAggregate: 3,
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	localRegistry := buildLocalRegistry()
+	// The misconfigured DON: hosts the capability but also accepts workflows.
+	addDON(localRegistry, misconfiguredDonID, 0, 1, true, true, misconfiguredDonNodes, []string{"zone-a"}, 1, [][32]byte{triggerCapIDHash})
+	addCapabilityToDON(localRegistry, misconfiguredDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
+	// A genuine remote workflow DON that consumes the capability from this node.
+	addDON(localRegistry, remoteWfDonID, 0, 1, true, true, remoteWorkflowDonNodes, []string{"zone-a"}, 1, nil)
+	// A second in-family DON gets a config for the same capability.
+	addDON(localRegistry, capDonID, 0, 1, true, false, capabilityDonNodes, []string{"zone-a"}, 1, [][32]byte{triggerCapIDHash})
+	addCapabilityToDON(localRegistry, capDonID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
+
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(misconfiguredDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	launcher, err := NewLauncher(
+		lggr,
+		sharedPeer,
+		nil,
+		dispatcher,
+		reg,
+		&mockDonNotifier{}, limits.Factory{},
+		false, 0,
+	)
+	require.NoError(t, err)
+	servicetest.Run(t, launcher)
+
+	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, mock.Anything, "StreamsTrigger", mock.Anything).Return(nil).Maybe()
+	dispatcher.On("RemoveReceiverForMethod", fullTriggerCapID, mock.Anything, "StreamsTrigger").Return().Maybe()
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+
+	// addRemoteCapabilities swallows registry.Add failures (OnNewRegistry still returns nil), so check the
+	// logged error: a duplicate remote shim fails with "capability already exists" in the registry.
+	assert.Empty(t, observedLogs.FilterMessage("failed to add remote capability ").All(),
+		"adding a remote shim for a locally hosted capability must not even be attempted")
+	assert.Empty(t, observedLogs.FilterLevelExact(zapcore.ErrorLevel).All())
+	assert.Empty(t, launcher.cachedShims.combinedClients, "no remote shim for a locally hosted capability")
+	assert.Len(t, launcher.cachedShims.triggerPublishers, 1)
+
+	got, err := reg.Get(t.Context(), fullTriggerCapID)
+	require.NoError(t, err)
+	info, err := got.Info(t.Context())
+	require.NoError(t, err)
+	assert.True(t, info.IsLocal, "the locally hosted capability must stay registered")
+	assert.Nil(t, info.DON)
 }

@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/solana/solwrite-negative
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/gagliardetto/solana-go v1.14.0
@@ -19,7 +19,7 @@ require (
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.18.5 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
