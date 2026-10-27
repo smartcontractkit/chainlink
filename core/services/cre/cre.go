@@ -470,7 +470,6 @@ func (s *Services) newRegistrySyncer(
 		opts.LimitsFactory,
 		shardingEnabled,
 		shardIndex,
-		capabilities.WithDurableEmit(opts.DurableEmit),
 	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
