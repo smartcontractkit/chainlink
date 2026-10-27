@@ -1,12 +1,9 @@
 package cre
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -39,24 +36,28 @@ which of them serves a given workflow shard is the launcher's DON-family overlap
 (core/capabilities/launcher.go). Every assertion below therefore answers one question: which
 capability DON was selected, and did anything ever route across shard families.
 
-ExecuteShardedCapabilityCallIsolationTest (scenario 1) drives the remote EXECUTABLE path:
-each phase pins the workflow owner to one shard via per_owner_assignment (manual-only mode,
-no Ring OCR) and runs the evmread workflow, whose EVM calls (balance read + report write)
-must be served by the in-family capability shard only.
+ExecuteShardedCapabilityCallIsolationTest drives the remote EXECUTABLE path (CRE-4975): one
+cron-scheduled evmread workflow whose EVM calls (balance read + report write) must be served
+by the in-family capability shard only. The owner is flipped between the two shards so both
+directions of the isolation take a turn, and the workflow moves with the assignment - the
+same workflow executing on the other shard after the flip is itself proof the flip applied.
 
-ExecuteDon2DonDiscoveryRoutingTest (scenario 2) drives the remote TRIGGER path with the
-logtrigger workflow and proves, on both ends of the don2don hop, which capability DON
-discovery selected for the workflow: the workflow shard's RegisterTrigger call (client
-side, carries the workflow ID) and the Event ACK on the serving capability DON (server
-side), with the idle same-capability-ID DON held to zero.
+ExecuteDon2DonDiscoveryRoutingTest drives the remote TRIGGER path (CRE-4976): one logtrigger
+workflow whose trigger must be discovered, registered and served by the in-family capability
+shard only. The selection is proven on both ends of the don2don hop: the workflow shard's
+RegisterTrigger call (client side, carries the workflow ID) and the Event ACK on the serving
+capability DON (server side), with the idle same-capability-ID DON held to zero. The owner is
+flipped once so the re-selection on the other shard takes a turn too.
 
-Both scenarios read their per-phase evidence from live container log followers started with
-Tail="0" (see startShardNodesetLogWatcher), so lines recorded by earlier subtests on this
-shared environment cannot leak into a phase's absence assertions. Routing-table evidence
-that is static for the topology (the executable client SetConfig lines naming remote DONs)
-is instead read from the full historical logs, where absence is equally valid: a workflow
-shard's routing table is built from DON families, not from shard assignment, so no subtest
-can ever have added an out-of-family route to it.
+Each scenario runs as its own top-level test (own CI job and 7m budget - see
+Test_CRE_V2_ShardedCapabilityCallIsolation / Test_CRE_V2_Don2DonDiscoveryRouting) because a
+single workflow deployment already costs ~2 minutes in CI and two scenarios cannot share one
+budget. All per-phase evidence is read from the nodesets' container logs with a time floor
+(see ContainerLogLinesForNodesetSince): one historical read per assertion, no long-lived log
+streams. The floor keeps earlier-phase (or, on a shared local environment, earlier-run) lines
+out of a phase's window, and the phase-B absence checks additionally start after a grace
+period that covers requests issued just before the flip but logged just after it, while a
+shard that wrongly keeps ownership keeps firing every cron period and stays caught.
 */
 
 const (
@@ -93,9 +94,12 @@ const (
 	// evmReadWorkflowUserLog is the user log the evmread workflow emits once its
 	// remote EVM calls all returned, proving the executing shard's don2don hop.
 	evmReadWorkflowUserLog = "Read workflow test case passed"
-	// maxNodesetWatcherLines bounds the lines a watcher records per nodeset so a
-	// chatty container cannot grow the test's memory without limit.
-	maxNodesetWatcherLines = 20000
+	// shardedRoutingAbsenceGrace is how long after an assignment flip the
+	// absence checks still tolerate log lines: a request issued just before the
+	// flip can be logged just after it, so the window starts grace later. It
+	// exceeds the workflows' cron period (30s), so a shard that wrongly keeps
+	// ownership keeps issuing requests every period and stays caught.
+	shardedRoutingAbsenceGrace = 45 * time.Second
 )
 
 // shardedCapabilitiesTopology carries the topology guard output shared by both routing
@@ -215,16 +219,23 @@ func getOtherShardDON(t *testing.T, testEnv *ttypes.TestEnvironment, shard *cre.
 // pointing at defaultShard: if the per_owner entry silently failed to apply, the workflows
 // would land on the default shard and the phase's execution assertion would fail, so a
 // routing that "looks right" cannot pass by accident.
-func proposeShardedCapabilitiesAssignment(t *testing.T, testEnv *ttypes.TestEnvironment, topo shardedCapabilitiesTopology, assignedShard *cre.Don, assignedShardIdx, defaultShardIdx uint32) {
+//
+// The TOML embeds a proposal-unique comment. The comment is ignored by the resolver, but it
+// changes the settings hash, so every proposal is a fresh spec: the JD then always creates a
+// fresh pending proposal (instead of the nodes serving a previously approved identical spec)
+// and re-running the scenarios against a persistent local environment cannot collide with an
+// earlier run's approved assignment.
+func proposeShardedCapabilitiesAssignment(t *testing.T, testEnv *ttypes.TestEnvironment, topo shardedCapabilitiesTopology, assignedShard *cre.Don, assignedShardIdx, defaultShardIdx uint32, phaseLabel string) {
 	t.Helper()
 
 	shardAssignmentTOML := fmt.Sprintf(`
+# assignment proposal: %s (%d)
 static_default_assignment = [%d]
 hashed_default_assignment = false
 
 [per_owner_assignment]
   %q = [%d]
-`, defaultShardIdx, topo.workflowOwner, assignedShardIdx)
+`, phaseLabel, time.Now().UnixNano(), defaultShardIdx, topo.workflowOwner, assignedShardIdx)
 
 	// Under local load the JD occasionally drops idle node streams, so wait for full
 	// shard connectivity before proposing (see awaitShardDONsConnectedToJD).
@@ -251,8 +262,8 @@ hashed_default_assignment = false
 // out-of-family capability DON must appear in no routing entry at all.
 //
 // These lines are emitted at registry sync and depend only on DON families, not on shard
-// assignment, so reading them from the full historical logs is valid: no subtest on this
-// shared environment can ever have added an out-of-family route to a workflow shard.
+// assignment, so reading them from the full logs is valid: nothing that runs later on this
+// environment can ever have added an out-of-family route to a workflow shard.
 func requireShardedCapabilityRoutingTables(t *testing.T, testEnv *ttypes.TestEnvironment, topo shardedCapabilitiesTopology) {
 	t.Helper()
 
@@ -316,12 +327,37 @@ func lineContainsAll(line string, needles ...string) bool {
 	return true
 }
 
-// ExecuteShardedCapabilityCallIsolationTest covers scenario 1: a workflow pinned to a
-// shard calls the EVM capability over don2don, and only that shard's in-family capability
-// shard may serve the calls - the other same-capability-ID shard must stay idle, and the
-// calling shard must hold no route to it. Both shard directions take a turn, with a
-// quiescence barrier between the phases so the reassigned workflow's engine cannot leak
-// requests from the previous phase into the next phase's absence assertions.
+// requireNodesetEventuallyLogsSince waits for a line containing all needles to appear in
+// the nodeset's container logs at or after since. Each poll is one historical read, so no
+// long-lived log stream has to stay alive for the duration of the wait (a followed stream
+// that goes quiet for minutes - e.g. on an idle capability shard - can be dropped, and the
+// line then never arrives even though it was logged).
+func requireNodesetEventuallyLogsSince(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName string, since time.Time, timeout time.Duration, needles ...string) {
+	t.Helper()
+
+	require.Eventuallyf(t, func() bool {
+		return logLinesMatchAny(t_helpers.ContainerLogLinesForNodesetSince(t, testEnv, nodesetName, needles[0], since), needles...)
+	}, timeout, 5*time.Second, "nodeset %s never logged a line containing %v at or after %s", nodesetName, needles, since.Format(time.RFC3339))
+}
+
+// requireNodesetNeverLogsSince requires that no line containing all needles was logged by
+// the nodeset at or after since. It is a single historical read, checked after the positive
+// side of the phase has landed, so the counterpart evidence had time to appear.
+func requireNodesetNeverLogsSince(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName string, since time.Time, needles ...string) {
+	t.Helper()
+
+	lines := t_helpers.ContainerLogLinesForNodesetSince(t, testEnv, nodesetName, needles[0], since)
+	require.Falsef(t, logLinesMatchAny(lines, needles...),
+		"nodeset %s logged a line containing %v at or after %s but must never do so:\n%s",
+		nodesetName, needles, since.Format(time.RFC3339), strings.Join(lines, "\n"))
+}
+
+// ExecuteShardedCapabilityCallIsolationTest covers the remote EXECUTABLE path: a workflow
+// pinned to a shard calls the EVM capability over don2don, and only that shard's in-family
+// capability shard may serve the calls - the other same-capability-ID shard must stay idle,
+// and the calling shard must hold no route to it. One workflow is deployed and the owner is
+// flipped between the shards, so both directions of the isolation take a turn and the same
+// workflow executing on the other shard after the flip is itself proof the flip applied.
 func ExecuteShardedCapabilityCallIsolationTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
@@ -331,50 +367,42 @@ func ExecuteShardedCapabilityCallIsolationTest(t *testing.T, testEnv *ttypes.Tes
 	evmChain, ok := topo.chain.(*evm.Blockchain)
 	require.Truef(t, ok, "topology chain is not an EVM blockchain, got %T", topo.chain)
 
-	// --- Phase A: owner pinned to shard 0; its EVM calls go to capability shard 0 only ---
-	proposeShardedCapabilitiesAssignment(t, testEnv, topo, topo.shardZeroDON, topo.shardZeroIdx, topo.shardOneIdx)
+	// --- Phase A: owner pinned to shard 0; the workflow's EVM calls go to capability shard 0 only ---
+	phaseAStart := time.Now()
+	proposeShardedCapabilitiesAssignment(t, testEnv, topo, topo.shardZeroDON, topo.shardZeroIdx, topo.shardOneIdx, "call-isolation phase A")
 
-	watcher := startShardNodesetLogWatcher(t, testEnv, shardedRoutingWatcherNodesets(topo))
+	workflowID := deployShardedEVMReadWorkflow(t, testEnv, evmChain, "shardcap-isolation")
+	testLogger.Info().Str("workflowID", workflowID).Msg("Phase A: evmread workflow deployed for the shard-0 assignment")
 
-	workflowA := deployShardedEVMReadWorkflow(t, testEnv, evmChain, "shardcap-isolation-shard0")
-	testLogger.Info().Str("workflowID", workflowA).Msg("Phase A: evmread workflow deployed for the shard-0 assignment")
+	awaitShardedWorkflowExecution(t, testEnv, []string{workflowID}, topo.shardZeroDON, evmReadWorkflowUserLog, 4*time.Minute)
 
-	awaitShardedWorkflowExecution(t, testEnv, []string{workflowA}, topo.shardZeroDON, evmReadWorkflowUserLog, 4*time.Minute)
-
-	// Serving proof: the in-family capability shard served the remote executable
-	// EVM requests; the other same-capability-ID shard must have received none.
-	requireWatcherEventuallyLogs(t, watcher, topo.capForShardZero.Name, 2*time.Minute, executableRequestReceivedLogNeedle, evmCapabilityIDLogNeedle)
-	requireWatcherNeverLogs(t, watcher, topo.capForShardOne.Name, executableRequestReceivedLogNeedle, evmCapabilityIDLogNeedle)
+	// Serving proof: the in-family capability shard served the remote executable EVM
+	// requests; the other same-capability-ID shard must have received none.
+	requireNodesetEventuallyLogsSince(t, testEnv, topo.capForShardZero.Name, phaseAStart, 2*time.Minute, executableRequestReceivedLogNeedle, evmCapabilityIDLogNeedle)
+	requireNodesetNeverLogsSince(t, testEnv, topo.capForShardOne.Name, phaseAStart, executableRequestReceivedLogNeedle, evmCapabilityIDLogNeedle)
 	testLogger.Info().Msg("Phase A: workflow on shard 0 called the EVM capability on shard 0's capability DON only")
 
-	// --- Phase B: owner re-pinned to shard 1; the calls must move with it ---
-	proposeShardedCapabilitiesAssignment(t, testEnv, topo, topo.shardOneDON, topo.shardOneIdx, topo.shardZeroIdx)
+	// --- Phase B: owner re-pinned to shard 1; the workflow and its calls must move with it ---
+	flippedAt := time.Now()
+	proposeShardedCapabilitiesAssignment(t, testEnv, topo, topo.shardOneDON, topo.shardOneIdx, topo.shardZeroIdx, "call-isolation phase B")
 
-	// Quiescence barrier: after the reassignment, shard 0's engine must stop issuing
-	// requests to capability shard 0. Waiting for the request stream to go quiet (and
-	// recording its final count) makes the phase-B absence check immune to in-flight
-	// phase-A requests while still failing loudly if the old shard keeps ownership.
-	baseline := awaitWatcherLogQuiescence(t, watcher, topo.capForShardZero.Name, 45*time.Second, 3*time.Minute, executableRequestReceivedLogNeedle, evmCapabilityIDLogNeedle)
-	testLogger.Info().Int("baseline", baseline).Msg("Phase B: capability shard 0 request stream is quiet")
+	awaitShardedWorkflowExecution(t, testEnv, []string{workflowID}, topo.shardOneDON, evmReadWorkflowUserLog, 4*time.Minute)
 
-	workflowB := deployShardedEVMReadWorkflow(t, testEnv, evmChain, "shardcap-isolation-shard1")
-	testLogger.Info().Str("workflowID", workflowB).Msg("Phase B: evmread workflow deployed for the shard-1 assignment")
-
-	awaitShardedWorkflowExecution(t, testEnv, []string{workflowB}, topo.shardOneDON, evmReadWorkflowUserLog, 4*time.Minute)
-
-	requireWatcherEventuallyLogs(t, watcher, topo.capForShardOne.Name, 2*time.Minute, executableRequestReceivedLogNeedle, evmCapabilityIDLogNeedle)
-	require.Equalf(t, baseline, watcher.lineCount(topo.capForShardZero.Name, executableRequestReceivedLogNeedle, evmCapabilityIDLogNeedle),
-		"capability DON %s received new executable requests after the owner was reassigned to shard 1; cross-shard call or stale shard-0 ownership",
-		topo.capForShardZero.Name)
+	requireNodesetEventuallyLogsSince(t, testEnv, topo.capForShardOne.Name, flippedAt, 2*time.Minute, executableRequestReceivedLogNeedle, evmCapabilityIDLogNeedle)
+	// The absence window starts one grace period after the flip: a request issued just
+	// before the flip can be logged just after it, while a shard that wrongly keeps
+	// ownership keeps firing every cron period (30s) and stays caught.
+	requireNodesetNeverLogsSince(t, testEnv, topo.capForShardZero.Name, flippedAt.Add(shardedRoutingAbsenceGrace), executableRequestReceivedLogNeedle, evmCapabilityIDLogNeedle)
 	testLogger.Info().Msg("Phase B: workflow on shard 1 called the EVM capability on shard 1's capability DON only; shard 0's capability DON stayed idle")
 }
 
-// ExecuteDon2DonDiscoveryRoutingTest covers scenario 2: the same EVM capability ID is
-// hosted by two capability DONs, and each workflow shard's don2don discovery must select
-// exactly the one sharing its shard family. The selection is proven on both ends of the
-// hop: the workflow shard's RegisterTrigger call (client side, carries the workflow ID)
-// and the Event ACK on the serving capability DON (server side), with the idle
-// same-capability-ID DON held to zero. Both shard directions take a turn.
+// ExecuteDon2DonDiscoveryRoutingTest covers the remote TRIGGER path: the same EVM
+// capability ID is hosted by two capability DONs, and each workflow shard's don2don
+// discovery must select exactly the one sharing its shard family. The selection is proven
+// on both ends of the hop: the workflow shard's RegisterTrigger call (client side, carries
+// the workflow ID) and the Event ACK on the serving capability DON (server side), with the
+// idle same-capability-ID DON held to zero. One workflow is deployed and the owner is
+// flipped once, so discovery's re-selection on the other shard takes a turn too.
 func ExecuteDon2DonDiscoveryRoutingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
@@ -390,55 +418,49 @@ func ExecuteDon2DonDiscoveryRoutingTest(t *testing.T, testEnv *ttypes.TestEnviro
 	startEVMLogTriggerEventEmitter(emitCtx, t, testLogger, chainID, topo.chain, msgEmitter, expectedUserLog)
 
 	// --- Phase A: owner pinned to shard 0; discovery must select capability shard 0 ---
-	proposeShardedCapabilitiesAssignment(t, testEnv, topo, topo.shardZeroDON, topo.shardZeroIdx, topo.shardOneIdx)
+	phaseAStart := time.Now()
+	proposeShardedCapabilitiesAssignment(t, testEnv, topo, topo.shardZeroDON, topo.shardZeroIdx, topo.shardOneIdx, "don2don-routing phase A")
 
-	watcher := startShardNodesetLogWatcher(t, testEnv, shardedRoutingWatcherNodesets(topo))
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger,
+		t_helpers.UniqueWorkflowName(testEnv, "don2don-routing"), &workflowConfig, "./evm/logtrigger/main.go")
+	testLogger.Info().Str("workflowID", workflowID).Msg("Phase A: logtrigger workflow deployed for the shard-0 assignment")
 
-	workflowA := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger,
-		t_helpers.UniqueWorkflowName(testEnv, "don2don-routing-shard0"), &workflowConfig, "./evm/logtrigger/main.go")
-	testLogger.Info().Str("workflowID", workflowA).Msg("Phase A: logtrigger workflow deployed for the shard-0 assignment")
-
-	awaitShardedWorkflowExecution(t, testEnv, []string{workflowA}, topo.shardZeroDON, expectedUserLog, 4*time.Minute)
+	awaitShardedWorkflowExecution(t, testEnv, []string{workflowID}, topo.shardZeroDON, expectedUserLog, 4*time.Minute)
 
 	// Client-side selection proof: the assigned shard registered the workflow's trigger
 	// with a capability DON (the RegisterTrigger line carries donId + workflowID); the
 	// other shard must never register it.
-	requireWatcherEventuallyLogs(t, watcher, topo.shardZeroDON.Name, 2*time.Minute, registerTriggerLogNeedle, workflowA)
-	requireWatcherNeverLogs(t, watcher, topo.shardOneDON.Name, registerTriggerLogNeedle, workflowA)
+	requireNodesetEventuallyLogsSince(t, testEnv, topo.shardZeroDON.Name, phaseAStart, 2*time.Minute, registerTriggerLogNeedle, workflowID)
+	requireNodesetNeverLogsSince(t, testEnv, topo.shardOneDON.Name, phaseAStart, registerTriggerLogNeedle, workflowID)
 
 	// Server-side selection proof: the in-family capability DON acked the trigger events;
 	// the idle same-capability-ID DON must have acked none.
-	requireWatcherEventuallyLogs(t, watcher, topo.capForShardZero.Name, 2*time.Minute, triggerEventACKLogNeedle)
-	requireWatcherNeverLogs(t, watcher, topo.capForShardOne.Name, triggerEventACKLogNeedle)
+	requireNodesetEventuallyLogsSince(t, testEnv, topo.capForShardZero.Name, phaseAStart, 2*time.Minute, triggerEventACKLogNeedle)
+	requireNodesetNeverLogsSince(t, testEnv, topo.capForShardOne.Name, phaseAStart, triggerEventACKLogNeedle)
 	testLogger.Info().Msg("Phase A: discovery selected capability shard 0 for the shard-0 workflow, on both ends of the don2don hop")
 
 	// --- Phase B: owner re-pinned to shard 1; the selection must move with it ---
-	proposeShardedCapabilitiesAssignment(t, testEnv, topo, topo.shardOneDON, topo.shardOneIdx, topo.shardZeroIdx)
+	flippedAt := time.Now()
+	proposeShardedCapabilitiesAssignment(t, testEnv, topo, topo.shardOneDON, topo.shardOneIdx, topo.shardZeroIdx, "don2don-routing phase B")
 
-	// Quiescence barrier: shard 0's engine must stop acking on capability shard 0 once
-	// the owner moved. The baseline count makes the phase-B absence check immune to
-	// in-flight phase-A acks while still failing loudly on stale shard-0 ownership.
-	baseline := awaitWatcherLogQuiescence(t, watcher, topo.capForShardZero.Name, 45*time.Second, 3*time.Minute, triggerEventACKLogNeedle)
-	testLogger.Info().Int("baseline", baseline).Msg("Phase B: capability shard 0 trigger ack stream is quiet")
+	awaitShardedWorkflowExecution(t, testEnv, []string{workflowID}, topo.shardOneDON, expectedUserLog, 4*time.Minute)
 
-	workflowB := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger,
-		t_helpers.UniqueWorkflowName(testEnv, "don2don-routing-shard1"), &workflowConfig, "./evm/logtrigger/main.go")
-	testLogger.Info().Str("workflowID", workflowB).Msg("Phase B: logtrigger workflow deployed for the shard-1 assignment")
-
-	awaitShardedWorkflowExecution(t, testEnv, []string{workflowB}, topo.shardOneDON, expectedUserLog, 4*time.Minute)
-
-	requireWatcherEventuallyLogs(t, watcher, topo.shardOneDON.Name, 2*time.Minute, registerTriggerLogNeedle, workflowB)
-	require.Equalf(t, baseline, watcher.lineCount(topo.capForShardZero.Name, triggerEventACKLogNeedle),
-		"capability DON %s acked new trigger events after the owner was reassigned to shard 1; cross-shard trigger routing or stale shard-0 ownership",
-		topo.capForShardZero.Name)
-	requireWatcherEventuallyLogs(t, watcher, topo.capForShardOne.Name, 2*time.Minute, triggerEventACKLogNeedle)
+	// The same workflow's trigger now registers through shard 1's nodes and is served by
+	// capability shard 1: discovery's re-selection, proven on both ends again.
+	requireNodesetEventuallyLogsSince(t, testEnv, topo.shardOneDON.Name, flippedAt, 2*time.Minute, registerTriggerLogNeedle, workflowID)
+	requireNodesetEventuallyLogsSince(t, testEnv, topo.capForShardOne.Name, flippedAt, 2*time.Minute, triggerEventACKLogNeedle)
+	// The absence window starts one grace period after the flip: an ack for an event
+	// issued to the old shard just before the flip can be logged just after it, while a
+	// shard that wrongly keeps registration keeps acking every emitter period (10s) and
+	// stays caught.
+	requireNodesetNeverLogsSince(t, testEnv, topo.capForShardZero.Name, flippedAt.Add(shardedRoutingAbsenceGrace), triggerEventACKLogNeedle)
 	testLogger.Info().Msg("Phase B: discovery selected capability shard 1 for the shard-1 workflow, on both ends of the don2don hop")
 }
 
 // deployShardedEVMReadWorkflow deploys one cron-scheduled evmread workflow against the
 // given EVM chain. Its balance read and report write are remote executable calls served
 // by the workflow shard's in-family EVM capability DON over don2don, which is exactly the
-// hop scenario 1 isolates.
+// hop the call-isolation scenario isolates.
 func deployShardedEVMReadWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, evmChain *evm.Blockchain, workflowBaseName string) string {
 	t.Helper()
 
@@ -481,179 +503,4 @@ func awaitShardedWorkflowExecution(t *testing.T, testEnv *ttypes.TestEnvironment
 
 	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, testLogger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, timeout)
 	require.Lenf(t, executedWorkflows, len(workflowIDs), "workflows %v did not execute on shard %s (DON ID %d)", workflowIDs, expectedShardDON.Name, expectedShardDON.ID)
-}
-
-// shardedRoutingWatcherNodesets lists the nodesets whose live logs the routing scenarios
-// watch: both workflow shards (client-side routing decisions) and both capability shards
-// (server-side serving proof).
-func shardedRoutingWatcherNodesets(topo shardedCapabilitiesTopology) []string {
-	return []string{topo.shardZeroDON.Name, topo.shardOneDON.Name, topo.capForShardZero.Name, topo.capForShardOne.Name}
-}
-
-// shardNodesetLogWatcher records live container log lines per nodeset. Followers are
-// started with Tail="0" and Follow=true, so only lines written after the watcher started
-// are recorded: evidence emitted by earlier subtests on this shared environment cannot
-// leak into a phase's absence assertions, and absence checks are trustworthy as soon as
-// the positive side has landed.
-type shardNodesetLogWatcher struct {
-	mu      sync.Mutex
-	lines   map[string][]string
-	cancel  context.CancelFunc
-	readers []io.ReadCloser
-	wg      sync.WaitGroup
-}
-
-// startShardNodesetLogWatcher starts log followers for every container of the given
-// nodesets and records their lines under the nodeset name. The watcher is stopped by
-// subtest cleanup.
-func startShardNodesetLogWatcher(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetNames []string) *shardNodesetLogWatcher {
-	t.Helper()
-
-	wanted := make(map[string]struct{}, len(nodesetNames))
-	for _, name := range nodesetNames {
-		wanted[name] = struct{}{}
-	}
-
-	containerToNodeset := make(map[string]string)
-	for _, nodeSet := range testEnv.Config.NodeSets {
-		if _, ok := wanted[nodeSet.Name]; !ok || nodeSet.Out == nil {
-			continue
-		}
-		for _, clNode := range nodeSet.Out.CLNodes {
-			if name := clNode.Node.ContainerName; name != "" {
-				containerToNodeset[name] = nodeSet.Name
-			}
-		}
-	}
-	require.NotEmptyf(t, containerToNodeset, "no containers found for nodesets %v", nodesetNames)
-
-	// Follow=true is required so lines written after the followers start are captured;
-	// Tail="0" skips historical lines so earlier subtests on this shared environment
-	// cannot contaminate this phase's absence assertions.
-	logsOpts := framework.CTFContainersLogsOpts()
-	logsOpts.Follow = true
-	logsOpts.Tail = "0"
-	logstream, err := framework.StreamContainerLogs(framework.CTFContainersListOpts(), logsOpts)
-	require.NoError(t, err, "failed to stream container logs for the sharded routing watcher")
-
-	w := &shardNodesetLogWatcher{lines: make(map[string][]string, len(nodesetNames))}
-	scanCtx, cancel := context.WithCancel(t.Context())
-	w.cancel = cancel
-
-	for containerName, reader := range logstream {
-		nodesetName, ok := containerToNodeset[containerName]
-		if !ok {
-			_ = reader.Close()
-			continue
-		}
-		// Snapshot readers so stop can close them: closing the reader is what unblocks a
-		// goroutine stuck in scanner.Scan() on a Follow=true stream; context cancel
-		// alone is not enough.
-		w.readers = append(w.readers, reader)
-		w.wg.Go(func() {
-			w.scan(scanCtx, containerName, nodesetName, reader)
-		})
-	}
-
-	t.Cleanup(w.stop)
-	return w
-}
-
-func (w *shardNodesetLogWatcher) scan(ctx context.Context, containerName, nodesetName string, reader io.ReadCloser) {
-	scanner := bufio.NewScanner(reader)
-	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
-	for scanner.Scan() {
-		if ctx.Err() != nil {
-			return
-		}
-		line := scanner.Text()
-		w.mu.Lock()
-		if len(w.lines[nodesetName]) < maxNodesetWatcherLines {
-			w.lines[nodesetName] = append(w.lines[nodesetName], line)
-		}
-		w.mu.Unlock()
-	}
-	if err := scanner.Err(); err != nil && !isExpectedLogStreamCloseErr(ctx, err) {
-		framework.L.Error().Err(err).Str("container", containerName).Msg("error reading container logs in the sharded routing watcher")
-	}
-}
-
-func (w *shardNodesetLogWatcher) stop() {
-	w.cancel()
-	for _, r := range w.readers {
-		_ = r.Close()
-	}
-	w.wg.Wait()
-}
-
-// lineCount returns how many recorded lines of nodesetName contain all needles.
-func (w *shardNodesetLogWatcher) lineCount(nodesetName string, needles ...string) int {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	count := 0
-	for _, line := range w.lines[nodesetName] {
-		if lineContainsAll(line, needles...) {
-			count++
-		}
-	}
-	return count
-}
-
-// hasLine reports whether nodesetName recorded any line containing all needles.
-func (w *shardNodesetLogWatcher) hasLine(nodesetName string, needles ...string) bool {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	for _, line := range w.lines[nodesetName] {
-		if lineContainsAll(line, needles...) {
-			return true
-		}
-	}
-	return false
-}
-
-// requireWatcherEventuallyLogs waits for nodesetName to record a line containing all needles.
-func requireWatcherEventuallyLogs(t *testing.T, w *shardNodesetLogWatcher, nodesetName string, timeout time.Duration, needles ...string) {
-	t.Helper()
-
-	require.Eventuallyf(t, func() bool {
-		return w.hasLine(nodesetName, needles...)
-	}, timeout, 2*time.Second, "nodeset %s never logged a line containing %v", nodesetName, needles)
-}
-
-// requireWatcherNeverLogs requires that nodesetName never recorded a line containing all
-// needles. It is checked after the positive side of the phase has landed, so the
-// counterpart evidence had time to appear on the nodeset under test.
-func requireWatcherNeverLogs(t *testing.T, w *shardNodesetLogWatcher, nodesetName string, needles ...string) {
-	t.Helper()
-
-	require.Falsef(t, w.hasLine(nodesetName, needles...),
-		"nodeset %s logged a line containing %v but must never do so", nodesetName, needles)
-}
-
-// awaitWatcherLogQuiescence waits until nodesetName stops recording new lines containing
-// all needles for stableFor, and returns the stable count. Callers hold on to the
-// returned baseline and require it unchanged later, which turns "no new lines since the
-// barrier" into an assertion that fails loudly if the reassignment left stale owners
-// behind.
-func awaitWatcherLogQuiescence(t *testing.T, w *shardNodesetLogWatcher, nodesetName string, stableFor, timeout time.Duration, needles ...string) int {
-	t.Helper()
-
-	lastCount := w.lineCount(nodesetName, needles...)
-	lastChange := time.Now()
-
-	require.Eventuallyf(t, func() bool {
-		count := w.lineCount(nodesetName, needles...)
-		if count != lastCount {
-			lastCount = count
-			lastChange = time.Now()
-			return false
-		}
-		return time.Since(lastChange) >= stableFor
-	}, timeout, 2*time.Second,
-		"nodeset %s did not go quiet on %v within %s; the previous assignment's owner is likely still issuing traffic",
-		nodesetName, needles, timeout)
-
-	return lastCount
 }

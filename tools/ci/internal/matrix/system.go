@@ -85,6 +85,12 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	"Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger": {
 		{Topology: "workflow-sharded-capabilities", Configs: "configs/workflow-sharded-capabilities-don.toml"},
 	},
+	"Test_CRE_V2_ShardedCapabilityCallIsolation": {
+		{Topology: "workflow-sharded-capabilities", Configs: "configs/workflow-sharded-capabilities-don.toml"},
+	},
+	"Test_CRE_V2_Don2DonDiscoveryRouting": {
+		{Topology: "workflow-sharded-capabilities", Configs: "configs/workflow-sharded-capabilities-don.toml"},
+	},
 	"Test_CRE_V2_ShardRingOCROverrides": {
 		{Topology: "workflow-gateway-sharded-ringocr-overrides", Configs: "configs/workflow-gateway-sharded-ringocr-overrides.toml"},
 	},

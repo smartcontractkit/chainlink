@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -65,7 +66,7 @@ func nodesetContainerNames(t *testing.T, testEnv *ttypes.TestEnvironment, nodese
 // containerLogLines returns every log line containing needle from the current logs
 // of containerNames. It is the shared scanning core: the needle assertions check for
 // a non-empty result, and callers that need the lines themselves filter them further.
-func containerLogLines(t *testing.T, containerNames []string, needle string) []string {
+func containerLogLines(t *testing.T, containerNames []string, opts client.ContainerLogsOptions, needle string) []string {
 	t.Helper()
 
 	targetNames := make(map[string]struct{}, len(containerNames))
@@ -75,7 +76,7 @@ func containerLogLines(t *testing.T, containerNames []string, needle string) []s
 
 	logStreams, err := framework.StreamContainerLogs(
 		client.ContainerListOptions{All: true},
-		client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true},
+		opts,
 	)
 	require.NoError(t, err)
 
@@ -105,7 +106,7 @@ func containerLogLines(t *testing.T, containerNames []string, needle string) []s
 func containerLogsContain(t *testing.T, containerNames []string, needle string) bool {
 	t.Helper()
 
-	return len(containerLogLines(t, containerNames, needle)) > 0
+	return len(containerLogLines(t, containerNames, client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true}, needle)) > 0
 }
 
 // assertContainerLogs scans stdout/stderr of containerNames and checks whether needle appears.
@@ -127,7 +128,23 @@ func assertContainerLogs(t *testing.T, containerNames []string, needle string, w
 func ContainerLogLinesForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string) []string {
 	t.Helper()
 
-	return containerLogLines(t, nodesetContainerNames(t, testEnv, nodesetName), needle)
+	return containerLogLines(t, nodesetContainerNames(t, testEnv, nodesetName), client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true}, needle)
+}
+
+// ContainerLogLinesForNodesetSince is ContainerLogLinesForNodeset, but only lines
+// written at or after since. The time floor lets callers scope evidence to a test
+// phase: lines written by earlier phases on a shared environment cannot leak into
+// an assertion window, and no long-lived log stream has to be kept alive - each call
+// performs one historical read.
+func ContainerLogLinesForNodesetSince(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string, since time.Time) []string {
+	t.Helper()
+
+	opts := client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true}
+	if !since.IsZero() {
+		opts.Since = strconv.FormatInt(since.Unix(), 10)
+	}
+
+	return containerLogLines(t, nodesetContainerNames(t, testEnv, nodesetName), opts, needle)
 }
 
 // CountNodesetContainersWithLog returns how many of the nodeset's containers
