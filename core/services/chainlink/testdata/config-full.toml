@@ -305,6 +305,8 @@ MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 MaxConcurrency = 12
 MaxActivationRetries = 100
+FetchMode = 'gateway'
+FetchAllowedHosts = []
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 ArtifactStorageHost = ''
