@@ -274,6 +274,7 @@ jobs:
           trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
           # unique name per matrix job to avoid 409 conflict when multiple jobs upload in the same workflow run
           artifact-name: ${{ matrix.tests.test_id }}_test_logs
+          trunk-test-collection-id: qt0j1cVm # chainlink-e2e
 
       - name: Show Docker containers status
         if: failure() || cancelled()
