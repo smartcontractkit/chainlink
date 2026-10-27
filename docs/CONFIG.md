@@ -1428,6 +1428,8 @@ MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
 MaxConcurrency = 12 # Default
 MaxActivationRetries = 100 # Default
+FetchMode = 'gateway' # Default
+FetchAllowedHosts = [] # Default
 ```
 
 
@@ -1485,6 +1487,20 @@ MaxConcurrency controls the maximum number of concurrent event handlers in the w
 MaxActivationRetries = 100 # Default
 ```
 MaxActivationRetries is the number of failed load/initialization attempts before the syncer stops retrying an active workflow. 0 disables the limit.
+
+### FetchMode
+```toml
+FetchMode = 'gateway' # Default
+```
+FetchMode selects how the node downloads workflow binaries and configs. 'gateway' fetches through the Gateway.
+'direct' fetches over HTTPS straight from the node, bypassing the Gateway.
+
+### FetchAllowedHosts
+```toml
+FetchAllowedHosts = [] # Default
+```
+FetchAllowedHosts restricts the hosts the node may fetch workflow artifacts from when FetchMode is 'direct'.
+Hosts are matched exactly and case-insensitively, and must include the host of signed storage URLs. Empty allows any host.
 
 ## Capabilities.WorkflowRegistry.WorkflowStorage
 ```toml

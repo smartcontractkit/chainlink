@@ -548,6 +548,12 @@ SyncStrategy = 'event' # Default
 MaxConcurrency = 12 # Default
 # MaxActivationRetries is the number of failed load/initialization attempts before the syncer stops retrying an active workflow. 0 disables the limit.
 MaxActivationRetries = 100 # Default
+# FetchMode selects how the node downloads workflow binaries and configs. 'gateway' fetches through the Gateway.
+# 'direct' fetches over HTTPS straight from the node, bypassing the Gateway.
+FetchMode = 'gateway' # Default
+# FetchAllowedHosts restricts the hosts the node may fetch workflow artifacts from when FetchMode is 'direct'.
+# Hosts are matched exactly and case-insensitively, and must include the host of signed storage URLs. Empty allows any host.
+FetchAllowedHosts = [] # Default
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 # URL is the location for the workflow storage service to be communicated with.

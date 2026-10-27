@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -24,7 +25,6 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
@@ -715,6 +715,13 @@ func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.Billi
 // is intentionally left empty here. Service/resource_pool are stamped by
 // syncer.NewSpecMeter.
 // newDeploymentIdentity returns the node's [Metering] deployment dimensions.
+// emitFunc adapts the injected durable emit func to resourcemanager.Emitter.
+type emitFunc func(ctx context.Context, body []byte, attrKVs ...any) error
+
+func (f emitFunc) Emit(ctx context.Context, body []byte, attrKVs ...any) error {
+	return f(ctx, body, attrKVs...)
+}
+
 func newDeploymentIdentity(cfg Config) resourcemanager.DeploymentIdentity {
 	m := cfg.Metering()
 	if m == nil {
@@ -802,7 +809,9 @@ func newFetcherServiceV2(
 		return opts.FetcherFunc, nil, []commonsrv.Service{}, nil
 	}
 
-	if gatewayConnectorWrapper == nil {
+	wfReg := capCfg.WorkflowRegistry()
+	direct := wfReg.FetchMode() == config.WorkflowFetchModeDirect
+	if gatewayConnectorWrapper == nil && !direct {
 		return nil, nil, nil, errors.New("unable to create workflow registry syncer without gateway connector")
 	}
 
@@ -826,6 +835,15 @@ func newFetcherServiceV2(
 
 	if storageClient == nil {
 		return nil, nil, nil, errors.New("must have a storage client")
+	}
+
+	if direct {
+		httpClient, err := syncerV2.NewDirectHTTPClient(lggr, math.MaxUint32)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to create direct fetch http client: %w", err)
+		}
+		fetcher := syncerV2.NewFetcherService(lggr, nil, storageClient)
+		return syncerV2.NewDirectFetcherFunc(httpClient, wfReg.FetchAllowedHosts(), lggr), fetcher.RetrieveURL, []commonsrv.Service{}, nil
 	}
 
 	fetcher := syncerV2.NewFetcherService(lggr, gatewayConnectorWrapper, storageClient)
@@ -1001,8 +1019,8 @@ func newWorkflowRegistrySyncerV2(
 
 	// Compute usage records share the [Metering].MeterRecordsEnabled gate.
 	if meterRecordsEnabled {
-		if d := durableemitter.GetGlobalEmitter(); d != nil {
-			handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(newDeploymentIdentity(cfg), d, meteringCfg.FaultInjection()))
+		if opts.DurableEmit != nil { // injected, not the global, so tests can supply their own
+			handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(newDeploymentIdentity(cfg), emitFunc(opts.DurableEmit), meteringCfg.FaultInjection()))
 		} else {
 			lggr.Warnw("Compute usage metering enabled without a durable emitter; compute usage records disabled")
 		}

@@ -444,6 +444,8 @@ func TestConfig_Marshal(t *testing.T) {
 			SyncStrategy:         new("event"),
 			MaxConcurrency:       new(12),
 			MaxActivationRetries: new(100),
+			FetchMode:            new("gateway"),
+			FetchAllowedHosts:    &[]string{},
 			WorkflowStorage: toml.WorkflowStorage{
 				ArtifactStorageHost: new(""),
 				URL:                 new(""),
