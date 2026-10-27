@@ -497,17 +497,10 @@ func addWorkerNodeConfig(
 		}
 	}
 
-	// HTTP capability configuration is sourced from node TOML
-	// ([Capabilities.HTTPTrigger] / [Capabilities.HTTPAction]); the values are
-	// injected into the capability service config at runtime. Only set the
-	// sections for capabilities this DON actually runs; values left unset let
-	// the capability binary apply its defaults, matching the previous
-	// job-spec behavior where these fields were omitted from generated specs.
-	if donMetadata.HasFlag(cre.HTTPActionCapability) && existingConfig.Capabilities.HTTPAction.ProxyMode == nil {
-		existingConfig.Capabilities.HTTPAction = coretoml.HTTPActionCapability{
-			ProxyMode: new("gateway"),
-		}
-	}
+	// Leave HTTP capability defaults to the node. Emitting the new TOML tables
+	// unconditionally prevents baseline nodes in mixed-version DONs from starting.
+	// Explicit overrides were preserved above; gateway mode is also carried in
+	// the job spec for nodes that predate the TOML configuration support.
 
 	if donMetadata.HasFlag(cre.WorkflowDON) && existingConfig.Capabilities.WorkflowRegistry.Address == nil {
 		// Preserve existing AdditionalSourcesConfig when setting WorkflowRegistry fields

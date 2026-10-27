@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConfigTemplateOmitsNodeConfig(t *testing.T) {
+func TestConfigTemplatePreservesLegacyGatewayMode(t *testing.T) {
 	t.Parallel()
 
 	values := map[string]any{
@@ -37,7 +37,7 @@ func TestConfigTemplateOmitsNodeConfig(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rendered.Bytes(), &config))
 	assert.Contains(t, config, "incomingRateLimiter")
 	assert.Contains(t, config, "outgoingRateLimiter")
-	assert.NotContains(t, config, "proxyMode")
+	assert.Equal(t, "gateway", config["proxyMode"], "baseline nodes require a proxy mode; newer nodes apply node TOML overrides")
 	assert.NotContains(t, config, "gatewayConnection")
 	assert.NotContains(t, config, "httpClient")
 }

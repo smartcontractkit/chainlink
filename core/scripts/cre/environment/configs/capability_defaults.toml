@@ -42,8 +42,8 @@
 
 [capability_configs.http-action.values]
   # HTTP Action capability configuration.
-  # ProxyMode and gateway/httpClient settings are resolved at runtime from node TOML
-  # ([Capabilities.HTTPAction]); only the per-workflow rate limiters remain here.
+  # Node TOML overrides HTTP action settings at runtime. The job spec retains
+  # gateway mode for baseline nodes without [Capabilities.HTTPAction] support.
   IncomingGlobalBurst = 10
   IncomingGlobalRPS = 50
   IncomingPerSenderBurst = 10
