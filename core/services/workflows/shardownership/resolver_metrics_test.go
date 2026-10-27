@@ -102,7 +102,7 @@ func (f *assignmentMetricsFixture) histogramCount(t *testing.T, name string, att
 			if met.Name != name {
 				continue
 			}
-			hist, ok := met.Data.(metricdata.Histogram[int64])
+			hist, ok := met.Data.(metricdata.Histogram[float64])
 			if !ok {
 				continue
 			}

@@ -44,7 +44,7 @@ const (
 type ShardAssignmentMetrics struct {
 	modeGauge         metric.Int64Gauge
 	resolverRequests  metric.Int64Counter
-	resolverDuration  metric.Int64Histogram
+	resolverDuration  metric.Float64Histogram
 	settingsHashGauge metric.Int64Gauge
 	updated           metric.Int64Counter
 
@@ -81,9 +81,9 @@ func NewShardAssignmentMetricsWithMeter(meter metric.Meter) (*ShardAssignmentMet
 	if err != nil {
 		return nil, err
 	}
-	m.resolverDuration, err = meter.Int64Histogram("platform_shard_resolver_duration_seconds",
+	m.resolverDuration, err = meter.Float64Histogram("platform_shard_resolver_duration_seconds",
 		metric.WithUnit("s"),
-		metric.WithExplicitBucketBoundaries(1, 2, 5, 10, 30, 60, 120, 300),
+		metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 30),
 	)
 	if err != nil {
 		return nil, err
@@ -131,7 +131,7 @@ func (m *ShardAssignmentMetrics) RecordResolverDuration(ctx context.Context, res
 	if m == nil {
 		return
 	}
-	m.resolverDuration.Record(ctx, int64(duration/time.Second), metric.WithAttributes(attribute.String("resolver", resolver)))
+	m.resolverDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(attribute.String("resolver", resolver)))
 }
 
 // RecordSettingsApplied records the hash of a successfully parsed settings

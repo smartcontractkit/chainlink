@@ -64,7 +64,7 @@ func TestShardAssignmentMetricsInstruments(t *testing.T) {
 
 	m.RecordAssignmentMode(ctx, ShardAssignmentModeRingOCRWithOverrides)
 	m.RecordResolverRequest(ctx, ShardResolverManual, ShardResolverOutcomeFound, ShardResolverSourcePerOwner, 2*time.Second)
-	m.RecordResolverRequest(ctx, ShardResolverRing, ShardResolverOutcomeNotFound, "", 100*time.Millisecond)
+	m.RecordResolverRequest(ctx, ShardResolverRing, ShardResolverOutcomeNotFound, "", 4*time.Millisecond)
 	m.AddResolverRequest(ctx, ShardResolverOverride, ShardResolverOutcomeError, "")
 	m.RecordSettingsApplied(ctx, 4242)
 
@@ -93,12 +93,15 @@ func TestShardAssignmentMetricsInstruments(t *testing.T) {
 	duration, ok := metrics["platform_shard_resolver_duration_seconds"]
 	require.True(t, ok, "resolver duration histogram must be registered")
 	require.Equal(t, "s", duration.Unit)
-	hist, ok := duration.Data.(metricdata.Histogram[int64])
+	hist, ok := duration.Data.(metricdata.Histogram[float64])
 	require.True(t, ok)
 	require.NotEmpty(t, hist.DataPoints)
-	require.Equal(t, []float64{1, 2, 5, 10, 30, 60, 120, 300}, hist.DataPoints[0].Bounds)
+	require.Equal(t, []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 30}, hist.DataPoints[0].Bounds)
 	require.Equal(t, uint64(2), histogramDataCount(hist, map[string]string{}),
 		"histogram counts API-call durations; AddResolverRequest does not record one")
+	require.Equal(t, []uint64{0, 0, 0, 0, 0, 0, 0, 1, 0, 0}, histogramBucketCounts(hist, map[string]string{"resolver": ShardResolverManual}))
+	require.Equal(t, []uint64{0, 1, 0, 0, 0, 0, 0, 0, 0, 0}, histogramBucketCounts(hist, map[string]string{"resolver": ShardResolverRing}),
+		"a 4ms resolution must record as 0.004 in the (0.001, 0.005] bucket, not truncate to 0")
 
 	hashGauge, ok := metrics["platform_shard_assignment_settings_hash"]
 	require.True(t, ok, "settings hash gauge must be registered")
@@ -189,7 +192,7 @@ func gaugeValue(rm metricdata.ResourceMetrics, name string) int64 {
 	return 0
 }
 
-func histogramDataCount(hist metricdata.Histogram[int64], attrs map[string]string) uint64 {
+func histogramDataCount(hist metricdata.Histogram[float64], attrs map[string]string) uint64 {
 	var count uint64
 	for _, dp := range hist.DataPoints {
 		if hasAttrs(dp.Attributes, attrs) {
@@ -197,6 +200,21 @@ func histogramDataCount(hist metricdata.Histogram[int64], attrs map[string]strin
 		}
 	}
 	return count
+}
+
+func histogramBucketCounts(hist metricdata.Histogram[float64], attrs map[string]string) []uint64 {
+	var counts []uint64
+	for _, dp := range hist.DataPoints {
+		if hasAttrs(dp.Attributes, attrs) {
+			if counts == nil {
+				counts = make([]uint64, len(dp.BucketCounts))
+			}
+			for i, c := range dp.BucketCounts {
+				counts[i] += c
+			}
+		}
+	}
+	return counts
 }
 
 func hasAttrs(set attribute.Set, attrs map[string]string) bool {
