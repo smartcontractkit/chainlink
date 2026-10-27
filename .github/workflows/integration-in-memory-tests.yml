@@ -212,19 +212,25 @@ jobs:
           go-version-file: integration-tests/go.mod
           cache: false
 
-      # Shares the `integration-tests-v1` caches with the E2E compile job in
+      # Shares the module and build caches with the E2E compile job in
       # integration-tests.yml, which is the single writer (it runs on every
       # develop push; this workflow only reaches develop via dispatch). Restore
       # only, so the two jobs can never race to save the same key.
-      - name: Restore Go caches
+      - name: Restore Go module cache
         uses: actions/cache/restore@v6
         with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-integration-tests-v1-${{ hashFiles('system-tests/tests/go.sum', 'integration-tests/go.sum') }}
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-gomod-integration-tests-${{ hashFiles('system-tests/tests/go.sum', 'integration-tests/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-integration-tests-v1-
+            ${{ runner.os }}-gomod-integration-tests-
+
+      - name: Restore Go build cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-gobuild-integration-tests-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-gobuild-integration-tests-
 
       - name: Compile E2E test binaries and tools
         shell: bash

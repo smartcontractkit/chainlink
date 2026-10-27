@@ -87,7 +87,7 @@ const (
 	registerTriggerLogNeedle = "RegisterTrigger called"
 	// duplicateInFamilyCapWarnNeedle matches the launcher warning that fires when
 	// discovery would route to the lowest DON ID because several in-family DONs
-	// host the same capability - the silent-mis-routing sentinel this topology
+	// host the same capability - the silent misrouting sentinel this topology
 	// must never trigger.
 	duplicateInFamilyCapWarnNeedle = "multiple in-family capability DONs host the same capability"
 	// evmReadWorkflowUserLog is the user log the evmread workflow emits once its

@@ -204,17 +204,13 @@ jobs:
           path: integration-tests/bin/
           key: test-binaries-${{ inputs.chainlink_version || github.sha }}
 
-      - name: Add pre-compiled test tools to PATH
-        shell: bash
-        run: |
-          BIN="$GITHUB_WORKSPACE/integration-tests/bin"
-          echo "$BIN" >> "$GITHUB_PATH"
-          # A standalone workflow_dispatch run has no compile-tests job to pre-install
-          # gotestsum, so only install when the binary cache was cold.
-          if [[ ! -x "$BIN/gotestsum" ]]; then
-            echo "gotestsum missing from the test binary cache; installing"
-            GOBIN="$BIN" go install gotest.tools/gotestsum@v1.13.0
-          fi
+      # compile-tests installs gotestsum alongside the test binaries, so a cache
+      # hit needs no install. A cold cache (standalone workflow_dispatch) falls
+      # back to installing it.
+      - name: Setup gotestsum
+        uses: ./.github/actions/setup-gotestsum
+        with:
+          bin-dir: ${{ github.workspace }}/integration-tests/bin
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3

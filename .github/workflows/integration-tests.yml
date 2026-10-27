@@ -588,9 +588,9 @@ jobs:
             echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
           fi
 
-  # Central writer for the unified `integration-tests-v1` build cache consumed (restore-only) by
-  # CRE smoke + regression matrices and CCIP test suites.
-  # Keyed on go.sum hash to optimize parallel PR cache hits (Strategy A + B + C).
+  # Single writer for the shared Go caches: the go.sum-keyed module cache (saved on
+  # develop only) and the per-commit build cache. The in-memory compile job in
+  # integration-in-memory-tests.yml restores both and never writes them.
   compile-tests:
     name: Compile CRE & CCIP Tests
     if: >-
@@ -648,33 +648,46 @@ jobs:
           go-version-file: system-tests/tests/go.mod
           cache: false
 
-      # Shared `integration-tests-v1` caches for every job that compiles Go code.
-      # develop is the single writer; PRs and the merge queue restore only, which
-      # avoids upload overhead and cache thrashing. Keyed on go.sum so a dependency
-      # change busts the cache.
-      - name: Restore Go caches (PR & merge queue)
+      # Module cache: content-addressed by go.sum, so one develop entry stays valid
+      # until a dependency changes. develop is the single writer; PRs and the
+      # merge queue restore only, which avoids upload overhead and cache thrashing.
+      - name: Restore Go module cache (PR & merge queue)
         if: github.ref_name != 'develop'
         uses: actions/cache/restore@v6
         with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-integration-tests-v1-${{ hashFiles('system-tests/tests/go.sum', 'integration-tests/go.sum') }}
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-gomod-integration-tests-${{ hashFiles('system-tests/tests/go.sum', 'integration-tests/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-integration-tests-v1-
+            ${{ runner.os }}-gomod-integration-tests-
 
-      # Single writer for the shared `integration-tests-v1` caches: this job runs
-      # on every develop push; the in-memory compile job restores only.
-      - name: Restore and save Go caches (develop)
+      # Single writer for the shared module cache: this job runs on every develop
+      # push; the in-memory compile job restores only.
+      - name: Restore and save Go module cache (develop)
         if: github.ref_name == 'develop'
         uses: actions/cache@v6
         with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-integration-tests-v1-${{ hashFiles('system-tests/tests/go.sum', 'integration-tests/go.sum') }}
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-gomod-integration-tests-${{ hashFiles('system-tests/tests/go.sum', 'integration-tests/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-integration-tests-v1-
+            ${{ runner.os }}-gomod-integration-tests-
+
+      # Build cache: keyed on the commit and upserted on every run. Keying it on
+      # go.sum alone would freeze the entry at the first build for a given
+      # dependency set, since an exact hit skips the save.
+      - name: Restore Go build cache
+        id: build-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-gobuild-integration-tests-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-gobuild-integration-tests-
+
+      # Resolved once so the restore and save steps cannot drift apart.
+      - name: Resolve CRE runtime module cache key
+        id: cre-runtime-cache-key
+        shell: bash
+        run: echo "key=cre-runtime-gomod-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('system-tests/tests/smoke/cre/**/go.sum', 'system-tests/tests/regression/cre/**/go.sum', 'core/scripts/go.sum', 'go.sum') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore CRE runtime module cache
         id: cre-runtime-cache
@@ -682,7 +695,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: ${{ runner.temp }}/cre-runtime-gomod
-          key: cre-runtime-gomod-${{ hashFiles('system-tests/tests/smoke/cre/**/go.sum', 'system-tests/tests/regression/cre/**/go.sum', 'core/scripts/go.sum', 'go.sum') }}
+          key: ${{ steps.cre-runtime-cache-key.outputs.key }}
 
       # This job's purpose is to (re)populate the shared caches, so it always
       # downloads and compiles rather than short-circuiting on a cache hit.
@@ -743,6 +756,9 @@ jobs:
 
           # Plain unit tests that live in the smoke/cre package. They need no CRE
           # environment, so they run here instead of as 16-CPU matrix jobs.
+          # Convention: `Test_CRE_*` names are the Docker-dependent E2E tests owned
+          # by the matrix in cre-system-tests.yaml; every other test name here must
+          # stay runnable without an environment, because this job gates that matrix.
           - name: Run CRE smoke unit tests
             if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
             working-directory: system-tests/tests
@@ -793,12 +809,19 @@ jobs:
         if: always()
         run: rm -rf "$GITHUB_WORKSPACE/.gotmp"
 
+      - name: Save Go build cache
+        if: github.event_name != 'merge_group' && steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-gobuild-integration-tests-${{ github.sha }}
+
       - name: Save CRE runtime module cache
         if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && steps.cre-runtime-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: ${{ runner.temp }}/cre-runtime-gomod
-          key: cre-runtime-gomod-${{ hashFiles('system-tests/tests/smoke/cre/**/go.sum', 'system-tests/tests/regression/cre/**/go.sum', 'core/scripts/go.sum', 'go.sum') }}
+          key: ${{ steps.cre-runtime-cache-key.outputs.key }}
 
       - name: Cache Pre-Compiled CRE Test Binaries
         if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'

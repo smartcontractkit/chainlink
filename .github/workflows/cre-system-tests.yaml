@@ -78,6 +78,11 @@ jobs:
         id: spot
         uses: $/.github/actions/setup-runner-spot
 
+      # `ci matrix system` below needs the CI CLI. setup-runner-spot installs it
+      # today, but matrix generation must not depend on that side effect.
+      - name: Setup CI CLI
+        uses: $/.github/actions/setup-ci-cli
+
       - name: Define test matrix
         id: define-matrix
         shell: bash
@@ -134,7 +139,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: ${{ runner.temp }}/cre-runtime-gomod
-          key: cre-runtime-gomod-${{ hashFiles('system-tests/tests/smoke/cre/**/go.sum', 'system-tests/tests/regression/cre/**/go.sum', 'core/scripts/go.sum', 'go.sum') }}
+          key: cre-runtime-gomod-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('system-tests/tests/smoke/cre/**/go.sum', 'system-tests/tests/regression/cre/**/go.sum', 'core/scripts/go.sum', 'go.sum') }}
 
       - name: Point Go at the runtime module cache
         shell: bash
@@ -146,17 +151,13 @@ jobs:
           path: system-tests/tests/bin/
           key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
 
-      - name: Add pre-compiled test tools to PATH
-        shell: bash
-        run: |
-          BIN="$GITHUB_WORKSPACE/system-tests/tests/bin"
-          echo "$BIN" >> "$GITHUB_PATH"
-          # A standalone workflow_dispatch run has no compile-tests job to pre-install
-          # gotestsum, so only install when the binary cache was cold.
-          if [[ ! -x "$BIN/gotestsum" ]]; then
-            echo "gotestsum missing from the test binary cache; installing"
-            GOBIN="$BIN" go install gotest.tools/gotestsum@v1.13.0
-          fi
+      # compile-tests installs gotestsum alongside the test binaries, so a cache
+      # hit needs no install. A cold cache (standalone workflow_dispatch) falls
+      # back to installing it.
+      - name: Setup gotestsum
+        uses: ./.github/actions/setup-gotestsum
+        with:
+          bin-dir: ${{ github.workspace }}/system-tests/tests/bin
 
       # Required to pull Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) private images
       - name: Configure AWS Credentials
