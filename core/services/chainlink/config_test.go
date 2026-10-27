@@ -574,7 +574,6 @@ func TestConfig_Marshal(t *testing.T) {
 		FaultInjection: toml.MeteringFaultInjection{
 			Mode:     new("perturb"),
 			Rate:     new(0.1),
-			Salt:     new("canary"),
 			Delta:    new(int64(7)),
 			NodeRate: new(0.5),
 		},

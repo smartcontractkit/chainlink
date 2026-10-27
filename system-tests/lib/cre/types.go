@@ -457,7 +457,6 @@ type GenerateConfigsInput struct {
 type MeteringFaultInjection struct {
 	Mode     string  `toml:"mode"`
 	Rate     float64 `toml:"rate"`
-	Salt     string  `toml:"salt"`
 	Delta    int64   `toml:"delta"`
 	NodeRate float64 `toml:"node_rate"`
 }

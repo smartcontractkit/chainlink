@@ -575,7 +575,6 @@ func meteringNodeConfig(donMetadata *cre.DonMetadata, nodeIndex int, fault *cre.
 		cfg.FaultInjection = coretoml.MeteringFaultInjection{
 			Mode:     new(fault.Mode),
 			Rate:     new(fault.Rate),
-			Salt:     new(fault.Salt),
 			Delta:    new(fault.Delta),
 			NodeRate: new(fault.NodeRate),
 		}

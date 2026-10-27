@@ -374,7 +374,6 @@ NodeID = ''
 [Metering.FaultInjection]
 Mode = ''
 Rate = 0.0
-Salt = ''
 Delta = 0
 NodeRate = 1.0
 

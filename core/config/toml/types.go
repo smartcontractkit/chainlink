@@ -3249,8 +3249,6 @@ type MeteringFaultInjection struct {
 	Mode *string
 	// Rate is the fraction of usage events selected (0..1), keyed on event id.
 	Rate *float64
-	// Salt mixes into the selection hash so reconcilers can recompute the sample.
-	Salt *string
 	// Delta is added to the value in perturb mode.
 	Delta *int64
 	// NodeRate is the fraction of nodes applying a perturb (0..1; 1 = all).
@@ -3263,9 +3261,6 @@ func (b *MeteringFaultInjection) setFrom(f *MeteringFaultInjection) {
 	}
 	if v := f.Rate; v != nil {
 		b.Rate = v
-	}
-	if v := f.Salt; v != nil {
-		b.Salt = v
 	}
 	if v := f.Delta; v != nil {
 		b.Delta = v

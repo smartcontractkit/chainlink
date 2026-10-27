@@ -2618,7 +2618,6 @@ NodeID is the node's logical name, e.g. 'clp-cre-wf-zone-a-1' (not the CSA publi
 [Metering.FaultInjection]
 Mode = '' # Default
 Rate = 0.0 # Default
-Salt = '' # Default
 Delta = 0 # Default
 NodeRate = 1.0 # Default
 ```
@@ -2635,12 +2634,6 @@ Mode is '' (off), 'drop' (skip emission on every node) or 'perturb' (add Delta t
 Rate = 0.0 # Default
 ```
 Rate is the fraction of usage events selected, keyed on the event id (0..1).
-
-### Salt
-```toml
-Salt = '' # Default
-```
-Salt mixes into the selection hash so reconcilers can recompute the sample.
 
 ### Delta
 ```toml

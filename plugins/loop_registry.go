@@ -194,7 +194,6 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		fault := m.cfgMetering.FaultInjection()
 		envCfg.MeterFaultMode = fault.Mode
 		envCfg.MeterFaultRate = fault.Rate
-		envCfg.MeterFaultSalt = fault.Salt
 		envCfg.MeterFaultDelta = fault.Delta
 		envCfg.MeterFaultNodeRate = fault.NodeRate
 	}

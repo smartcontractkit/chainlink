@@ -78,9 +78,6 @@ func (b *meteringConfig) FaultInjection() resourcemanager.UsageFaultInjection {
 	if f.Rate != nil {
 		out.Rate = *f.Rate
 	}
-	if f.Salt != nil {
-		out.Salt = *f.Salt
-	}
 	if f.Delta != nil {
 		out.Delta = *f.Delta
 	}

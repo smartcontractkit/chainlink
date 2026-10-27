@@ -945,8 +945,6 @@ NodeID = '' # Default
 Mode = '' # Default
 # Rate is the fraction of usage events selected, keyed on the event id (0..1).
 Rate = 0.0 # Default
-# Salt mixes into the selection hash so reconcilers can recompute the sample.
-Salt = '' # Default
 # Delta is added to the value in perturb mode.
 Delta = 0 # Default
 # NodeRate is the fraction of nodes that apply a perturb (0..1; 1 = all nodes).

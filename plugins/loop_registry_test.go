@@ -133,7 +133,7 @@ func (m mockCfgMetering) Environment() string         { return "production" }
 func (m mockCfgMetering) Zone() string                { return "wf-zone-a" }
 func (m mockCfgMetering) NodeID() string              { return "clp-cre-wf-zone-a-1" }
 func (m mockCfgMetering) FaultInjection() resourcemanager.UsageFaultInjection {
-	return resourcemanager.UsageFaultInjection{Mode: "perturb", Rate: 0.1, Salt: "canary", Delta: 7, NodeRate: 0.5}
+	return resourcemanager.UsageFaultInjection{Mode: "perturb", Rate: 0.1, Delta: 7, NodeRate: 0.5}
 }
 
 type mockPrometheusBridge struct{}
@@ -306,7 +306,6 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, "clp-cre-wf-zone-a-1", envCfg.MeterNodeID)
 	require.Equal(t, "perturb", envCfg.MeterFaultMode)
 	require.Equal(t, 0.1, envCfg.MeterFaultRate)
-	require.Equal(t, "canary", envCfg.MeterFaultSalt)
 	require.Equal(t, int64(7), envCfg.MeterFaultDelta)
 	require.Equal(t, 0.5, envCfg.MeterFaultNodeRate)
 	require.Equal(t, []string{"event_id"}, envCfg.TelemetryMetricViewsDenyAttributes)
