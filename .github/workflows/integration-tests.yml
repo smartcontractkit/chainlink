@@ -617,6 +617,10 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      # setup-github-token rewrites git to use the token, so private modules resolve
+      # without the extra git config ctf-setup-go used to add.
+      GOPRIVATE: github.com/smartcontractkit/*
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@efac073ea2507ec18797de3a81704201ade11d9d # v2.3.1
@@ -639,20 +643,47 @@ jobs:
           ref: ${{ env.CHAINLINK_REF }}
 
       - name: Set up Go for compilation
-        id: setup-go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+        uses: actions/setup-go@v7
         with:
-          # Key the cache on go.sum hash; restore-only on PRs to eliminate upload overhead and cache thrashing.
-          go_mod_path: ./system-tests/tests/go.mod
-          cache_key_id: integration-tests-v1
-          cache_builds: true
-          cache_restore_only: ${{ github.ref_name != 'develop' }}
-          should_tidy: false
-          no_cache: false
-          gati_token: ${{ steps.github-token.outputs.access-token }}
+          go-version-file: system-tests/tests/go.mod
+          cache: false
 
-      # No cache-hit short-circuit: ctf-setup-go@v0.4.0 exposes no `cache-hit` output,
-      # and this job's purpose is to (re)populate the shared build cache regardless.
+      # Shared `integration-tests-v1` caches for every job that compiles Go code.
+      # develop is the single writer; PRs and the merge queue restore only, which
+      # avoids upload overhead and cache thrashing. Keyed on go.sum so a dependency
+      # change busts the cache.
+      - name: Restore Go caches (PR & merge queue)
+        if: github.ref_name != 'develop'
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-integration-tests-v1-${{ hashFiles('system-tests/tests/go.sum', 'integration-tests/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-integration-tests-v1-
+
+      - name: Restore and save Go caches (develop)
+        if: github.ref_name == 'develop'
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-integration-tests-v1-${{ hashFiles('system-tests/tests/go.sum', 'integration-tests/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-integration-tests-v1-
+
+      - name: Restore CRE runtime module cache
+        id: cre-runtime-cache
+        if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/cre-runtime-gomod
+          key: cre-runtime-gomod-${{ hashFiles('system-tests/tests/smoke/cre/**/go.sum', 'system-tests/tests/regression/cre/**/go.sum', 'core/scripts/go.sum', 'go.sum') }}
+
+      # This job's purpose is to (re)populate the shared caches, so it always
+      # downloads and compiles rather than short-circuiting on a cache hit.
       - name: Prep Go module cache & workspace
         shell: bash
         env:
@@ -708,6 +739,47 @@ jobs:
               GOTMPDIR: ${{ github.workspace }}/.gotmp
             run: go test -count=1 ./test-helpers/...
 
+          # Plain unit tests that live in the smoke/cre package. They need no CRE
+          # environment, so they run here instead of as 16-CPU matrix jobs.
+          - name: Run CRE smoke unit tests
+            if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+            working-directory: system-tests/tests
+            env:
+              GOTMPDIR: ${{ github.workspace }}/.gotmp
+            run: go test -count=1 -run '^Test[^_]' ./smoke/cre
+
+          # Installed into the test binary caches so matrix jobs need no `go install`.
+          - name: Install gotestsum for CRE matrix jobs
+            if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+            env:
+              GOBIN: ${{ github.workspace }}/system-tests/tests/bin
+            run: go install gotest.tools/gotestsum@v1.13.0
+
+          - name: Install gotestsum for CCIP matrix jobs
+            if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
+            env:
+              GOBIN: ${{ github.workspace }}/integration-tests/bin
+            run: go install gotest.tools/gotestsum@v1.13.0
+
+          # Small module cache for what the pre-compiled tests resolve at runtime:
+          # the workflow modules they compile, and the module graph `go list -m`
+          # reads for chip-ingress schema refs.
+          - name: Warm CRE runtime module cache
+            if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+            shell: bash
+            env:
+              GOMODCACHE: ${{ runner.temp }}/cre-runtime-gomod
+            run: |
+              set -uo pipefail
+              # A failed warm only means matrix jobs fall back to the network, so
+              # warn instead of failing the compile job on a flaky download.
+              find system-tests/tests/smoke/cre system-tests/tests/regression/cre -name go.mod -execdir go mod download \; \
+                || echo "::warning::some CRE workflow modules failed to warm"
+              go list -m all > /dev/null \
+                || echo "::warning::failed to warm the root module graph"
+              (cd core/scripts && go list -m all > /dev/null) \
+                || echo "::warning::failed to warm the core/scripts module graph"
+
           - name: Compile CCIP smoke test
             if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
             working-directory: integration-tests
@@ -718,6 +790,13 @@ jobs:
       - name: Cleanup tempdir
         if: always()
         run: rm -rf "$GITHUB_WORKSPACE/.gotmp"
+
+      - name: Save CRE runtime module cache
+        if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && steps.cre-runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/cre-runtime-gomod
+          key: cre-runtime-gomod-${{ hashFiles('system-tests/tests/smoke/cre/**/go.sum', 'system-tests/tests/regression/cre/**/go.sum', 'core/scripts/go.sum', 'go.sum') }}
 
       - name: Cache Pre-Compiled CRE Test Binaries
         if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'

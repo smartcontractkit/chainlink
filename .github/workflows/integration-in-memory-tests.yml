@@ -181,6 +181,10 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      # setup-github-token rewrites git to use the token, so private modules resolve
+      # without the extra git config ctf-setup-go used to add.
+      GOPRIVATE: github.com/smartcontractkit/*
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
@@ -203,15 +207,34 @@ jobs:
           ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
 
       - name: Set up Go for compilation
-        id: setup-go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+        uses: actions/setup-go@v7
         with:
-          go_mod_path: integration-tests/go.mod
-          cache_key_id: integration-tests-v1
-          cache_builds: true
-          cache_restore_only: ${{ github.ref_name != 'develop' }}
-          should_tidy: false
-          gati_token: ${{ steps.github-token.outputs.access-token }}
+          go-version-file: integration-tests/go.mod
+          cache: false
+
+      # Shares the `integration-tests-v1` caches with the E2E compile job.
+      # develop is the single writer; PRs and the merge queue restore only.
+      - name: Restore Go caches (PR & merge queue)
+        if: github.ref_name != 'develop'
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-integration-tests-v1-${{ hashFiles('system-tests/tests/go.sum', 'integration-tests/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-integration-tests-v1-
+
+      - name: Restore and save Go caches (develop)
+        if: github.ref_name == 'develop'
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-integration-tests-v1-${{ hashFiles('system-tests/tests/go.sum', 'integration-tests/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-integration-tests-v1-
 
       - name: Compile E2E test binaries and tools
         shell: bash
