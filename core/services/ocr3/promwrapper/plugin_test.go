@@ -128,21 +128,26 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 
 func Test_DurationHistograms(t *testing.T) {
 	t.Parallel()
+	// The collectors are package-level, so tests in this file that run in parallel must
+	// not share label values. Keep the EVM chain ID distinct from the one used by
+	// Test_ReportsGeneratedGauge ("1") so the deltas below only count this test's samples.
+	const evmChainID = "2"
+
 	// Capture initial histogram sample counts (accumulate across -count=N)
-	initEvmQueryTrue := counterFromHistogramByLabels(t, promOCR3Durations, "evm", "2", "empty", "query", "true")
-	initEvmQueryFalse := counterFromHistogramByLabels(t, promOCR3Durations, "evm", "2", "empty", "query", "false")
+	initEvmQueryTrue := counterFromHistogramByLabels(t, promOCR3Durations, "evm", evmChainID, "empty", "query", "true")
+	initEvmQueryFalse := counterFromHistogramByLabels(t, promOCR3Durations, "evm", evmChainID, "empty", "query", "false")
 	initSolQuery := counterFromHistogramByLabels(t, promOCR3Durations, "solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "commit", "query", "true")
-	initEvmObsTrue := counterFromHistogramByLabels(t, promOCR3Durations, "evm", "2", "empty", "observation", "true")
-	initEvmObsFalse := counterFromHistogramByLabels(t, promOCR3Durations, "evm", "2", "empty", "observation", "false")
+	initEvmObsTrue := counterFromHistogramByLabels(t, promOCR3Durations, "evm", evmChainID, "empty", "observation", "true")
+	initEvmObsFalse := counterFromHistogramByLabels(t, promOCR3Durations, "evm", evmChainID, "empty", "observation", "false")
 	initSolObs := counterFromHistogramByLabels(t, promOCR3Durations, "solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "commit", "observation", "true")
 
 	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{},
-		"evm", "2", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
+		"evm", evmChainID, "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 	plugin2 := newReportingPlugin(
 		fakePlugin[uint]{err: errors.New("error")},
-		"evm", "2", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
+		"evm", evmChainID, "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 	plugin3 := newReportingPlugin(
 		fakePlugin[uint]{},
@@ -161,12 +166,12 @@ func Test_DurationHistograms(t *testing.T) {
 		_, _ = p.ShouldTransmitAcceptedReport(t.Context(), 0, ocr3types.ReportWithInfo[uint]{})
 	}
 
-	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "evm", "2", "empty", "query", "true")-initEvmQueryTrue)
-	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "evm", "2", "empty", "query", "false")-initEvmQueryFalse)
+	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "evm", evmChainID, "empty", "query", "true")-initEvmQueryTrue)
+	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "evm", evmChainID, "empty", "query", "false")-initEvmQueryFalse)
 	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "commit", "query", "true")-initSolQuery)
 
-	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "evm", "2", "empty", "observation", "true")-initEvmObsTrue)
-	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "evm", "2", "empty", "observation", "false")-initEvmObsFalse)
+	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "evm", evmChainID, "empty", "observation", "true")-initEvmObsTrue)
+	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "evm", evmChainID, "empty", "observation", "false")-initEvmObsFalse)
 	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "commit", "observation", "true")-initSolObs)
 }
 
