@@ -118,7 +118,7 @@ func TestCoordinator_RegisterTriggers(t *testing.T) {
 	t.Run("subscribe failure frees the limit and closes the queue", func(t *testing.T) {
 		t.Parallel()
 		admission, queues := newTrackedAdmission()
-		f := newCoordinatorFixtureWithAdmission(t, admission)
+		f := newCoordinatorFixture(t, withAdmission(admission))
 		sub := newTestSubscriber()
 		sub.err = errors.New("wasm boom")
 
@@ -135,7 +135,7 @@ func TestCoordinator_RegisterTriggers(t *testing.T) {
 		admission.NewTriggerEventQueue = func() (limits.QueueLimiter[CoordinatedEvent], error) {
 			return nil, errors.New("queue boom")
 		}
-		f := newCoordinatorFixtureWithAdmission(t, admission)
+		f := newCoordinatorFixture(t, withAdmission(admission))
 		sub := newTestSubscriber()
 
 		_, err := f.c.RegisterTriggers(t.Context(), sub, testParams(t))
@@ -161,7 +161,8 @@ func TestCoordinator_RegisterTriggers(t *testing.T) {
 // carry the sdk label.
 func TestCoordinator_MetricsIncludeSdkLabel(t *testing.T) {
 	t.Parallel()
-	f, reader := newMeteredCoordinatorFixture(t, newTestAdmission())
+	wfMetrics, reader := newTestMeterMetrics(t)
+	f := newCoordinatorFixture(t, withMetrics(wfMetrics))
 	trigger, _ := f.expectTrigger(t)
 	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
 
@@ -194,7 +195,8 @@ func TestCoordinator_NoDeliver(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			f, reader := newMeteredCoordinatorFixture(t, newTestAdmission())
+			wfMetrics, reader := newTestMeterMetrics(t)
+			f := newCoordinatorFixture(t, withMetrics(wfMetrics))
 			trigger, eventCh := f.expectTrigger(t)
 			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
 
@@ -241,7 +243,8 @@ func TestCoordinator_DeliverAdmission(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			f, reader := newMeteredCoordinatorFixture(t, newTestAdmission())
+			wfMetrics, reader := newTestMeterMetrics(t)
+			f := newCoordinatorFixture(t, withMetrics(wfMetrics))
 			f.engine.err = tc.engineErr
 			trigger, eventCh := f.expectTrigger(t)
 			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
@@ -319,7 +322,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 	t.Run("registration state is gone, the slot is freed and the queue is closed when no execution is in flight", func(t *testing.T) {
 		t.Parallel()
 		admission, queues := newTrackedAdmission()
-		f := newCoordinatorFixtureWithAdmission(t, admission)
+		f := newCoordinatorFixture(t, withAdmission(admission))
 		trigger, _ := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.MatchedBy(func(req capabilities.TriggerRegistrationRequest) bool {
 			return req.TriggerID == RegistrationID(validWorkflowID, 0) && req.Method == testMethod
@@ -473,7 +476,7 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 func TestCoordinator_ReRegisterWhileDraining(t *testing.T) {
 	t.Parallel()
 	admission, queues := newTrackedAdmission()
-	f := newCoordinatorFixtureWithAdmission(t, admission)
+	f := newCoordinatorFixture(t, withAdmission(admission))
 
 	oldTrigger, oldCh := f.expectTrigger(t)
 	oldTrigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
@@ -574,7 +577,8 @@ func TestCoordinator_Admission(t *testing.T) {
 	t.Run("a full queue drops the event and the reader keeps reading", func(t *testing.T) {
 		t.Parallel()
 		admission, pool := singleSlot(func(a *AdmissionLimiters) { a.NewTriggerEventQueue = newTestQueue(1) })
-		f, reader := newMeteredCoordinatorFixture(t, admission)
+		wfMetrics, reader := newTestMeterMetrics(t)
+		f := newCoordinatorFixture(t, withAdmission(admission), withMetrics(wfMetrics))
 		trigger, eventCh := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
 		release := f.holdExecutions(t)
@@ -624,7 +628,8 @@ func TestCoordinator_Admission(t *testing.T) {
 		t.Parallel()
 		queues := &queueTracker{}
 		admission, pool := singleSlot(func(a *AdmissionLimiters) { a.NewTriggerEventQueue = queues.newQueue })
-		f, reader := newMeteredCoordinatorFixture(t, admission)
+		wfMetrics, reader := newTestMeterMetrics(t)
+		f := newCoordinatorFixture(t, withAdmission(admission), withMetrics(wfMetrics))
 		trigger, eventCh := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
 		release := f.holdExecutions(t)
@@ -652,7 +657,8 @@ func TestCoordinator_Admission(t *testing.T) {
 	t.Run("unregistering with nothing queued drops nothing", func(t *testing.T) {
 		t.Parallel()
 		admission, queues := newTrackedAdmission()
-		f, reader := newMeteredCoordinatorFixture(t, admission)
+		wfMetrics, reader := newTestMeterMetrics(t)
+		f := newCoordinatorFixture(t, withAdmission(admission), withMetrics(wfMetrics))
 		trigger, eventCh := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
 		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
@@ -672,7 +678,8 @@ func TestCoordinator_Admission(t *testing.T) {
 		admission, pool := singleSlot(func(a *AdmissionLimiters) {
 			a.TriggerEventQueueTimeout = limits.NewUpperBoundLimiter(time.Minute)
 		})
-		f, reader := newMeteredCoordinatorFixture(t, admission)
+		wfMetrics, reader := newTestMeterMetrics(t)
+		f := newCoordinatorFixture(t, withAdmission(admission), withMetrics(wfMetrics))
 		trigger, eventCh := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
 		release := f.holdExecutions(t)
@@ -704,7 +711,7 @@ func TestCoordinator_Admission(t *testing.T) {
 		t.Parallel()
 		timeout := &mutableTimeoutLimiter{value: time.Minute}
 		admission, pool := singleSlot(func(a *AdmissionLimiters) { a.TriggerEventQueueTimeout = timeout })
-		f := newCoordinatorFixtureWithAdmission(t, admission)
+		f := newCoordinatorFixture(t, withAdmission(admission))
 		trigger, eventCh := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
 		release := f.holdExecutions(t)
@@ -746,7 +753,7 @@ func TestCoordinator_AvailableCapacity(t *testing.T) {
 		}
 		admission := newTestAdmission()
 		admission.ExecutionConcurrency = pools
-		f := newCoordinatorFixtureWithAdmission(t, admission)
+		f := newCoordinatorFixture(t, withAdmission(admission))
 		trigger, _ := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
 
@@ -770,7 +777,7 @@ func TestCoordinator_AvailableCapacity(t *testing.T) {
 			limits.GlobalResourcePoolLimiter(7), // org
 			limits.GlobalResourcePoolLimiter(9), // global
 		}
-		f := newCoordinatorFixtureWithAdmission(t, admission)
+		f := newCoordinatorFixture(t, withAdmission(admission))
 		trigger, eventCh := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
 		release := f.holdExecutions(t)
@@ -905,7 +912,7 @@ func TestCoordinator_DropObservability(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 				lggr, errorLogs := logger.TestObserved(t, zapcore.ErrorLevel)
-				f := newCoordinatorFixtureWithLogger(t, lggr)
+				f := newCoordinatorFixture(t, withLogger(lggr))
 				trigger, eventCh := f.expectTrigger(t)
 				trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
 				trigger.EXPECT().AckEvent(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
@@ -923,7 +930,7 @@ func TestCoordinator_DropObservability(t *testing.T) {
 		t.Run("an unexpected execution error still logs at error", func(t *testing.T) {
 			t.Parallel()
 			lggr, errorLogs := logger.TestObserved(t, zapcore.ErrorLevel)
-			f := newCoordinatorFixtureWithLogger(t, lggr)
+			f := newCoordinatorFixture(t, withLogger(lggr))
 			trigger, eventCh := f.expectTrigger(t)
 			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
 			f.engine.err = errors.New("boom")

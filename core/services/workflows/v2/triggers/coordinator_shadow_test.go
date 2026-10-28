@@ -110,8 +110,8 @@ func registerWorkflow(t *testing.T, f *coordinatorFixture, sub *fakeSubscriber) 
 func TestCoordinator_ShadowDisabledByDefault(t *testing.T) {
 	t.Parallel()
 	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
-	f := newCoordinatorFixtureAt(t, clockwork.NewFakeClockAt(shadowStart), newTestAdmission(),
-		WithShadowMode(q, newShadowMode(t, "")))
+	f := newCoordinatorFixture(t, withClock(clockwork.NewFakeClockAt(shadowStart)),
+		withCoordinatorOptions(WithShadowMode(q, newShadowMode(t, ""))))
 	eventCh := registerWorkflow(t, f, newTestSubscriber())
 
 	eventCh <- triggerEvent("evt-1")
@@ -129,7 +129,7 @@ func TestCoordinator_ShadowWindow(t *testing.T) {
 	t.Parallel()
 	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
 	shadow := newShadowMode(t, globalWindow(shadowStart.Add(time.Minute), shadowStart.Add(3*time.Minute)))
-	f := newCoordinatorFixtureAt(t, clockwork.NewFakeClockAt(shadowStart), newTestAdmission(), WithShadowMode(q, shadow))
+	f := newCoordinatorFixture(t, withClock(clockwork.NewFakeClockAt(shadowStart)), withCoordinatorOptions(WithShadowMode(q, shadow)))
 	eventCh := registerWorkflow(t, f, newTestSubscriber())
 
 	// Each event is handled before the clock moves, so its observed time is exact.
@@ -165,8 +165,8 @@ func TestCoordinator_ShadowSettingChange(t *testing.T) {
 	future := globalWindow(shadowStart.Add(time.Hour), shadowStart.Add(2*time.Hour))
 	getter := &swapGetter{}
 	getter.set(t, covering)
-	f := newCoordinatorFixtureAt(t, clockwork.NewFakeClockAt(shadowStart), newTestAdmission(),
-		WithShadowMode(q, newShadowModeFrom(t, getter)))
+	f := newCoordinatorFixture(t, withClock(clockwork.NewFakeClockAt(shadowStart)),
+		withCoordinatorOptions(WithShadowMode(q, newShadowModeFrom(t, getter))))
 	eventCh := registerWorkflow(t, f, newTestSubscriber())
 
 	sendEvent(t, f, eventCh, "on-1")
@@ -186,8 +186,8 @@ func TestCoordinator_ShadowScopedByTenant(t *testing.T) {
 	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
 	shadow := newShadowMode(t, orgWindow(testOrg, shadowStart.Add(-time.Hour), shadowStart.Add(time.Hour)))
 	wfMetrics, reader := newTestMeterMetrics(t)
-	f := newCoordinatorFixtureWithMetrics(t, clockwork.NewFakeClockAt(shadowStart), newTestAdmission(), wfMetrics,
-		WithShadowMode(q, shadow))
+	f := newCoordinatorFixture(t, withClock(clockwork.NewFakeClockAt(shadowStart)), withMetrics(wfMetrics),
+		withCoordinatorOptions(WithShadowMode(q, shadow)))
 
 	otherWorkflowID := strings.Repeat("cd", 32)
 	otherWID, err := types.WorkflowIDFromHex(otherWorkflowID)
@@ -308,8 +308,8 @@ func TestCoordinator_ShadowPreAdmission(t *testing.T) {
 				tt.setup(&admission)
 			}
 			shadow := newShadowMode(t, globalWindow(shadowStart.Add(-time.Hour), shadowStart.Add(time.Hour)))
-			f := newCoordinatorFixtureAt(t, clockwork.NewFakeClockAt(shadowStart), admission,
-				WithShadowMode(&recordingQueue{Queue: central, log: log}, shadow))
+			f := newCoordinatorFixture(t, withClock(clockwork.NewFakeClockAt(shadowStart)), withAdmission(admission),
+				withCoordinatorOptions(WithShadowMode(&recordingQueue{Queue: central, log: log}, shadow)))
 			engine := f.engine
 			eventCh := registerWorkflow(t, f, newTestSubscriber())
 
@@ -372,8 +372,8 @@ func TestCoordinator_ShadowBestEffort(t *testing.T) {
 			wfMetrics, reader := newTestMeterMetrics(t)
 			central, check := tt.setup(t)
 			shadow := newShadowMode(t, globalWindow(shadowStart.Add(-time.Hour), shadowStart.Add(time.Hour)))
-			f := newCoordinatorFixtureWithMetrics(t, clockwork.NewFakeClockAt(shadowStart), newTestAdmission(), wfMetrics,
-				WithShadowMode(central, shadow))
+			f := newCoordinatorFixture(t, withClock(clockwork.NewFakeClockAt(shadowStart)), withMetrics(wfMetrics),
+				withCoordinatorOptions(WithShadowMode(central, shadow)))
 			eventCh := registerWorkflow(t, f, newTestSubscriber())
 
 			eventCh <- triggerEvent("evt-1")

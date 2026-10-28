@@ -178,64 +178,60 @@ type coordinatorFixture struct {
 	engine  *fakeEngine
 }
 
-// newCoordinatorFixture starts a coordinator with one coordinated engine
-// already in the registry for testTenant's workflow.
-func newCoordinatorFixture(t *testing.T) *coordinatorFixture {
-	t.Helper()
-	return newCoordinatorFixtureWithAdmission(t, newTestAdmission())
+// fixtureConfig holds the parts of a coordinatorFixture a test can replace with a fixtureOption.
+type fixtureConfig struct {
+	clock     *clockwork.FakeClock
+	admission AdmissionLimiters
+	metrics   *monitoring.WorkflowsMetricLabeler
+	lggr      logger.Logger
+	opts      []CoordinatorOption
 }
 
-// newCoordinatorFixtureWithAdmission is newCoordinatorFixture with the given admission limiters.
-func newCoordinatorFixtureWithAdmission(t *testing.T, admission AdmissionLimiters) *coordinatorFixture {
-	t.Helper()
-	return newCoordinatorFixtureWithMetrics(t, clockwork.NewFakeClock(), admission, newTestMetrics(t))
+// fixtureOption changes one part of a coordinatorFixture's setup.
+type fixtureOption func(*fixtureConfig)
+
+// withClock replaces the fixture's fake clock, which otherwise starts at clockwork's default time.
+func withClock(clock *clockwork.FakeClock) fixtureOption {
+	return func(c *fixtureConfig) { c.clock = clock }
 }
 
-// newMeteredCoordinatorFixture is newCoordinatorFixtureWithAdmission with coordinator metrics on a private
-// meter. It returns the reader to collect them. Nothing global is touched, so the test can run in parallel.
-func newMeteredCoordinatorFixture(t *testing.T, admission AdmissionLimiters) (*coordinatorFixture, *sdkmetric.ManualReader) {
-	t.Helper()
-	wfMetrics, reader := newTestMeterMetrics(t)
-	return newCoordinatorFixtureWithMetrics(t, clockwork.NewFakeClock(), admission, wfMetrics), reader
+// withAdmission replaces the default newTestAdmission limiters.
+func withAdmission(admission AdmissionLimiters) fixtureOption {
+	return func(c *fixtureConfig) { c.admission = admission }
 }
 
-// newCoordinatorFixtureAt is newCoordinatorFixtureWithAdmission with the given clock and coordinator options.
-func newCoordinatorFixtureAt(t *testing.T, clock *clockwork.FakeClock, admission AdmissionLimiters, opts ...CoordinatorOption) *coordinatorFixture {
-	t.Helper()
-	return newCoordinatorFixtureWithMetrics(t, clock, admission, newTestMetrics(t), opts...)
+// withMetrics replaces the coordinator metrics, e.g. with newTestMeterMetrics to read them back.
+func withMetrics(metrics *monitoring.WorkflowsMetricLabeler) fixtureOption {
+	return func(c *fixtureConfig) { c.metrics = metrics }
 }
 
-// newCoordinatorFixtureWithMetrics is newCoordinatorFixtureAt with the given coordinator metrics.
-func newCoordinatorFixtureWithMetrics(t *testing.T, clock *clockwork.FakeClock, admission AdmissionLimiters, wfMetrics *monitoring.WorkflowsMetricLabeler, opts ...CoordinatorOption) *coordinatorFixture {
+// withLogger replaces the plain test logger, for tests that assert on log output.
+func withLogger(lggr logger.Logger) fixtureOption {
+	return func(c *fixtureConfig) { c.lggr = lggr }
+}
+
+// withCoordinatorOptions passes opts to NewCoordinator.
+func withCoordinatorOptions(opts ...CoordinatorOption) fixtureOption {
+	return func(c *fixtureConfig) { c.opts = append(c.opts, opts...) }
+}
+
+// newCoordinatorFixture starts a coordinator with one coordinated engine already in the registry for
+// testTenant's workflow. opts replace parts of the default setup.
+func newCoordinatorFixture(t *testing.T, opts ...fixtureOption) *coordinatorFixture {
 	t.Helper()
-	capReg := regmocks.NewCapabilitiesRegistry(t)
-	engines := newFakeEngineRegistry()
-	wfLimits := &fakeWorkflowLimits{}
-
-	wid, err := types.WorkflowIDFromHex(validWorkflowID)
-	require.NoError(t, err)
-	engine := &fakeEngine{coordinated: true}
-	engines.set(wid, engine)
-
-	deps := newRegisterDeps(t, capReg, limits.NewGateLimiter(true))
-	deps.Metrics = wfMetrics
-	c := NewCoordinator(deps, admission, engines, wfLimits, clock, opts...)
-	servicetest.Run(t, c)
-
-	return &coordinatorFixture{
-		c: c.(*coordinator), capReg: capReg, engines: engines, limits: wfLimits,
-		clock: clock, wid: wid, engine: engine,
+	cfg := fixtureConfig{
+		clock:     clockwork.NewFakeClock(),
+		admission: newTestAdmission(),
+		metrics:   newTestMetrics(t),
+		lggr:      logger.Test(t),
 	}
-}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 
-// newCoordinatorFixtureWithLogger is newCoordinatorFixture, but with the given
-// logger instead of a plain test logger, for tests that assert on log output.
-func newCoordinatorFixtureWithLogger(t *testing.T, lggr logger.Logger) *coordinatorFixture {
-	t.Helper()
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	engines := newFakeEngineRegistry()
 	wfLimits := &fakeWorkflowLimits{}
-	clock := clockwork.NewFakeClock()
 
 	wid, err := types.WorkflowIDFromHex(validWorkflowID)
 	require.NoError(t, err)
@@ -243,14 +239,14 @@ func newCoordinatorFixtureWithLogger(t *testing.T, lggr logger.Logger) *coordina
 	engines.set(wid, engine)
 
 	deps := newRegisterDeps(t, capReg, limits.NewGateLimiter(true))
-	deps.Logger = lggr
-
-	c := NewCoordinator(deps, newTestAdmission(), engines, wfLimits, clock)
+	deps.Metrics = cfg.metrics
+	deps.Logger = cfg.lggr
+	c := NewCoordinator(deps, cfg.admission, engines, wfLimits, cfg.clock, cfg.opts...)
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{
 		c: c.(*coordinator), capReg: capReg, engines: engines, limits: wfLimits,
-		clock: clock, wid: wid, engine: engine,
+		clock: cfg.clock, wid: wid, engine: engine,
 	}
 }
 
