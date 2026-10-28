@@ -174,6 +174,17 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 }
 
 func (m *ShardFailoverManager) close() error {
+	// The cache dies with the engine (workflow paused or deleted): its events
+	// leave the funnel as one closed exit batch, or the node-wide cached-events
+	// total stays inflated for the life of the process.
+	m.mu.Lock()
+	cached := int64(len(m.cache))
+	clear(m.cache)
+	m.mu.Unlock()
+	if cached > 0 {
+		fm := shardFailoverMetrics()
+		fm.RecordCacheExit(context.Background(), monitoring.ShardFailoverCacheExitClosed, cached)
+	}
 	if m.cfg.Failover.Communicator != nil {
 		m.cfg.Failover.Communicator.UnregisterHandler(m.cfg.WorkflowID)
 	}
@@ -326,10 +337,15 @@ func (m *ShardFailoverManager) cacheEvent(ctx context.Context, event triggers.Co
 	eventID := event.Event.Event.ID
 	failoverAt := m.timeoutBasedFailoverDeadline(ctx)
 	m.mu.Lock()
+	_, alreadyCached := m.cache[eventID]
 	m.cache[eventID] = cachedEvent{event: event, cachedAt: time.Now(), failoverAt: failoverAt}
 	m.mu.Unlock()
-	fm := shardFailoverMetrics()
-	fm.RecordTriggerCached(ctx)
+	// A redelivered event ID overwrites its own entry; recounting it would
+	// inflate the cached counter and the node-wide total.
+	if !alreadyCached {
+		fm := shardFailoverMetrics()
+		fm.RecordTriggerCached(ctx)
+	}
 	m.cfg.Logger.Infow("secondary shard: cached trigger event for failover",
 		"eventID", eventID,
 		"myShardIndex", m.cfg.MyShardIndex,

@@ -3,7 +3,6 @@ package monitoring
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -17,6 +16,7 @@ const (
 	ShardFailoverCacheExitDrained  = "drained"
 	ShardFailoverCacheExitReplayed = "replayed"
 	ShardFailoverCacheExitExpired  = "expired"
+	ShardFailoverCacheExitClosed   = "closed"
 )
 
 // Outcome values for platform_shard_failover_replay (low cardinality).
@@ -30,18 +30,17 @@ const (
 // the per-workflow ShardFailoverManager instances and the syncer through the
 // shared unlabeled meter. The instruments are per-node aggregates with no
 // per-workflow labels, so all managers on this node emit through this one
-// singleton: cachedTotal carries the node-wide total of cached events, because
-// gauges overwrite rather than sum — per-manager cache lengths would be
-// last-writer-wins and hide the other managers' cached events.
+// singleton: cachedEvents is an up/down counter whose value is the node-wide
+// number of currently cached events (OTel translates it to a Prometheus
+// gauge) — every manager's +1 on cache and -n on exit sums into it, whereas a
+// plain gauge would be last-writer-wins and hide the other managers' events.
 type ShardFailoverMetrics struct {
 	enabledGauge          metric.Int64Gauge
 	triggerCachedCounter  metric.Int64Counter
-	cachedEventsGauge     metric.Int64Gauge
+	cachedEvents          metric.Int64UpDownCounter
 	cacheExitCounter      metric.Int64Counter
 	replayCounter         metric.Int64Counter
 	replayDurationSeconds metric.Float64Histogram
-
-	cachedTotal atomic.Int64
 }
 
 var (
@@ -70,13 +69,13 @@ func newShardFailoverMetrics() (*ShardFailoverMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
-	m.cachedEventsGauge, err = beholder.GetMeter().Int64Gauge("platform_shard_failover_cached_events",
+	m.cachedEvents, err = beholder.GetMeter().Int64UpDownCounter("platform_shard_failover_cached_events",
 		metric.WithDescription("Trigger events currently cached for failover replay, node-wide across all failover managers on this node"))
 	if err != nil {
 		return nil, err
 	}
 	m.cacheExitCounter, err = beholder.GetMeter().Int64Counter("platform_shard_failover_cache_exit",
-		metric.WithDescription("Cached failover trigger events leaving the cache, by outcome: drained (verdict arrived), replayed (popped for replay), expired (pruned without a verdict)"))
+		metric.WithDescription("Cached failover trigger events leaving the cache, by outcome: drained (verdict arrived), replayed (popped for replay), expired (pruned without a verdict), closed (manager shut down with events still cached)"))
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +113,7 @@ func (m *ShardFailoverMetrics) RecordTriggerCached(ctx context.Context) {
 		return
 	}
 	m.triggerCachedCounter.Add(ctx, 1)
-	m.cachedEventsGauge.Record(ctx, m.cachedTotal.Add(1))
+	m.cachedEvents.Add(ctx, 1)
 }
 
 // RecordCacheExit counts n cached events leaving the cache and lowers the
@@ -125,7 +124,7 @@ func (m *ShardFailoverMetrics) RecordCacheExit(ctx context.Context, outcome stri
 		return
 	}
 	m.cacheExitCounter.Add(ctx, n, metric.WithAttributes(attribute.String("outcome", outcome)))
-	m.cachedEventsGauge.Record(ctx, m.cachedTotal.Add(-n))
+	m.cachedEvents.Add(ctx, -n)
 }
 
 // RecordReplay counts one failover replay attempt. outcome must be a

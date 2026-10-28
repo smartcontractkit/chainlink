@@ -89,7 +89,8 @@ func collectFailoverTotals(t *testing.T) failoverTotals {
 	return totals
 }
 
-// failoverGauge returns the last recorded value of a failover gauge.
+// failoverGauge returns the current value of a failover gauge or up/down
+// counter (the cached-events instrument reports as a non-monotonic sum).
 func failoverGauge(t *testing.T, name string) (int64, bool) {
 	t.Helper()
 	var rm metricdata.ResourceMetrics
@@ -99,12 +100,15 @@ func failoverGauge(t *testing.T, name string) (int64, bool) {
 			if m.Name != name {
 				continue
 			}
-			g, ok := m.Data.(metricdata.Gauge[int64])
-			if !ok {
-				return 0, false
-			}
-			for _, dp := range g.DataPoints {
-				return dp.Value, true
+			switch data := m.Data.(type) {
+			case metricdata.Gauge[int64]:
+				for _, dp := range data.DataPoints {
+					return dp.Value, true
+				}
+			case metricdata.Sum[int64]:
+				for _, dp := range data.DataPoints {
+					return dp.Value, true
+				}
 			}
 		}
 	}
@@ -130,10 +134,10 @@ func newFailoverTestManager(t *testing.T, engine *recordingEngine) *ShardFailove
 }
 
 // TestShardFailoverManager_CacheExitFunnel proves the cache-exit funnel
-// invariant: cached = drained + replayed + expired + still-cached. Every
-// cached event leaves exactly one counted exit, a verdict for an event that
-// was never cached is not an exit, and replays record their outcome and
-// duration. The cached-events gauge is a node-wide total across all managers,
+// invariant: cached = drained + replayed + expired + closed + still-cached.
+// Every cached event leaves exactly one counted exit, a verdict for an event
+// that was never cached is not an exit, and replays record their outcome and
+// duration. The cached-events metric is a node-wide total across all managers,
 // so it is asserted as a delta from its pre-test value (the singleton
 // accumulates across tests in this package).
 //
@@ -175,14 +179,16 @@ func TestShardFailoverManager_CacheExitFunnel(t *testing.T) {
 	drained := after.cacheExit[monitoring.ShardFailoverCacheExitDrained] - before.cacheExit[monitoring.ShardFailoverCacheExitDrained]
 	replayed := after.cacheExit[monitoring.ShardFailoverCacheExitReplayed] - before.cacheExit[monitoring.ShardFailoverCacheExitReplayed]
 	expired := after.cacheExit[monitoring.ShardFailoverCacheExitExpired] - before.cacheExit[monitoring.ShardFailoverCacheExitExpired]
+	closed := after.cacheExit[monitoring.ShardFailoverCacheExitClosed] - before.cacheExit[monitoring.ShardFailoverCacheExitClosed]
 	stillCached := int64(len(m.cacheIDs()) + len(failing.cacheIDs()))
 
 	assert.Equal(t, int64(5), cached, "events cached across both managers")
 	assert.Equal(t, int64(1), drained, "drained exits")
 	assert.Equal(t, int64(2), replayed, "replayed exits")
 	assert.Equal(t, int64(1), expired, "expired exits")
+	assert.Equal(t, int64(0), closed, "closed exits")
 	assert.Equal(t, int64(1), stillCached, "events still cached")
-	assert.Equal(t, cached, drained+replayed+expired+stillCached, "cache funnel invariant")
+	assert.Equal(t, cached, drained+replayed+expired+closed+stillCached, "cache funnel invariant")
 
 	assert.Equal(t, int64(1), after.replay[monitoring.ShardFailoverReplaySucceeded]-before.replay[monitoring.ShardFailoverReplaySucceeded])
 	assert.Equal(t, int64(1), after.replay[monitoring.ShardFailoverReplayFailed]-before.replay[monitoring.ShardFailoverReplayFailed])
@@ -190,8 +196,8 @@ func TestShardFailoverManager_CacheExitFunnel(t *testing.T) {
 	assert.Equal(t, uint64(1), after.replayCount[monitoring.ShardFailoverReplayFailed]-before.replayCount[monitoring.ShardFailoverReplayFailed])
 
 	cachedGauge, ok := failoverGauge(t, "platform_shard_failover_cached_events")
-	require.True(t, ok, "cached_events gauge recorded")
-	assert.Equal(t, cachedBaseline+stillCached, cachedGauge, "cached_events gauge tracks the node-wide total across managers")
+	require.True(t, ok, "cached_events metric recorded")
+	assert.Equal(t, cachedBaseline+stillCached, cachedGauge, "cached_events metric tracks the node-wide total across managers")
 }
 
 // TestShardFailoverManager_ReplayMiss covers the miss replay outcome: a
@@ -225,7 +231,7 @@ func TestShardFailoverManager_ReplayMiss(t *testing.T) {
 
 // TestShardFailoverManager_PruneExpiresCachedEvents covers the expired exit:
 // events older than the 10-minute expiry are pruned with no verdict ever
-// arriving, and the cached_events gauge returns to its pre-test value (the
+// arriving, and the cached_events metric returns to its pre-test value (the
 // node-wide total drops by the pruned batch; 0 when nothing else is cached).
 //
 //nolint:paralleltest // asserts deltas on process-global failover metrics
@@ -252,8 +258,60 @@ func TestShardFailoverManager_PruneExpiresCachedEvents(t *testing.T) {
 	assert.Equal(t, int64(2), after.cacheExit[monitoring.ShardFailoverCacheExitExpired]-before.cacheExit[monitoring.ShardFailoverCacheExitExpired], "expired exits")
 	assert.Empty(t, m.cacheIDs(), "cache emptied by the prune")
 	cachedGauge, ok := failoverGauge(t, "platform_shard_failover_cached_events")
-	require.True(t, ok, "cached_events gauge recorded")
-	assert.Equal(t, cachedBaseline, cachedGauge, "cached_events gauge back to its pre-test value after the prune")
+	require.True(t, ok, "cached_events metric recorded")
+	assert.Equal(t, cachedBaseline, cachedGauge, "cached_events metric back to its pre-test value after the prune")
+}
+
+// TestShardFailoverManager_CloseExitsCachedEvents covers the closed exit: a
+// manager shut down with events still in its cache (workflow paused or
+// deleted) counts them all as one exit batch, so the node-wide cached-events
+// total returns to its pre-test value instead of drifting up for the life of
+// the process.
+//
+//nolint:paralleltest // asserts deltas on process-global failover metrics
+func TestShardFailoverManager_CloseExitsCachedEvents(t *testing.T) {
+	ctx := t.Context()
+	m := newFailoverTestManager(t, &recordingEngine{})
+
+	before := collectFailoverTotals(t)
+	cachedBaseline, _ := failoverGauge(t, "platform_shard_failover_cached_events")
+
+	require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent("evt-close-1")), triggers.ErrAdmissionCached)
+	require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent("evt-close-2")), triggers.ErrAdmissionCached)
+
+	require.NoError(t, m.close())
+
+	after := collectFailoverTotals(t)
+
+	assert.Equal(t, int64(2), after.cacheExit[monitoring.ShardFailoverCacheExitClosed]-before.cacheExit[monitoring.ShardFailoverCacheExitClosed], "closed exits")
+	assert.Empty(t, m.cacheIDs(), "cache cleared by close")
+	cachedNow, ok := failoverGauge(t, "platform_shard_failover_cached_events")
+	require.True(t, ok, "cached_events metric recorded")
+	assert.Equal(t, cachedBaseline, cachedNow, "cached_events metric back to its pre-test value after close")
+}
+
+// TestShardFailoverManager_RedeliveredEventIDNotRecounted covers a redelivered
+// trigger event: it overwrites its own cache entry without recounting, so
+// trigger_cached and the node-wide cached-events total each gain exactly one.
+//
+//nolint:paralleltest // asserts deltas on process-global failover metrics
+func TestShardFailoverManager_RedeliveredEventIDNotRecounted(t *testing.T) {
+	ctx := t.Context()
+	m := newFailoverTestManager(t, &recordingEngine{})
+
+	before := collectFailoverTotals(t)
+	cachedBaseline, _ := failoverGauge(t, "platform_shard_failover_cached_events")
+
+	require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent("evt-redeliver")), triggers.ErrAdmissionCached)
+	require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent("evt-redeliver")), triggers.ErrAdmissionCached)
+
+	after := collectFailoverTotals(t)
+	cachedNow, ok := failoverGauge(t, "platform_shard_failover_cached_events")
+	require.True(t, ok, "cached_events metric recorded")
+
+	assert.Equal(t, int64(1), after.triggerCached-before.triggerCached, "redelivery recounted as a new cached event")
+	assert.Equal(t, cachedBaseline+1, cachedNow, "node-wide cached-events total counts the redelivered event once")
+	assert.Len(t, m.cacheIDs(), 1, "redelivery overwrote its own cache entry")
 }
 
 // TestShardFailoverManager_TimeoutBasedFailoverCacheExits covers the two
