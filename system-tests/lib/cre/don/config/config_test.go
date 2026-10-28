@@ -31,7 +31,7 @@ func TestMeteringNodeConfig(t *testing.T) {
 	t.Parallel()
 
 	dm := &cre.DonMetadata{Name: "workflow"}
-	got := meteringNodeConfig(dm, 0, nil)
+	got := meteringNodeConfig(dm, 0)
 
 	assert.True(t, derefBool(got.MeterRecordsEnabled))
 	assert.True(t, derefBool(got.MeterSnapshotsEnabled))
@@ -43,29 +43,13 @@ func TestMeteringNodeConfig(t *testing.T) {
 	assert.Equal(t, "workflow-node-0", derefStr(got.NodeID))
 }
 
-func TestMeteringNodeConfig_FaultInjection(t *testing.T) {
-	t.Parallel()
-
-	dm := &cre.DonMetadata{Name: "workflow"}
-	got := meteringNodeConfig(dm, 0, &cre.MeteringFaultInjection{Orgs: []string{"org-canary"}, DropRate: 0.01, PerturbRate: 1, Delta: -1, NodeRate: 0.5})
-
-	assert.InDelta(t, 0.01, *got.FaultInjection.DropRate, 0)
-	assert.InDelta(t, 1.0, *got.FaultInjection.PerturbRate, 0)
-	assert.Equal(t, []string{"org-canary"}, *got.FaultInjection.Orgs)
-	assert.Equal(t, int64(-1), *got.FaultInjection.Delta)
-	assert.InDelta(t, 0.5, *got.FaultInjection.NodeRate, 0)
-
-	off := meteringNodeConfig(dm, 0, &cre.MeteringFaultInjection{})
-	assert.Nil(t, off.FaultInjection.DropRate)
-}
-
 func TestMeteringNodeConfig_NodeIDUniqueness(t *testing.T) {
 	t.Parallel()
 
 	dm := &cre.DonMetadata{Name: "capabilities"}
 	seen := make(map[string]struct{})
 	for i := range 4 {
-		got := meteringNodeConfig(dm, i, nil)
+		got := meteringNodeConfig(dm, i)
 		nodeID := derefStr(got.NodeID)
 		expected := "capabilities-node-" + strconv.Itoa(i)
 		assert.Equal(t, expected, nodeID)

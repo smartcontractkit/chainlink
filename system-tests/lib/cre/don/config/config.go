@@ -113,7 +113,6 @@ func PrepareNodeTOMLs(
 					Provider:                  creEnv.Provider,
 					ChipRouterInternalGRPCURL: chipRouterInternalGRPCURL,
 					EnableMetering:            localNodeSets[i].EnableMetering,
-					MeteringFaultInjection:    localNodeSets[i].MeteringFaultInjection,
 				},
 				configFactoryFunctions,
 			)
@@ -444,7 +443,7 @@ func addWorkerNodeConfig(
 		}
 
 		if commonInputs.enableMetering {
-			existingConfig.Metering = meteringNodeConfig(donMetadata, m.Index, commonInputs.meteringFaultInjection)
+			existingConfig.Metering = meteringNodeConfig(donMetadata, m.Index)
 		}
 	}
 
@@ -560,8 +559,8 @@ func addWorkerNodeConfig(
 // local-cre deployment dimensions. NodeID is derived from the DON name and
 // node index to be unique per node within the DON (required by
 // Metering.ValidateConfig and per-node snapshot dedup).
-func meteringNodeConfig(donMetadata *cre.DonMetadata, nodeIndex int, fault *cre.MeteringFaultInjection) coretoml.Metering {
-	cfg := coretoml.Metering{
+func meteringNodeConfig(donMetadata *cre.DonMetadata, nodeIndex int) coretoml.Metering {
+	return coretoml.Metering{
 		MeterRecordsEnabled:   new(true),
 		MeterSnapshotsEnabled: new(true),
 		Product:               new("cre"),
@@ -571,16 +570,6 @@ func meteringNodeConfig(donMetadata *cre.DonMetadata, nodeIndex int, fault *cre.
 		Zone:                  new(donMetadata.Name),
 		NodeID:                new(donMetadata.Name + "-node-" + strconv.Itoa(nodeIndex)),
 	}
-	if fault != nil && (fault.DropRate > 0 || fault.PerturbRate > 0) {
-		cfg.FaultInjection = coretoml.MeteringFaultInjection{
-			Orgs:        new(fault.Orgs),
-			DropRate:    new(fault.DropRate),
-			PerturbRate: new(fault.PerturbRate),
-			Delta:       new(fault.Delta),
-			NodeRate:    new(fault.NodeRate),
-		}
-	}
-	return cfg
 }
 
 func addGatewayNodeConfig(
@@ -686,7 +675,6 @@ type commonInputs struct {
 
 	chipRouterInternalGRPCURL string
 	enableMetering            bool
-	meteringFaultInjection    *cre.MeteringFaultInjection
 }
 
 func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
@@ -732,7 +720,6 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		provider:                  input.Provider,
 		chipRouterInternalGRPCURL: input.ChipRouterInternalGRPCURL,
 		enableMetering:            input.EnableMetering,
-		meteringFaultInjection:    input.MeteringFaultInjection,
 	}, nil
 }
 

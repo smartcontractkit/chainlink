@@ -3,7 +3,6 @@ package toml
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"net/url"
 	"strings"
 	"testing"
@@ -1066,63 +1065,6 @@ func TestMetering_ValidateConfig(t *testing.T) {
 			config: &Metering{
 				MeterSnapshotsEnabled: new(true),
 				NodeID:                new("clp-cre-wf-zone-a-1"),
-			},
-			expectError: true,
-			errorMsg:    "requires MeterRecordsEnabled to be true",
-		},
-		{
-			name: "fault injection drop and perturb with records enabled",
-			config: &Metering{
-				MeterRecordsEnabled: new(true),
-				NodeID:              new("clp-cre-wf-zone-a-1"),
-				FaultInjection:      MeteringFaultInjection{Orgs: &[]string{"org-canary"}, DropRate: new(0.01), PerturbRate: new(0.1), Delta: new(int64(-7)), NodeRate: new(0.5)},
-			},
-			expectError: false,
-		},
-		{
-			name: "fault injection without an org allowlist",
-			config: &Metering{
-				MeterRecordsEnabled: new(true),
-				NodeID:              new("clp-cre-wf-zone-a-1"),
-				FaultInjection:      MeteringFaultInjection{DropRate: new(0.1)},
-			},
-			expectError: true,
-			errorMsg:    "FaultInjection.Orgs",
-		},
-		{
-			name: "fault injection perturb with a positive delta",
-			config: &Metering{
-				MeterRecordsEnabled: new(true),
-				NodeID:              new("clp-cre-wf-zone-a-1"),
-				FaultInjection:      MeteringFaultInjection{Orgs: &[]string{"org-canary"}, PerturbRate: new(0.1), Delta: new(int64(7)), NodeRate: new(0.5)},
-			},
-			expectError: true,
-			errorMsg:    "FaultInjection.Delta",
-		},
-		{
-			name: "fault injection NaN rate",
-			config: &Metering{
-				MeterRecordsEnabled: new(true),
-				NodeID:              new("clp-cre-wf-zone-a-1"),
-				FaultInjection:      MeteringFaultInjection{Orgs: &[]string{"org-canary"}, DropRate: new(math.NaN())},
-			},
-			expectError: true,
-			errorMsg:    "FaultInjection.DropRate",
-		},
-		{
-			name: "fault injection rate out of range",
-			config: &Metering{
-				MeterRecordsEnabled: new(true),
-				NodeID:              new("clp-cre-wf-zone-a-1"),
-				FaultInjection:      MeteringFaultInjection{Orgs: &[]string{"org-canary"}, DropRate: new(1.5)},
-			},
-			expectError: true,
-			errorMsg:    "FaultInjection.DropRate",
-		},
-		{
-			name: "fault injection without records enabled",
-			config: &Metering{
-				FaultInjection: MeteringFaultInjection{Orgs: &[]string{"org-canary"}, DropRate: new(0.1)},
 			},
 			expectError: true,
 			errorMsg:    "requires MeterRecordsEnabled to be true",

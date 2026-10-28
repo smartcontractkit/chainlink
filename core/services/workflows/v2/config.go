@@ -85,8 +85,6 @@ type EngineConfig struct {
 	MeterRecordsEnabled bool
 	// MeteringIdentity is the node's [Metering] deployment dimensions; the engine adds service, pool and DON.
 	MeteringIdentity resourcemanager.DeploymentIdentity
-	// UsageFaultInjection drops or perturbs a sample of the canary orgs' usage records.
-	UsageFaultInjection resourcemanager.UsageFaultInjection
 	// UsageEmitter delivers compute usage records; required when MeterRecordsEnabled.
 	UsageEmitter resourcemanager.Emitter
 

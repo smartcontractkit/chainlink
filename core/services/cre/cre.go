@@ -1020,7 +1020,7 @@ func newWorkflowRegistrySyncerV2(
 	// Compute usage records share the [Metering].MeterRecordsEnabled gate.
 	if meterRecordsEnabled {
 		if opts.DurableEmit != nil { // injected, not the global, so tests can supply their own
-			handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(newDeploymentIdentity(cfg), emitFunc(opts.DurableEmit), meteringCfg.FaultInjection()))
+			handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(newDeploymentIdentity(cfg), emitFunc(opts.DurableEmit)))
 		} else {
 			lggr.Warnw("Compute usage metering enabled without a durable emitter; compute usage records disabled")
 		}

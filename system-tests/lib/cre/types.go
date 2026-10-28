@@ -450,16 +450,6 @@ type GenerateConfigsInput struct {
 	Provider                  infra.Provider
 	ChipRouterInternalGRPCURL string
 	EnableMetering            bool
-	MeteringFaultInjection    *MeteringFaultInjection
-}
-
-// MeteringFaultInjection mirrors [Metering.FaultInjection] for topology configs.
-type MeteringFaultInjection struct {
-	Orgs        []string `toml:"orgs"`
-	DropRate    float64  `toml:"drop_rate"`
-	PerturbRate float64  `toml:"perturb_rate"`
-	Delta       int64    `toml:"delta"`
-	NodeRate    float64  `toml:"node_rate"`
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -1309,8 +1299,6 @@ type NodeSet struct {
 	// EnableMetering turns on framework-generated [Metering] node config for this
 	// nodeset's worker nodes (durable MeterRecord/MeterSnapshot emission).
 	EnableMetering bool `toml:"enable_metering"`
-	// MeteringFaultInjection sets [Metering.FaultInjection] on this nodeset's worker nodes (test only).
-	MeteringFaultInjection *MeteringFaultInjection `toml:"metering_fault_injection"`
 
 	chainCapabilityIndex      map[CapabilityFlag][]uint64
 	chainCapabilityIndexBuilt bool

@@ -68,24 +68,3 @@ func (b *meteringConfig) NodeID() string {
 	}
 	return *b.s.NodeID
 }
-
-func (b *meteringConfig) FaultInjection() resourcemanager.UsageFaultInjection {
-	f := b.s.FaultInjection
-	out := resourcemanager.UsageFaultInjection{NodeRate: 1}
-	if f.Orgs != nil {
-		out.Orgs = *f.Orgs
-	}
-	if f.DropRate != nil {
-		out.DropRate = *f.DropRate
-	}
-	if f.PerturbRate != nil {
-		out.PerturbRate = *f.PerturbRate
-	}
-	if f.Delta != nil {
-		out.Delta = *f.Delta
-	}
-	if f.NodeRate != nil {
-		out.NodeRate = *f.NodeRate
-	}
-	return out
-}

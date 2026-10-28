@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"math"
 	"net"
 	"net/url"
 	"reflect"
@@ -3220,8 +3219,6 @@ type Metering struct {
 	// NodeID is the node's logical name, e.g. "clp-cre-wf-zone-a-1" (NOT the CSA
 	// public key)
 	NodeID *string
-	// FaultInjection drops or perturbs a sample of usage records (test environments only).
-	FaultInjection MeteringFaultInjection `toml:",omitempty"`
 }
 
 func (b *Metering) setFrom(f *Metering) {
@@ -3249,7 +3246,6 @@ func (b *Metering) setFrom(f *Metering) {
 	if v := f.NodeID; v != nil {
 		b.NodeID = v
 	}
-	b.FaultInjection.setFrom(&f.FaultInjection)
 }
 
 func (b *Metering) ValidateConfig() (err error) {
@@ -3267,81 +3263,7 @@ func (b *Metering) ValidateConfig() (err error) {
 			Msg:   "must be non-empty when MeterRecordsEnabled is true (an empty NodeID collapses per-node snapshot dedup scope DON-wide)",
 		})
 	}
-	err = errors.Join(err, b.FaultInjection.validate(b.MeterRecordsEnabled != nil && *b.MeterRecordsEnabled))
 	return err
-}
-
-// MeteringFaultInjection configures usage record fault injection; see
-// resourcemanager.UsageFaultInjection. Only allowlisted orgs are touched.
-type MeteringFaultInjection struct {
-	// Orgs are the org ids whose records may be faulted; required when any rate is set.
-	Orgs *[]string
-	// DropRate is the fraction of usage events dropped on every node (0..1), keyed on event id.
-	DropRate *float64
-	// PerturbRate is the fraction of usage events perturbed (0..1), keyed on event id.
-	PerturbRate *float64
-	// Delta is added to the value in a perturb; negative only.
-	Delta *int64
-	// NodeRate is the fraction of nodes applying a perturb (0..1; 1 = all).
-	NodeRate *float64
-}
-
-func (b *MeteringFaultInjection) setFrom(f *MeteringFaultInjection) {
-	if v := f.Orgs; v != nil {
-		b.Orgs = v
-	}
-	if v := f.DropRate; v != nil {
-		b.DropRate = v
-	}
-	if v := f.PerturbRate; v != nil {
-		b.PerturbRate = v
-	}
-	if v := f.Delta; v != nil {
-		b.Delta = v
-	}
-	if v := f.NodeRate; v != nil {
-		b.NodeRate = v
-	}
-}
-
-func (b *MeteringFaultInjection) validate(meterRecordsEnabled bool) (err error) {
-	rate := func(name string, v *float64) float64 {
-		if v == nil {
-			return 0
-		}
-		if math.IsNaN(*v) || *v < 0 || *v > 1 {
-			err = errors.Join(err, configutils.InvalidError{Name: "FaultInjection." + name, Value: *v, Msg: "must be between 0 and 1"})
-			return 0
-		}
-		return *v
-	}
-	dropRate := rate("DropRate", b.DropRate)
-	perturbRate := rate("PerturbRate", b.PerturbRate)
-	rate("NodeRate", b.NodeRate)
-	enabled := dropRate > 0 || perturbRate > 0
-	if enabled && !meterRecordsEnabled {
-		err = errors.Join(err, configutils.InvalidError{Name: "FaultInjection", Value: "rate set", Msg: "requires MeterRecordsEnabled to be true"})
-	}
-	if enabled && len(b.orgs()) == 0 {
-		err = errors.Join(err, configutils.InvalidError{Name: "FaultInjection.Orgs", Value: b.orgs(), Msg: "must list at least one org when a rate is set"})
-	}
-	if perturbRate > 0 && (b.Delta == nil || *b.Delta >= 0) {
-		err = errors.Join(err, configutils.InvalidError{Name: "FaultInjection.Delta", Value: b.Delta, Msg: "must be negative when PerturbRate is set"})
-	}
-	return err
-}
-
-func (b *MeteringFaultInjection) orgs() []string {
-	if b.Orgs == nil {
-		return nil
-	}
-	var out []string
-	for _, o := range *b.Orgs {
-		if o = strings.TrimSpace(o); o != "" {
-			out = append(out, o)
-		}
-	}
-	return out
 }
 
 type PrometheusBridge struct {

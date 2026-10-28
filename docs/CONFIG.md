@@ -2634,47 +2634,6 @@ NodeID = '' # Default
 ```
 NodeID is the node's logical name, e.g. 'clp-cre-wf-zone-a-1' (not the CSA public key).
 
-## Metering.FaultInjection
-```toml
-[Metering.FaultInjection]
-Orgs = [] # Default
-DropRate = 0.0 # Default
-PerturbRate = 0.0 # Default
-Delta = 0 # Default
-NodeRate = 1.0 # Default
-```
-FaultInjection drops and perturbs two independent deterministic samples of usage records so both billing reconcilers can measure their recall. Only records of the allowlisted orgs (the canaries) are touched.
-
-### Orgs
-```toml
-Orgs = [] # Default
-```
-Orgs are the org ids whose records may be faulted; required when any rate is set.
-
-### DropRate
-```toml
-DropRate = 0.0 # Default
-```
-DropRate is the fraction of usage events whose emission is skipped on every node, keyed on the event id (0..1).
-
-### PerturbRate
-```toml
-PerturbRate = 0.0 # Default
-```
-PerturbRate is the fraction of usage events whose value gets Delta added on NodeRate of the nodes, keyed on the event id (0..1). An event in both samples is dropped.
-
-### Delta
-```toml
-Delta = 0 # Default
-```
-Delta is added to the value in a perturb; negative only, so a leak can never overbill.
-
-### NodeRate
-```toml
-NodeRate = 1.0 # Default
-```
-NodeRate is the fraction of nodes that apply a perturb (0..1; 1 = all nodes).
-
 ## CRE.Streams
 ```toml
 [CRE.Streams]
