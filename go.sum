@@ -167,8 +167,8 @@ github.com/buger/jsonparser v1.2.0 h1:4EFcvK1kD4jyj6YqNK6skK6w+y7FHHBR+XBCtxwu/6
 github.com/buger/jsonparser v1.2.0/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
 github.com/buraksezer/consistent v0.10.0 h1:hqBgz1PvNLC5rkWcEBVAL9dFMBWz6I0VgUCW25rrZlU=
 github.com/buraksezer/consistent v0.10.0/go.mod h1:6BrVajWq7wbKZlTOUPs/XVfR8c0maujuPowduSpZqmw=
-github.com/bytecodealliance/wasmtime-go/v47 v47.0.0 h1:PAe4o7Mq1VjSx81Dc+V4w1XvxLouFTB384N4ZT4o+7k=
-github.com/bytecodealliance/wasmtime-go/v47 v47.0.0/go.mod h1:icJLhTDV7EyKlZpeuBuJl4yoTMqhjUvNv1mewMJUvr4=
+github.com/bytecodealliance/wasmtime-go/v50 v50.0.0 h1:oC7otiLbHEIDiL+7otXozGw+hnwD4WihronoKYU3drM=
+github.com/bytecodealliance/wasmtime-go/v50 v50.0.0/go.mod h1:xWTHNOKHkN8YVWrTRZpmb1eUOkWPMEXTaVtm3AOEWWE=
 github.com/bytedance/sonic v1.12.3 h1:W2MGa7RCU1QTeYRTPE3+88mVC0yXmsRQRChiyVocVjU=
 github.com/bytedance/sonic v1.12.3/go.mod h1:B8Gt/XvtZ3Fqj+iSKMypzymZxw/FVwgIGKzMzT9r/rk=
 github.com/bytedance/sonic/loader v0.1.1/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=
@@ -1104,8 +1104,8 @@ github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260
 github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260908155618-50f521d70e62/go.mod h1:c++Ed0jeYn4w8WIfiAboRwN6ClRRVGglL0qwB/QjJvM=
 github.com/smartcontractkit/chainlink-ccv v0.15.1-0.20261020204039-1a47492cdb37 h1:eZj3cJUTFmbpuRMsUwAM99QYPRiD4udbfcuRLWZ2WWg=
 github.com/smartcontractkit/chainlink-ccv v0.15.1-0.20261020204039-1a47492cdb37/go.mod h1:A107VkPT8sqCjZJ/2GULxEQOaky70t5tkcE7hK9NDpI=
-github.com/smartcontractkit/chainlink-common v0.11.2-0.20261020093734-0127cb4d6ae5 h1:mpb2dy2Cr3/J3d09u5L0vjOeA4SVPvk2VZcuOEWUopY=
-github.com/smartcontractkit/chainlink-common v0.11.2-0.20261020093734-0127cb4d6ae5/go.mod h1:QeHe1mlcVzzg+awYAkRfl/8mDLRAhsl18IIOg4MVZec=
+github.com/smartcontractkit/chainlink-common v0.11.2-0.20261028205248-cc801726d79c h1:b/kBNYD1fhHznEWQxmBEFeEoEJm/OLFzYYFin5+5g3E=
+github.com/smartcontractkit/chainlink-common v0.11.2-0.20261028205248-cc801726d79c/go.mod h1:yhZCSkRjMDM+02HfmENL0HcaeT/WXmIxUh99TwL5awU=
 github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d h1:M9xuiIvdiHtim4nlxCVajyC/Mk63tAg9ESWb/biAhNA=
 github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260903141829-ef07b52a737d/go.mod h1:rI2njmTlyTvh+xhmORmK6qX3+V1ycDAqGJLu8LS8WpU=
 github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261005132539-b7d63d5fd549 h1:J4vYRJxkBO8Yf//17wScKjYWmS45VZaFWx0zt+4ETEU=
