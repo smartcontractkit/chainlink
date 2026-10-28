@@ -151,6 +151,14 @@ type EngineLimiters struct {
 	TimeoutBasedFailoverWindow                  limits.TimeLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
 
+	// ShadowTriggerMode is open while a coordinated trigger event's observed time is inside the
+	// FeatureShadowTriggerModeActivePeriod window, resolved per workflow, owner, org or global.
+	ShadowTriggerMode limits.RangeLimiter[commonconfig.Timestamp]
+	// CentralTriggerEventQueue is the node-wide capacity of the central trigger queue.
+	CentralTriggerEventQueue limits.BoundLimiter[int]
+	// CentralTriggerQueueDrainInterval is how often the central trigger queue is drained.
+	CentralTriggerQueueDrainInterval limits.BoundLimiter[time.Duration]
+
 	// newTriggerEventQueue builds a trigger event queue from the same factory and
 	// setting as TriggerEventQueue, for a coordinator's trigger registration to own.
 	newTriggerEventQueue func() (limits.QueueLimiter[triggers.CoordinatedEvent], error)
@@ -328,6 +336,19 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
+	// From cfg, so cfgFn overrides apply.
+	l.ShadowTriggerMode, err = limits.MakeRangeLimiter[commonconfig.Timestamp](lf, cfg.FeatureShadowTriggerModeActivePeriod)
+	if err != nil {
+		return err
+	}
+	l.CentralTriggerEventQueue, err = limits.MakeUpperBoundLimiter(lf, cresettings.Default.CentralTriggerEventQueueLimit)
+	if err != nil {
+		return err
+	}
+	l.CentralTriggerQueueDrainInterval, err = limits.MakeUpperBoundLimiter(lf, cresettings.Default.CentralTriggerQueueDrainInterval)
+	if err != nil {
+		return err
+	}
 	return err
 }
 
@@ -369,6 +390,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.ConfidentialWorkflowsEnabled,
 		l.CentralizedWorkflowOwnerVerificationEnabled,
 		l.DONTimeRequestTimeout,
+		l.ShadowTriggerMode,
 	}
 	var errs error
 	for _, e := range evictables {
@@ -413,6 +435,9 @@ func (l *EngineLimiters) Close() error {
 		l.ConfidentialWorkflowsEnabled,
 		l.CentralizedWorkflowOwnerVerificationEnabled,
 		l.DONTimeRequestTimeout,
+		l.ShadowTriggerMode,
+		l.CentralTriggerEventQueue,
+		l.CentralTriggerQueueDrainInterval,
 	)
 }
 
