@@ -14,16 +14,17 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -187,17 +188,33 @@ func newCoordinatorFixture(t *testing.T) *coordinatorFixture {
 // newCoordinatorFixtureWithAdmission is newCoordinatorFixture with the given admission limiters.
 func newCoordinatorFixtureWithAdmission(t *testing.T, admission AdmissionLimiters) *coordinatorFixture {
 	t.Helper()
+	return newCoordinatorFixtureWithMetrics(t, clockwork.NewFakeClock(), admission, newTestMetrics(t))
+}
+
+// newMeteredCoordinatorFixture is newCoordinatorFixtureWithAdmission with coordinator metrics on a private
+// meter. It returns the reader to collect them. Nothing global is touched, so the test can run in parallel.
+func newMeteredCoordinatorFixture(t *testing.T, admission AdmissionLimiters) (*coordinatorFixture, *sdkmetric.ManualReader) {
+	t.Helper()
+	wfMetrics, reader := newTestMeterMetrics(t)
+	return newCoordinatorFixtureWithMetrics(t, clockwork.NewFakeClock(), admission, wfMetrics), reader
+}
+
+// newCoordinatorFixtureWithMetrics is newCoordinatorFixtureWithAdmission with the given clock and coordinator
+// metrics.
+func newCoordinatorFixtureWithMetrics(t *testing.T, clock *clockwork.FakeClock, admission AdmissionLimiters, wfMetrics *monitoring.WorkflowsMetricLabeler) *coordinatorFixture {
+	t.Helper()
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	engines := newFakeEngineRegistry()
 	wfLimits := &fakeWorkflowLimits{}
-	clock := clockwork.NewFakeClock()
 
 	wid, err := types.WorkflowIDFromHex(validWorkflowID)
 	require.NoError(t, err)
 	engine := &fakeEngine{coordinated: true}
 	engines.set(wid, engine)
 
-	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), admission, engines, wfLimits, clock)
+	deps := newRegisterDeps(t, capReg, limits.NewGateLimiter(true))
+	deps.Metrics = wfMetrics
+	c := NewCoordinator(deps, admission, engines, wfLimits, clock)
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{
@@ -379,22 +396,16 @@ func (p *countingPool) Available(ctx context.Context) (int, error) {
 	return p.ResourcePoolLimiter.Available(ctx)
 }
 
-// useTestMeter points the global beholder meter at a manual reader, so workflow
-// metrics created after this call can be read back. It swaps a global, so a test
-// that uses it must not run in parallel.
-func useTestMeter(t *testing.T) *sdkmetric.ManualReader {
+// newTestMeterMetrics returns coordinator metrics on a private meter, and the reader to collect them. It never
+// touches the global beholder client, so a test that uses it can run in parallel.
+func newTestMeterMetrics(t *testing.T) (*monitoring.WorkflowsMetricLabeler, *sdkmetric.ManualReader) {
 	t.Helper()
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
-
-	prev := beholder.GetClient()
-	t.Cleanup(func() { beholder.SetClient(prev) })
-	client := beholder.NoopClientConfig{Lggr: logger.Test(t)}.New()
-	client.Meter = mp.Meter("beholder")
-	client.MeterProvider = mp
-	beholder.SetClient(client)
-	return reader
+	em, err := monitoring.InitMonitoringResourcesWithMeter(mp.Meter("beholder"))
+	require.NoError(t, err)
+	return monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em), reader
 }
 
 // counterTotal sums the named counter over the data points that carry every

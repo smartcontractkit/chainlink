@@ -159,11 +159,9 @@ func TestCoordinator_RegisterTriggers(t *testing.T) {
 
 // TestCoordinator_MetricsIncludeSdkLabel makes sure the coordinator's metrics
 // carry the sdk label.
-//
-//nolint:paralleltest // reads metrics through useTestMeter, which swaps a global
 func TestCoordinator_MetricsIncludeSdkLabel(t *testing.T) {
-	reader := useTestMeter(t)
-	f := newCoordinatorFixture(t)
+	t.Parallel()
+	f, reader := newMeteredCoordinatorFixture(t, newTestAdmission())
 	trigger, _ := f.expectTrigger(t)
 	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
 
@@ -180,9 +178,8 @@ func TestCoordinator_MetricsIncludeSdkLabel(t *testing.T) {
 // TestCoordinator_NoDeliver covers dropped delivery: events must not reach an
 // engine that is gone from the registry or not coordinated, and each case
 // must be countable the same way every other drop reason is.
-//
-//nolint:paralleltest // its cases read metrics through useTestMeter, which swaps a global
 func TestCoordinator_NoDeliver(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name       string
 		mutate     func(f *coordinatorFixture)
@@ -195,9 +192,9 @@ func TestCoordinator_NoDeliver(t *testing.T) {
 			f.engine.coordinated = false
 		}, monitoring.TriggerDropReasonEngineNotCoordinated},
 	} {
-		t.Run(tc.name, func(t *testing.T) { //nolint:paralleltest // see above
-			reader := useTestMeter(t)
-			f := newCoordinatorFixture(t)
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f, reader := newMeteredCoordinatorFixture(t, newTestAdmission())
 			trigger, eventCh := f.expectTrigger(t)
 			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
 
@@ -223,9 +220,8 @@ func TestCoordinator_NoDeliver(t *testing.T) {
 // admission error from the engine (e.g. the shard failover manager on a sharded
 // node). A denied event is ACKed and counted as an admission_denied drop, while a cached event
 // is left un-ACKed so the secondary can replay it.
-//
-//nolint:paralleltest // swaps the global beholder client
 func TestCoordinator_DeliverAdmission(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		engineErr   error
@@ -244,8 +240,8 @@ func TestCoordinator_DeliverAdmission(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			reader := useTestMeter(t) // before the fixture, so its metrics are read back
-			f := newCoordinatorFixture(t)
+			t.Parallel()
+			f, reader := newMeteredCoordinatorFixture(t, newTestAdmission())
 			f.engine.err = tc.engineErr
 			trigger, eventCh := f.expectTrigger(t)
 			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
@@ -554,9 +550,8 @@ func TestCoordinator_CloseUnregistersRemainingWorkflows(t *testing.T) {
 // TestCoordinator_Admission covers the path between a workflow's readers and its
 // executions. Each case holds executions so that it controls exactly which events
 // wait on the queue.
-//
-//nolint:paralleltest // its cases read metrics through useTestMeter, which swaps a global
 func TestCoordinator_Admission(t *testing.T) {
+	t.Parallel()
 	// singleSlot returns admission limiters that run one execution at a time,
 	// and the pool, so the test can see when the admitter waits for the slot.
 	singleSlot := func(mutate func(*AdmissionLimiters)) (AdmissionLimiters, *countingPool) {
@@ -569,17 +564,17 @@ func TestCoordinator_Admission(t *testing.T) {
 		return admission, pool
 	}
 	// queueLen reports how many events wait on the registration's queue.
-	queueLen := func(f *coordinatorFixture) int {
+	queueLen := func(t *testing.T, f *coordinatorFixture) int {
 		cw, ok := f.c.workflows.get(validWorkflowID)
 		require.True(t, ok)
 		n, err := cw.queue.Len(t.Context())
 		require.NoError(t, err)
 		return n
 	}
-	t.Run("a full queue drops the event and the reader keeps reading", func(t *testing.T) { //nolint:paralleltest // see above
-		reader := useTestMeter(t) // before the fixture, so its metrics are read back
+	t.Run("a full queue drops the event and the reader keeps reading", func(t *testing.T) {
+		t.Parallel()
 		admission, pool := singleSlot(func(a *AdmissionLimiters) { a.NewTriggerEventQueue = newTestQueue(1) })
-		f := newCoordinatorFixtureWithAdmission(t, admission)
+		f, reader := newMeteredCoordinatorFixture(t, admission)
 		trigger, eventCh := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
 		release := f.holdExecutions(t)
@@ -597,7 +592,7 @@ func TestCoordinator_Admission(t *testing.T) {
 		require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond)
 		eventCh <- triggerEvent("evt-3")
 		// The admitter is busy waiting, so evt-3 stays in the queue.
-		require.Eventually(t, func() bool { return queueLen(f) == 1 }, 5*time.Second, 5*time.Millisecond)
+		require.Eventually(t, func() bool { return queueLen(t, f) == 1 }, 5*time.Second, 5*time.Millisecond)
 
 		// The queue is full: evt-4 is dropped. The send only completes because
 		// the reader keeps reading. The reader handles one event at a time, so
@@ -625,11 +620,11 @@ func TestCoordinator_Admission(t *testing.T) {
 	})
 
 	unregistered := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonUnregistered}
-	t.Run("unregistering counts events not yet admitted as dropped", func(t *testing.T) { //nolint:paralleltest // see above
-		reader := useTestMeter(t)
+	t.Run("unregistering counts events not yet admitted as dropped", func(t *testing.T) {
+		t.Parallel()
 		queues := &queueTracker{}
 		admission, pool := singleSlot(func(a *AdmissionLimiters) { a.NewTriggerEventQueue = queues.newQueue })
-		f := newCoordinatorFixtureWithAdmission(t, admission)
+		f, reader := newMeteredCoordinatorFixture(t, admission)
 		trigger, eventCh := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
 		release := f.holdExecutions(t)
@@ -643,7 +638,7 @@ func TestCoordinator_Admission(t *testing.T) {
 		eventCh <- triggerEvent("evt-2")
 		require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond)
 		eventCh <- triggerEvent("evt-3")
-		require.Eventually(t, func() bool { return queueLen(f) == 1 }, 5*time.Second, 5*time.Millisecond)
+		require.Eventually(t, func() bool { return queueLen(t, f) == 1 }, 5*time.Second, 5*time.Millisecond)
 
 		require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
 		release()
@@ -654,10 +649,10 @@ func TestCoordinator_Admission(t *testing.T) {
 		assert.Equal(t, int64(2), counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", unregistered), "evt-2 and evt-3")
 		assert.Equal(t, int64(2), counterTotal(t, reader, "platform_engine_trigger_event_dequeue_dropped_total", nil))
 	})
-	t.Run("unregistering with nothing queued drops nothing", func(t *testing.T) { //nolint:paralleltest // see above
-		reader := useTestMeter(t)
+	t.Run("unregistering with nothing queued drops nothing", func(t *testing.T) {
+		t.Parallel()
 		admission, queues := newTrackedAdmission()
-		f := newCoordinatorFixtureWithAdmission(t, admission)
+		f, reader := newMeteredCoordinatorFixture(t, admission)
 		trigger, eventCh := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
 		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
@@ -672,12 +667,12 @@ func TestCoordinator_Admission(t *testing.T) {
 		assert.Equal(t, int64(0), counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", unregistered))
 	})
 
-	t.Run("an event that expires while still queued is dropped and never executed", func(t *testing.T) { //nolint:paralleltest // see above
-		reader := useTestMeter(t)
+	t.Run("an event that expires while still queued is dropped and never executed", func(t *testing.T) {
+		t.Parallel()
 		admission, pool := singleSlot(func(a *AdmissionLimiters) {
 			a.TriggerEventQueueTimeout = limits.NewUpperBoundLimiter(time.Minute)
 		})
-		f := newCoordinatorFixtureWithAdmission(t, admission)
+		f, reader := newMeteredCoordinatorFixture(t, admission)
 		trigger, eventCh := f.expectTrigger(t)
 		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
 		release := f.holdExecutions(t)
@@ -690,7 +685,7 @@ func TestCoordinator_Admission(t *testing.T) {
 		eventCh <- triggerEvent("evt-2")
 		require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond)
 		eventCh <- triggerEvent("evt-3")
-		require.Eventually(t, func() bool { return queueLen(f) == 1 }, 5*time.Second, 5*time.Millisecond)
+		require.Eventually(t, func() bool { return queueLen(t, f) == 1 }, 5*time.Second, 5*time.Millisecond)
 
 		// evt-3's 1-minute deadline passes while it is still in the queue.
 		f.clock.Advance(2 * time.Minute)
@@ -705,7 +700,8 @@ func TestCoordinator_Admission(t *testing.T) {
 		assert.Equal(t, []string{"evt-1", "evt-2"}, f.engine.executedIDs(), "evt-3 must never reach ExecuteTrigger")
 	})
 
-	t.Run("the deadline is stamped at dispatch, so a later timeout change does not move it", func(t *testing.T) { //nolint:paralleltest // see above
+	t.Run("the deadline is stamped at dispatch, so a later timeout change does not move it", func(t *testing.T) {
+		t.Parallel()
 		timeout := &mutableTimeoutLimiter{value: time.Minute}
 		admission, pool := singleSlot(func(a *AdmissionLimiters) { a.TriggerEventQueueTimeout = timeout })
 		f := newCoordinatorFixtureWithAdmission(t, admission)
@@ -722,7 +718,7 @@ func TestCoordinator_Admission(t *testing.T) {
 
 		// evt-3 is enqueued while the setting is still 1 minute.
 		eventCh <- triggerEvent("evt-3")
-		require.Eventually(t, func() bool { return queueLen(f) == 1 }, 5*time.Second, 5*time.Millisecond)
+		require.Eventually(t, func() bool { return queueLen(t, f) == 1 }, 5*time.Second, 5*time.Millisecond)
 
 		// Shrink the setting after evt-3 is stamped. If the admitter recomputed the
 		// deadline now, evt-3 would look expired.
