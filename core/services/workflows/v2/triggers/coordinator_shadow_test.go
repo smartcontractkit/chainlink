@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -387,4 +388,43 @@ func TestCoordinator_ShadowBestEffort(t *testing.T) {
 			check(t)
 		})
 	}
+}
+
+// TestCoordinator_DrainerLifecycle asserts the drainer starts and stops with the coordinator, and empties the
+// central queue while it runs. It needs no shadow mode. After close, new puts stay queued.
+func TestCoordinator_DrainerLifecycle(t *testing.T) {
+	t.Parallel()
+	clock := clockwork.NewFakeClockAt(shadowStart)
+	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
+	dm, _ := testDrainerMetrics(t)
+	d := NewDrainer(q, limits.NewUpperBoundLimiter(500*time.Millisecond), drainerHooks{}, dm, clock, logger.Test(t))
+	deps := newRegisterDeps(t, regmocks.NewCapabilitiesRegistry(t), limits.NewGateLimiter(true))
+	c := NewCoordinator(deps, newTestAdmission(), newFakeEngineRegistry(), &fakeWorkflowLimits{}, clock, WithDrainer(d))
+	// The test closes c itself. This only stops it if the test fails first, so the error is ignored.
+	t.Cleanup(func() { _ = c.Close() })
+	require.Error(t, d.Ready(), "the drainer must not run before the coordinator starts")
+
+	require.NoError(t, c.Start(t.Context()))
+	require.NoError(t, d.Ready(), "the drainer must run once the coordinator starts")
+
+	putAll(t, q, centralEvent("wf-a", 0, "evt-1"))
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	require.NoError(t, clock.BlockUntilContext(ctx, 1), "the drainer is not waiting on the clock")
+	clock.Advance(500 * time.Millisecond)
+	require.Eventually(t, func() bool {
+		stats, err := q.Stats(t.Context())
+		return err == nil && stats.Len == 0
+	}, 5*time.Second, 5*time.Millisecond, "the queue was not drained")
+
+	require.NoError(t, c.Close())
+	require.Error(t, d.Ready(), "the drainer must stop when the coordinator closes")
+
+	// Nothing waits on the clock after close, so Advance does nothing unless the drainer goroutine leaked.
+	putAll(t, q, centralEvent("wf-a", 0, "evt-2"))
+	clock.Advance(500 * time.Millisecond)
+	assert.Never(t, func() bool {
+		stats, err := q.Stats(t.Context())
+		return err != nil || stats.Len != 1
+	}, 100*time.Millisecond, 5*time.Millisecond, "an event put after close was drained")
 }

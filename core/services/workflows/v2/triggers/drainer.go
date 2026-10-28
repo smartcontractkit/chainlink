@@ -80,6 +80,17 @@ func NewDrainer(queue Queue, interval limits.BoundLimiter[time.Duration], hooks 
 	return d
 }
 
+// NewCentralQueueDrainer returns the M1 drainer of the central queue. Drained events are discarded after one
+// debug line per workflow per batch, which lets smoke tests see that shadow mode reached the queue. It is
+// removed at M2.
+func NewCentralQueueDrainer(queue Queue, interval limits.BoundLimiter[time.Duration], metrics *monitoring.TriggerDrainerMetricLabeler, clock clockwork.Clock, lggr logger.Logger) *drainer {
+	hookLggr := logger.Named(lggr, "TriggerQueueDrainer")
+	hooks := drainerHooks{OnObservedEvents: func(_ context.Context, events []CoordinatedEvent) {
+		logDrainedEvents(hookLggr, events)
+	}}
+	return NewDrainer(queue, interval, hooks, metrics, clock, lggr)
+}
+
 // start launches the hook worker and the drain loop. Both run until the
 // engine's context is cancelled, which happens when the service is closed;
 // Close then waits for both goroutines to exit.
@@ -148,5 +159,16 @@ func (d *drainer) drain(ctx context.Context) {
 		// drop this batch rather than block the drain loop
 		d.metrics.IncrementDroppedEventsCounter(ctx, monitoring.TriggerDrainerDropReasonHookBusy, len(events))
 		d.lggr.Debugw("Events handler is blocked, dropping the batch", "count", len(events))
+	}
+}
+
+// logDrainedEvents logs how many events each workflow had in one drained batch.
+func logDrainedEvents(lggr logger.Logger, events []CoordinatedEvent) {
+	counts := map[string]int{}
+	for _, e := range events {
+		counts[e.WorkflowID]++
+	}
+	for workflowID, n := range counts {
+		lggr.Debugw("Drained shadow trigger events", "workflowID", workflowID, "count", n)
 	}
 }

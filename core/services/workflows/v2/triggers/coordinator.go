@@ -156,6 +156,8 @@ type coordinator struct {
 
 	// shadow is nil unless WithShadowMode is set.
 	shadow *shadowMode
+	// drainer is nil unless WithDrainer is set.
+	drainer services.Service
 
 	workflows *workflowRegistry
 
@@ -223,6 +225,12 @@ func NewCoordinator(
 	c.Service, c.eng = services.Config{
 		Name:  "TriggerCoordinator",
 		Close: c.close,
+		NewSubServices: func(logger.Logger) []services.Service {
+			if c.drainer == nil {
+				return nil
+			}
+			return []services.Service{c.drainer}
+		},
 	}.NewServiceEngine(c.lggr)
 
 	return c
@@ -247,6 +255,13 @@ func WithShadowMode(queue Queue, activePeriod limits.RangeLimiter[commonconfig.T
 type shadowMode struct {
 	queue        Queue
 	activePeriod limits.RangeLimiter[commonconfig.Timestamp]
+}
+
+// WithDrainer makes drainer a sub-service of the coordinator. It starts before the coordinator, closes after
+// it, and is part of the coordinator's readiness and health report. It is for the temporary M1 drainer of the
+// central queue.
+func WithDrainer(drainer services.Service) CoordinatorOption {
+	return func(c *coordinator) { c.drainer = drainer }
 }
 
 func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) (triggerCapIDs []string, err error) {

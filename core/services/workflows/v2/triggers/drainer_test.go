@@ -14,6 +14,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
@@ -380,4 +382,38 @@ func TestDrainer_IntervalReRead(t *testing.T) {
 	interval.set(-time.Second, nil)
 	drainsAfter(200 * time.Millisecond)
 	drainsAfter(200 * time.Millisecond)
+}
+
+// TestNewCentralQueueDrainer_LogsDrainedEvents asserts the M1 drainer logs one debug line per workflow in a
+// drained batch, with that workflow's event count.
+func TestNewCentralQueueDrainer_LogsDrainedEvents(t *testing.T) {
+	t.Parallel()
+	clock := clockwork.NewFakeClock()
+	batch := append(append(batchOf("wf-a"), batchOf("wf-b")...), batchOf("wf-a")...)
+	q := &fakeQueue{results: []observeResult{{events: batch}}}
+	dm, _ := testDrainerMetrics(t)
+	lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
+	d := NewCentralQueueDrainer(q, limits.NewUpperBoundLimiter(minDrainInterval), dm, clock, lggr)
+	require.NoError(t, d.Start(t.Context()))
+	t.Cleanup(func() { assert.NoError(t, d.Close()) })
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	require.NoError(t, clock.BlockUntilContext(ctx, 1), "the drainer is not waiting on the clock")
+	clock.Advance(minDrainInterval)
+
+	drained := func() []observer.LoggedEntry {
+		return logs.FilterMessage("Drained shadow trigger events").All()
+	}
+	require.Eventually(t, func() bool { return len(drained()) == 2 }, 5*time.Second, 5*time.Millisecond)
+	got := map[string]int64{}
+	for _, entry := range drained() {
+		fields := entry.ContextMap()
+		workflowID, ok := fields["workflowID"].(string)
+		require.True(t, ok, "workflowID field is %T", fields["workflowID"])
+		count, ok := fields["count"].(int64)
+		require.True(t, ok, "count field is %T", fields["count"])
+		got[workflowID] = count
+	}
+	assert.Equal(t, map[string]int64{"wf-a": 2, "wf-b": 1}, got)
 }
