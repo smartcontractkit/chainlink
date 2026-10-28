@@ -337,8 +337,11 @@ ChipIngressEnabled enables sending telemetry to CHIP Ingress.
 ```toml
 BeholderEnabled = false # Default
 ```
-BeholderEnabled sends telemetry through Beholder instead of the Endpoints below, which are then ignored.
-Requires Telemetry.Enabled and Telemetry.ChipIngressEndpoint. Cannot be combined with ChipIngressEnabled.
+BeholderEnabled sends telemetry through Beholder, one emitter per product domain, instead of the Endpoints below.
+When set, Endpoints and the settings above (BufferSize, MaxBatchSize, SendInterval, SendTimeout, UseBatchSend, UniConn, Logging)
+are ignored: the Telemetry.ChipIngress* settings size one buffer per domain, shared by all of that domain's jobs.
+Requires Telemetry.Enabled and Telemetry.ChipIngressEndpoint, and chip ingress that serves PublishBatchNoAck for every domain
+(there is no fallback). Cannot be combined with ChipIngressEnabled.
 
 ## TelemetryIngress.Endpoints
 ```toml
