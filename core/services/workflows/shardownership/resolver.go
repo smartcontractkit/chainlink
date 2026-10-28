@@ -32,10 +32,16 @@ type OrgResolver interface {
 	Get(ctx context.Context, owner string) (string, error)
 }
 
+var warnGlobalShardAssignmentMetricsOnce sync.Once
+
 func globalShardAssignmentMetrics(lggr logger.Logger) *wfmon.ShardAssignmentMetrics {
 	m, err := wfmon.GlobalShardAssignmentMetrics()
 	if err != nil {
-		lggr.Warnw("Failed to register shard assignment metrics; continuing without assignment instrumentation", "err", err)
+		// Once per process: every resolver constructor fetches the same global
+		// registration and the failure is process-wide, not per resolver.
+		warnGlobalShardAssignmentMetricsOnce.Do(func() {
+			lggr.Warnw("Failed to register shard assignment metrics; continuing without assignment instrumentation", "err", err)
+		})
 	}
 	return m
 }
@@ -126,8 +132,12 @@ type manualShardResolver struct {
 	lggr             logger.Logger
 	metrics          *wfmon.ShardAssignmentMetrics
 
-	cfgMu   sync.Mutex
-	lastCfg *cresettings.ShardAssignmentConfig
+	// cfgMu guards the memo of the last observed raw settings blob so the
+	// resolve hot path skips re-parsing and re-hashing unchanged settings.
+	cfgMu      sync.Mutex
+	lastRaw    string
+	lastParsed *cresettings.ShardAssignmentConfig
+	lastErr    error
 }
 
 func NewManualShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, lggr logger.Logger) ShardResolver {
@@ -175,17 +185,14 @@ func (m *manualShardResolver) resolveAllShards(ctx context.Context, ownerHex str
 func (m *manualShardResolver) ResolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error) {
 	start := time.Now()
 	result, err := m.resolveShards(ctx, workflowIDs, ownerHexes)
-	if err != nil {
-		m.metrics.RecordResolverRequest(ctx, wfmon.ShardResolverManual, wfmon.ShardResolverOutcomeError, "", time.Since(start))
-		return nil, err
-	}
 	m.metrics.RecordResolverDuration(ctx, wfmon.ShardResolverManual, time.Since(start))
-	return result, nil
+	return result, err
 }
 
 func (m *manualShardResolver) resolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error) {
 	cfg, err := m.loadObservedConfig(ctx)
 	if err != nil {
+		m.metrics.AddResolverRequest(ctx, wfmon.ShardResolverManual, wfmon.ShardResolverOutcomeError, "")
 		return nil, err
 	}
 	if cfg == nil {
@@ -194,10 +201,14 @@ func (m *manualShardResolver) resolveShards(ctx context.Context, workflowIDs []s
 	result := make(map[string]uint32, len(workflowIDs))
 	for i, wfID := range workflowIDs {
 		if i >= len(ownerHexes) {
-			break
+			// No owner supplied for this workflow: nothing can match, so it
+			// resolves as not-found rather than escaping the accounting.
+			m.metrics.AddResolverRequest(ctx, wfmon.ShardResolverManual, wfmon.ShardResolverOutcomeNotFound, wfmon.ShardResolverSourceNone)
+			continue
 		}
 		shardIndex, found, source, err := resolveManual(ctx, cfg, ownerHexes[i], m.orgResolver)
 		if err != nil {
+			m.metrics.AddResolverRequest(ctx, wfmon.ShardResolverManual, wfmon.ShardResolverOutcomeError, source)
 			return nil, err
 		}
 		m.metrics.AddResolverRequest(ctx, wfmon.ShardResolverManual, resolverOutcome(found, nil), source)
@@ -241,7 +252,9 @@ func (m *manualShardResolver) toDonIDs(ctx context.Context, shardIndices []uint3
 
 // loadObservedConfig loads and parses the current shard assignment settings,
 // recording the settings hash and emitting one diff log per actual settings
-// change. A parse error keeps the previously applied assignment live.
+// change. Parse errors are propagated to the caller exactly as resolution
+// behaved before instrumentation: an unparseable settings version fails
+// resolution instead of silently resurrecting an older assignment.
 func (m *manualShardResolver) loadObservedConfig(ctx context.Context) (*cresettings.ShardAssignmentConfig, error) {
 	var raw string
 	if m.settings != nil {
@@ -254,23 +267,40 @@ func (m *manualShardResolver) loadObservedConfig(ctx context.Context) (*cresetti
 	if raw == "" {
 		return nil, nil
 	}
+
+	// Hot path: settings are re-read on every resolve, but only re-parsed and
+	// re-hashed when the raw blob actually changed.
+	m.cfgMu.Lock()
+	if raw == m.lastRaw {
+		cfg, err := m.lastParsed, m.lastErr
+		m.cfgMu.Unlock()
+		return cfg, err
+	}
+	m.cfgMu.Unlock()
+
 	cfg, err := cresettings.ParseShardAssignmentConfig(raw)
 	if err != nil {
 		if m.metrics.RecordSettingsParseError(ctx, settingsStringHash(raw)) {
-			m.lggr.Warnw("Failed to parse shard assignment settings; keeping previous assignment live", "err", err)
+			m.lggr.Warnw("Failed to parse shard assignment settings; returning error", "err", err)
 		}
-		m.cfgMu.Lock()
-		defer m.cfgMu.Unlock()
-		return m.lastCfg, nil
+		m.cacheObservedConfig(raw, nil, err)
+		return nil, err
 	}
 	hash := shardAssignmentSettingsHash(cfg)
-	m.cfgMu.Lock()
-	defer m.cfgMu.Unlock()
-	if m.metrics.RecordSettingsApplied(ctx, hash) {
-		m.lggr.Infow("Shard assignment settings applied", assignmentDiffKVs(m.lastCfg, cfg, hash)...)
+	changed, prev := m.metrics.RecordSettingsApplied(ctx, hash, cfg)
+	if changed {
+		// The diff is O(owners) and each list is capped, so it is built and
+		// logged here rather than inside cfgMu.
+		m.lggr.Infow("Shard assignment settings applied", assignmentDiffKVs(prev, cfg, hash)...)
 	}
-	m.lastCfg = cfg
+	m.cacheObservedConfig(raw, cfg, nil)
 	return cfg, nil
+}
+
+func (m *manualShardResolver) cacheObservedConfig(raw string, cfg *cresettings.ShardAssignmentConfig, err error) {
+	m.cfgMu.Lock()
+	m.lastRaw, m.lastParsed, m.lastErr = raw, cfg, err
+	m.cfgMu.Unlock()
 }
 
 func resolveManual(ctx context.Context, cfg *cresettings.ShardAssignmentConfig, ownerHex string, orgResolver OrgResolver) (uint32, bool, string, error) {
@@ -301,7 +331,7 @@ func resolveManual(ctx context.Context, cfg *cresettings.ShardAssignmentConfig, 
 		return cfg.StaticDefaultAssignment[0], true, wfmon.ShardResolverSourceStaticDefault, nil
 	}
 
-	return 0, false, wfmon.ShardResolverSourceStaticDefault, nil
+	return 0, false, wfmon.ShardResolverSourceNone, nil
 }
 
 func resolveAllManual(ctx context.Context, cfg *cresettings.ShardAssignmentConfig, ownerHex string, orgResolver OrgResolver) ([]uint32, bool, string, error) {
@@ -332,7 +362,7 @@ func resolveAllManual(ctx context.Context, cfg *cresettings.ShardAssignmentConfi
 		return cfg.StaticDefaultAssignment, true, wfmon.ShardResolverSourceStaticDefault, nil
 	}
 
-	return nil, false, wfmon.ShardResolverSourceStaticDefault, nil
+	return nil, false, wfmon.ShardResolverSourceNone, nil
 }
 
 func shardAssignmentSettingsHash(cfg *cresettings.ShardAssignmentConfig) uint32 {
@@ -355,6 +385,10 @@ func settingsStringHash(raw string) uint32 {
 	_, _ = h.Write([]byte(raw))
 	return h.Sum32()
 }
+
+// assignmentDiffOwnerCap bounds each owner list in the applied log; the
+// per-owner map can hold far more entries than any log line should.
+const assignmentDiffOwnerCap = 10
 
 // assignmentDiffKVs returns the log fields describing what actually changed
 // between two settings versions: only the owners added, moved or removed plus
@@ -387,12 +421,20 @@ func assignmentDiffKVs(prev, curr *cresettings.ShardAssignmentConfig, hash uint3
 		}
 	}
 	return append(kvs,
-		"perOwnerAdded", added,
-		"perOwnerMoved", moved,
-		"perOwnerRemoved", removed,
+		"perOwnerAdded", capOwnerDiff(added),
+		"perOwnerMoved", capOwnerDiff(moved),
+		"perOwnerRemoved", capOwnerDiff(removed),
 		"perOrgAdded", mapKeyDiffCount(prev.PerOrgAssignment, curr.PerOrgAssignment),
 		"perOrgRemoved", mapKeyDiffCount(curr.PerOrgAssignment, prev.PerOrgAssignment),
 	)
+}
+
+func capOwnerDiff(entries []string) []string {
+	if len(entries) <= assignmentDiffOwnerCap {
+		return entries
+	}
+	capped := slices.Clone(entries[:assignmentDiffOwnerCap])
+	return append(capped, fmt.Sprintf("...and %d more", len(entries)-assignmentDiffOwnerCap))
 }
 
 func mapKeyDiffCount(from, to map[string][]uint32) int {
@@ -414,33 +456,36 @@ type overrideShardResolver struct {
 }
 
 func NewOverrideShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, ringOCR ShardResolver, lggr logger.Logger) ShardResolver {
+	// One fetch shared by the override and its inner manual resolver so a
+	// registration failure warns once and both see the same instruments.
+	metrics := globalShardAssignmentMetrics(lggr)
 	return &overrideShardResolver{
-		manual:      &manualShardResolver{settings: settings, orgResolver: orgResolver, shardIndexMapper: shardIndexMapper, lggr: logger.Named(lggr, "ManualShardResolver"), metrics: globalShardAssignmentMetrics(lggr)},
+		manual:      &manualShardResolver{settings: settings, orgResolver: orgResolver, shardIndexMapper: shardIndexMapper, lggr: logger.Named(lggr, "ManualShardResolver"), metrics: metrics},
 		orgResolver: orgResolver,
 		ringOCR:     ringOCR,
 		lggr:        logger.Named(lggr, "OverrideShardResolver"),
-		metrics:     globalShardAssignmentMetrics(lggr),
+		metrics:     metrics,
 	}
 }
 
+// ResolveShard counts the resolution exactly once, on the resolver that
+// decided it: the override when the manual assignment matched, the ring
+// resolver otherwise (the ring resolver records its own request on fallback).
 func (o *overrideShardResolver) ResolveShard(ctx context.Context, workflowID string, ownerHex string) (uint32, bool, error) {
 	start := time.Now()
-	donID, found, err := o.resolveShard(ctx, workflowID, ownerHex)
-	o.metrics.RecordResolverRequest(ctx, wfmon.ShardResolverOverride, resolverOutcome(found, err), "", time.Since(start))
-	return donID, found, err
-}
-
-func (o *overrideShardResolver) resolveShard(ctx context.Context, workflowID string, ownerHex string) (uint32, bool, error) {
 	cfg, err := o.manual.loadObservedConfig(ctx)
 	if err != nil {
+		o.metrics.RecordResolverRequest(ctx, wfmon.ShardResolverOverride, wfmon.ShardResolverOutcomeError, "", time.Since(start))
 		return 0, false, err
 	}
 	if cfg != nil {
 		shardIndex, found, _, err := resolveManual(ctx, cfg, ownerHex, o.orgResolver)
 		if err != nil {
+			o.metrics.RecordResolverRequest(ctx, wfmon.ShardResolverOverride, wfmon.ShardResolverOutcomeError, "", time.Since(start))
 			return 0, false, err
 		}
 		if found {
+			o.metrics.RecordResolverRequest(ctx, wfmon.ShardResolverOverride, wfmon.ShardResolverOutcomeFound, "", time.Since(start))
 			return o.manual.toDonID(ctx, shardIndex), true, nil
 		}
 	}
@@ -449,25 +494,23 @@ func (o *overrideShardResolver) resolveShard(ctx context.Context, workflowID str
 
 func (o *overrideShardResolver) ResolveAllShards(ctx context.Context, workflowID string, ownerHex string) ([]uint32, bool, error) {
 	start := time.Now()
-	donIDs, found, err := o.resolveAllShards(ctx, workflowID, ownerHex)
-	o.metrics.RecordResolverRequest(ctx, wfmon.ShardResolverOverride, resolverOutcome(found, err), "", time.Since(start))
-	return donIDs, found, err
-}
-
-func (o *overrideShardResolver) resolveAllShards(ctx context.Context, workflowID string, ownerHex string) ([]uint32, bool, error) {
-	cfg, cfgErr := o.manual.loadObservedConfig(ctx)
-	if cfgErr != nil {
-		return nil, false, cfgErr
+	cfg, err := o.manual.loadObservedConfig(ctx)
+	if err != nil {
+		o.metrics.RecordResolverRequest(ctx, wfmon.ShardResolverOverride, wfmon.ShardResolverOutcomeError, "", time.Since(start))
+		return nil, false, err
 	}
 	if cfg != nil {
 		shardIndices, found, _, resolveErr := resolveAllManual(ctx, cfg, ownerHex, o.orgResolver)
 		if resolveErr != nil {
+			o.metrics.RecordResolverRequest(ctx, wfmon.ShardResolverOverride, wfmon.ShardResolverOutcomeError, "", time.Since(start))
 			return nil, false, resolveErr
 		}
 		if found {
+			o.metrics.RecordResolverRequest(ctx, wfmon.ShardResolverOverride, wfmon.ShardResolverOutcomeFound, "", time.Since(start))
 			return o.manual.toDonIDs(ctx, shardIndices), true, nil
 		}
 	}
+	// Ring fallback decides; the ring resolver records its own request.
 	shardID, found, err := o.ringOCR.ResolveShard(ctx, workflowID, ownerHex)
 	if err != nil || !found {
 		return nil, false, err
@@ -477,21 +520,24 @@ func (o *overrideShardResolver) resolveAllShards(ctx context.Context, workflowID
 
 func (o *overrideShardResolver) ResolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error) {
 	start := time.Now()
-	result, err := o.resolveShards(ctx, workflowIDs, ownerHexes)
-	if err != nil {
-		o.metrics.RecordResolverRequest(ctx, wfmon.ShardResolverOverride, wfmon.ShardResolverOutcomeError, "", time.Since(start))
-		return nil, err
-	}
-	o.metrics.RecordResolverDuration(ctx, wfmon.ShardResolverOverride, time.Since(start))
-	return result, nil
+	return o.resolveShards(ctx, workflowIDs, ownerHexes, start)
 }
 
-func (o *overrideShardResolver) resolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error) {
+// resolveShards counts every workflow exactly once, on the resolver that
+// decided it: workflows covered by the manual config count under override,
+// ring fallbacks are counted by the ring resolver itself, and a batch with no
+// manual settings is decided (and counted) entirely by the ring resolver. A
+// single override duration is recorded unless the call fully delegated.
+func (o *overrideShardResolver) resolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string, start time.Time) (map[string]uint32, error) {
 	cfg, err := o.manual.loadObservedConfig(ctx)
 	if err != nil {
+		o.metrics.AddResolverRequest(ctx, wfmon.ShardResolverOverride, wfmon.ShardResolverOutcomeError, "")
+		o.metrics.RecordResolverDuration(ctx, wfmon.ShardResolverOverride, time.Since(start))
 		return nil, err
 	}
 	if cfg == nil {
+		// No manual settings: the ring resolver decides the whole batch and
+		// records every workflow and its own duration.
 		return o.ringOCR.ResolveShards(ctx, workflowIDs, ownerHexes)
 	}
 
@@ -500,16 +546,24 @@ func (o *overrideShardResolver) resolveShards(ctx context.Context, workflowIDs [
 
 	for i, wfID := range workflowIDs {
 		if i >= len(ownerHexes) {
-			break
+			// No owner supplied: nothing in the manual config can match, so
+			// this resolves as not-found instead of escaping the accounting.
+			o.metrics.AddResolverRequest(ctx, wfmon.ShardResolverOverride, wfmon.ShardResolverOutcomeNotFound, wfmon.ShardResolverSourceNone)
+			continue
 		}
 		shardIndex, found, _, err := resolveManual(ctx, cfg, ownerHexes[i], o.orgResolver)
 		if err != nil {
+			o.metrics.AddResolverRequest(ctx, wfmon.ShardResolverOverride, wfmon.ShardResolverOutcomeError, "")
+			o.metrics.RecordResolverDuration(ctx, wfmon.ShardResolverOverride, time.Since(start))
 			return nil, err
 		}
-		o.metrics.AddResolverRequest(ctx, wfmon.ShardResolverOverride, resolverOutcome(found, nil), "")
 		if found {
+			o.metrics.AddResolverRequest(ctx, wfmon.ShardResolverOverride, wfmon.ShardResolverOutcomeFound, "")
 			result[wfID] = o.manual.toDonID(ctx, shardIndex)
 		} else {
+			// Not covered by the manual config: the ring resolver decides it
+			// (and records it) in the fallback batch below, so it is not
+			// counted here as well.
 			ringWorkflowIDs = append(ringWorkflowIDs, wfID)
 		}
 	}
@@ -517,11 +571,13 @@ func (o *overrideShardResolver) resolveShards(ctx context.Context, workflowIDs [
 	if len(ringWorkflowIDs) > 0 {
 		ringResult, err := o.ringOCR.ResolveShards(ctx, ringWorkflowIDs, nil)
 		if err != nil {
+			o.metrics.RecordResolverDuration(ctx, wfmon.ShardResolverOverride, time.Since(start))
 			return nil, err
 		}
 		maps.Copy(result, ringResult)
 	}
 
+	o.metrics.RecordResolverDuration(ctx, wfmon.ShardResolverOverride, time.Since(start))
 	return result, nil
 }
 

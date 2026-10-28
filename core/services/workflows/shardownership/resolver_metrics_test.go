@@ -3,8 +3,11 @@ package shardownership
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	wfmon "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -147,16 +151,17 @@ func hasAllAttrs(set attribute.Set, attrs map[string]string) bool {
 	return true
 }
 
-func (f *assignmentMetricsFixture) requireSourceWithinFourValues(t *testing.T) {
+func (f *assignmentMetricsFixture) requireSourceWithinBoundedValues(t *testing.T) {
 	t.Helper()
 	allowed := []string{
 		wfmon.ShardResolverSourcePerOwner,
 		wfmon.ShardResolverSourcePerOrg,
 		wfmon.ShardResolverSourceStaticDefault,
 		wfmon.ShardResolverSourceHashed,
+		wfmon.ShardResolverSourceNone,
 	}
 	for _, source := range f.observedSources(t) {
-		require.Contains(t, allowed, source, "source label must stay within its 4 enum values")
+		require.Contains(t, allowed, source, "source label must stay within its 5 enum values")
 	}
 }
 
@@ -227,7 +232,7 @@ hashed_owner_assignment = ["`+ownerC+`"]
 		wfmon.ShardResolverSourceStaticDefault,
 		wfmon.ShardResolverSourceHashed,
 	}, f.observedSources(t))
-	f.requireSourceWithinFourValues(t)
+	f.requireSourceWithinBoundedValues(t)
 
 	noDefault := &loop.AtomicSettings{}
 	storeShardAssignment(t, noDefault, `
@@ -239,9 +244,9 @@ hashed_owner_assignment = ["`+ownerC+`"]
 	require.NoError(t, err)
 	require.False(t, found)
 	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
-		"resolver": wfmon.ShardResolverManual, "outcome": wfmon.ShardResolverOutcomeNotFound, "source": wfmon.ShardResolverSourceStaticDefault,
-	}), "the static_default precedence step decides not_found when no static default is configured")
-	f.requireSourceWithinFourValues(t)
+		"resolver": wfmon.ShardResolverManual, "outcome": wfmon.ShardResolverOutcomeNotFound, "source": wfmon.ShardResolverSourceNone,
+	}), "the nothing-matched-no-default fall-through must report source=none, not static_default")
+	f.requireSourceWithinBoundedValues(t)
 }
 
 func TestResolverMetrics_SettingsHash(t *testing.T) {
@@ -318,11 +323,12 @@ func TestResolverMetrics_SettingsHash(t *testing.T) {
 	require.NotEqual(t, int64(stable), hash)
 }
 
-func TestResolverMetrics_ParseErrorKeepsPreviousAssignment(t *testing.T) {
+func TestResolverMetrics_ParseErrorPropagates(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	f := newAssignmentMetricsFixture(t)
 
+	lggr, logs := logger.TestObserved(t, zapcore.WarnLevel)
 	settings := &loop.AtomicSettings{}
 	storeShardAssignment(t, settings, `
 static_default_assignment = [0]
@@ -330,7 +336,7 @@ static_default_assignment = [0]
 [per_owner_assignment]
   `+ownerA+` = [1]
 `)
-	r := f.manualResolver(settings, nil, nopLogger)
+	r := f.manualResolver(settings, nil, lggr)
 
 	donID, found, err := r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
@@ -339,39 +345,71 @@ static_default_assignment = [0]
 	firstHash, ok := f.gaugeValue(t, "platform_shard_assignment_settings_hash")
 	require.True(t, ok)
 
-	storeShardAssignment(t, settings, `static_default_assignment = "not-an-array"`)
-	donID, found, err = r.ResolveShard(ctx, "wf-a", ownerA)
-	require.NoError(t, err)
-	require.True(t, found, "the previous assignment must stay live through a parse error")
-	require.Equal(t, uint32(1), donID)
-
+	bad := `static_default_assignment = "not-an-array"`
+	storeShardAssignment(t, settings, bad)
+	_, found, err = r.ResolveShard(ctx, "wf-a", ownerA)
+	require.Error(t, err, "a parse error must fail resolution exactly as it did before instrumentation")
+	require.False(t, found)
 	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_assignment_updated", map[string]string{"outcome": wfmon.ShardAssignmentUpdateParseError}))
-	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_assignment_updated", map[string]string{"outcome": wfmon.ShardAssignmentUpdateApplied}))
+	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
+		"resolver": wfmon.ShardResolverManual, "outcome": wfmon.ShardResolverOutcomeError, "source": "",
+	}))
+	require.Len(t, logs.FilterMessage("Failed to parse shard assignment settings; returning error").All(), 1, "one warning per new bad settings version")
 	hash, ok := f.gaugeValue(t, "platform_shard_assignment_settings_hash")
 	require.True(t, ok)
 	require.Equal(t, firstHash, hash, "a parse error must not move the settings hash gauge")
 
+	// The same broken version keeps failing resolution but is counted once.
 	_, found, err = r.ResolveShard(ctx, "wf-a", ownerA)
-	require.NoError(t, err)
-	require.True(t, found)
+	require.Error(t, err)
+	require.False(t, found)
+	require.Equal(t, int64(2), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
+		"resolver": wfmon.ShardResolverManual, "outcome": wfmon.ShardResolverOutcomeError, "source": "",
+	}), "every failed resolve still counts one error")
 	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_assignment_updated", map[string]string{"outcome": wfmon.ShardAssignmentUpdateParseError}),
 		"the same broken settings version is counted once")
+	require.Len(t, logs.FilterMessage("Failed to parse shard assignment settings; returning error").All(), 1)
 
-	storeShardAssignment(t, settings, `[per_owner_assignment]
-  "0x1234" = [1]
+	// The batch path propagates the same error, counting one error per call,
+	// exactly like a single-shot call for the same failure.
+	_, err = r.ResolveShards(ctx, []string{"wf-a"}, []string{ownerA})
+	require.Error(t, err)
+	require.Equal(t, int64(3), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
+		"resolver": wfmon.ShardResolverManual, "outcome": wfmon.ShardResolverOutcomeError, "source": "",
+	}), "a failed batch call counts one error")
+
+	// A good version applies again and resets the parse-error dedup.
+	storeShardAssignment(t, settings, `
+static_default_assignment = [0]
+
+[per_owner_assignment]
+  `+ownerA+` = [1]
 `)
 	donID, found, err = r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, uint32(1), donID)
+	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_assignment_updated", map[string]string{"outcome": wfmon.ShardAssignmentUpdateApplied}),
+		"the same assignment returning after a broken version is not a new applied update")
+
+	// The same broken version recurring after a good one counts and warns again.
+	storeShardAssignment(t, settings, bad)
+	_, found, err = r.ResolveShard(ctx, "wf-a", ownerA)
+	require.Error(t, err)
+	require.False(t, found)
 	require.Equal(t, int64(2), f.counterTotal(t, "platform_shard_assignment_updated", map[string]string{"outcome": wfmon.ShardAssignmentUpdateParseError}),
+		"a bad version recurring after a good one is counted again")
+	require.Len(t, logs.FilterMessage("Failed to parse shard assignment settings; returning error").All(), 2)
+
+	// A different broken version is its own parse error.
+	storeShardAssignment(t, settings, `[per_owner_assignment]
+  "0x1234" = [1]
+`)
+	_, _, err = r.ResolveShard(ctx, "wf-a", ownerA)
+	require.Error(t, err)
+	require.Equal(t, int64(3), f.counterTotal(t, "platform_shard_assignment_updated", map[string]string{"outcome": wfmon.ShardAssignmentUpdateParseError}),
 		"a new broken settings version is counted again")
 	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_assignment_updated", map[string]string{"outcome": wfmon.ShardAssignmentUpdateApplied}))
-
-	donID, found, err = r.ResolveShard(ctx, "wf-d", ownerD)
-	require.NoError(t, err)
-	require.True(t, found)
-	require.Equal(t, uint32(0), donID, "the whole previous assignment keeps serving, including its static default")
 }
 
 func TestResolverMetrics_RingRequests(t *testing.T) {
@@ -439,13 +477,19 @@ hashed_default_assignment = true
 	o.metrics = f.metrics
 	o.manual.metrics = f.metrics
 
+	// Single-shot: a manual hit counts once on the override resolver and must
+	// not touch the ring resolver.
 	donID, found, err := o.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, uint32(1), donID)
+	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
+		"resolver": wfmon.ShardResolverOverride, "outcome": wfmon.ShardResolverOutcomeFound, "source": "",
+	}))
 	require.Equal(t, int64(0), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{"resolver": wfmon.ShardResolverRing}),
 		"a manual override hit must not go to the ring resolver")
 
+	// Single-shot ring fallback: only the ring resolver counts, once.
 	donID, found, err = o.ResolveShard(ctx, "wf-b", ownerB)
 	require.NoError(t, err)
 	require.True(t, found)
@@ -453,6 +497,8 @@ hashed_default_assignment = true
 	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
 		"resolver": wfmon.ShardResolverRing, "outcome": wfmon.ShardResolverOutcomeFound, "source": "",
 	}))
+	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{"resolver": wfmon.ShardResolverOverride}),
+		"the ring fallback must not double-count on the override resolver")
 
 	_, found, err = o.ResolveShard(ctx, "wf-c", ownerB)
 	require.NoError(t, err)
@@ -461,26 +507,56 @@ hashed_default_assignment = true
 		"resolver": wfmon.ShardResolverRing, "outcome": wfmon.ShardResolverOutcomeNotFound, "source": "",
 	}))
 
+	// ResolveAllShards follows the same accounting on both sides.
 	shards, found, err := o.ResolveAllShards(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, []uint32{1}, shards)
+	shards, found, err = o.ResolveAllShards(ctx, "wf-b", ownerB)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, []uint32{2}, shards)
+	require.Equal(t, int64(2), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
+		"resolver": wfmon.ShardResolverOverride, "outcome": wfmon.ShardResolverOutcomeFound, "source": "",
+	}))
 
-	resolved, err := o.ResolveShards(ctx, []string{"wf-a", "wf-b"}, []string{ownerA, ownerB})
+	// Batch: manual-decided workflows count under override, ring fallbacks
+	// under ring, and a workflow without an owner counts as not-found — each
+	// exactly once.
+	resolved, err := o.ResolveShards(ctx, []string{"wf-a", "wf-b", "wf-tail"}, []string{ownerA, ownerB})
 	require.NoError(t, err)
 	require.Equal(t, map[string]uint32{"wf-a": 1, "wf-b": 2}, resolved)
 
-	require.Equal(t, int64(4), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
+	require.Equal(t, int64(3), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
 		"resolver": wfmon.ShardResolverOverride, "outcome": wfmon.ShardResolverOutcomeFound, "source": "",
-	}))
-	require.Equal(t, int64(2), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
-		"resolver": wfmon.ShardResolverOverride, "outcome": wfmon.ShardResolverOutcomeNotFound, "source": "",
-	}))
-	require.Equal(t, int64(2), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
+	}), "one override count per manual-decided workflow, single-shot and batch agreeing")
+	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
+		"resolver": wfmon.ShardResolverOverride, "outcome": wfmon.ShardResolverOutcomeNotFound, "source": wfmon.ShardResolverSourceNone,
+	}), "the workflow without an owner counts as not-found with source=none")
+	require.Equal(t, int64(3), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
 		"resolver": wfmon.ShardResolverRing, "outcome": wfmon.ShardResolverOutcomeFound, "source": "",
-	}), "the ring fallback inside the batch must be counted on the ring resolver")
-	require.Equal(t, uint64(5), f.histogramCount(t, "platform_shard_resolver_duration_seconds", map[string]string{"resolver": wfmon.ShardResolverOverride}))
-	require.Equal(t, uint64(3), f.histogramCount(t, "platform_shard_resolver_duration_seconds", map[string]string{"resolver": wfmon.ShardResolverRing}))
+	}), "the ring fallback inside the batch is counted on the ring resolver")
+	require.Equal(t, uint64(3), f.histogramCount(t, "platform_shard_resolver_duration_seconds", map[string]string{"resolver": wfmon.ShardResolverOverride}),
+		"one override duration per override-decided call")
+	require.Equal(t, uint64(4), f.histogramCount(t, "platform_shard_resolver_duration_seconds", map[string]string{"resolver": wfmon.ShardResolverRing}),
+		"one ring duration per ring-fallback call")
+
+	// With no manual settings at all, the whole batch is decided (and counted)
+	// by the ring resolver; the override resolver adds nothing.
+	empty := &loop.AtomicSettings{}
+	o2 := NewOverrideShardResolver(empty, nil, nil, ring, nopLogger).(*overrideShardResolver)
+	o2.metrics = f.metrics
+	o2.manual.metrics = f.metrics
+	resolved, err = o2.ResolveShards(ctx, []string{"wf-b"}, []string{ownerB})
+	require.NoError(t, err)
+	require.Equal(t, map[string]uint32{"wf-b": 2}, resolved)
+	require.Equal(t, int64(4), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
+		"resolver": wfmon.ShardResolverRing, "outcome": wfmon.ShardResolverOutcomeFound, "source": "",
+	}), "a nil manual config delegates the whole batch to the ring resolver")
+	require.Equal(t, int64(4), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{"resolver": wfmon.ShardResolverOverride}),
+		"no override counts are recorded for workflows the ring decided")
+	require.Equal(t, uint64(3), f.histogramCount(t, "platform_shard_resolver_duration_seconds", map[string]string{"resolver": wfmon.ShardResolverOverride}),
+		"a fully delegated batch adds no override duration either")
 }
 
 func TestResolverMetrics_SettingsDiffLog(t *testing.T) {
@@ -536,4 +612,159 @@ static_default_assignment = [0]
 	_, _, err = r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 	require.Len(t, logs.FilterMessage("Shard assignment settings applied").All(), 2)
+}
+
+func TestResolverMetrics_ManualBatchCountsEveryWorkflow(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	f := newAssignmentMetricsFixture(t)
+
+	settings := &loop.AtomicSettings{}
+	storeShardAssignment(t, settings, `
+static_default_assignment = [0]
+
+[per_owner_assignment]
+  `+ownerA+` = [1]
+`)
+	r := f.manualResolver(settings, nil, nopLogger)
+
+	// More workflows than owners: the ownerless tail still counts as
+	// not-found with source=none and stays absent from the result.
+	resolved, err := r.ResolveShards(ctx, []string{"wf-a", "wf-tail-1", "wf-tail-2"}, []string{ownerA})
+	require.NoError(t, err)
+	require.Equal(t, map[string]uint32{"wf-a": 1}, resolved)
+	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
+		"resolver": wfmon.ShardResolverManual, "outcome": wfmon.ShardResolverOutcomeFound, "source": wfmon.ShardResolverSourcePerOwner,
+	}))
+	require.Equal(t, int64(2), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
+		"resolver": wfmon.ShardResolverManual, "outcome": wfmon.ShardResolverOutcomeNotFound, "source": wfmon.ShardResolverSourceNone,
+	}), "workflows without an owner are counted as not-found, not dropped")
+
+	// A batch hitting an unparseable settings version fails like single-shot
+	// and counts one error for the call.
+	storeShardAssignment(t, settings, `static_default_assignment = "not-an-array"`)
+	_, err = r.ResolveShards(ctx, []string{"wf-a"}, []string{ownerA})
+	require.Error(t, err)
+	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
+		"resolver": wfmon.ShardResolverManual, "outcome": wfmon.ShardResolverOutcomeError, "source": "",
+	}), "a failed batch call counts one error, matching a single-shot call")
+}
+
+// TestResolverMetrics_SettingsDiffLogBaselineIsGlobal proves the applied-diff
+// baseline lives with the global dedup state: a second resolver that never
+// observed the previous version still logs the real diff, not "initial".
+func TestResolverMetrics_SettingsDiffLogBaselineIsGlobal(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	f := newAssignmentMetricsFixture(t)
+
+	lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
+	settings := &loop.AtomicSettings{}
+	storeShardAssignment(t, settings, `
+static_default_assignment = [0]
+
+[per_owner_assignment]
+  `+ownerA+` = [1]
+`)
+	r1 := f.manualResolver(settings, nil, lggr)
+	_, _, err := r1.ResolveShard(ctx, "wf-a", ownerA)
+	require.NoError(t, err)
+	require.Len(t, logs.FilterMessage("Shard assignment settings applied").All(), 1)
+
+	storeShardAssignment(t, settings, `
+static_default_assignment = [0]
+
+[per_owner_assignment]
+  `+ownerA+` = [3]
+`)
+	r2 := f.manualResolver(settings, nil, lggr)
+	_, _, err = r2.ResolveShard(ctx, "wf-a", ownerA)
+	require.NoError(t, err)
+	entries := logs.FilterMessage("Shard assignment settings applied").All()
+	require.Len(t, entries, 2)
+	fields := entries[1].ContextMap()
+	require.NotContains(t, fields, "initial", "the diff baseline is the globally applied config, not the new resolver's nil baseline")
+	require.Equal(t, []any{ownerA[2:] + "=[1]->[3]"}, fields["perOwnerMoved"])
+}
+
+// TestResolverMetrics_SettingsDiffLogCapsOwnerLists proves each owner list in
+// the applied log is capped, so a large owner map cannot produce an
+// unbounded log line.
+func TestResolverMetrics_SettingsDiffLogCapsOwnerLists(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	f := newAssignmentMetricsFixture(t)
+
+	lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
+	settings := &loop.AtomicSettings{}
+	storeShardAssignment(t, settings, `static_default_assignment = [0]`)
+	r := f.manualResolver(settings, nil, lggr)
+	_, _, err := r.ResolveShard(ctx, "wf-a", ownerA)
+	require.NoError(t, err)
+
+	var cfgToml strings.Builder
+	cfgToml.WriteString("static_default_assignment = [0]\n\n[per_owner_assignment]\n")
+	for i := range assignmentDiffOwnerCap + 2 {
+		fmt.Fprintf(&cfgToml, "  \"0x%040x\" = [1]\n", i+1)
+	}
+	storeShardAssignment(t, settings, cfgToml.String())
+	_, _, err = r.ResolveShard(ctx, "wf-a", ownerA)
+	require.NoError(t, err)
+
+	entries := logs.FilterMessage("Shard assignment settings applied").All()
+	require.Len(t, entries, 2)
+	added, ok := entries[1].ContextMap()["perOwnerAdded"].([]any)
+	require.True(t, ok)
+	require.Len(t, added, assignmentDiffOwnerCap+1, "the added list is capped at the first 10 owners plus a marker")
+	require.Equal(t, fmt.Sprintf("...and %d more", 2), added[len(added)-1])
+}
+
+// TestResolverMetrics_ConcurrentResolveWhileSettingsChange exercises the
+// settings memo and metric dedup under concurrent resolves with the settings
+// changing underneath (run with -race).
+func TestResolverMetrics_ConcurrentResolveWhileSettingsChange(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	f := newAssignmentMetricsFixture(t)
+
+	goodA := `
+static_default_assignment = [0]
+
+[per_owner_assignment]
+  ` + ownerA + ` = [1]
+`
+	goodB := `
+static_default_assignment = [0]
+
+[per_owner_assignment]
+  ` + ownerA + ` = [2]
+`
+	settings := &loop.AtomicSettings{}
+	storeShardAssignment(t, settings, goodA)
+	r := f.manualResolver(settings, nil, nopLogger)
+
+	var wg sync.WaitGroup
+	for range 4 {
+		wg.Go(func() {
+			for range 50 {
+				_, _, _ = r.ResolveShard(ctx, "wf-a", ownerA)
+				_, _ = r.ResolveShards(ctx, []string{"wf-a"}, []string{ownerA})
+			}
+		})
+	}
+	wg.Go(func() {
+		for range 25 {
+			_ = settings.Store(core.SettingsUpdate{Settings: goodB, Hash: "test"})
+			_ = settings.Store(core.SettingsUpdate{Settings: goodA, Hash: "test"})
+		}
+	})
+	wg.Wait()
+
+	cfgA, err := cresettings.ParseShardAssignmentConfig(goodA)
+	require.NoError(t, err)
+	cfgB, err := cresettings.ParseShardAssignmentConfig(goodB)
+	require.NoError(t, err)
+	hash, ok := f.gaugeValue(t, "platform_shard_assignment_settings_hash")
+	require.True(t, ok)
+	require.Contains(t, []int64{int64(shardAssignmentSettingsHash(cfgA)), int64(shardAssignmentSettingsHash(cfgB))}, hash)
 }

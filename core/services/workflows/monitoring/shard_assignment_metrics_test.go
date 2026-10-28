@@ -9,6 +9,9 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 )
 
 func TestShardAssignmentConstants(t *testing.T) {
@@ -29,6 +32,7 @@ func TestShardAssignmentConstants(t *testing.T) {
 	require.Equal(t, "per_org", ShardResolverSourcePerOrg)
 	require.Equal(t, "static_default", ShardResolverSourceStaticDefault)
 	require.Equal(t, "hashed", ShardResolverSourceHashed)
+	require.Equal(t, "none", ShardResolverSourceNone)
 
 	require.Equal(t, "applied", ShardAssignmentUpdateApplied)
 	require.Equal(t, "parse_error", ShardAssignmentUpdateParseError)
@@ -53,8 +57,58 @@ func TestShardAssignmentMetricsNilReceiver(t *testing.T) {
 	m.RecordResolverRequest(ctx, ShardResolverManual, ShardResolverOutcomeFound, ShardResolverSourcePerOwner, time.Second)
 	m.AddResolverRequest(ctx, ShardResolverManual, ShardResolverOutcomeNotFound, "")
 	m.RecordResolverDuration(ctx, ShardResolverRing, time.Second)
-	require.False(t, m.RecordSettingsApplied(ctx, 1))
+	changed, prev := m.RecordSettingsApplied(ctx, 1, nil)
+	require.False(t, changed)
+	require.Nil(t, prev)
 	require.False(t, m.RecordSettingsParseError(ctx, 1))
+}
+
+// TestGlobalShardAssignmentMetricsRebindsWhenClientChanges proves the global
+// binding follows a beholder client installed after the first call: beholder
+// starts with a noop client, and one made too early must not be cached for
+// the life of the process.
+func TestGlobalShardAssignmentMetricsRebindsWhenClientChanges(t *testing.T) { //nolint:paralleltest // swaps the process-global beholder client
+	prevClient := beholder.GetClient()
+	t.Cleanup(func() { beholder.SetClient(prevClient) })
+
+	newClient := func(name string) (*beholder.Client, *sdkmetric.ManualReader) {
+		reader := sdkmetric.NewManualReader()
+		mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+		t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+		return &beholder.Client{Meter: mp.Meter(name)}, reader
+	}
+
+	beholder.SetClient(beholder.NewNoopClient())
+	mNoop, err := GlobalShardAssignmentMetrics()
+	require.NoError(t, err)
+	require.NotNil(t, mNoop)
+
+	client1, reader1 := newClient("rebind-test-1")
+	beholder.SetClient(client1)
+	m1, err := GlobalShardAssignmentMetrics()
+	require.NoError(t, err)
+	require.NotNil(t, m1, "the binding must be retried after the global client changes")
+	require.NotSame(t, mNoop, m1)
+
+	client2, reader2 := newClient("rebind-test-2")
+	beholder.SetClient(client2)
+	m2, err := GlobalShardAssignmentMetrics()
+	require.NoError(t, err)
+	require.NotSame(t, m1, m2)
+
+	m2.RecordResolverRequest(t.Context(), ShardResolverManual, ShardResolverOutcomeFound, ShardResolverSourcePerOwner, time.Second)
+	require.Equal(t, int64(1), counterTotal(collect(t, reader2), "platform_shard_resolver_requests",
+		map[string]string{"resolver": ShardResolverManual, "outcome": ShardResolverOutcomeFound}),
+		"metrics recorded after the swap must land on the new client's meter")
+	require.Zero(t, counterTotal(collect(t, reader1), "platform_shard_resolver_requests", nil),
+		"the abandoned binding must not receive further recordings")
+}
+
+func collect(t *testing.T, reader *sdkmetric.ManualReader) metricdata.ResourceMetrics {
+	t.Helper()
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(t.Context(), &rm))
+	return rm
 }
 
 func TestShardAssignmentMetricsInstruments(t *testing.T) {
@@ -66,7 +120,7 @@ func TestShardAssignmentMetricsInstruments(t *testing.T) {
 	m.RecordResolverRequest(ctx, ShardResolverManual, ShardResolverOutcomeFound, ShardResolverSourcePerOwner, 2*time.Second)
 	m.RecordResolverRequest(ctx, ShardResolverRing, ShardResolverOutcomeNotFound, "", 4*time.Millisecond)
 	m.AddResolverRequest(ctx, ShardResolverOverride, ShardResolverOutcomeError, "")
-	m.RecordSettingsApplied(ctx, 4242)
+	m.RecordSettingsApplied(ctx, 4242, nil)
 
 	var rm metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(ctx, &rm))
@@ -119,22 +173,61 @@ func TestShardAssignmentMetricsSettingsUpdateDedup(t *testing.T) {
 	ctx := t.Context()
 	reader, m := newTestShardAssignmentMetrics(t)
 
-	require.True(t, m.RecordSettingsApplied(ctx, 111))
-	require.False(t, m.RecordSettingsApplied(ctx, 111))
-	require.True(t, m.RecordSettingsApplied(ctx, 222))
-	require.True(t, m.RecordSettingsApplied(ctx, 111))
+	changed, _ := m.RecordSettingsApplied(ctx, 111, nil)
+	require.True(t, changed)
+	changed, _ = m.RecordSettingsApplied(ctx, 111, nil)
+	require.False(t, changed)
+	changed, _ = m.RecordSettingsApplied(ctx, 222, nil)
+	require.True(t, changed)
+	changed, _ = m.RecordSettingsApplied(ctx, 111, nil)
+	require.True(t, changed)
 
 	require.True(t, m.RecordSettingsParseError(ctx, 333))
 	require.False(t, m.RecordSettingsParseError(ctx, 333))
 	require.True(t, m.RecordSettingsParseError(ctx, 444))
 
+	// A successfully applied version resets the parse-error dedup, so the
+	// same broken blob recurring after a good one counts (and logs) again.
+	changed, _ = m.RecordSettingsApplied(ctx, 555, nil)
+	require.True(t, changed)
+	require.True(t, m.RecordSettingsParseError(ctx, 333),
+		"a bad version recurring after a good one must be counted again")
+
 	var rm metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(ctx, &rm))
-	require.Equal(t, int64(3), counterTotal(rm, "platform_shard_assignment_updated", map[string]string{"outcome": ShardAssignmentUpdateApplied}))
-	require.Equal(t, int64(2), counterTotal(rm, "platform_shard_assignment_updated", map[string]string{"outcome": ShardAssignmentUpdateParseError}))
+	require.Equal(t, int64(4), counterTotal(rm, "platform_shard_assignment_updated", map[string]string{"outcome": ShardAssignmentUpdateApplied}))
+	require.Equal(t, int64(3), counterTotal(rm, "platform_shard_assignment_updated", map[string]string{"outcome": ShardAssignmentUpdateParseError}))
 
-	require.Equal(t, int64(111), gaugeValue(rm, "platform_shard_assignment_settings_hash"),
-		"parse errors must not move the hash gauge: the previous assignment stays live")
+	require.Equal(t, int64(555), gaugeValue(rm, "platform_shard_assignment_settings_hash"),
+		"parse errors must not move the hash gauge: the last applied version stays")
+}
+
+// TestShardAssignmentMetricsAppliedDiffBaselineIsGlobal proves the diff
+// baseline follows the global dedup state rather than staying per-resolver:
+// the second observer of a change sees the real previous config, not
+// "initial", even when it never observed the version before it.
+func TestShardAssignmentMetricsAppliedDiffBaselineIsGlobal(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	_, m := newTestShardAssignmentMetrics(t)
+
+	changed, prev := m.RecordSettingsApplied(ctx, 1, &cresettings.ShardAssignmentConfig{
+		PerOwnerAssignment: map[string][]uint32{"owner-a": {1}},
+	})
+	require.True(t, changed)
+	require.Nil(t, prev)
+
+	changed, prev = m.RecordSettingsApplied(ctx, 2, &cresettings.ShardAssignmentConfig{
+		PerOwnerAssignment: map[string][]uint32{"owner-b": {2}},
+	})
+	require.True(t, changed)
+	require.NotNil(t, prev, "the baseline must be the previously applied config, not nil")
+	require.Equal(t, map[string][]uint32{"owner-a": {1}}, prev.PerOwnerAssignment)
+
+	// The same hash observed again is not a change and keeps the baseline.
+	changed, prev = m.RecordSettingsApplied(ctx, 2, nil)
+	require.False(t, changed)
+	require.NotNil(t, prev)
 }
 
 func newTestShardAssignmentMetrics(t *testing.T) (*sdkmetric.ManualReader, *ShardAssignmentMetrics) {

@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 )
 
 const (
@@ -29,11 +30,17 @@ const (
 	ShardResolverOutcomeError    = "error"
 )
 
+// ShardResolverSource* are the bounded values of the `source` label: which
+// branch of the manual-assignment precedence decided a resolution. Resolvers
+// with no source concept (ring, override) record the empty string, which the
+// OTel→Prometheus translation drops from the series, keeping the label at
+// these five values.
 const (
 	ShardResolverSourcePerOwner      = "per_owner"
 	ShardResolverSourcePerOrg        = "per_org"
 	ShardResolverSourceStaticDefault = "static_default"
 	ShardResolverSourceHashed        = "hashed"
+	ShardResolverSourceNone          = "none"
 )
 
 const (
@@ -51,21 +58,38 @@ type ShardAssignmentMetrics struct {
 	mu                 sync.Mutex
 	appliedSeen        bool
 	lastAppliedHash    uint32
+	lastAppliedCfg     *cresettings.ShardAssignmentConfig
 	parseErrSeen       bool
 	lastParseErrorHash uint32
 }
 
 var (
-	globalShardAssignmentMetrics     *ShardAssignmentMetrics
-	errGlobalShardAssignmentMetrics  error
-	globalShardAssignmentMetricsOnce sync.Once
+	globalShardAssignmentMetricsMu     sync.Mutex
+	globalShardAssignmentMetrics       *ShardAssignmentMetrics
+	globalShardAssignmentMetricsClient *beholder.Client
 )
 
+// GlobalShardAssignmentMetrics binds the shard assignment instruments to the
+// meter of the current global beholder client. beholder starts out with a
+// noop client and only receives the real one via SetClient during boot, so a
+// binding made too early must not be cached for the life of the process
+// (every metric would be silently dropped). The binding is therefore retried
+// whenever the global client changes, mirroring how the rest of the codebase
+// reads beholder.GetMeter() at call time instead of caching it. Failures are
+// not cached either: a later call retries the registration.
 func GlobalShardAssignmentMetrics() (*ShardAssignmentMetrics, error) {
-	globalShardAssignmentMetricsOnce.Do(func() {
-		globalShardAssignmentMetrics, errGlobalShardAssignmentMetrics = NewShardAssignmentMetricsWithMeter(beholder.GetMeter())
-	})
-	return globalShardAssignmentMetrics, errGlobalShardAssignmentMetrics
+	client := beholder.GetClient()
+	globalShardAssignmentMetricsMu.Lock()
+	defer globalShardAssignmentMetricsMu.Unlock()
+	if globalShardAssignmentMetrics != nil && globalShardAssignmentMetricsClient == client {
+		return globalShardAssignmentMetrics, nil
+	}
+	m, err := NewShardAssignmentMetricsWithMeter(client.Meter)
+	if err != nil {
+		return nil, err
+	}
+	globalShardAssignmentMetrics, globalShardAssignmentMetricsClient = m, client
+	return m, nil
 }
 
 // NewShardAssignmentMetricsWithMeter registers the shard assignment instruments
@@ -136,26 +160,36 @@ func (m *ShardAssignmentMetrics) RecordResolverDuration(ctx context.Context, res
 
 // RecordSettingsApplied records the hash of a successfully parsed settings
 // version and returns true only on the first observation of that hash, so one
-// applied update is counted per actual settings change.
-func (m *ShardAssignmentMetrics) RecordSettingsApplied(ctx context.Context, settingsHash uint32) bool {
+// applied update is counted per actual settings change. The previous config is
+// returned as the diff baseline for the caller's applied log; it is kept here
+// rather than per-resolver so the baseline always matches the global dedup
+// state (a second resolver observing the change logs the real diff, not
+// "initial"). A successful apply also resets the parse-error dedup so a broken
+// version that recurs after a good one is counted and logged again.
+func (m *ShardAssignmentMetrics) RecordSettingsApplied(ctx context.Context, settingsHash uint32, cfg *cresettings.ShardAssignmentConfig) (bool, *cresettings.ShardAssignmentConfig) {
 	if m == nil {
-		return false
+		return false, nil
 	}
 	m.mu.Lock()
 	changed := !m.appliedSeen || m.lastAppliedHash != settingsHash
+	prev := m.lastAppliedCfg
 	m.appliedSeen = true
 	m.lastAppliedHash = settingsHash
+	m.lastAppliedCfg = cfg
+	m.parseErrSeen = false
+	m.lastParseErrorHash = 0
 	m.mu.Unlock()
 	m.settingsHashGauge.Record(ctx, int64(settingsHash))
 	if changed {
 		m.updated.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", ShardAssignmentUpdateApplied)))
 	}
-	return changed
+	return changed, prev
 }
 
 // RecordSettingsParseError records a settings version that failed to parse,
-// keyed by the raw blob hash so one broken version counts once. The settings
-// hash gauge is left untouched: the previously applied assignment stays live.
+// keyed by the raw blob hash so one broken version counts once (until a good
+// version is applied again). The settings hash gauge is left at the last
+// successfully applied version.
 func (m *ShardAssignmentMetrics) RecordSettingsParseError(ctx context.Context, rawHash uint32) bool {
 	if m == nil {
 		return false
