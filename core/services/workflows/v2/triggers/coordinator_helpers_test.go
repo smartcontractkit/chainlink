@@ -199,9 +199,14 @@ func newMeteredCoordinatorFixture(t *testing.T, admission AdmissionLimiters) (*c
 	return newCoordinatorFixtureWithMetrics(t, clockwork.NewFakeClock(), admission, wfMetrics), reader
 }
 
-// newCoordinatorFixtureWithMetrics is newCoordinatorFixtureWithAdmission with the given clock and coordinator
-// metrics.
-func newCoordinatorFixtureWithMetrics(t *testing.T, clock *clockwork.FakeClock, admission AdmissionLimiters, wfMetrics *monitoring.WorkflowsMetricLabeler) *coordinatorFixture {
+// newCoordinatorFixtureAt is newCoordinatorFixtureWithAdmission with the given clock and coordinator options.
+func newCoordinatorFixtureAt(t *testing.T, clock *clockwork.FakeClock, admission AdmissionLimiters, opts ...CoordinatorOption) *coordinatorFixture {
+	t.Helper()
+	return newCoordinatorFixtureWithMetrics(t, clock, admission, newTestMetrics(t), opts...)
+}
+
+// newCoordinatorFixtureWithMetrics is newCoordinatorFixtureAt with the given coordinator metrics.
+func newCoordinatorFixtureWithMetrics(t *testing.T, clock *clockwork.FakeClock, admission AdmissionLimiters, wfMetrics *monitoring.WorkflowsMetricLabeler, opts ...CoordinatorOption) *coordinatorFixture {
 	t.Helper()
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	engines := newFakeEngineRegistry()
@@ -214,7 +219,7 @@ func newCoordinatorFixtureWithMetrics(t *testing.T, clock *clockwork.FakeClock, 
 
 	deps := newRegisterDeps(t, capReg, limits.NewGateLimiter(true))
 	deps.Metrics = wfMetrics
-	c := NewCoordinator(deps, admission, engines, wfLimits, clock)
+	c := NewCoordinator(deps, admission, engines, wfLimits, clock, opts...)
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{
@@ -260,12 +265,15 @@ func (f *coordinatorFixture) expectTrigger(t *testing.T) (*capmocks.TriggerCapab
 	return trigger, eventCh
 }
 
+// testQueueTimeout is the TriggerEventQueueTimeout from newTestAdmission. It is long enough that no test
+// accidentally expires an event. Tests for expiry override it.
+const testQueueTimeout = time.Hour
+
 // newTestAdmission returns unscoped admission limiters with the production defaults.
 func newTestAdmission() AdmissionLimiters {
 	return AdmissionLimiters{
-		NewTriggerEventQueue: newTestQueue(50),
-		// Long enough that no test accidentally expires an event; tests for expiry override this.
-		TriggerEventQueueTimeout: limits.NewUpperBoundLimiter(time.Hour),
+		NewTriggerEventQueue:     newTestQueue(50),
+		TriggerEventQueueTimeout: limits.NewUpperBoundLimiter(testQueueTimeout),
 		ExecutionConcurrency:     limits.GlobalResourcePoolLimiter(5),
 	}
 }

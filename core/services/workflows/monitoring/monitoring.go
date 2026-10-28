@@ -70,6 +70,7 @@ type EngineMetrics struct {
 	triggerEventAckSuccessCounter       metric.Int64Counter
 	triggerEventAckFailureCounter       metric.Int64Counter
 	triggerEventEnqueuedCounter         metric.Int64Counter
+	triggerEventShadowedCounter         metric.Int64Counter
 	triggerEventEnqueueDroppedCounter   metric.Int64Counter
 	triggerEventDequeueDroppedCounter   metric.Int64Counter
 	triggerEventDroppedTotal            metric.Int64Counter
@@ -375,6 +376,14 @@ func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, er
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger event enqueued counter: %w", err)
+	}
+
+	em.triggerEventShadowedCounter, err = meter.Int64Counter(
+		"platform_engine_trigger_event_shadowed_total",
+		metric.WithDescription("Trigger events copied to the central trigger queue in shadow mode"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event shadowed counter: %w", err)
 	}
 
 	em.triggerEventEnqueueDroppedCounter, err = meter.Int64Counter(
@@ -841,6 +850,13 @@ func (c WorkflowsMetricLabeler) IncrementTriggerEventAckFailureCounter(ctx conte
 func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueuedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.triggerEventEnqueuedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementTriggerEventShadowedCounter counts one event accepted by the central trigger queue in shadow mode.
+// It carries the workflow labels, so per-workflow load on the node-wide queue can be graphed.
+func (c WorkflowsMetricLabeler) IncrementTriggerEventShadowedCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventShadowedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueueDroppedCounter(ctx context.Context) {

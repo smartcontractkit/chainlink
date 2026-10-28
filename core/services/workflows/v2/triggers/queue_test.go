@@ -88,15 +88,23 @@ func putAll(t *testing.T, q *centralQueue, events ...CoordinatedEvent) {
 	}
 }
 
-func drainIDs(t *testing.T, q *centralQueue) []string {
-	t.Helper()
-	events, err := q.Drain(t.Context())
-	require.NoError(t, err)
+// eventIDs returns the event IDs in order, or nil when there are none.
+func eventIDs(events []CoordinatedEvent) []string {
+	if len(events) == 0 {
+		return nil
+	}
 	ids := make([]string, 0, len(events))
 	for _, e := range events {
 		ids = append(ids, e.Event.Event.ID)
 	}
 	return ids
+}
+
+func drainIDs(t *testing.T, q *centralQueue) []string {
+	t.Helper()
+	events, err := q.Drain(t.Context())
+	require.NoError(t, err)
+	return eventIDs(events)
 }
 
 // TestQueue_PutDrain asserts events come back unchanged and in insertion order. Drain empties the queue and
