@@ -86,7 +86,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -553,22 +552,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	var telemetryManager interface {
-		commonsrv.Service
-		telemetry.MonitoringEndpointGenerator
-	}
-	if cfg.TelemetryIngress().BeholderEnabled() {
-		if opts.BeholderClient == nil {
-			return nil, errors.New("TelemetryIngress.BeholderEnabled requires a Beholder client")
-		}
-		domainManager, dmErr := telemetry.NewDomainManager(opts.BeholderClient, csaPubKeyHex, globalLogger)
-		if dmErr != nil {
-			return nil, fmt.Errorf("failed to create telemetry domain manager: %w", dmErr)
-		}
-		globalLogger.Info("Telemetry is sent through Beholder; TelemetryIngress.Endpoints are ignored")
-		telemetryManager = domainManager
-	} else {
-		telemetryManager = telemetry.NewManager(cfg.TelemetryIngress(), csaKeystore, globalLogger)
+	telemetryManager, err := newTelemetryManager(cfg.TelemetryIngress(), opts.BeholderClient, csaKeystore, csaPubKeyHex, globalLogger)
+	if err != nil {
+		return nil, err
 	}
 	srvcs = append(srvcs, telemetryManager)
 

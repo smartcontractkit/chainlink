@@ -61,12 +61,14 @@ func TestTelemetryIngressConfig_ChipIngressEnabled(t *testing.T) {
 }
 
 func TestTelemetryIngressConfig_BeholderEnabled(t *testing.T) {
+	t.Parallel()
 	trueVal, falseVal := true, false
 	assert.True(t, (&telemetryIngressConfig{c: toml.TelemetryIngress{BeholderEnabled: &trueVal}}).BeholderEnabled())
 	assert.False(t, (&telemetryIngressConfig{c: toml.TelemetryIngress{BeholderEnabled: &falseVal}}).BeholderEnabled())
 }
 
 func TestCoreValidateConfig_TelemetryIngressBeholderEnabled(t *testing.T) {
+	t.Parallel()
 	const enabled = `
 [TelemetryIngress]
 BeholderEnabled = true
@@ -91,6 +93,7 @@ ChipIngressEndpoint = 'chip.example.com:443'
 		{name: "valid with Beholder chip ingress", toml: enabled + beholderChip},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var c Config
 			require.NoError(t, commonconfig.DecodeTOML(strings.NewReader(tt.toml), &c))
 			c.setDefaults()
