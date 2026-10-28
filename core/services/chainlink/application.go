@@ -212,6 +212,8 @@ type ApplicationOpts struct {
 	NewOracleFactoryFn     standardcapabilities.NewOracleFactoryFn
 	EVMFactoryConfigFn     func(*EVMFactoryConfig)
 	DonTimeStore           *dontime.Store
+	// BeholderClient is the node's Beholder client. Required when TelemetryIngress.BeholderEnabled is set.
+	BeholderClient *beholder.Client
 }
 
 // safeDefaultBootstrappers returns the configured default bootstrappers from
@@ -551,7 +553,23 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), csaKeystore, globalLogger)
+	var telemetryManager interface {
+		commonsrv.Service
+		telemetry.MonitoringEndpointGenerator
+	}
+	if cfg.TelemetryIngress().BeholderEnabled() {
+		if opts.BeholderClient == nil {
+			return nil, errors.New("TelemetryIngress.BeholderEnabled requires a Beholder client")
+		}
+		domainManager, dmErr := telemetry.NewDomainManager(opts.BeholderClient, csaPubKeyHex, globalLogger)
+		if dmErr != nil {
+			return nil, fmt.Errorf("failed to create telemetry domain manager: %w", dmErr)
+		}
+		globalLogger.Info("Telemetry is sent through Beholder; TelemetryIngress.Endpoints are ignored")
+		telemetryManager = domainManager
+	} else {
+		telemetryManager = telemetry.NewManager(cfg.TelemetryIngress(), csaKeystore, globalLogger)
+	}
 	srvcs = append(srvcs, telemetryManager)
 
 	backupCfg := cfg.Database().Backup()

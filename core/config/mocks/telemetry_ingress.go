@@ -22,6 +22,51 @@ func (_m *TelemetryIngress) EXPECT() *TelemetryIngress_Expecter {
 	return &TelemetryIngress_Expecter{mock: &_m.Mock}
 }
 
+// BeholderEnabled provides a mock function with no fields
+func (_m *TelemetryIngress) BeholderEnabled() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for BeholderEnabled")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// TelemetryIngress_BeholderEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BeholderEnabled'
+type TelemetryIngress_BeholderEnabled_Call struct {
+	*mock.Call
+}
+
+// BeholderEnabled is a helper method to define mock.On call
+func (_e *TelemetryIngress_Expecter) BeholderEnabled() *TelemetryIngress_BeholderEnabled_Call {
+	return &TelemetryIngress_BeholderEnabled_Call{Call: _e.mock.On("BeholderEnabled")}
+}
+
+func (_c *TelemetryIngress_BeholderEnabled_Call) Run(run func()) *TelemetryIngress_BeholderEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *TelemetryIngress_BeholderEnabled_Call) Return(_a0 bool) *TelemetryIngress_BeholderEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TelemetryIngress_BeholderEnabled_Call) RunAndReturn(run func() bool) *TelemetryIngress_BeholderEnabled_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // BufferSize provides a mock function with no fields
 func (_m *TelemetryIngress) BufferSize() uint {
 	ret := _m.Called()

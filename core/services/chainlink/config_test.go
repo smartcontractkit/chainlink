@@ -254,6 +254,7 @@ func TestConfig_Marshal(t *testing.T) {
 		SendTimeout:        commonconfig.MustNewDuration(5 * time.Second),
 		UseBatchSend:       new(true),
 		ChipIngressEnabled: new(false),
+		BeholderEnabled:    new(false),
 		Endpoints: []toml.TelemetryIngressEndpoint{
 			{
 				Network:      new("EVM"),
@@ -914,6 +915,7 @@ SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 ChipIngressEnabled = false
+BeholderEnabled = false
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'

@@ -281,6 +281,7 @@ SendInterval = '500ms' # Default
 SendTimeout = '10s' # Default
 UseBatchSend = true # Default
 ChipIngressEnabled = false # Default
+BeholderEnabled = false # Default
 ```
 
 
@@ -331,6 +332,13 @@ UseBatchSend toggles sending telemetry to the ingress server using the batch cli
 ChipIngressEnabled = false # Default
 ```
 ChipIngressEnabled enables sending telemetry to CHIP Ingress.
+
+### BeholderEnabled
+```toml
+BeholderEnabled = false # Default
+```
+BeholderEnabled sends telemetry through Beholder instead of the Endpoints below, which are then ignored.
+Requires Telemetry.Enabled and Telemetry.ChipIngressEndpoint. Cannot be combined with ChipIngressEnabled.
 
 ## TelemetryIngress.Endpoints
 ```toml

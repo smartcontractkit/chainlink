@@ -116,6 +116,9 @@ SendTimeout = '10s' # Default
 UseBatchSend = true # Default
 # ChipIngressEnabled enables sending telemetry to CHIP Ingress.
 ChipIngressEnabled = false # Default
+# BeholderEnabled sends telemetry through Beholder instead of the Endpoints below, which are then ignored.
+# Requires Telemetry.Enabled and Telemetry.ChipIngressEndpoint. Cannot be combined with ChipIngressEnabled.
+BeholderEnabled = false # Default
 
 [[TelemetryIngress.Endpoints]] # Example
 # Network aka EVM, Solana, Starknet
