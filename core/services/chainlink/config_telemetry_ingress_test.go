@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
@@ -97,7 +96,7 @@ ChipIngressEndpoint = 'chip.example.com:443'
 			var c Config
 			require.NoError(t, commonconfig.DecodeTOML(strings.NewReader(tt.toml), &c))
 			c.setDefaults()
-			err := c.Core.ValidateConfig()
+			err := c.ValidateConfig()
 			if tt.wantErr == "" {
 				if err != nil {
 					assert.NotContains(t, err.Error(), "TelemetryIngress.BeholderEnabled")

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
@@ -19,11 +18,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress/batch"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
@@ -411,9 +411,9 @@ func TestDomainManager_AlsoCountsInPrometheus(t *testing.T) {
 		m.GenMonitoringEndpoint("EVM", ethMainnetChainID, "0xabc", synchronization.OCR2Median).SendLog([]byte("p"))
 	}
 
-	assert.Equal(t, sent+1, testutil.ToFloat64(synchronization.TelemetryClientMessagesSent.WithLabelValues(endpoint, tt)))
-	assert.Equal(t, sendErrs+1, testutil.ToFloat64(synchronization.TelemetryClientMessagesSendErrors.WithLabelValues(endpoint, tt)))
-	assert.Equal(t, dropped+1, testutil.ToFloat64(synchronization.TelemetryClientMessagesDropped.WithLabelValues(endpoint, tt)))
+	assert.InDelta(t, sent+1, testutil.ToFloat64(synchronization.TelemetryClientMessagesSent.WithLabelValues(endpoint, tt)), 0)
+	assert.InDelta(t, sendErrs+1, testutil.ToFloat64(synchronization.TelemetryClientMessagesSendErrors.WithLabelValues(endpoint, tt)), 0)
+	assert.InDelta(t, dropped+1, testutil.ToFloat64(synchronization.TelemetryClientMessagesDropped.WithLabelValues(endpoint, tt)), 0)
 }
 
 // Beholder domain emitters reject events whose source is not under their domain, so every

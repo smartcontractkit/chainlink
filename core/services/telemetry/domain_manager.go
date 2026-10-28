@@ -11,18 +11,18 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	chainselector "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/libocr/commontypes"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
+
+	chainselector "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress/batch"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 

@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
@@ -139,5 +138,4 @@ func TestDomainManager_ThroughRealBeholderClient(t *testing.T) {
 	}
 	assert.Zero(t, counterValue(t, reader, metricMessagesSendErrors))
 	assert.Zero(t, counterValue(t, reader, metricMessagesDropped))
-
 }

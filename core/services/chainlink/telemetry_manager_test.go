@@ -10,7 +10,6 @@ import (
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"

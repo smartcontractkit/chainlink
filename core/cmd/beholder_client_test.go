@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
@@ -45,8 +44,8 @@ ChipIngressInsecureConnection = true
 			t.Cleanup(func() {
 				// OTel shutdown may fail to flush to the absent collector; the domain emitters
 				// must close cleanly.
-				if err := client.Close(); err != nil {
-					assert.NotContains(t, err.Error(), "client connection is closing")
+				if closeErr := client.Close(); closeErr != nil {
+					assert.NotContains(t, closeErr.Error(), "client connection is closing")
 				}
 			})
 
