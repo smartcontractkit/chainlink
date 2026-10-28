@@ -472,6 +472,31 @@ func validateShardingScaleScenario(
 	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, logger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, execTimeout)
 	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed")
 	logger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards")
+
+	requireUserLogsV2ShardMetadata(t, testEnv, executedWorkflows)
+}
+
+// requireUserLogsV2ShardMetadata asserts that v2 user logs of executed workflows carry the
+// shardIndex and workflowDonID of the shard DON that hosts the emitting node.
+func requireUserLogsV2ShardMetadata(t *testing.T, testEnv *ttypes.TestEnvironment, executed map[string]*workfloweventsv2.WorkflowUserLog) {
+	t.Helper()
+	donByP2PID := make(map[string]*cre.Don)
+	for _, don := range testEnv.Dons.DonsWithFlag(cre.ShardDON) {
+		for _, node := range don.Nodes {
+			donByP2PID[strings.TrimPrefix(node.Keys.PeerID(), "p2p_")] = don
+		}
+	}
+
+	for wfID, ev := range executed {
+		info := ev.GetCreInfo()
+		don, ok := donByP2PID[strings.TrimPrefix(info.GetP2PID(), "p2p_")]
+		if !assert.True(t, ok, "v2 user log from unknown node %s", info.GetP2PID()) {
+			continue
+		}
+		assert.Equal(t, uint32(don.ShardIndex), info.GetShardIndex(), "shardIndex for workflow %s", wfID) //nolint:gosec // G115: overflow is unrealistic
+		assert.Equal(t, int32(don.ID), info.GetWorkflowDonID(), "workflowDonID for workflow %s", wfID)    //nolint:gosec // G115: overflow is unrealistic
+		assert.Equal(t, info.GetDonID(), info.GetWorkflowDonID(), "donID should equal workflowDonID for workflow-DON emitter, workflow %s", wfID)
+	}
 }
 
 func getShardZeroDon(t *testing.T, testEnv *ttypes.TestEnvironment) *cre.Don {
@@ -789,7 +814,7 @@ func waitForMappingVersionStable(t *testing.T, client ringpb.ShardOrchestratorSe
 	}, timeout, 2*time.Second, "Mapping content did not stabilize within %s (stableDuration=%s)", timeout, stableDuration)
 }
 
-func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, userLogsCh <-chan *workfloweventsv2.WorkflowUserLog, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, expectedUserLog string, timeout time.Duration) map[string]struct{} {
+func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, userLogsCh <-chan *workfloweventsv2.WorkflowUserLog, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, expectedUserLog string, timeout time.Duration) map[string]*workfloweventsv2.WorkflowUserLog {
 	t.Helper()
 
 	expectedWorkflows := make(map[string]struct{}, len(workflowIDs))
@@ -797,7 +822,7 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 		expectedWorkflows[id] = struct{}{}
 	}
 
-	executedWorkflows := make(map[string]struct{})
+	executedWorkflows := make(map[string]*workfloweventsv2.WorkflowUserLog)
 	seenNodes := make(map[string]struct{})
 	seenShardIndices := make(map[uint32]struct{})
 	mismatchCounts := make(map[string]int)
@@ -844,7 +869,7 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 						continue
 					}
 
-					executedWorkflows[wfID] = struct{}{}
+					executedWorkflows[wfID] = userLogs
 					seenNodes[normalizedP2PID] = struct{}{}
 					seenShardIndices[actualShardIndex] = struct{}{}
 					logger.Info().
