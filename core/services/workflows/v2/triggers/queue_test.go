@@ -9,10 +9,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
@@ -42,7 +47,23 @@ func (l *fakeLimit) set(limit int, err error) {
 
 func newTestCentralQueue(t *testing.T, limit *fakeLimit) *centralQueue {
 	t.Helper()
-	return NewQueue(limit, logger.Test(t))
+	qm, _ := testQueueMetrics(t)
+	return NewQueue(limit, qm, logger.Test(t))
+}
+
+// baseLabel is the only label the queue's metrics may carry, apart from drop_reason on the dropped counter.
+const baseLabel = "test_label"
+
+// testQueueMetrics returns a labeler with one base label, backed by a ManualReader so emitted values can be
+// read back.
+func testQueueMetrics(t *testing.T) (*monitoring.CentralTriggerQueueMetricLabeler, *sdkmetric.ManualReader) {
+	t.Helper()
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+	qm, err := monitoring.NewCentralTriggerQueueMetrics(mp.Meter("test"))
+	require.NoError(t, err)
+	return monitoring.NewCentralTriggerQueueMetricLabeler(metrics.NewLabeler().With(baseLabel, "base"), qm), reader
 }
 
 // centralEvent returns an event for the given registration. Deadline and SequenceNumber are set so a test
@@ -334,4 +355,99 @@ func walkStats(stats Stats) uint64 {
 		sum += n
 	}
 	return sum
+}
+
+// TestQueue_Metrics asserts the queue's counters and gauges have the expected values and match Stats. Drain
+// records depth as well as Put. Every data point carries only the base label, plus drop_reason on the dropped
+// counter.
+func TestQueue_Metrics(t *testing.T) {
+	t.Parallel()
+	qm, reader := testQueueMetrics(t)
+	q := NewQueue(&fakeLimit{limit: 2}, qm, logger.Test(t))
+
+	putAll(t, q, centralEvent("wf-a", 0, "evt-1"), centralEvent("wf-b", 0, "evt-2"))
+	require.ErrorIs(t, q.Put(t.Context(), centralEvent("wf-a", 0, "evt-3")), ErrQueueFull)
+	drainIDs(t, q)
+	assert.Equal(t, int64(0), int64Gauge(t, reader, "platform_engine_central_trigger_queue_depth"), "after drain")
+	putAll(t, q, centralEvent("wf-a", 0, "evt-4"))
+
+	stats, err := q.Stats(t.Context())
+	require.NoError(t, err)
+
+	assert.Equal(t, int64(3), int64Sum(t, reader, "platform_engine_central_trigger_queue_puts_total"))
+	dropped := int64Sum(t, reader, "platform_engine_central_trigger_queue_dropped_events_total")
+	assert.Equal(t, int64(1), dropped)
+	assert.EqualValues(t, stats.DroppedByReason[queueFull], dropped)
+	assert.Equal(t, int64(2), int64Sum(t, reader, "platform_engine_central_trigger_queue_drained_events_total"))
+	depth := int64Gauge(t, reader, "platform_engine_central_trigger_queue_depth")
+	assert.Equal(t, int64(1), depth)
+	assert.EqualValues(t, stats.Len, depth)
+	capacity := int64Gauge(t, reader, "platform_engine_central_trigger_queue_capacity")
+	assert.Equal(t, int64(2), capacity)
+	assert.EqualValues(t, stats.Capacity, capacity)
+
+	droppedMetric := findMetric(t, reader, "platform_engine_central_trigger_queue_dropped_events_total")
+	require.NotNil(t, droppedMetric)
+	droppedSum, ok := droppedMetric.Data.(metricdata.Sum[int64])
+	require.True(t, ok)
+	require.Len(t, droppedSum.DataPoints, 1)
+	reason, ok := droppedSum.DataPoints[0].Attributes.Value(attribute.Key(platform.KeyTriggerDropReason))
+	require.True(t, ok)
+	assert.Equal(t, queueFull, reason.AsString())
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(t.Context(), &rm))
+	require.NotEmpty(t, rm.ScopeMetrics)
+	for _, m := range rm.ScopeMetrics[0].Metrics {
+		for _, attrs := range dataPointAttributes(t, m) {
+			for _, kv := range attrs.ToSlice() {
+				allowed := kv.Key == baseLabel || kv.Key == attribute.Key(platform.KeyTriggerDropReason)
+				assert.True(t, allowed, "%s carries label %s", m.Name, kv.Key)
+			}
+			assert.True(t, attrs.HasValue(baseLabel), "%s is missing the base label", m.Name)
+		}
+	}
+}
+
+// int64Sum returns the total of the named Int64 counter across its data points.
+func int64Sum(t *testing.T, reader *sdkmetric.ManualReader, name string) int64 {
+	t.Helper()
+	m := findMetric(t, reader, name)
+	require.NotNil(t, m, name)
+	sum, ok := m.Data.(metricdata.Sum[int64])
+	require.True(t, ok, "%s is %T", name, m.Data)
+	var total int64
+	for _, dp := range sum.DataPoints {
+		total += dp.Value
+	}
+	return total
+}
+
+// int64Gauge returns the value of the named Int64 gauge, which must have one data point.
+func int64Gauge(t *testing.T, reader *sdkmetric.ManualReader, name string) int64 {
+	t.Helper()
+	m := findMetric(t, reader, name)
+	require.NotNil(t, m, name)
+	gauge, ok := m.Data.(metricdata.Gauge[int64])
+	require.True(t, ok, "%s is %T", name, m.Data)
+	require.Len(t, gauge.DataPoints, 1, name)
+	return gauge.DataPoints[0].Value
+}
+
+func dataPointAttributes(t *testing.T, m metricdata.Metrics) []attribute.Set {
+	t.Helper()
+	var sets []attribute.Set
+	switch data := m.Data.(type) {
+	case metricdata.Sum[int64]:
+		for _, dp := range data.DataPoints {
+			sets = append(sets, dp.Attributes)
+		}
+	case metricdata.Gauge[int64]:
+		for _, dp := range data.DataPoints {
+			sets = append(sets, dp.Attributes)
+		}
+	default:
+		t.Fatalf("unexpected data type %T for %s", m.Data, m.Name)
+	}
+	return sets
 }
