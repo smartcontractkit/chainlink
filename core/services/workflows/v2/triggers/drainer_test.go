@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
@@ -139,9 +141,9 @@ func TestDrainer_Drain(t *testing.T) {
 			q := &fakeQueue{results: tt.results}
 			var hookCalled atomic.Bool
 			dm, _ := testDrainerMetrics(t)
-			d := NewDrainer(q, time.Hour, drainerHooks{OnObservedEvents: func(context.Context, []CoordinatedEvent) {
+			d := NewDrainer(q, limits.NewUpperBoundLimiter(time.Hour), drainerHooks{OnObservedEvents: func(context.Context, []CoordinatedEvent) {
 				hookCalled.Store(true)
-			}}, dm, logger.Test(t))
+			}}, dm, clockwork.NewRealClock(), logger.Test(t))
 
 			for range tt.results {
 				d.drain(t.Context()) // must return even when the buffer is full
@@ -164,7 +166,7 @@ func TestDrainer_DroppedEventsMetric(t *testing.T) {
 		{events: batchOf("a")},
 		{events: append(batchOf("b"), batchOf("c")...)}, // dropped: the buffer holds "a"
 	}}
-	d := NewDrainer(q, time.Hour, drainerHooks{}, dm, logger.Test(t))
+	d := NewDrainer(q, limits.NewUpperBoundLimiter(time.Hour), drainerHooks{}, dm, clockwork.NewRealClock(), logger.Test(t))
 	d.drain(t.Context())
 	d.drain(t.Context())
 
@@ -185,7 +187,7 @@ func TestDrainer_HookDurationMetric(t *testing.T) {
 
 	dm, reader := testDrainerMetrics(t)
 	q := &fakeQueue{results: []observeResult{{events: batchOf("a")}}}
-	d := NewDrainer(q, 5*time.Millisecond, drainerHooks{}, dm, logger.Test(t))
+	d := NewDrainer(q, limits.NewUpperBoundLimiter(minDrainInterval), drainerHooks{}, dm, clockwork.NewRealClock(), logger.Test(t))
 	require.NoError(t, d.Start(t.Context()))
 	t.Cleanup(func() { assert.NoError(t, d.Close()) })
 
@@ -225,11 +227,11 @@ func TestDrainer_Running(t *testing.T) {
 			q := &fakeQueue{results: tt.results}
 			received := make(chan string, len(tt.results))
 			dm, _ := testDrainerMetrics(t)
-			d := NewDrainer(q, 5*time.Millisecond, drainerHooks{OnObservedEvents: func(_ context.Context, events []CoordinatedEvent) {
+			d := NewDrainer(q, limits.NewUpperBoundLimiter(minDrainInterval), drainerHooks{OnObservedEvents: func(_ context.Context, events []CoordinatedEvent) {
 				for _, e := range events {
 					received <- e.WorkflowID
 				}
-			}}, dm, logger.Test(t))
+			}}, dm, clockwork.NewRealClock(), logger.Test(t))
 
 			require.NoError(t, d.Start(t.Context()))
 			t.Cleanup(func() { assert.NoError(t, d.Close()) })
@@ -275,13 +277,13 @@ func TestDrainer_BlockedHook(t *testing.T) {
 			entered := make(chan struct{})
 			var inFlight, calls atomic.Int32
 			dm, _ := testDrainerMetrics(t)
-			d := NewDrainer(q, 5*time.Millisecond, drainerHooks{OnObservedEvents: func(ctx context.Context, _ []CoordinatedEvent) {
+			d := NewDrainer(q, limits.NewUpperBoundLimiter(minDrainInterval), drainerHooks{OnObservedEvents: func(ctx context.Context, _ []CoordinatedEvent) {
 				calls.Add(1)
 				inFlight.Add(1)
 				defer inFlight.Add(-1)
 				once.Do(func() { close(entered) })
 				<-ctx.Done()
-			}}, dm, logger.Test(t))
+			}}, dm, clockwork.NewRealClock(), logger.Test(t))
 
 			require.NoError(t, d.Start(t.Context()))
 			<-entered // the hook is now blocked
@@ -297,4 +299,85 @@ func TestDrainer_BlockedHook(t *testing.T) {
 			assert.LessOrEqual(t, int(calls.Load()), tt.maxHookCalls, "overflow batches must be dropped, not queued without bound")
 		})
 	}
+}
+
+// fakeInterval is a BoundLimiter[time.Duration] whose value and read error can change between calls.
+type fakeInterval struct {
+	mu    sync.Mutex
+	value time.Duration
+	err   error
+}
+
+func (f *fakeInterval) Limit(context.Context) (time.Duration, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.value, f.err
+}
+
+func (f *fakeInterval) Check(context.Context, time.Duration) error { return nil }
+func (f *fakeInterval) Close() error                               { return nil }
+
+func (f *fakeInterval) set(value time.Duration, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.value, f.err = value, err
+}
+
+// TestDrainer_IntervalReRead asserts the interval is read again before every wait. A change applies once the
+// current wait ends. Values below 200ms, including zero and negative values, are raised to 200ms. A failed
+// read uses the 500ms default.
+func TestDrainer_IntervalReRead(t *testing.T) {
+	t.Parallel()
+	clock := clockwork.NewFakeClock()
+	interval := &fakeInterval{value: 500 * time.Millisecond}
+	q := &fakeQueue{}
+	dm, _ := testDrainerMetrics(t)
+	d := NewDrainer(q, interval, drainerHooks{}, dm, clock, logger.Test(t))
+	require.NoError(t, d.Start(t.Context()))
+	t.Cleanup(func() { assert.NoError(t, d.Close()) })
+
+	// waiting returns once the drainer is waiting on the clock.
+	waiting := func() {
+		t.Helper()
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		defer cancel()
+		require.NoError(t, clock.BlockUntilContext(ctx, 1), "the drainer is not waiting on the clock")
+	}
+	// drainsAfter asserts the next drain happens exactly when wait has passed.
+	drainsAfter := func(wait time.Duration) {
+		t.Helper()
+		waiting()
+		before := q.observeCalls()
+		clock.Advance(wait - time.Millisecond)
+		assert.Never(t, func() bool { return q.observeCalls() > before }, 50*time.Millisecond, 5*time.Millisecond,
+			"drained before %s", wait)
+		clock.Advance(time.Millisecond)
+		require.Eventually(t, func() bool { return q.observeCalls() == before+1 }, 5*time.Second, 5*time.Millisecond,
+			"no drain at %s", wait)
+	}
+
+	waiting()
+	interval.set(time.Second, nil)
+	drainsAfter(500 * time.Millisecond) // the wait already started keeps its 500ms
+	drainsAfter(time.Second)
+
+	waiting()
+	interval.set(50*time.Millisecond, nil)
+	drainsAfter(time.Second)
+	drainsAfter(200 * time.Millisecond)
+
+	waiting()
+	interval.set(5*time.Second, assert.AnError)
+	drainsAfter(200 * time.Millisecond)
+	drainsAfter(500 * time.Millisecond)
+
+	waiting()
+	interval.set(0, nil)
+	drainsAfter(500 * time.Millisecond)
+	drainsAfter(200 * time.Millisecond)
+
+	waiting()
+	interval.set(-time.Second, nil)
+	drainsAfter(200 * time.Millisecond)
+	drainsAfter(200 * time.Millisecond)
 }

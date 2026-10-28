@@ -4,13 +4,20 @@ import (
 	"context"
 	"time"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
 // _buffer is the observed batch buffer; a full channel drops observed batches
 const _buffer = 1
+
+// minDrainInterval is the shortest wait between drains. Shorter configured intervals are raised to it.
+const minDrainInterval = 200 * time.Millisecond
 
 // drainerHooks are the drainer's lifecycle hooks.
 // Unset hooks default to no-ops, so the drainer never nil-checks.
@@ -42,7 +49,8 @@ type drainer struct {
 	eng *services.Engine
 
 	queue    Queue
-	interval time.Duration
+	interval limits.BoundLimiter[time.Duration]
+	clock    clockwork.Clock
 	hooks    drainerHooks
 
 	// observed batches awaiting OnObservedEvents
@@ -51,12 +59,15 @@ type drainer struct {
 	lggr    logger.Logger
 }
 
-// NewDrainer returns a drainer that calls queue.Drain every interval. metrics must be non-nil.
-func NewDrainer(queue Queue, interval time.Duration, hooks drainerHooks, metrics *monitoring.TriggerDrainerMetricLabeler, lggr logger.Logger) *drainer {
+// NewDrainer returns a drainer that calls queue.Drain every interval. The interval is read again before
+// every wait, so a settings change applies once the current wait ends. Values below 200ms are raised to
+// 200ms, and a failed read uses the CentralTriggerQueueDrainInterval default. metrics must be non-nil.
+func NewDrainer(queue Queue, interval limits.BoundLimiter[time.Duration], hooks drainerHooks, metrics *monitoring.TriggerDrainerMetricLabeler, clock clockwork.Clock, lggr logger.Logger) *drainer {
 	hooks.setDefaultHooks()
 	d := &drainer{
 		queue:    queue,
 		interval: interval,
+		clock:    clock,
 		hooks:    hooks,
 		batches:  make(chan []CoordinatedEvent, _buffer),
 		metrics:  metrics,
@@ -69,14 +80,39 @@ func NewDrainer(queue Queue, interval time.Duration, hooks drainerHooks, metrics
 	return d
 }
 
-// start launches the hook worker and the tick loop. Both run until the
+// start launches the hook worker and the drain loop. Both run until the
 // engine's context is cancelled, which happens when the service is closed;
-// Close then waits for both goroutines to exit. The ticker is stopped when the
-// loop returns.
+// Close then waits for both goroutines to exit.
 func (d *drainer) start(context.Context) error {
 	d.eng.Go(d.runHooks)
-	d.eng.GoTick(services.NewTicker(d.interval), d.drain)
+	d.eng.Go(d.run)
 	return nil
+}
+
+// run drains the queue after each wait until ctx is cancelled. The interval is read before every wait, so a
+// changed setting applies once the current wait ends.
+func (d *drainer) run(ctx context.Context) {
+	for {
+		timer := d.clock.NewTimer(d.nextInterval(ctx))
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.Chan():
+		}
+		d.drain(ctx)
+	}
+}
+
+// nextInterval reads the interval, using the setting's default when the read fails and minDrainInterval when
+// the value is shorter.
+func (d *drainer) nextInterval(ctx context.Context) time.Duration {
+	interval, err := d.interval.Limit(ctx)
+	if err != nil {
+		d.lggr.Warnw("Failed to read the drain interval, using the default", "err", err)
+		interval = cresettings.Default.CentralTriggerQueueDrainInterval.DefaultValue
+	}
+	return max(interval, minDrainInterval)
 }
 
 // runHooks delivers queued batches to OnObservedEvents until ctx is cancelled.
