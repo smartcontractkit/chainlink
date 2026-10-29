@@ -184,18 +184,8 @@ func Test_GetCommandFromCapabilityID(t *testing.T) {
 			expected:     "http_action",
 		},
 		{
-			name:         "http trigger capability - missing version separator",
-			capabilityID: "http-triggered@1.0.0",
-			expected:     "",
-		},
-		{
 			name:         "http action capability - singular name",
 			capabilityID: "http-action@1.0.0-alpha",
-			expected:     "",
-		},
-		{
-			name:         "http action capability - missing version separator",
-			capabilityID: "http-actions-v2",
 			expected:     "",
 		},
 		{

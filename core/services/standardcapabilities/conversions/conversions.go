@@ -102,9 +102,9 @@ func GetCommandFromCapabilityID(capabilityID string) string {
 		return "dontime"
 	case strings.HasPrefix(capabilityID, "cron-trigger"):
 		return "cron"
-	case strings.HasPrefix(capabilityID, "http-trigger@"):
+	case strings.HasPrefix(capabilityID, "http-trigger"):
 		return "http_trigger"
-	case strings.HasPrefix(capabilityID, "http-actions@"):
+	case strings.HasPrefix(capabilityID, "http-actions"):
 		return "http_action"
 	case strings.HasPrefix(capabilityID, "mock"):
 		return "mock"
