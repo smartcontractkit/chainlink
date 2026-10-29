@@ -41,7 +41,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/deployment v0.0.0-20260916222901-720a003dab50
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260916222901-720a003dab50
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20261001213322-a2d686f610ca
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261020093734-0127cb4d6ae5
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261029170441-2cd023586571
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260923164324-86cd57d9fdbd
 	github.com/smartcontractkit/chainlink-data-streams v1.1.2-0.20261009064810-68424c714170
 	github.com/smartcontractkit/chainlink-deployments-framework v0.126.0
@@ -163,7 +163,7 @@ require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/buger/jsonparser v1.2.0 // indirect
 	github.com/buraksezer/consistent v0.10.0 // indirect
-	github.com/bytecodealliance/wasmtime-go/v47 v47.0.0 // indirect
+	github.com/bytecodealliance/wasmtime-go/v50 v50.0.0 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
@@ -430,7 +430,7 @@ require (
 	github.com/smartcontractkit/chainlink-canton/authentication v1.0.0 // indirect
 	github.com/smartcontractkit/chainlink-canton/contracts/v2 v2.1.0 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.15.1-0.20261020204039-1a47492cdb37 // indirect
-	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261005132539-b7d63d5fd549 // indirect
+	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261026195813-8ed7b172ab8c // indirect
 	github.com/smartcontractkit/chainlink-common/x/config v0.0.0-20260928140953-a9b0d3a04daa // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20261009212658-df7dcfcb7a77 // indirect

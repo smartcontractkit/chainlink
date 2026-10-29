@@ -160,21 +160,23 @@ func newBeholderClient(
 		ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
 		ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
 		ChipIngressBatchEmitterEnabled: cfgTelemetry.ChipIngressBatchEmitterEnabled(),
-		ChipIngressBufferSize:          cfgTelemetry.ChipIngressBufferSize(),
-		ChipIngressMaxBatchSize:        cfgTelemetry.ChipIngressMaxBatchSize(),
-		ChipIngressMaxConcurrentSends:  cfgTelemetry.ChipIngressMaxConcurrentSends(),
-		ChipIngressSendInterval:        cfgTelemetry.ChipIngressSendInterval(),
-		ChipIngressSendTimeout:         cfgTelemetry.ChipIngressSendTimeout(),
-		ChipIngressDrainTimeout:        cfgTelemetry.ChipIngressDrainTimeout(),
-		ChipIngressMaxGRPCRequestSize:  cfgTelemetry.ChipIngressMaxGRPCRequestSize(),
-		ChipIngressLogger:              lggr,
-		LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
-		LogLevel:                       cfgTelemetry.LogLevel(),
-		LogBatchProcessor:              cfgTelemetry.LogBatchProcessor(),
-		LogExportTimeout:               cfgTelemetry.LogExportTimeout(),
-		LogExportMaxBatchSize:          cfgTelemetry.LogExportMaxBatchSize(),
-		LogExportInterval:              cfgTelemetry.LogExportInterval(),
-		LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
+		// TelemetryIngress.BeholderEnabled sends node telemetry through the per-domain emitters.
+		ChipDomainEmittersEnabled:     cfgApp.TelemetryIngress().BeholderEnabled(),
+		ChipIngressBufferSize:         cfgTelemetry.ChipIngressBufferSize(),
+		ChipIngressMaxBatchSize:       cfgTelemetry.ChipIngressMaxBatchSize(),
+		ChipIngressMaxConcurrentSends: cfgTelemetry.ChipIngressMaxConcurrentSends(),
+		ChipIngressSendInterval:       cfgTelemetry.ChipIngressSendInterval(),
+		ChipIngressSendTimeout:        cfgTelemetry.ChipIngressSendTimeout(),
+		ChipIngressDrainTimeout:       cfgTelemetry.ChipIngressDrainTimeout(),
+		ChipIngressMaxGRPCRequestSize: cfgTelemetry.ChipIngressMaxGRPCRequestSize(),
+		ChipIngressLogger:             lggr,
+		LogStreamingEnabled:           cfgTelemetry.LogStreamingEnabled(),
+		LogLevel:                      cfgTelemetry.LogLevel(),
+		LogBatchProcessor:             cfgTelemetry.LogBatchProcessor(),
+		LogExportTimeout:              cfgTelemetry.LogExportTimeout(),
+		LogExportMaxBatchSize:         cfgTelemetry.LogExportMaxBatchSize(),
+		LogExportInterval:             cfgTelemetry.LogExportInterval(),
+		LogMaxQueueSize:               cfgTelemetry.LogMaxQueueSize(),
 		// Due to OpenTelemetry semantics, histogram bucket boundaries must be set
 		// when the Beholder client is constructed.
 		MetricViews:               metricViews(),
@@ -269,14 +271,14 @@ func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, ds sqlutil.DataSource, keyStore keystore.Master) (chainlink.Application, error)
+	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, ds sqlutil.DataSource, keyStore keystore.Master, beholderClient *beholder.Client) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, ds sqlutil.DataSource, keyStore keystore.Master) (app chainlink.Application, err error) {
+func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, ds sqlutil.DataSource, keyStore keystore.Master, beholderClient *beholder.Client) (app chainlink.Application, err error) {
 	err = migrate.SetMigrationENVVars(cfg.EVMConfigs())
 	if err != nil {
 		return nil, err
@@ -315,6 +317,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	return chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		Opts:                   creOpts,
+		BeholderClient:         beholderClient,
 		Config:                 cfg,
 		DS:                     ds,
 		KeyStore:               keyStore,

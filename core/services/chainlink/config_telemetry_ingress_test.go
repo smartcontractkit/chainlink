@@ -1,12 +1,14 @@
 package chainlink
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
@@ -55,4 +57,54 @@ func TestTelemetryIngressConfig_ChipIngressEnabled(t *testing.T) {
 		}
 		assert.True(t, config.ChipIngressEnabled())
 	})
+}
+
+func TestTelemetryIngressConfig_BeholderEnabled(t *testing.T) {
+	t.Parallel()
+	trueVal, falseVal := true, false
+	assert.True(t, (&telemetryIngressConfig{c: toml.TelemetryIngress{BeholderEnabled: &trueVal}}).BeholderEnabled())
+	assert.False(t, (&telemetryIngressConfig{c: toml.TelemetryIngress{BeholderEnabled: &falseVal}}).BeholderEnabled())
+}
+
+func TestCoreValidateConfig_TelemetryIngressBeholderEnabled(t *testing.T) {
+	t.Parallel()
+	const enabled = `
+[TelemetryIngress]
+BeholderEnabled = true
+`
+	const beholderChip = `
+[Telemetry]
+Enabled = true
+ChipIngressEndpoint = 'chip.example.com:443'
+`
+	for _, tt := range []struct {
+		name    string
+		toml    string
+		wantErr string // empty: the BeholderEnabled rule must not fire
+	}{
+		{name: "off by default", toml: ``},
+		{name: "requires Beholder telemetry", toml: enabled,
+			wantErr: "TelemetryIngress.BeholderEnabled: invalid value (true): requires Telemetry.Enabled and Telemetry.ChipIngressEndpoint"},
+		{name: "requires a chip ingress endpoint", toml: enabled + "\n[Telemetry]\nEnabled = true\n",
+			wantErr: "TelemetryIngress.BeholderEnabled: invalid value (true): requires Telemetry.Enabled and Telemetry.ChipIngressEndpoint"},
+		{name: "cannot combine with ChipIngressEnabled", toml: "[TelemetryIngress]\nBeholderEnabled = true\nChipIngressEnabled = true\n" + beholderChip,
+			wantErr: "TelemetryIngress.BeholderEnabled: invalid value (true): cannot be combined with TelemetryIngress.ChipIngressEnabled"},
+		{name: "valid with Beholder chip ingress", toml: enabled + beholderChip},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var c Config
+			require.NoError(t, commonconfig.DecodeTOML(strings.NewReader(tt.toml), &c))
+			c.setDefaults()
+			err := c.ValidateConfig()
+			if tt.wantErr == "" {
+				if err != nil {
+					assert.NotContains(t, err.Error(), "TelemetryIngress.BeholderEnabled")
+				}
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
 }

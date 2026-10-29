@@ -86,7 +86,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -212,6 +211,8 @@ type ApplicationOpts struct {
 	NewOracleFactoryFn     standardcapabilities.NewOracleFactoryFn
 	EVMFactoryConfigFn     func(*EVMFactoryConfig)
 	DonTimeStore           *dontime.Store
+	// BeholderClient is the node's Beholder client. Required when TelemetryIngress.BeholderEnabled is set.
+	BeholderClient *beholder.Client
 }
 
 // safeDefaultBootstrappers returns the configured default bootstrappers from
@@ -551,7 +552,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), csaKeystore, globalLogger)
+	telemetryManager, err := newTelemetryManager(cfg.TelemetryIngress(), opts.BeholderClient, csaKeystore, csaPubKeyHex, globalLogger)
+	if err != nil {
+		return nil, err
+	}
 	srvcs = append(srvcs, telemetryManager)
 
 	backupCfg := cfg.Database().Backup()

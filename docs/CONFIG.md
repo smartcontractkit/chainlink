@@ -281,6 +281,7 @@ SendInterval = '500ms' # Default
 SendTimeout = '10s' # Default
 UseBatchSend = true # Default
 ChipIngressEnabled = false # Default
+BeholderEnabled = false # Default
 ```
 
 
@@ -331,6 +332,19 @@ UseBatchSend toggles sending telemetry to the ingress server using the batch cli
 ChipIngressEnabled = false # Default
 ```
 ChipIngressEnabled enables sending telemetry to CHIP Ingress.
+
+### BeholderEnabled
+```toml
+BeholderEnabled = false # Default
+```
+BeholderEnabled sends telemetry through Beholder, one emitter per product domain, instead of the Endpoints below.
+When set, Endpoints and the settings above (BufferSize, MaxBatchSize, SendInterval, SendTimeout, UseBatchSend, UniConn, Logging)
+are ignored: the Telemetry.ChipIngress* settings size one buffer per domain, shared by all of that domain's jobs.
+Requires Telemetry.Enabled and Telemetry.ChipIngressEndpoint, and chip ingress that serves PublishBatchNoAck for every domain
+(there is no fallback). Cannot be combined with ChipIngressEnabled.
+Telemetry is sent for every chain the node's jobs run on: Endpoints no longer select chains. Supported types are ocr,
+ocr2-median, ocr3-data-feeds, enhanced-ea, ocr3-mercury, enhanced-ea-mercury, llo-observation, llo-outcome, pipeline-bridge,
+ocr2-ccip-commit, ocr2-ccip-exec, ocr3-ccip-commit, ocr3-ccip-exec and head-report; other types are dropped.
 
 ## TelemetryIngress.Endpoints
 ```toml
