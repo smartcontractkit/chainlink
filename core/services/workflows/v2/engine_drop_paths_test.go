@@ -30,6 +30,7 @@ import (
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
@@ -350,6 +351,12 @@ func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) {
 		}
 	}
 
+	wantDropReason := map[string]string{
+		"ExecutionTime":     monitoring.TriggerDropReasonExecutionTimeLimitReadFailed,
+		"LogEvent":          monitoring.TriggerDropReasonLogEventLimitReadFailed,
+		"ExecutionResponse": monitoring.TriggerDropReasonExecutionResponseLimitReadFailed,
+	}
+
 	for _, mode := range dropPathModes {
 		t.Run(string(mode), func(t *testing.T) {
 			t.Parallel()
@@ -358,7 +365,11 @@ func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) {
 					t.Parallel()
 
 					// No module.Execute expectation: the execution must never reach WASM.
-					harness := newDropPathHarness(t, mode, setupMockBillingClient(t), breakLimiter)
+					meter := newDropMeter(t)
+					harness := newDropPathHarness(t, mode, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
+						cfg.Meter = meter.meter
+						breakLimiter(cfg)
+					})
 
 					harness.deliver(capabilities.TriggerResponse{
 						Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_nonrecoverable_" + name},
@@ -379,6 +390,7 @@ func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) {
 						"a programming error must not be papered over with the zero value")
 					assert.Equal(t, eventsv2.ClassifiedExecutionStatus_CLASSIFIED_EXECUTION_STATUS_SYSTEM_ERROR, evt.ClassifiedStatus,
 						"a missing tenant is our bug, not the user's")
+					meter.requireDrops(t, map[string]int64{wantDropReason[name]: 1})
 				})
 			}
 		})

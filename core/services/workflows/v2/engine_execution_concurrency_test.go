@@ -733,7 +733,7 @@ func requireSharedLimit(t *testing.T, limit int32, flight *flightTracker, hs ...
 	require.Equal(t, limit, flight.max.Load(), "executions must never exceed the shared limit")
 }
 
-// TestEngine_ConcurrencySlotsReturnToBaseline asserts that an execution that fails or is
+// TestEngine_ConcurrencySlotsReturnToBaseline asserts that an event that is denied, fails or is
 // cancelled gives back its execution-concurrency slot at every scope: workflow, owner, org and
 // global. A slot leaked at the owner or org scope would not show at the workflow scope. On the
 // coordinated path, the coordinator's capacity report must give the same numbers as the pools.
@@ -765,6 +765,26 @@ func TestEngine_ConcurrencySlotsReturnToBaseline(t *testing.T) {
 				require.Eventually(t, func() bool { return h.slots.released.Load() == 1 }, testutils.WaitTimeout(t), 5*time.Millisecond)
 				h.deliverEvent("duplicate", testutils.WaitTimeout(t)) // rejected as a duplicate before the module runs
 				return 2
+			},
+		},
+		{
+			name: "shard denial",
+			opts: func(*testing.T) []harnessOption {
+				return []harnessOption{withAdmission(func(context.Context, triggers.CoordinatedEvent) error {
+					return v2.ErrShardDeniedNotOwner
+				})}
+			},
+			run: func(t *testing.T, h *engineLifecycleHarness) int32 {
+				h.deliver(testutils.WaitTimeout(t))
+				// A denied event is ACKed, so the ACK marks the end of the denial.
+				require.Eventually(t, func() bool { return h.ackCalls.Load() == 1 }, testutils.WaitTimeout(t), 5*time.Millisecond,
+					"the denied event is ACKed")
+				if h.mode == lifecycleCoordinated {
+					// The coordinator takes a slot before it delivers to the engine, and must give it back.
+					return 1
+				}
+				// The legacy engine checks admission before the event is queued, so it never takes a slot.
+				return 0
 			},
 		},
 		{
