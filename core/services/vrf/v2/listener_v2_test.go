@@ -509,9 +509,9 @@ func newRetryTestRequest(id int64, confirmedAtBlock uint64) pendingRequest {
 func newRetryTestRequestForSub(id int64, subID uint64, confirmedAtBlock uint64) pendingRequest {
 	return pendingRequest{
 		confirmedAtBlock: confirmedAtBlock,
-		req: NewV2RandomWordsRequested(&vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+		req: NewV2_5RandomWordsRequested(&vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested{
 			RequestId: big.NewInt(id),
-			SubId:     subID,
+			SubId:     new(big.Int).SetUint64(subID),
 			Raw:       types.Log{BlockNumber: 1},
 		}),
 	}
@@ -525,7 +525,7 @@ type subErrCoordinator struct {
 	getSubscriptionCalls int
 }
 
-func (*subErrCoordinator) Version() vrfcommon.Version { return vrfcommon.V2 }
+func (*subErrCoordinator) Version() vrfcommon.Version { return vrfcommon.V2Plus }
 
 func (c *subErrCoordinator) GetSubscription(*bind.CallOpts, *big.Int) (Subscription, error) {
 	c.getSubscriptionCalls++
