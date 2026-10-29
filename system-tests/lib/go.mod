@@ -42,8 +42,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260916235422-d73d783612ca
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260821155228-fa1d775e2138
-	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20261005072841-71e45e418098
-	github.com/smartcontractkit/chainlink-stellar/deployment v0.0.0-20261005072841-71e45e418098
+	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20261028170155-b0c194ffac3f
+	github.com/smartcontractkit/chainlink-stellar/deployment v0.0.0-20261028170155-b0c194ffac3f
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.9
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23
@@ -56,7 +56,7 @@ require (
 	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342
 	github.com/smartcontractkit/smdkg v0.0.0-20260819115032-4afa3ab56bc4
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c
-	github.com/stellar/go-stellar-sdk v0.7.3
+	github.com/stellar/go-stellar-sdk v0.8.0
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/ratelimit v0.3.1
 	go.uber.org/zap v1.28.0
@@ -109,16 +109,16 @@ require (
 	github.com/avast/retry-go/v4 v4.7.0 // indirect
 	github.com/awalterschulze/gographviz v2.0.3+incompatible // indirect
 	github.com/aws/aws-sdk-go v1.55.8 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.43.0 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.45.1 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.32.31 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.30 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.31 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.31 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.31 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.32 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v1.62.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.13 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.31 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.19 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/kms v1.54.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.34.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.5.0 // indirect
@@ -519,7 +519,7 @@ require (
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
 	github.com/smartcontractkit/go-daml v0.0.0-20260702101944-3a593d4e8e19 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
-	github.com/smartcontractkit/mcms v0.55.3-0.20260924131108-702d781252f8 // indirect
+	github.com/smartcontractkit/mcms v0.56.1 // indirect
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
