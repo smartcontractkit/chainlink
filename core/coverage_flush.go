@@ -7,11 +7,12 @@ import (
 	"os/signal"
 	"runtime/coverage"
 	"syscall"
+	"time"
 )
 
-// init installs a SIGUSR1 handler used by E2E coverage collection. The handler
-// flushes coverage counters while the process is still running, so coverage is
-// not lost when a container is later stopped with SIGKILL.
+// init installs a SIGUSR1 handler and a periodic flush used by E2E coverage
+// collection. Flushing while the process is running means coverage is not lost
+// when a container is later stopped with SIGKILL.
 func init() {
 	dir := os.Getenv("GOCOVERDIR")
 	if dir == "" {
@@ -21,6 +22,13 @@ func init() {
 	signal.Notify(ch, syscall.SIGUSR1)
 	go func() {
 		for range ch {
+			_ = coverage.WriteCountersDir(dir)
+		}
+	}()
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
 			_ = coverage.WriteCountersDir(dir)
 		}
 	}()
