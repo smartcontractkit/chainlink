@@ -212,6 +212,9 @@ jobs:
           cleanup-on-error: "false"
           working-directory: core/scripts/cre/environment
 
+      - name: Start coverage flusher
+        uses: $/.github/actions/start-coverage-flusher
+
       - name: Run CRE Regression system tests
         id: run-regression-tests
         shell: bash

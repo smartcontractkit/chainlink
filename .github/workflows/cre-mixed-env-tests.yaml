@@ -373,6 +373,9 @@ jobs:
           aws-role-duration-seconds: "1800"
           set-git-config: "true"
 
+      - name: Start coverage flusher
+        uses: $/.github/actions/start-coverage-flusher
+
       - name: Run CRE Smoke system tests (mixed-env)
         id: run-tests
         if: ${{ steps.baseline.outputs.skip != 'true' }}

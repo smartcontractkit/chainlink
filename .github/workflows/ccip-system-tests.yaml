@@ -296,6 +296,9 @@ jobs:
             echo "Baseline image: ${image}:${version}"
           fi
 
+      - name: Start coverage flusher
+        uses: $/.github/actions/start-coverage-flusher
+
       - name: Run CCIP smoke tests
         id: run-tests
         shell: bash
