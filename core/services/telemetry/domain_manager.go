@@ -34,6 +34,7 @@ type DomainEmitterSource interface {
 // supportedTelemetryDomains lists the telemetry types DomainManager sends and the Beholder domain
 // whose emitter carries each: the types ingested in production. Their CloudEvent source and type
 // come from synchronization.TelemetryTypeToDomainAndEntity. Every other type is dropped and counted.
+// The TelemetryIngress.BeholderEnabled docs (core/config/docs/core.toml) list these types: keep them in sync.
 func supportedTelemetryDomains() map[synchronization.TelemetryType]beholder.Domain {
 	return map[synchronization.TelemetryType]beholder.Domain{
 		synchronization.OCR:               beholder.DomainDataFeeds,
