@@ -291,7 +291,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.R
 			Signer:              node.Signer,
 			P2pID:               node.P2pId,
 			EncryptionPublicKey: node.EncryptionPublicKey,
-			CapabilitiesDONIds:  make([]*big.Int, 0, len(node.CapabilitiesDONIds)),
+			CapabilitiesDONIds:  make([]*big.Int, len(node.CapabilitiesDONIds)),
 			HashedCapabilityIDs: make([][32]byte, 0, len(node.CapabilityIds)),
 			CsaKey:              node.CsaKey,
 			CapabilityIDs:       node.CapabilityIds,
@@ -377,7 +377,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	for _, listener := range s.listeners {
 		lrCopy := registry.DeepCopyRegistryMetadata(latestRegistry)
 		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
-			s.lggr.Errorf("error calling launcher: %s", err)
+			s.lggr.Errorf("error calling OnNewRegistry on a registrysyncer listener: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
 		}
 	}
@@ -410,7 +410,7 @@ func toCapabilityType(capabilityType uint8) capabilities.CapabilityType {
 }
 
 func toDONInfo(don capabilities_registry_v2.CapabilitiesRegistryDONInfo) *capabilities.DON {
-	peerIDs := []p2ptypes.PeerID{}
+	peerIDs := make([]p2ptypes.PeerID, 0, len(don.NodeP2PIds))
 	for _, p := range don.NodeP2PIds {
 		peerIDs = append(peerIDs, p)
 	}

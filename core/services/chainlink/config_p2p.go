@@ -5,7 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
@@ -37,7 +37,7 @@ func (p *p2p) OutgoingMessageBufferSize() int {
 	return int(*p.c.OutgoingMessageBufferSize)
 }
 
-func (p *p2p) V2() config.V2 {
+func (p *p2p) V2() coreconfig.V2 {
 	return &p2pv2{p.c.V2}
 }
 

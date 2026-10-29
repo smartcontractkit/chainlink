@@ -3,6 +3,7 @@ package bridgeconn
 import (
 	"context"
 	"encoding/hex"
+	stdErrors "errors"
 	"net/url"
 	"sync"
 	"time"
@@ -182,6 +183,9 @@ func (c *eaConn) run(ctx context.Context) {
 	for {
 		stream, err := c.dial(ctx, c.target, c.useTLS)
 		if err != nil {
+			if stdErrors.Is(err, errStreamDialingDisabledForTest) {
+				return
+			}
 			c.lggr.Errorw("EAConn: dial failed", "target", c.target, "err", err)
 			backoff = c.sleepBackoff(backoff)
 			continue

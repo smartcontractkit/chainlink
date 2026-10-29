@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // Go's new embed feature doesn't allow us to embed things outside of the current module.
@@ -40,7 +40,7 @@ const (
 // ServeFileSystem wraps a http.FileSystem with an additional file existence check
 type ServeFileSystem interface {
 	http.FileSystem
-	Exists(prefix string, path string) (bool, error)
+	Exists(prefix, path string) (bool, error)
 }
 
 // EmbedFileSystem implements the ServeFileSystem interface using an embed.FS
@@ -60,7 +60,7 @@ func NewEmbedFileSystem(efs embed.FS, pathPrefix string) ServeFileSystem {
 }
 
 // Exists implements the ServeFileSystem interface.
-func (e *EmbedFileSystem) Exists(prefix string, filepath string) (found bool, err error) {
+func (e *EmbedFileSystem) Exists(prefix, filepath string) (found bool, err error) {
 	if p := path.Base(strings.TrimPrefix(filepath, prefix)); len(p) < len(filepath) {
 		err = fs.WalkDir(e.FS, ".", func(fpath string, d fs.DirEntry, err error) error {
 			fileName := path.Base(fpath)
@@ -72,7 +72,7 @@ func (e *EmbedFileSystem) Exists(prefix string, filepath string) (found bool, er
 		})
 	}
 
-	return
+	return found, err
 }
 
 // Open implements the http.FileSystem interface.
@@ -93,7 +93,7 @@ type gzipFileHandler struct {
 // which adds support for static resources precompressed with gzip, at
 // the cost of removing the support for directory browsing.
 func GzipFileServer(root ServeFileSystem, lggr logger.Logger) http.Handler {
-	return &gzipFileHandler{root, logger.Sugared(lggr.Named("GzipFilehandler"))}
+	return &gzipFileHandler{root, logger.Sugared(lggr).Named("GzipFilehandler")}
 }
 
 func (f *gzipFileHandler) openAndStat(path string) (http.File, os.FileInfo, error) {

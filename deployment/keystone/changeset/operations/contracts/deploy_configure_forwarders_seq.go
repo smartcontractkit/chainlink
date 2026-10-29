@@ -148,7 +148,8 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 			proposal, err := proposeutils.BuildProposalFromBatchesV2(
 				*deps.Env,
 				timelockAddressByChain, proposerAddressByChain, inspectorPerChain,
-				batches, "Transfer ownership to timelock", *input.MCMSConfig)
+				batches, "Transfer ownership to timelock", *input.MCMSConfig,
+			)
 			if err != nil {
 				return DeployConfigureForwardersSeqOutput{AddressBook: ab, Addresses: as.Addresses()}, fmt.Errorf("failed to build proposal for transfer ownership to timelock: %w", err)
 			}
@@ -326,6 +327,7 @@ func transferOwnershipOp(
 		return fmt.Errorf("failed to load ownable contract for chain selector %d: %w", target, err)
 	}
 	// transfer ownership to timelock (we send this on chain directly, does not need to go through MCMS)
+	//nolint:staticcheck // deprecated upstream; replacement op not published yet (see cld-changesets op_transfer_accept_ownership.go)
 	_, err = operations.ExecuteOperation(b, opsevm.OpEVMTransferOwnership,
 		opsevm.OpEVMOwnershipDeps{
 			Chain:    chain,
@@ -341,6 +343,7 @@ func transferOwnershipOp(
 		return fmt.Errorf("failed to transfer ownership of forwarder to timelock for chain selector %d: %w", target, err)
 	}
 	// accept ownership as timelock (timelock needs to sign this, so we send it through MCMS)
+	//nolint:staticcheck // deprecated upstream; replacement op not published yet (see cld-changesets op_transfer_accept_ownership.go)
 	acceptOwnershipReport, err := operations.ExecuteOperation(b, opsevm.OpEVMAcceptOwnership,
 		opsevm.OpEVMOwnershipDeps{
 			Chain:    chain,

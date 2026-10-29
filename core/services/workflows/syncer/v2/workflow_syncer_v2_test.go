@@ -413,7 +413,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	require.NoError(t, err)
 
 	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, &confidentialrelay.ExecutionHandlers{}, er,
-		emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier, WithStaticEngine(&mockService{}), withTestOrgResolver())
+		emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier, WithStaticEngine(&mockEngine{}), withTestOrgResolver())
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(

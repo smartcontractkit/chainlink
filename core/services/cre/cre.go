@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -18,7 +19,6 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -42,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -59,6 +61,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	artifactsV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
@@ -68,6 +71,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
 // Keystore is the minimal interface needed from keystore for CRE
@@ -91,6 +96,9 @@ type Opts struct {
 	LinkingClient linkingclient.LinkingServiceClient
 	Meter         metric.Meter
 
+	// DurableEmit persists workflow events for durable delivery. Nil disables persistence.
+	DurableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
+
 	StorageClient storage.WorkflowClient
 
 	DonTimeStore  *dontime.Store
@@ -104,12 +112,15 @@ type Opts struct {
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 
 	ShardAssignmentSettings *loop.AtomicSettings
+
+	// OffchainCapabilitiesRegistry holds the offchain capabilities registry config delivered
+	// via the cresettings job (config_type=capabilities_registry). Read by the Launcher.
+	OffchainCapabilitiesRegistry *globalconfig.GlobalConfig
 }
 
 // Services contains all CRE-related services
 type Services struct {
 	commonsrv.Service
-	eng *commonsrv.Engine
 
 	BillingClient metering.BillingClient
 
@@ -138,34 +149,10 @@ func (s *Services) close() error {
 	return s.WorkflowLimits.Close()
 }
 
-// workflowRegistryConfigured is true when the workflow registry syncer should start.
-// v1 is on-chain only (non-empty contract address). v2 allows on-chain address and/or
-// additional (e.g. gRPC) sources with a non-empty URL.
-func workflowRegistryConfigured(workflowRegistry config.CapabilitiesWorkflowRegistry, major uint64) bool {
-	if strings.TrimSpace(workflowRegistry.Address()) != "" {
-		return true
-	}
-	if major != 2 {
-		return false
-	}
-	if len(workflowRegistry.AdditionalSources()) > 0 {
-		return true
-	}
-	return false
-}
-
-// workflowRegistrySemverMajor returns the major contract version used to pick the workflow registry syncer.
-// Empty or whitespace-only version defaults to 2 (v2 syncer).
-func workflowRegistrySemverMajor(version string) (major uint64, err error) {
-	v := strings.TrimSpace(version)
-	if v == "" {
-		return 2, nil
-	}
-	sv, err := semver.NewVersion(v)
-	if err != nil {
-		return 0, err
-	}
-	return sv.Major(), nil
+// workflowRegistryConfigured is true when the workflow registry syncer should start:
+// a non-empty on-chain contract address and/or additional (e.g. gRPC) sources.
+func workflowRegistryConfigured(workflowRegistry config.CapabilitiesWorkflowRegistry) bool {
+	return strings.TrimSpace(workflowRegistry.Address()) != "" || len(workflowRegistry.AdditionalSources()) > 0
 }
 
 // newSubservices initializes and returns all CRE child services
@@ -231,7 +218,8 @@ func (s *Services) newSubservices(
 				opts.CapabilitiesRegistry,
 				opts.ExecutionHandlers,
 				keyStore.P2P(),
-				confidentialRelayPeerID(cfg, capCfg),
+				// [P2P].PeerID is not set on any node in practice; GetOrFirst falls back to the node's single P2P key.
+				cfg.P2P().PeerID(),
 				lggr,
 				opts.LimitsFactory,
 				attestationValidator,
@@ -270,7 +258,7 @@ func (s *Services) newSubservices(
 		return srvs, nil
 	}
 
-	registrySyncerServices, donNotifier, err := s.newRegistrySyncer(
+	registrySyncerServices, donNotifier, shardIndexMapper, err := s.newRegistrySyncer(
 		lggr,
 		cfg,
 		relayerChainInterops,
@@ -283,21 +271,7 @@ func (s *Services) newSubservices(
 	}
 	srvs = append(srvs, registrySyncerServices...)
 
-	major, majorErr := workflowRegistrySemverMajor(capCfg.WorkflowRegistry().ContractVersion())
-	if majorErr != nil {
-		return nil, majorErr
-	}
-	// WorkflowRegistrySyncer v2 supports offchain-only sources (e.g. gRPC/file) and can
-	// start without an on-chain registry address. v1 is on-chain only, so we only skip
-	// initialization when using v1.
-	if capCfg.WorkflowRegistry().Address() == "" {
-		if major == 1 {
-			lggr.Warn("Skipping workflow registry syncer (v1 requires on-chain address)")
-			return srvs, nil
-		}
-	}
-
-	if !workflowRegistryConfigured(capCfg.WorkflowRegistry(), major) {
+	if !workflowRegistryConfigured(capCfg.WorkflowRegistry()) {
 		lggr.Warn("Skipping workflow registry syncer, not configured")
 		return srvs, nil
 	}
@@ -321,6 +295,7 @@ func (s *Services) newSubservices(
 		s.GatewayConnectorWrapper,
 		meterIdentity,
 		dispatcherWrapper.dispatcher,
+		shardIndexMapper,
 	)
 	if err != nil {
 		return nil, err
@@ -330,15 +305,6 @@ func (s *Services) newSubservices(
 	srvs = append(srvs, wfSyncerSrvcs...)
 
 	return srvs, nil
-}
-
-// Same peerID resolution pattern as core/services/standardcapabilities/delegate.go: prefer a
-// configured peerID, fall through to GetOrFirst(zero) so single-key nodes still resolve cleanly.
-func confidentialRelayPeerID(cfg Config, capCfg config.Capabilities) p2pkey.PeerID {
-	if id := capCfg.Peering().PeerID(); id != (p2pkey.PeerID{}) {
-		return id
-	}
-	return cfg.P2P().PeerID()
 }
 
 // Config is the minimal interface needed from GeneralConfig for CRE
@@ -384,7 +350,6 @@ func newGatewayConnectorWrapper(
 // It manages the lifecycle of the shared peer and dispatcher as subservices.
 type dispatcherWrapper struct {
 	commonsrv.Service
-	eng *commonsrv.Engine
 
 	dispatcher        remotetypes.Dispatcher
 	don2DonSharedPeer p2ptypes.SharedPeer
@@ -406,6 +371,7 @@ func newRegistrySyncerV2(
 	ds sqlutil.DataSource,
 	ocrConfigService capregconfig.OCRConfigService,
 	wfLauncher registrysyncerV2.Listener,
+	shardIndexMapper registrysyncerV2.Listener,
 ) ([]commonsrv.Service, error) {
 	registrySyncer, err := registrysyncerV2.New(
 		lggr,
@@ -418,7 +384,7 @@ func newRegistrySyncerV2(
 		return nil, fmt.Errorf("could not configure syncer: %w", err)
 	}
 
-	return wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigService, wfLauncher), nil
+	return wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigService, wfLauncher, shardIndexMapper), nil
 }
 
 func wireRegistrySyncerV2(
@@ -426,10 +392,11 @@ func wireRegistrySyncerV2(
 	ocrConfigService commonsrv.Service,
 	ocrConfigListener registrysyncerV2.Listener,
 	wfLauncher registrysyncerV2.Listener,
+	shardIndexMapper registrysyncerV2.Listener,
 ) []commonsrv.Service {
 	// The OCR config service must be started and receive each registry snapshot
 	// before capabilities using its dynamic config trackers are launched.
-	registrySyncer.AddListener(ocrConfigListener, wfLauncher)
+	registrySyncer.AddListener(ocrConfigListener, wfLauncher, shardIndexMapper)
 	return []commonsrv.Service{ocrConfigService, registrySyncer}
 }
 
@@ -441,7 +408,7 @@ func (s *Services) newRegistrySyncer(
 	ds sqlutil.DataSource,
 	opts Opts,
 	dispatcherWrapper *dispatcherWrapper,
-) ([]commonsrv.Service, capabilities.DonNotifyWaitSubscriber, error) {
+) ([]commonsrv.Service, capabilities.DonNotifyWaitSubscriber, *shardownership.ShardIndexMapper, error) {
 	var srvcs []commonsrv.Service
 
 	capCfg := cfg.Capabilities()
@@ -450,7 +417,7 @@ func (s *Services) newRegistrySyncer(
 	registryAddress := capCfg.ExternalRegistry().Address()
 	relayer, err := relayerChainInterops.Get(rid)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+		return nil, nil, nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
 	}
 
 	var streamConfig config.StreamConfig
@@ -462,16 +429,20 @@ func (s *Services) newRegistrySyncer(
 
 	ocrConfigService, ocrErr := newOCRConfigService(lggr, rid, registryAddress, dispatcherWrapper)
 	if ocrErr != nil {
-		return nil, nil, ocrErr
+		return nil, nil, nil, ocrErr
 	}
 	s.OCRConfigService = ocrConfigService
 
+	// Tracks workflow DONs from registry updates so shard indices used for
+	// failover ownership decisions can be remapped to their current DON IDs.
+	shardIndexMapper := shardownership.NewShardIndexMapper(lggr)
+
 	externalRegistryVersion, err := semver.NewVersion(capCfg.ExternalRegistry().ContractVersion())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if externalRegistryVersion.Major() != 2 {
-		return nil, nil, fmt.Errorf("unsupported external registry version: %s", externalRegistryVersion.String())
+		return nil, nil, nil, fmt.Errorf("unsupported external registry version: %s", externalRegistryVersion.String())
 	}
 
 	var (
@@ -497,12 +468,14 @@ func (s *Services) newRegistrySyncer(
 		shardIndex,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
+		return nil, nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
 	}
 	srvcs = append(srvcs, wfLauncher)
 
-	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	localCfg := cfg.Capabilities().Local()
+	wfLauncher.SetOffchainRegistry(opts.OffchainCapabilitiesRegistry, localCfg != nil && localCfg.UseOffchainRegistry())
+
+	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
 		// Both delegates are wired into a single LocalCapabilityManager.
 		// The newServicesFn routes to the correct delegate based on the capability ID:
@@ -519,10 +492,13 @@ func (s *Services) newRegistrySyncer(
 					}
 					return ocr2Delegate.NewServices(ctx, capID, donID, commontypes.DonTimePlugin, configJSON, ocr3Config)
 				}
-				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), nil, donID, ocr3Config)
+				// Enable the oracle factory only when there's an on-chain OCR3 config.
+				// ResolveOracleFactoryConfig then fills in all details from node config and keystore.
+				oracleFactoryConfig := &job.OracleFactoryConfig{Enabled: ocr3Config != nil}
+				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), oracleFactoryConfig, donID, ocr3Config)
 			}
 
-			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
+			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn, localCfg.UseOffchainRegistry())
 			if lcmErr != nil {
 				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
 			}
@@ -546,12 +522,13 @@ func (s *Services) newRegistrySyncer(
 		ds,
 		ocrConfigService,
 		wfLauncher,
+		shardIndexMapper,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	srvcs = append(srvcs, srvs...)
-	return srvcs, donNotifier, nil
+	return srvcs, donNotifier, shardIndexMapper, nil
 }
 
 func newOCRConfigService(
@@ -586,10 +563,7 @@ func (w *dispatcherWrapper) newSubservices(
 	if opts.CapabilitiesDispatcher != nil && opts.CapabilitiesSharedPeer != nil {
 		w.dispatcher = opts.CapabilitiesDispatcher
 		w.don2DonSharedPeer = opts.CapabilitiesSharedPeer
-		if w.don2DonSharedPeer != nil {
-			return []commonsrv.Service{w.don2DonSharedPeer, w.dispatcher}, nil
-		}
-		return []commonsrv.Service{w.dispatcher}, nil
+		return []commonsrv.Service{w.don2DonSharedPeer, w.dispatcher}, nil
 	}
 
 	if !capCfg.SharedPeering().Enabled() {
@@ -611,16 +585,12 @@ func (w *dispatcherWrapper) newSubservices(
 
 	signer := p2pmain.NewSigner(keyStore.P2P(), cfg.P2P().PeerID())
 
-	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr)
+	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr, opts.LimitsFactory)
 	if err != nil {
 		return nil, fmt.Errorf("could not create dispatcher: %w", err)
 	}
 	w.dispatcher = remoteDispatcher
 	return []commonsrv.Service{w.don2DonSharedPeer, w.dispatcher}, nil
-}
-
-func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *registry.TestRegistryMetadata {
-	return &registry.TestRegistryMetadata{}
 }
 
 func newShardDonLookup(capRegistry *registry.Registry) func(ctx context.Context, shardID uint32) *commoncap.DON {
@@ -646,7 +616,7 @@ func newDispatcherWrapper(
 	w := &dispatcherWrapper{}
 
 	var initErr error
-	w.Service, w.eng = commonsrv.Config{
+	w.Service = commonsrv.Config{
 		Name: "DispatcherWrapper",
 		NewSubServices: func(lggr logger.Logger) []commonsrv.Service {
 			subs, err := w.newSubservices(lggr, cfg, opts, keyStore, singletonPeerWrapper)
@@ -656,7 +626,7 @@ func newDispatcherWrapper(
 			}
 			return subs
 		},
-	}.NewServiceEngine(lggr)
+	}.NewService(lggr)
 
 	if initErr != nil {
 		return nil, initErr
@@ -743,6 +713,29 @@ func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.Billi
 // registry from the don notifier (the engine runs on the workflow DON), so it
 // is intentionally left empty here. Service/resource_pool are stamped by
 // syncer.NewSpecMeter.
+// newDeploymentIdentity returns the node's [Metering] deployment dimensions.
+// emitFunc adapts the injected durable emit func to resourcemanager.Emitter.
+type emitFunc func(ctx context.Context, body []byte, attrKVs ...any) error
+
+func (f emitFunc) Emit(ctx context.Context, body []byte, attrKVs ...any) error {
+	return f(ctx, body, attrKVs...)
+}
+
+func newDeploymentIdentity(cfg Config) resourcemanager.DeploymentIdentity {
+	m := cfg.Metering()
+	if m == nil {
+		return resourcemanager.DeploymentIdentity{}
+	}
+	return resourcemanager.DeploymentIdentity{
+		Product:         m.Product(),
+		Tenant:          m.Tenant(),
+		NumericTenantID: m.NumericTenantID(),
+		Environment:     m.Environment(),
+		Zone:            m.Zone(),
+		NodeID:          m.NodeID(),
+	}
+}
+
 func newSyncerMeterIdentity(cfg Config) resourcemanager.ResourceIdentity {
 	m := cfg.Metering()
 	if m == nil {
@@ -802,7 +795,7 @@ func chainSelector(chainID, networkID string) (string, error) {
 		return "", fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
 	}
 
-	return strconv.FormatUint(wrChainDetails.ChainSelector, 10), err
+	return strconv.FormatUint(wrChainDetails.ChainSelector, 10), nil
 }
 
 func newFetcherServiceV2(
@@ -815,7 +808,9 @@ func newFetcherServiceV2(
 		return opts.FetcherFunc, nil, []commonsrv.Service{}, nil
 	}
 
-	if gatewayConnectorWrapper == nil {
+	wfReg := capCfg.WorkflowRegistry()
+	direct := wfReg.FetchMode() == config.WorkflowFetchModeDirect
+	if gatewayConnectorWrapper == nil && !direct {
 		return nil, nil, nil, errors.New("unable to create workflow registry syncer without gateway connector")
 	}
 
@@ -841,6 +836,15 @@ func newFetcherServiceV2(
 		return nil, nil, nil, errors.New("must have a storage client")
 	}
 
+	if direct {
+		httpClient, err := syncerV2.NewDirectHTTPClient(lggr, math.MaxUint32)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to create direct fetch http client: %w", err)
+		}
+		fetcher := syncerV2.NewFetcherService(lggr, nil, storageClient)
+		return syncerV2.NewDirectFetcherFunc(httpClient, wfReg.FetchAllowedHosts(), lggr), fetcher.RetrieveURL, []commonsrv.Service{}, nil
+	}
+
 	fetcher := syncerV2.NewFetcherService(lggr, gatewayConnectorWrapper, storageClient)
 	return fetcher.Fetch, fetcher.RetrieveURL, []commonsrv.Service{fetcher}, nil
 }
@@ -861,6 +865,7 @@ func newWorkflowRegistrySyncerV2(
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	meterIdentity resourcemanager.ResourceIdentity,
 	dispatcher remotetypes.Dispatcher,
+	shardIndexMapper *shardownership.ShardIndexMapper,
 ) (syncerV2.WorkflowRegistrySyncer, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 	wfReg := capCfg.WorkflowRegistry()
@@ -902,12 +907,12 @@ func newWorkflowRegistrySyncerV2(
 
 	selector, err := chainSelector(wfReg.ChainID(), wfReg.NetworkID())
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
+		return nil, nil, err
 	}
 
 	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
 	if err != nil {
-		return nil, nil, errors.New("failed to instantiate contract reader factory")
+		return nil, nil, fmt.Errorf("failed to instantiate contract reader factory: %w", err)
 	}
 
 	var shardOrchestratorClient shardorchestrator.ClientInterface
@@ -940,11 +945,11 @@ func newWorkflowRegistrySyncerV2(
 	var shardResolver shardownership.ShardResolver
 	switch assignmentMode {
 	case toml.ShardAssignmentModeManualOnly:
-		shardResolver = shardownership.NewManualShardResolver(opts.ShardAssignmentSettings, orgResolver, lggr)
+		shardResolver = shardownership.NewManualShardResolver(opts.ShardAssignmentSettings, orgResolver, shardIndexMapper, lggr)
 		lggr.Infow("Using manual-only shard assignment mode")
 	case toml.ShardAssignmentModeRingOCROverrides:
 		ringOCR := shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
-		shardResolver = shardownership.NewOverrideShardResolver(opts.ShardAssignmentSettings, orgResolver, ringOCR, lggr)
+		shardResolver = shardownership.NewOverrideShardResolver(opts.ShardAssignmentSettings, orgResolver, shardIndexMapper, ringOCR, lggr)
 		lggr.Infow("Using ringocr-with-overrides shard assignment mode")
 	default:
 		shardResolver = shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
@@ -954,15 +959,38 @@ func newWorkflowRegistrySyncerV2(
 	meterRecordsEnabled := meteringCfg != nil && meteringCfg.MeterRecordsEnabled()
 	meterSnapshotsEnabled := meteringCfg != nil && meteringCfg.MeterSnapshotsEnabled()
 
+	coordinatorMetrics, err := wfmonitoring.InitMonitoringResources()
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to init trigger coordinator metrics: %w", err)
+	}
+	triggerCoordinator := triggers.NewCoordinator(
+		triggers.RegisterDeps{
+			CapRegistry:  opts.CapabilitiesRegistry,
+			RegTimeout:   engineLimiters.TriggerRegistrationsTime,
+			ChainAllowed: engineLimiters.ChainAllowed,
+			Logger:       lggr,
+			Metrics:      wfmonitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), coordinatorMetrics),
+		},
+		engineLimiters.Admission(),
+		syncerV2.NewTriggerEngineRegistry(engineRegistry),
+		workflowLimits,
+		clockwork.NewRealClock(),
+	)
+
 	handlerOpts := []syncerV2.EventHandlerOption{
 		syncerV2.WithBillingClient(billingClient),
-		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
+		syncerV2.WithWorkflowRegistry(wfReg.Address(), selector),
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
+		syncerV2.WithCachedTriggerSubscriptionsEnabled(cfg.CRE().CachedTriggerSubscriptionsEnabled()),
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
 		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 		syncerV2.WithShardResolver(shardResolver),
+		syncerV2.WithShardIndex(uint32(cfg.Sharding().ShardIndex())),
+		syncerV2.WithTriggerCoordinator(triggerCoordinator),
+		// Shared emitter across handler and spawned engines.
+		syncerV2.WithEventEmitter(events.NewEmitter(nil, events.WithDurableEmit(opts.DurableEmit))),
 	}
 	if shardingEnabled && dispatcher != nil {
 		handlerOpts = append(handlerOpts,
@@ -988,11 +1016,20 @@ func newWorkflowRegistrySyncerV2(
 		handlerOpts = append(handlerOpts, syncerV2.WithSpecMeter(specMeter))
 	}
 
-	mc := capCfg.WorkflowRegistry().ModuleCache()
+	// Compute usage records share the [Metering].MeterRecordsEnabled gate.
+	if meterRecordsEnabled {
+		if opts.DurableEmit != nil { // injected, not the global, so tests can supply their own
+			handlerOpts = append(handlerOpts, syncerV2.WithUsageMetering(newDeploymentIdentity(cfg), emitFunc(opts.DurableEmit)))
+		} else {
+			lggr.Warnw("Compute usage metering enabled without a durable emitter; compute usage records disabled")
+		}
+	}
+
+	mc := wfReg.ModuleCache()
 	cacheEnabled := mc.Enabled()
 	diskMonitorEnabled := mc.DiskMonitorEnabled() || cacheEnabled
 
-	if diskMonitorEnabled || cacheEnabled {
+	if diskMonitorEnabled {
 		fileStore, fsErr := artifactsV2.NewFileModuleStore(mc.CacheDir(), cacheEnabled)
 		if fsErr != nil {
 			return nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
@@ -1018,21 +1055,22 @@ func newWorkflowRegistrySyncerV2(
 				return nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
 			}
 
-			lruOpts := []func(*syncerV2.ModuleLRU){
+			var idleTimeout time.Duration
+			if mc.IdleEviction() {
+				idleTimeout = mc.IdleTimeout()
+			}
+			moduleLRU := syncerV2.NewModuleLRU(
+				clockwork.NewRealClock(),
 				syncerV2.WithMaxLoadedModules(mc.MaxLoaded()),
 				syncerV2.WithCacheMetrics(cm),
-			}
-			if mc.IdleEviction() {
-				lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(mc.IdleTimeout()))
-			} else {
-				lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(0))
-			}
-			moduleLRU := syncerV2.NewModuleLRU(clockwork.NewRealClock(), lruOpts...)
+				syncerV2.WithIdleTimeout(idleTimeout),
+			)
 
 			handlerOpts = append(handlerOpts,
 				syncerV2.WithModuleLRU(moduleLRU),
 				syncerV2.WithModuleStore(fileStore),
 				syncerV2.WithModuleCacheMetrics(cm),
+				syncerV2.WithModuleEngineVersion(static.Version),
 			)
 
 			lggr.Infow("Module cache enabled",
@@ -1040,6 +1078,7 @@ func newWorkflowRegistrySyncerV2(
 				"idleTimeout", mc.IdleTimeout(),
 				"maxLoaded", mc.MaxLoaded(),
 				"cacheDir", fileStore.CacheDir(),
+				"engineVersion", static.Version,
 			)
 		}
 	}
@@ -1091,7 +1130,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithMaxConcurrency(wfReg.MaxConcurrency()),
 		syncerV2.WithMaxActivationRetries(wfReg.MaxActivationRetries()),
 	}
-	if cfg.Sharding().ShardingEnabled() {
+	if shardingEnabled {
 		registryOpts = append(registryOpts,
 			syncerV2.WithShardEnabled(true),
 			syncerV2.WithShardFailoverEnabled(engineLimiters.ShardingFailoverEnabled),
@@ -1124,7 +1163,7 @@ func newWorkflowRegistrySyncerV2(
 	return workflowRegistrySyncerV2, srvcs, nil
 }
 
-// newWorkflowRegistrySyncer creates a workflow registry syncer based on the contract version
+// newWorkflowRegistrySyncer creates a workflow registry syncer.
 func newWorkflowRegistrySyncer(
 	cfg Config,
 	relayerChainInterops RelayerChainInterops,
@@ -1140,23 +1179,14 @@ func newWorkflowRegistrySyncer(
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	meterIdentity resourcemanager.ResourceIdentity,
 	dispatcher remotetypes.Dispatcher,
+	shardIndexMapper *shardownership.ShardIndexMapper,
 ) (syncerV2.WorkflowRegistrySyncer, metering.BillingClient, []commonsrv.Service, error) {
-	capCfg := cfg.Capabilities()
-
 	lggr.Debugw("Creating WorkflowRegistrySyncer")
 	lggr = logger.Named(lggr, "WorkflowRegistrySyncer")
 
 	billingClient, err := newBillingClient(lggr, cfg, opts)
 	if err != nil {
 		lggr.Infof("failed to create billing client: %s", err)
-	}
-
-	major, vErr := workflowRegistrySemverMajor(capCfg.WorkflowRegistry().ContractVersion())
-	if vErr != nil {
-		return nil, nil, nil, vErr
-	}
-	if major != 2 {
-		lggr.Warnw("unsupported workflow registry version", "version", capCfg.WorkflowRegistry().ContractVersion())
 	}
 
 	syncer, srvcs, err := newWorkflowRegistrySyncerV2(
@@ -1175,6 +1205,7 @@ func newWorkflowRegistrySyncer(
 		gatewayConnectorWrapper,
 		meterIdentity,
 		dispatcher,
+		shardIndexMapper,
 	)
 	return syncer, billingClient, srvcs, err
 }
@@ -1192,7 +1223,7 @@ func NewServices(
 	s := &Services{}
 
 	var subservicesErr error
-	s.Service, s.eng = commonsrv.Config{
+	s.Service = commonsrv.Config{
 		Name: "CRE",
 		NewSubServices: func(subLggr logger.Logger) []commonsrv.Service {
 			srvs, err := s.newSubservices(
@@ -1211,7 +1242,7 @@ func NewServices(
 			return srvs
 		},
 		Close: s.close,
-	}.NewServiceEngine(lggr)
+	}.NewService(lggr)
 
 	if subservicesErr != nil {
 		return nil, subservicesErr

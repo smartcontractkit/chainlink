@@ -256,7 +256,7 @@ func (c *WorkflowRegistryOutput) Store(absPath string) error {
 	return storeLocalArtifact(c, absPath)
 }
 
-func (c WorkflowRegistryOutput) WorkflowOwnersStrings() []string {
+func (c *WorkflowRegistryOutput) WorkflowOwnersStrings() []string {
 	owners := make([]string, len(c.WorkflowOwners))
 	for idx, owner := range c.WorkflowOwners {
 		owners[idx] = owner.String()
@@ -266,7 +266,7 @@ func (c WorkflowRegistryOutput) WorkflowOwnersStrings() []string {
 }
 
 func storeLocalArtifact(artifact any, absPath string) error {
-	dErr := os.MkdirAll(filepath.Dir(absPath), 0755)
+	dErr := os.MkdirAll(filepath.Dir(absPath), 0o755)
 	if dErr != nil {
 		return errors.Wrap(dErr, "failed to create directory for the environment artifact")
 	}
@@ -276,7 +276,7 @@ func storeLocalArtifact(artifact any, absPath string) error {
 		return errors.Wrap(mErr, "failed to marshal environment artifact to TOML")
 	}
 
-	return os.WriteFile(absPath, d, 0600)
+	return os.WriteFile(absPath, d, 0o600)
 }
 
 type ConfigureDataFeedsCacheOutput struct {
@@ -444,8 +444,7 @@ type GenerateConfigsInput struct {
 	Blockchains               map[uint64]blockchains.Blockchain
 	RegistryChainSelector     uint64
 	Flags                     []string
-	CapabilitiesPeeringData   CapabilitiesPeeringData
-	OCRPeeringData            OCRPeeringData
+	PeeringData               PeeringData
 	ContractVersions          map[ContractType]*semver.Version
 	Topology                  *Topology
 	Provider                  infra.Provider
@@ -466,11 +465,8 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(g.Flags) == 0 {
 		return errors.New("flags not set")
 	}
-	if g.CapabilitiesPeeringData == (CapabilitiesPeeringData{}) {
+	if g.PeeringData == (PeeringData{}) {
 		return errors.New("peering data not set")
-	}
-	if g.OCRPeeringData == (OCRPeeringData{}) {
-		return errors.New("ocr peering data not set")
 	}
 	_, dsErr := g.Datastore.Addresses().Fetch()
 	if dsErr != nil {
@@ -492,13 +488,13 @@ func isChainCapability(flag string) bool {
 }
 
 func parseChainCapabilityFlag(flag string) (CapabilityFlag, uint64, bool, error) {
-	lastIdx := strings.LastIndex(flag, "-")
-	if lastIdx == -1 {
+	before, after, ok := strings.CutLast(flag, "-")
+	if !ok {
 		return "", 0, false, nil
 	}
 
-	base := flag[:lastIdx]
-	chainPart := flag[lastIdx+1:]
+	base := before
+	chainPart := after
 
 	if base == "" {
 		return "", 0, true, fmt.Errorf("capability flag %q is missing a capability name before the chain suffix", flag)
@@ -586,7 +582,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	c.CapabilityConfigs = capConfigs
 
 	donFamilies := normalizedDonFamilies(c.DonFamilies)
-	if len(donFamilies) == 0 {
+	if len(donFamilies) == 0 && donFamiliesRequired(c.DONTypes) {
 		return nil, fmt.Errorf("nodeset %q has no don_families; set don_families on every nodeset", c.Name)
 	}
 
@@ -606,21 +602,18 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	return out, nil
 }
 
-// trimmedNonEmpty trims whitespace from each string and drops empty results, preserving order.
-func trimmedNonEmpty(in []string) []string {
-	if len(in) == 0 {
-		return nil
+func donFamiliesRequired(donTypes []string) bool {
+	if len(donTypes) == 0 {
+		return true
 	}
-	out := make([]string, 0, len(in))
-	for _, s := range in {
-		if t := strings.TrimSpace(s); t != "" {
-			out = append(out, t)
+	for _, donType := range donTypes {
+		switch donType {
+		case BootstrapDON, GatewayDON:
+		default:
+			return true
 		}
 	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
+	return false
 }
 
 // normalizedDonFamilies trims, drops empty entries and de-duplicates, preserving
@@ -679,12 +672,12 @@ func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (Capabilit
 		}
 
 		// Extract base capability name and copy its defaults to the chain-specific key
-		lastIdx := strings.LastIndex(flag, "-")
-		if lastIdx == -1 {
+		before, _, ok := strings.CutLast(flag, "-")
+		if !ok {
 			continue
 		}
 
-		flagWithoutChainID := flag[:lastIdx]
+		flagWithoutChainID := before
 		defaults[flag] = defaults[flagWithoutChainID]
 
 		chainCapabilitiesFound = append(chainCapabilitiesFound, flagWithoutChainID)
@@ -1375,7 +1368,7 @@ func (c *NodeSet) ChainCapabilityChainIDs() []uint64 {
 }
 
 func (c *NodeSet) Flags() []string {
-	var stringCaps = make([]string, len(c.Capabilities)+len(c.DONTypes))
+	stringCaps := make([]string, len(c.Capabilities)+len(c.DONTypes))
 	copy(stringCaps, c.Capabilities)
 	for i, donType := range c.DONTypes {
 		stringCaps[len(c.Capabilities)+i] = donType
@@ -1434,16 +1427,10 @@ func (c *NodeSet) EVMChains() []uint64 {
 	return c.chainCapabilityIDs()
 }
 
-type CapabilitiesPeeringData struct {
-	GlobalBootstrapperPeerID string `toml:"global_bootstraper_peer_id" json:"global_bootstraper_peer_id"` // typos:ignore // 'bootstraper', fixing at this point could cause errors
-	GlobalBootstrapperHost   string `toml:"global_bootstraper_host" json:"global_bootstraper_host"`       // typos:ignore // 'bootstraper', fixing at this point could cause errors
-	Port                     int    `toml:"port" json:"port"`
-}
-
-type OCRPeeringData struct {
-	OCRBootstrapperPeerID string `toml:"ocr_bootstraper_peer_id" json:"ocr_bootstraper_peer_id"` // typos:ignore // 'bootstraper', fixing at this point could cause errors
-	OCRBootstrapperHost   string `toml:"ocr_bootstraper_host" json:"ocr_bootstraper_host"`       // typos:ignore // 'bootstraper', fixing at this point could cause errors
-	Port                  int    `toml:"port" json:"port"`
+type PeeringData struct {
+	BootstrapperPeerID string `toml:"bootstrapper_peer_id" json:"bootstrapper_peer_id"`
+	BootstrapperHost   string `toml:"bootstrapper_host" json:"bootstrapper_host"`
+	Port               int    `toml:"port" json:"port"`
 }
 
 func (c *NodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {

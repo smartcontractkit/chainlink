@@ -221,24 +221,22 @@ func GenerateNOPsViewV2(ctx context.Context, lggr logger.Logger, nodeIDs []strin
 		}
 
 		fullNodeInfo := NopNodeInfoV2{
-			NopView: NopView{
-				NodeID:           node.NodeID,
-				PeerID:           node.PeerID.String(),
-				IsBootstrap:      node.IsBootstrap,
-				OCRKeys:          make(map[string]OCRKeyView),
-				PayeeAddress:     node.AdminAddr,
-				CSAKey:           nodeDetails.PublicKey,
-				WorkflowKey:      nodeDetails.GetWorkflowKey(),
-				IsConnected:      nodeDetails.IsConnected,
-				IsEnabled:        nodeDetails.IsEnabled,
-				Version:          nodeDetails.Version,
-				Labels:           labels,
-				ApprovedJobspecs: jobspecs[node.NodeID],
-				ProposedJobspecs: proposedSpecs[node.NodeID],
-			},
-			NodeName:   nodeName,
-			Deployment: deploymentKey,
-			Networks:   networks,
+			NodeID:           node.NodeID,
+			PeerID:           node.PeerID.String(),
+			IsBootstrap:      node.IsBootstrap,
+			OCRKeys:          make(map[string]OCRKeyView),
+			PayeeAddress:     node.AdminAddr,
+			CSAKey:           nodeDetails.PublicKey,
+			WorkflowKey:      nodeDetails.GetWorkflowKey(),
+			IsConnected:      nodeDetails.IsConnected,
+			IsEnabled:        nodeDetails.IsEnabled,
+			Version:          nodeDetails.Version,
+			Labels:           labels,
+			ApprovedJobspecs: jobspecs[node.NodeID],
+			ProposedJobspecs: proposedSpecs[node.NodeID],
+			NodeName:         nodeName,
+			Deployment:       deploymentKey,
+			Networks:         networks,
 		}
 		for details, ocrConfig := range node.SelToOCRConfig {
 			fullNodeInfo.OCRKeys[details.ChainName] = OCRKeyView{
@@ -294,7 +292,7 @@ func defaultNopNameRemapper(nodeName, deploymentKey string) string {
 	return nopName
 }
 
-func ApprovedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (nodeJobsView map[string]map[string]JobView, proposedJobsView map[string]map[string]JobView, verr error) {
+func ApprovedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (nodeJobsView, proposedJobsView map[string]map[string]JobView, verr error) {
 	nodeJobsView = make(map[string]map[string]JobView)
 	proposedJobsView = make(map[string]map[string]JobView)
 

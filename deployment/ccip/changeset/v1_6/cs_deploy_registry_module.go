@@ -99,7 +99,6 @@ func DeployRegistryModuleChangeset(e cldf.Environment, cfg DeployRegistryModuleC
 					Err:      err2,
 				}
 			})
-
 		if err != nil {
 			return cldf.ChangesetOutput{DataStore: ds}, fmt.Errorf("failed to deploy registry module on chain %d: %w", chainSel, err)
 		}

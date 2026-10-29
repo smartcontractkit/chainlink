@@ -100,7 +100,7 @@ func resolveRPC(cmd *cobra.Command, defaultRPC string) (string, error) {
 
 	resolvedRPC, err := resolver.RegistryRPC()
 	if err != nil {
-		return defaultRPC, nil
+		return defaultRPC, nil //nolint:nilerr // fallback to default RPC if resolution fails
 	}
 
 	return resolvedRPC, nil

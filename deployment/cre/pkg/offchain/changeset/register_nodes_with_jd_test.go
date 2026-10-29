@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
-	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/node"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
@@ -39,20 +38,16 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 					Name: test.DONName,
 					Nodes: []offchain.NodeCfg{
 						{
-							MinimalNodeCfg: node.MinimalNodeCfg{
-								Name:   "node-1",
-								CSAKey: "fake-csa-key-1",
-							},
-							P2PID: "fake-p2p-id",
-							Zone:  zone,
+							Name:   "node-1",
+							CSAKey: "fake-csa-key-1",
+							P2PID:  "fake-p2p-id",
+							Zone:   zone,
 						},
 						{
-							MinimalNodeCfg: node.MinimalNodeCfg{
-								Name:   "node-2",
-								CSAKey: "fake-csa-key-2",
-							},
-							P2PID: "fake-p2p-id",
-							Zone:  zone,
+							Name:   "node-2",
+							CSAKey: "fake-csa-key-2",
+							P2PID:  "fake-p2p-id",
+							Zone:   zone,
 						},
 					},
 				},
@@ -108,11 +103,9 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 					Name: test.DONName,
 					Nodes: []offchain.NodeCfg{
 						{
-							MinimalNodeCfg: node.MinimalNodeCfg{
-								Name:   "register-node-error", // this name triggers the error in the test JD client
-								CSAKey: "register-node-error-key-1",
-							},
-							Zone: zone,
+							Name:   "register-node-error", // this name triggers the error in the test JD client
+							CSAKey: "register-node-error-key-1",
+							Zone:   zone,
 						},
 					},
 				},
@@ -164,24 +157,18 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 					Name: test.DONName,
 					Nodes: []offchain.NodeCfg{
 						{
-							MinimalNodeCfg: node.MinimalNodeCfg{
-								Name:   nodes[0].Name,
-								CSAKey: nodes[0].PublicKey,
-							},
-							Zone: zone,
+							Name:   nodes[0].Name,
+							CSAKey: nodes[0].PublicKey,
+							Zone:   zone,
 						},
 						{
-							MinimalNodeCfg: node.MinimalNodeCfg{
-								Name:   "register-node-error", // this name triggers the error in the test JD client
-								CSAKey: "test-csa-key-1",
-							},
+							Name:   "register-node-error", // this name triggers the error in the test JD client
+							CSAKey: "test-csa-key-1",
 						},
 						{
-							MinimalNodeCfg: node.MinimalNodeCfg{
-								Name:   nodes[2].Name,
-								CSAKey: nodes[2].PublicKey,
-							},
-							Zone: zone,
+							Name:   nodes[2].Name,
+							CSAKey: nodes[2].PublicKey,
+							Zone:   zone,
 						},
 					},
 				},
@@ -287,11 +274,9 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 					Name: test.DONName,
 					Nodes: []offchain.NodeCfg{
 						{
-							MinimalNodeCfg: node.MinimalNodeCfg{
-								Name:   firstNode.Name,
-								CSAKey: firstNode.PublicKey,
-							},
-							Zone: zone,
+							Name:   firstNode.Name,
+							CSAKey: firstNode.PublicKey,
+							Zone:   zone,
 						},
 					},
 				},
@@ -376,11 +361,9 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 					Name: test.DONName,
 					Nodes: []offchain.NodeCfg{
 						{
-							MinimalNodeCfg: node.MinimalNodeCfg{
-								Name:   "update-node-error", // this name triggers the error in the test JD client
-								CSAKey: firstNode.PublicKey,
-							},
-							Zone: zone,
+							Name:   "update-node-error", // this name triggers the error in the test JD client
+							CSAKey: firstNode.PublicKey,
+							Zone:   zone,
 						},
 					},
 				},
@@ -416,12 +399,12 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 					Name: test.DONName,
 					Nodes: []offchain.NodeCfg{
 						{
-							MinimalNodeCfg: node.MinimalNodeCfg{Name: "node-1", CSAKey: "csa-key-1"},
-							Zone:           test.Zone,
+							Name: "node-1", CSAKey: "csa-key-1",
+							Zone: test.Zone,
 						},
 						{
-							MinimalNodeCfg: node.MinimalNodeCfg{Name: "node-2", CSAKey: "csa-key-2"},
-							Zone:           test.Zone,
+							Name: "node-2", CSAKey: "csa-key-2",
+							Zone: test.Zone,
 						},
 					},
 				},
@@ -475,8 +458,8 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 					Name: "",
 					Nodes: []offchain.NodeCfg{
 						{
-							MinimalNodeCfg: node.MinimalNodeCfg{Name: "node-1", CSAKey: "csa-key-1"},
-							Zone:           test.Zone,
+							Name: "node-1", CSAKey: "csa-key-1",
+							Zone: test.Zone,
 						},
 					},
 				},
@@ -506,8 +489,8 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 					Name: test.DONName,
 					Nodes: []offchain.NodeCfg{
 						{
-							MinimalNodeCfg: node.MinimalNodeCfg{Name: nodes[0].Name, CSAKey: nodes[0].PublicKey},
-							Zone:           test.Zone,
+							Name: nodes[0].Name, CSAKey: nodes[0].PublicKey,
+							Zone: test.Zone,
 						},
 					},
 				},

@@ -66,7 +66,7 @@ func TestResolver_GetJobProposal(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
-				f.Mocks.feedsSvc.On("ListManagersByIDs", mock.Anything, []int64{1}).Return([]feeds.FeedsManager{
+				f.Mocks.feedsSvc.On("ListManagersByIDs", mock.Anything, []int64{1}).Return([]feeds.Manager{
 					{
 						ID:   1,
 						Name: "manager",

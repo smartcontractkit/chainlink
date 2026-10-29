@@ -26,7 +26,7 @@ type UpdateAllowedDonsRequest struct {
 
 func (r *UpdateAllowedDonsRequest) Validate() error {
 	if len(r.DonIDs) == 0 {
-		return errors.New("Must provide at least one DonID")
+		return errors.New("must provide at least one DonID")
 	}
 	return nil
 }

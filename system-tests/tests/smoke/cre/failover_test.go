@@ -3,6 +3,7 @@ package cre
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -19,13 +20,64 @@ import (
 )
 
 func ExecuteFailoverManualSwapTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	runFailoverManualSwap(t, testEnv, "failover")
+}
+
+// ExecuteFailoverManualSwapCoordinatedTest runs the manual failover swap on a topology
+// whose shard nodes boot with CoordinatedEngineEnabled on
+// (workflow-gateway-failover-coordinated-don.toml). The flag is set at boot rather than
+// with ApplyCRESettings: that delivers a settings job built from the topology's boot
+// settings, and the job validator rejects ShardingFailoverEnabled, which is not part of
+// the cresettings schema.
+//
+// With failover enabled a shard holds every workflow listed in its assignment, so by
+// the end both shards must have routed every workflow to the coordinated engine and
+// registered its triggers through the coordinator. Execution must still follow the
+// primary. Phase 1 only assigns the original primary, so the original secondary first
+// holds the workflows after the swap, as their new primary. The swap makes the original
+// primary the secondary for every workflow, phase 1 and phase 2, so it must cache their
+// events for failover: the proof that the shard failover manager's admission check runs
+// on the coordinated path.
+func ExecuteFailoverManualSwapCoordinatedTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	res := runFailoverManualSwap(t, testEnv, "failovercoord")
+
+	// Execution alone would also pass on the legacy engine; these prove it ran on the coordinated path.
+	allIDs := append(slices.Clone(res.phase1IDs), res.phase2IDs...)
+	for _, don := range []*cre.Don{res.primaryDON, res.secondaryDON} {
+		for _, workflowID := range allIDs {
+			requireLogForWorkflow(t, testEnv, don.Name, "Routing workflow to the coordinated engine", workflowID)
+			requireCoordinatorLogForWorkflow(t, testEnv, don.Name, workflowID)
+		}
+	}
+
+	for _, workflowID := range allIDs {
+		requireLogForWorkflow(t, testEnv, res.primaryDON.Name, sharedVaultTriggerCachedLogNeedle, workflowID)
+	}
+}
+
+// failoverSwapResult is what runFailoverManualSwap deployed and on which shards.
+type failoverSwapResult struct {
+	// primaryDON and secondaryDON are the shard roles before the swap.
+	primaryDON   *cre.Don
+	secondaryDON *cre.Don
+	// phase1IDs ran on primaryDON; phase2IDs ran on secondaryDON after the swap.
+	phase1IDs []string
+	phase2IDs []string
+}
+
+// runFailoverManualSwap assigns the test org to [primary, secondary], deploys cron
+// workflows named workflowNamePrefix-run<i> and requires them to execute on the
+// primary. It then deploys workflowNamePrefix_swap<i>, swaps the assignment to
+// [secondary, primary] and requires those to execute on the new primary.
+func runFailoverManualSwap(t *testing.T, testEnv *ttypes.TestEnvironment, workflowNamePrefix string) failoverSwapResult {
+	t.Helper()
 	testLogger := framework.L
 
 	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
 	require.GreaterOrEqual(t, len(shardDONs), 2, "Expected at least 2 shard DONs for failover test")
 
 	shardLeaderDON := getShardZeroDon(t, testEnv)
-	primaryDonID := uint32(shardLeaderDON.ID) //nolint:gosec // G115: overflow is unrealistic
+	primaryShardIndex := uint32(shardLeaderDON.Metadata().ShardIndex) //nolint:gosec // G115: overflow is unrealistic
 
 	var secondaryDON *cre.Don
 	for _, don := range shardDONs {
@@ -35,7 +87,7 @@ func ExecuteFailoverManualSwapTest(t *testing.T, testEnv *ttypes.TestEnvironment
 		}
 	}
 	require.NotNil(t, secondaryDON, "Expected to find a second shard DON")
-	secondaryDonID := uint32(secondaryDON.ID) //nolint:gosec // G115: overflow is unrealistic
+	secondaryShardIndex := uint32(secondaryDON.Metadata().ShardIndex) //nolint:gosec // G115: overflow is unrealistic
 
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 	workflowConfig := crontypes.WorkflowConfig{
@@ -55,22 +107,25 @@ hashed_default_assignment = false
 
 [per_org_assignment]
   org_test_failover = [%d,%d]
-`, primaryDonID, secondaryDonID, primaryDonID, secondaryDonID)
+`, primaryShardIndex, secondaryShardIndex, primaryShardIndex, secondaryShardIndex)
 
 	proposeAndApproveShardAssignmentJob(t, testEnv, shardLeaderDON, primaryAssignmentTOML, testLogger)
 
 	const numWorkflows = 3
 	workflowIDs := make([]string, 0, numWorkflows)
 	for i := range numWorkflows {
-		workflowName := fmt.Sprintf("failover-run%d", i)
+		workflowName := fmt.Sprintf("%s-run%d", workflowNamePrefix, i)
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 		workflowIDs = append(workflowIDs, workflowID)
 	}
 	testLogger.Info().Strs("workflowIDs", workflowIDs).Msg("Deployed workflows for failover test")
 
+	// nodeP2PIDToShardIndex (built below) reports each node's real DON ID, so
+	// the "expected" side of the comparison must be DON IDs too, even though
+	// the shard-assignment TOML above is authored in shard-index terms.
 	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	for _, wfID := range workflowIDs {
-		workflowToShardIndex[wfID] = primaryDonID
+		workflowToShardIndex[wfID] = uint32(shardLeaderDON.ID) //nolint:gosec // G115: overflow is unrealistic
 	}
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
@@ -97,7 +152,7 @@ hashed_default_assignment = false
 	testLogger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on primary shard (shard 0)")
 
 	// Phase 2: Swap workflows and shard assignment.
-	// We deploy fresh workflows (failover_swap*) rather than reusing the originals
+	// We deploy fresh workflows (<prefix>_swap*) rather than reusing the originals
 	// because the original workflows already executed on shard 0 — their execution
 	// IDs are in the store and would be deduplicated. The new workflows give us
 	// clean execution IDs to verify on the new primary.
@@ -105,13 +160,13 @@ hashed_default_assignment = false
 	// assignment because we want to test the failover itself: the assignment swap
 	// should route execution of these workflows to shard 1 (the new primary), not
 	// shard 0 (the old primary).
+	swappedWorkflowIDs := make([]string, 0, numWorkflows)
 	for i := range numWorkflows {
-		workflowName := fmt.Sprintf("failover_swap%d", i)
+		workflowName := fmt.Sprintf("%s_swap%d", workflowNamePrefix, i)
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
-		workflowIDs[i] = workflowID
-		workflowToShardIndex[workflowID] = secondaryDonID
+		swappedWorkflowIDs = append(swappedWorkflowIDs, workflowID)
 	}
-	testLogger.Info().Strs("workflowIDs", workflowIDs).Msg("Deployed fresh workflows for swap phase")
+	testLogger.Info().Strs("workflowIDs", swappedWorkflowIDs).Msg("Deployed fresh workflows for swap phase")
 
 	secondaryAssignmentTOML := fmt.Sprintf(`
 static_default_assignment = [%d,%d]
@@ -119,7 +174,7 @@ hashed_default_assignment = false
 
 [per_org_assignment]
   org_test_failover = [%d,%d]
-`, secondaryDonID, primaryDonID, secondaryDonID, primaryDonID)
+`, secondaryShardIndex, primaryShardIndex, secondaryShardIndex, primaryShardIndex)
 
 	for _, don := range shardDONs {
 		proposeAndApproveShardAssignmentJob(t, testEnv, don, secondaryAssignmentTOML, testLogger)
@@ -127,10 +182,9 @@ hashed_default_assignment = false
 
 	testLogger.Info().Msg("Phase 2: After swap [0,1]->[1,0], verify workflows execute on new primary (shard 1)")
 
-	swappedWorkflowIDs := workflowIDs
 	swappedWorkflowToShardIndex := make(map[string]uint32, len(swappedWorkflowIDs))
 	for _, wfID := range swappedWorkflowIDs {
-		swappedWorkflowToShardIndex[wfID] = secondaryDonID
+		swappedWorkflowToShardIndex[wfID] = uint32(secondaryDON.ID) //nolint:gosec // G115: overflow is unrealistic
 	}
 
 	swapTimeout := 5 * time.Minute
@@ -152,4 +206,11 @@ hashed_default_assignment = false
 	swappedExecuted := waitForAllWorkflowsExecuted(swapExecCtx, t, testLogger, swapUserLogsCh, swappedWorkflowIDs, swappedWorkflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, swapTimeout)
 	require.Len(t, swappedExecuted, len(swappedWorkflowIDs), "Not all workflows executed on new primary shard after swap")
 	testLogger.Info().Int("executedCount", len(swappedExecuted)).Msg("All workflows executed on new primary shard after manual failover swap")
+
+	return failoverSwapResult{
+		primaryDON:   shardLeaderDON,
+		secondaryDON: secondaryDON,
+		phase1IDs:    workflowIDs,
+		phase2IDs:    swappedWorkflowIDs,
+	}
 }

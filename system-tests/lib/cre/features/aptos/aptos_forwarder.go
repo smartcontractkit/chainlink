@@ -15,8 +15,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
 
-	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
-	aptosplatform "github.com/smartcontractkit/chainlink-aptos/bindings/platform"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"                   //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
+	aptosplatform "github.com/smartcontractkit/chainlink-aptos/bindings/platform" //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	aptoschangeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"

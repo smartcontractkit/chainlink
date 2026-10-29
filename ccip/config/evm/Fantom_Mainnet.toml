@@ -7,6 +7,3 @@ RPCBlockQueryDelay = 2
 [GasEstimator]
 # Fantom network has been slow to include txs at times when using the BlockHistory estimator, and the recommendation is to use SuggestedPrice mode.
 Mode = 'SuggestedPrice'
-
-[OCR2.Automation]
-GasLimit = 3800000

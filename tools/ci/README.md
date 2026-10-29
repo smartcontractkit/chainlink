@@ -12,6 +12,10 @@
 | `ci ccip resolve-baseline` | Resolve the CCIP release baseline image tag for mixed-version/rollout tests | `.github/scripts/resolve-ccip-release-baseline.sh` |
 | `ci changeset check-tags` | Validate semver in changeset frontmatter and check release tags | `.github/scripts/check-changeset-tags.sh` |
 | `ci tools matrix` | Generate test target matrix for tools directory | Inline matrix scripts |
+| `ci matrix system` | Discover Go system tests and generate matrix for CRE smoke / regression | Inline `grep` + `jq` matrix scripts |
+| `ci matrix in-memory` | Parse in-memory test configuration and generate matrix | Inline `jq` matrix scripts |
+| `ci matrix ccip` | Generate CCIP system test matrix | Inline `jq` matrix scripts |
+| `ci matrix mixed-env` | Generate CRE mixed-environment test matrix | Inline `jq` matrix scripts |
 
 ## Usage
 

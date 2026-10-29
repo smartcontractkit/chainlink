@@ -14,13 +14,12 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
@@ -196,25 +195,23 @@ func TestToV2ConfigureInput(t *testing.T) {
 	}
 
 	d.c["test-don"] = donConfig{
-		id: 1,
-		DonCapabilities: keystone_changeset.DonCapabilities{
-			Name: "test-don",
-			F:    1,
-			Nops: []keystone_changeset.NOP{
-				{
-					Name:  "test-nop",
-					Nodes: []string{peerID1, peerID2},
-				},
+		id:   1,
+		Name: "test-don",
+		F:    1,
+		Nops: []keystone_changeset.NOP{
+			{
+				Name:  "test-nop",
+				Nodes: []string{peerID1, peerID2},
 			},
-			Capabilities: []keystone_changeset.DONCapabilityWithConfig{
-				{
-					Capability: kcr.CapabilitiesRegistryCapability{
-						LabelledName:   "test-capability",
-						Version:        "1.0.0",
-						CapabilityType: 1,
-					},
-					Config: &capabilitiespb.CapabilityConfig{},
+		},
+		Capabilities: []keystone_changeset.DONCapabilityWithConfig{
+			{
+				Capability: kcr.CapabilitiesRegistryCapability{
+					LabelledName:   "test-capability",
+					Version:        "1.0.0",
+					CapabilityType: 1,
 				},
+				Config: &capabilitiespb.CapabilityConfig{},
 			},
 		},
 	}

@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -159,7 +159,7 @@ func NewCommitReportTracker(sourceChainSelector uint64, seqNrs ccipocr3.SeqNumRa
 	return CommitReportTracker{seenMessages: seenMessages}
 }
 
-func (c *CommitReportTracker) visitCommitReport(sourceChainSelector uint64, minSeqNr uint64, maxSeqNr uint64) {
+func (c *CommitReportTracker) visitCommitReport(sourceChainSelector, minSeqNr, maxSeqNr uint64) {
 	if _, ok := c.seenMessages[sourceChainSelector]; !ok {
 		return
 	}
@@ -372,7 +372,7 @@ func ConfirmNoExecSuccessConsistentlyWithSeqNr(
 		scc, executionState := getExecutionState(t, sourceSelector, offRamp, expectedSeqNr)
 		t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
 			dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
-		if executionState == EXECUTION_STATE_SUCCESS {
+		if executionState == ExecutionStateSuccess {
 			t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
 				executionStateToString(executionState), dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
 			return false
@@ -389,7 +389,7 @@ func getExecutionState(t *testing.T, sourceSelector uint64, offRamp offramp.OffR
 	return scc, executionState
 }
 
-func RequireConsistently(t *testing.T, condition func() bool, duration time.Duration, tick time.Duration, msgAndArgs ...any) {
+func RequireConsistently(t *testing.T, condition func() bool, duration, tick time.Duration, msgAndArgs ...any) {
 	timer := time.NewTimer(duration)
 	defer timer.Stop()
 	tickTimer := time.NewTicker(tick)
@@ -423,21 +423,21 @@ func SeqNumberRangeToSlice(seqRanges map[SourceDestPair]ccipocr3.SeqNumRange) ma
 }
 
 const (
-	EXECUTION_STATE_UNTOUCHED  = 0
-	EXECUTION_STATE_INPROGRESS = 1
-	EXECUTION_STATE_SUCCESS    = 2
-	EXECUTION_STATE_FAILURE    = 3
+	ExecutionStateUntouched  = 0
+	ExecutionStateInProgress = 1
+	ExecutionStateSuccess    = 2
+	ExecutionStateFailure    = 3
 )
 
 func executionStateToString(state uint8) string {
 	switch state {
-	case EXECUTION_STATE_UNTOUCHED:
+	case ExecutionStateUntouched:
 		return "UNTOUCHED"
-	case EXECUTION_STATE_INPROGRESS:
+	case ExecutionStateInProgress:
 		return "IN_PROGRESS"
-	case EXECUTION_STATE_SUCCESS:
+	case ExecutionStateSuccess:
 		return "SUCCESS"
-	case EXECUTION_STATE_FAILURE:
+	case ExecutionStateFailure:
 		return "FAILURE"
 	default:
 		return "UNKNOWN"

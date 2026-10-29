@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -15,8 +16,9 @@ import (
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
 	stellarcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/stellar"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
@@ -63,71 +65,20 @@ func (r *writeReportExcludeSignaturesHasher) Hash(ctx context.Context, msg *type
 
 	req.Metadata = applyMetadataFields(ctx, req.Metadata, r.cfg)
 
-	family, familyErr := getWriteReportFamily(msg)
+	family, familyErr := getWriteReportFamily(msg.CapabilityId)
 	if familyErr != nil {
 		return [32]byte{}, familyErr
 	}
 
-	var payload *anypb.Any
-	switch family {
-	case writeReportFamilyEVM:
-		var wrReq evmcappb.WriteReportRequest
-		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
-			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
-		}
-		if wrReq.Report == nil {
-			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
-		}
+	wrReq, err := unmarshalWriteReportRequest(family, req.Payload)
+	if err != nil {
+		return [32]byte{}, err
+	}
 
-		wrReq.Report.Sigs = nil // exclude signatures from hash
-		payload, err = anypb.New(&wrReq)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
-		}
-	case writeReportFamilySolana:
-		var wrReq solcappb.WriteReportRequest
-		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
-			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
-		}
-		if wrReq.Report == nil {
-			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
-		}
-
-		wrReq.Report.Sigs = nil // exclude signatures from hash
-		payload, err = anypb.New(&wrReq)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
-		}
-	case writeReportFamilyAptos:
-		var wrReq aptoscappb.WriteReportRequest
-		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
-			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
-		}
-		if wrReq.Report == nil {
-			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
-		}
-
-		wrReq.Report.Sigs = nil // exclude signatures from hash
-		payload, err = anypb.New(&wrReq)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
-		}
-	case writeReportFamilyStellar:
-		var wrReq stellarcappb.WriteReportRequest
-		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
-			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
-		}
-		if wrReq.Report == nil {
-			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
-		}
-
-		wrReq.Report.Sigs = nil // exclude signatures from hash
-		payload, err = anypb.New(&wrReq)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
-		}
-	default:
-		return [32]byte{}, fmt.Errorf("unexpected report family: %s", family)
+	wrReq.GetReport().Sigs = nil // exclude signatures from hash
+	payload, err := anypb.New(wrReq)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
 	}
 
 	req.Payload = payload
@@ -148,8 +99,38 @@ var (
 	writeReportFamilyStellar writeReportFamily = "stellar"
 )
 
-func getWriteReportFamily(msg *types.MessageBody) (writeReportFamily, error) {
-	ss := strings.Split(msg.CapabilityId, ":")
+// writeReportRequest is implemented by the WriteReportRequest of every supported chain family.
+type writeReportRequest interface {
+	proto.Message
+	GetReport() *sdk.ReportResponse
+}
+
+func unmarshalWriteReportRequest(family writeReportFamily, payload *anypb.Any) (writeReportRequest, error) {
+	var wrReq writeReportRequest
+	switch family {
+	case writeReportFamilyEVM:
+		wrReq = &evmcappb.WriteReportRequest{}
+	case writeReportFamilySolana:
+		wrReq = &solcappb.WriteReportRequest{}
+	case writeReportFamilyAptos:
+		wrReq = &aptoscappb.WriteReportRequest{}
+	case writeReportFamilyStellar:
+		wrReq = &stellarcappb.WriteReportRequest{}
+	default:
+		return nil, fmt.Errorf("unexpected report family: %s", family)
+	}
+
+	if err := payload.UnmarshalTo(wrReq); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
+	}
+	if wrReq.GetReport() == nil {
+		return nil, errors.New("WriteReportRequest.Report is nil")
+	}
+	return wrReq, nil
+}
+
+func getWriteReportFamily(capabilityID string) (writeReportFamily, error) {
+	ss := strings.Split(capabilityID, ":")
 	if len(ss) < 1 {
 		return "", errors.New("failed to parse family from capability id")
 	}
@@ -176,9 +157,9 @@ func NewWriteReportExcludeSignaturesHasher(cfg OptInHasherConfig) types.MessageH
 // metadata fields are included in the request hash beyond the base allowlist.
 //
 // To opt in a new field in the future:
-//  1. Add a feature flag (Setting[Range[config.Timestamp]]) in cresettings,
+//  1. Add a feature flag (Setting[Range[commonconfig.Timestamp]]) in cresettings,
 //     named FeatureRequestHashInclude<Field>ActivePeriod.
-//  2. Add a field of type limits.RangeLimiter[config.Timestamp] to this struct.
+//  2. Add a field of type limits.RangeLimiter[commonconfig.Timestamp] to this struct.
 //  3. Add the conditional copy in applyMetadataFields.
 //  4. Construct the limiter in launcher.NewLauncher and pass it via OptInHasherConfig.
 //
@@ -194,7 +175,7 @@ type OptInHasherConfig struct {
 	// IncludeWorkflowTag is ON by default (window covers all timestamps including
 	// zero time.Time{}), so WorkflowTag is included in the hash matching current
 	// prod behavior. After rollout, set to far-future window to exclude it.
-	IncludeWorkflowTag limits.RangeLimiter[config.Timestamp]
+	IncludeWorkflowTag limits.RangeLimiter[commonconfig.Timestamp]
 }
 
 // baseMetadataFields returns a copy of the metadata containing only the
@@ -222,7 +203,7 @@ func baseMetadataFields(md capabilities.RequestMetadata) capabilities.RequestMet
 // active for the given ExecutionTimestamp.
 func applyMetadataFields(ctx context.Context, md capabilities.RequestMetadata, cfg OptInHasherConfig) capabilities.RequestMetadata {
 	result := baseMetadataFields(md)
-	ts := config.Timestamp(md.ExecutionTimestamp.Unix())
+	ts := commonconfig.Timestamp(md.ExecutionTimestamp.Unix())
 
 	ctx = md.ContextWithCRE(ctx)
 	if cfg.IncludeWorkflowTag != nil {

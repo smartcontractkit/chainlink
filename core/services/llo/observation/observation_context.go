@@ -9,8 +9,10 @@ import (
 	"math/big"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/shopspring/decimal"
 
@@ -40,7 +42,7 @@ type execution struct {
 	trrs pipeline.TaskRunResults
 	err  error
 
-	// vals holds the stream values resolved from trrs by the executing
+	// vals holds the streamID-tagged values resolved from trrs by the executing
 	// goroutine, keyed by stream ID. Read-only once done is closed.
 	vals resolvedStreamValues
 }
@@ -81,9 +83,10 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 	ex, err := oc.run(ctx, streamID)
 	observationFinishedAt := time.Now()
 	if err != nil {
-		// Either the pipeline itself failed, or one of the stream values it
-		// produced violated an invariant. In both cases every stream served by
-		// this pipeline fails for this observation round.
+		// Either the pipeline itself failed, or a tagged value or the quote of
+		// its terminal tasks named as quote fields violated an invariant. In both
+		// cases every stream served by this pipeline fails for this observation
+		// round.
 		var run *pipeline.Run
 		var trrs pipeline.TaskRunResults
 		if ex != nil {
@@ -99,16 +102,9 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 
 	rsv, found := ex.vals[streamID]
 	if !found {
-		// The pipeline tags stream IDs, but none of them is the one we were
-		// asked for. Assume the final output is this stream, same as for an
-		// untagged pipeline.
+		// No task is tagged with this stream ID. Assume the final output is this
+		// stream.
 		rsv = resolveFinalResult(ex.trrs)
-		if rsv.err == nil {
-			rsv.err = validateStreamValue(streamID, rsv.val)
-			if rsv.err != nil {
-				rsv.val = nil
-			}
-		}
 	}
 	if rsv.fallback && oc.t.CaptureEATelemetry() {
 		// FIXME: This is a hack specific for V3 telemetry, future schemas should
@@ -147,15 +143,15 @@ func (oc *observationContext) enqueueObservationTelemetry(ctx context.Context, s
 	}
 	if val != nil {
 		ot.StreamValueType = int32(val.Type())
-		b, err := val.MarshalBinary()
-		if err != nil {
-			oc.l.Errorw("failed to MarshalBinary on stream value", "error", err)
+		b, bErr := val.MarshalBinary()
+		if bErr != nil {
+			oc.l.Errorw("failed to MarshalBinary on stream value", "error", bErr)
 		} else {
 			ot.StreamValueBinary = b
 		}
-		s, err := val.MarshalText()
-		if err != nil {
-			oc.l.Errorw("failed to MarshalText on stream value", "error", err)
+		s, sErr := val.MarshalText()
+		if sErr != nil {
+			oc.l.Errorw("failed to MarshalText on stream value", "error", sErr)
 		} else {
 			ot.StreamValueText = string(s)
 		}
@@ -167,15 +163,14 @@ func (oc *observationContext) enqueueObservationTelemetry(ctx context.Context, s
 	}
 }
 
-// resolvePipelineStreamValues converts every output of a single pipeline run
-// into StreamValues, keyed by stream ID. All streamID-tagged tasks are
+// resolveTaggedStreamValues converts every streamID-tagged output of a single
+// pipeline run into StreamValues, keyed by stream ID. All tagged tasks are
 // converted, not just the requested one, so that an invariant violation on a
-// sibling stream is visible to the caller. If the requested stream ID has no
-// tagged task, the terminal outputs are resolved for it as a fallback.
+// sibling stream is visible to the caller.
 //
 // Conversion failures are recorded per stream rather than returned, so that one
 // broken stream does not take down its siblings.
-func resolvePipelineStreamValues(p streams.Pipeline, streamID streams.StreamID, trrs pipeline.TaskRunResults) resolvedStreamValues {
+func resolveTaggedStreamValues(trrs pipeline.TaskRunResults) resolvedStreamValues {
 	resolved := make(resolvedStreamValues, len(trrs))
 	for _, trr := range trrs {
 		sid := trr.Task.TaskStreamID()
@@ -198,18 +193,6 @@ func resolvePipelineStreamValues(p streams.Pipeline, streamID streams.StreamID, 
 		}
 		resolved[*sid] = rsv
 	}
-	// Any stream served by this pipeline that has no tagged task takes its value
-	// from the terminal outputs. Resolve those here too, even if the caller did
-	// not ask for them, so that a quote produced this way is validated together
-	// with its siblings.
-	untagged := append([]streams.StreamID(nil), p.StreamIDs()...)
-	untagged = append(untagged, streamID)
-	for _, sid := range untagged {
-		if _, exists := resolved[sid]; exists {
-			continue
-		}
-		resolved[sid] = resolveFinalResult(trrs)
-	}
 	return resolved
 }
 
@@ -225,7 +208,127 @@ func resolveFinalResult(trrs pipeline.TaskRunResults) resolvedStreamValue {
 	return resolvedStreamValue{val: val, fallback: true}
 }
 
-// QuoteInvariantError is returned when a Quote stream value violates the
+// quoteRoles lists the name tokens that identify the terminal tasks of a quote,
+// in Benchmark, Bid, Ask order.
+var quoteRoles = [3][]string{{"benchmark", "mid"}, {"bid"}, {"ask"}}
+
+// nonValueTokens mark terminal tasks that describe a quote field without
+// carrying its price, such as its timestamp or volume.
+var nonValueTokens = []string{"timestamp", "volume"}
+
+// quoteTerminals returns the IDs of the terminal tasks named as the Benchmark,
+// Bid and Ask of a quote, in that order, regardless of their output index. It
+// reports false unless exactly one terminal is named for each field. Other
+// terminals are ignored.
+func quoteTerminals(ids []string) ([3]string, bool) {
+	var roles [3]string
+	for _, id := range ids {
+		role := quoteRole(id)
+		if role == -1 {
+			continue
+		}
+		if roles[role] != "" {
+			return [3]string{}, false
+		}
+		roles[role] = id
+	}
+	if slices.Contains(roles[:], "") {
+		return [3]string{}, false
+	}
+	return roles, true
+}
+
+// quoteRole returns the position in quoteRoles named by id, or -1 if id names
+// no role, more than one, or carries a non-value token. IDs are split into
+// tokens on non-alphanumeric characters, case insensitive.
+func quoteRole(id string) int {
+	role := -1
+	tokens := strings.FieldsFunc(strings.ToLower(id), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+	for _, token := range tokens {
+		if slices.Contains(nonValueTokens, token) {
+			return -1
+		}
+		for i, names := range quoteRoles {
+			if !slices.Contains(names, token) {
+				continue
+			}
+			if role != -1 && role != i {
+				return -1
+			}
+			role = i
+		}
+	}
+	return role
+}
+
+// validateNamedQuote validates the quote built from the results of the
+// terminal tasks named as quote fields, if the pipeline has them. A missing or
+// unparseable result skips the check, as it is reported to its own stream.
+func validateNamedQuote(p streams.Pipeline, streamID streams.StreamID, tagged resolvedStreamValues, trrs pipeline.TaskRunResults) error {
+	ids, ok := quoteTerminals(p.TerminalDotIDs())
+	if !ok {
+		return nil
+	}
+	q, benchmarkTag, ok := namedQuote(ids, trrs.Terminals())
+	if !ok {
+		return nil
+	}
+	return validateStreamValue(quoteStreamID(p, streamID, tagged, benchmarkTag), q)
+}
+
+// namedQuote builds the quote from the results of the terminals with the
+// Benchmark, Bid and Ask IDs in ids, and returns the stream tagged on the
+// Benchmark terminal. It reports false if any of them is missing, failed or is
+// not a decimal.
+func namedQuote(ids [3]string, terminals []pipeline.TaskRunResult) (*lloprotocol.Quote, *uint32, bool) {
+	q := new(lloprotocol.Quote)
+	fields := [3]*decimal.Decimal{&q.Benchmark, &q.Bid, &q.Ask}
+	var benchmarkTag *uint32
+	found := 0
+	for _, trr := range terminals {
+		role := slices.Index(ids[:], trr.Task.DotID())
+		if role == -1 {
+			continue
+		}
+		if trr.Result.Error != nil {
+			return nil, nil, false
+		}
+		d, err := toDecimal(trr.Result.Value)
+		if err != nil {
+			return nil, nil, false
+		}
+		*fields[role] = d
+		if role == 0 {
+			benchmarkTag = trr.Task.TaskStreamID()
+		}
+		found++
+	}
+	return q, benchmarkTag, found == len(ids)
+}
+
+// quoteStreamID returns the stream a named quote is attributed to: the lowest
+// stream with no tagged task, normally the job stream, or else the stream
+// tagged on the Benchmark task.
+func quoteStreamID(p streams.Pipeline, streamID streams.StreamID, tagged resolvedStreamValues, benchmarkTag *uint32) streams.StreamID {
+	var untagged []streams.StreamID
+	for _, sid := range append(slices.Clone(p.StreamIDs()), streamID) {
+		if _, exists := tagged[sid]; !exists {
+			untagged = append(untagged, sid)
+		}
+	}
+	if len(untagged) > 0 {
+		return slices.Min(untagged)
+	}
+	if benchmarkTag != nil {
+		return *benchmarkTag
+	}
+	return streamID
+}
+
+// QuoteInvariantError is returned when a tagged Quote stream value, or the
+// quote of terminal tasks named as quote fields, violates the
 // Bid <= Benchmark <= Ask invariant. It fails every stream served by the
 // pipeline that produced it, not just the offending stream, since a pipeline
 // emitting a nonsensical quote cannot be trusted for its sibling streams
@@ -248,8 +351,8 @@ func (e QuoteInvariantError) Error() string {
 }
 
 // validateStreamValues returns the first invariant violation found across all
-// streams produced by one pipeline run. Streams are visited in ascending stream
-// ID order so the reported violation is deterministic.
+// tagged streams produced by one pipeline run. Streams are visited in ascending
+// stream ID order so the reported violation is deterministic.
 func validateStreamValues(resolved resolvedStreamValues) error {
 	for _, sid := range slices.Sorted(maps.Keys(resolved)) {
 		rsv := resolved[sid]
@@ -552,9 +655,13 @@ func (oc *observationContext) run(ctx context.Context, streamID streams.StreamID
 	if err == nil {
 		// Resolve and validate once, here, so that every stream served by this
 		// pipeline observes the same outcome. A quote invariant violation on any
-		// stream fails the whole set.
-		ex.vals = resolvePipelineStreamValues(p, streamID, trrs)
+		// tagged stream, or on the terminal tasks named as quote fields, fails the
+		// whole set.
+		ex.vals = resolveTaggedStreamValues(trrs)
 		err = validateStreamValues(ex.vals)
+		if err == nil {
+			err = validateNamedQuote(p, streamID, ex.vals, trrs)
+		}
 	}
 	ex.err = err
 	close(ch)

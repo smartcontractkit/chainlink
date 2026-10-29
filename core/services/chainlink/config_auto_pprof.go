@@ -4,12 +4,12 @@ import (
 	"path/filepath"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var _ config.AutoPprof = (*autoPprofConfig)(nil)
+var _ coreconfig.AutoPprof = (*autoPprofConfig)(nil)
 
 type autoPprofConfig struct {
 	c       toml.AutoPprof

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -61,7 +62,7 @@ type GeneralConfigOpts struct {
 	SkipEnv bool
 }
 
-func (o *GeneralConfigOpts) Setup(configFiles []string, secretsFiles []string) error {
+func (o *GeneralConfigOpts) Setup(configFiles, secretsFiles []string) error {
 	configs := []string{}
 	for _, fileName := range configFiles {
 		b, err := os.ReadFile(fileName)
@@ -91,9 +92,9 @@ func (o *GeneralConfigOpts) Setup(configFiles []string, secretsFiles []string) e
 }
 
 // parseConfig sets Config from the given TOML string, overriding any existing duplicate Config fields.
-func (o *GeneralConfigOpts) parseConfig(config string) error {
+func (o *GeneralConfigOpts) parseConfig(cfgStr string) error {
 	var c Config
-	if err2 := commonconfig.DecodeTOML(strings.NewReader(config), &c); err2 != nil {
+	if err2 := commonconfig.DecodeTOML(strings.NewReader(cfgStr), &c); err2 != nil {
 		return fmt.Errorf("failed to decode config TOML: %w", err2)
 	}
 
@@ -172,21 +173,19 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 
 func (o *GeneralConfigOpts) parse() (err error) {
 	for _, c := range o.ConfigStrings {
-		err := o.parseConfig(c)
-		if err != nil {
+		if err = o.parseConfig(c); err != nil {
 			return err
 		}
 	}
 
 	for _, s := range o.SecretsStrings {
-		err := o.parseSecrets(s)
-		if err != nil {
+		if err = o.parseSecrets(s); err != nil {
 			return err
 		}
 	}
 
 	o.Secrets.setDefaults()
-	return
+	return err
 }
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
@@ -194,10 +193,6 @@ func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
 		return evmcfg.EVMConfigs{} // return empty to pass nil check
 	}
 	return g.c.EVM
-}
-
-func (g *generalConfig) CosmosConfigs() RawConfigs {
-	return g.c.Cosmos
 }
 
 func (g *generalConfig) SolanaConfigs() RawConfigs {
@@ -272,7 +267,7 @@ func validateEnv() (err error) {
 			err = stderrors.Join(err, fmt.Errorf("environment variable %s must not be set: %w", k, v2.ErrUnsupported))
 		}
 	}
-	return
+	return err
 }
 
 func (g *generalConfig) LogConfiguration(log, warn coreconfig.LogfFn) {
@@ -323,15 +318,6 @@ func (g *generalConfig) EVMEnabled() bool {
 
 func (g *generalConfig) SolanaEnabled() bool {
 	for _, c := range g.c.Solana {
-		if c.IsEnabled() {
-			return true
-		}
-	}
-	return false
-}
-
-func (g *generalConfig) CosmosEnabled() bool {
-	for _, c := range g.c.Cosmos {
 		if c.IsEnabled() {
 			return true
 		}
@@ -583,8 +569,19 @@ func (g *generalConfig) ImportedP2PKey() coreconfig.ImportableKey {
 func (g *generalConfig) Tracing() coreconfig.Tracing {
 	return &tracingConfig{s: g.c.Tracing}
 }
+
 func (g *generalConfig) Telemetry() coreconfig.Telemetry {
-	return &telemetryConfig{s: g.c.Telemetry}
+	return &telemetryConfig{s: g.c.Telemetry, sh: &shardingConfig{s: g.c.Sharding}}
+}
+
+func (g *generalConfig) ResourceAttributes() map[string]string {
+	attrs := g.Telemetry().ResourceAttributes()
+	if sharding := g.Sharding(); sharding != nil && sharding.ShardingEnabled() {
+		if _, ok := attrs["shardIndex"]; !ok {
+			attrs["shardIndex"] = strconv.FormatUint(uint64(sharding.ShardIndex()), 10)
+		}
+	}
+	return attrs
 }
 
 func (g *generalConfig) Metering() coreconfig.Metering {
@@ -614,6 +611,7 @@ func (g *generalConfig) JobSpecReporter() coreconfig.JobSpecReporter {
 func (g *generalConfig) Sharding() coreconfig.Sharding {
 	return &shardingConfig{s: g.c.Sharding}
 }
+
 func (g *generalConfig) LOOPP() coreconfig.LOOPP {
 	return &looppConfig{l: g.c.LOOPP}
 }

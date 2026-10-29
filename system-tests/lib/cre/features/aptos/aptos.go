@@ -10,6 +10,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -203,7 +204,7 @@ func bootstrapPeersForDons(dons *cre.Dons) ([]string, error) {
 	}
 
 	return []string{
-		fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_"), bootstrapNode.Host, cre.OCRPeeringPort),
+		fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_"), bootstrapNode.Host, cre.PeeringPort),
 	}, nil
 }
 

@@ -242,8 +242,6 @@ jobs:
 
       - name: Build capability binaries for swap
         shell: bash
-        env:
-          GOPRIVATE: "github.com/smartcontractkit/*"
         run: |
           mkdir -p core/scripts/cre/environment/binaries
           GOBIN=$(pwd)/core/scripts/cre/environment/binaries go tool loopinstall plugins/plugins.private.yaml
@@ -385,10 +383,12 @@ jobs:
             fi
           fi
 
-          echo "duration_minutes=$duration_minutes" >> "${GITHUB_OUTPUT}"
-          echo "conclusion=$conclusion" >> "${GITHUB_OUTPUT}"
-          echo "reason=$reason" >> "${GITHUB_OUTPUT}"
-          echo "should_notify=$should_notify" >> "${GITHUB_OUTPUT}"
+          {
+            echo "duration_minutes=$duration_minutes"
+            echo "conclusion=$conclusion"
+            echo "reason=$reason"
+            echo "should_notify=$should_notify"
+          } | tee -a "${GITHUB_OUTPUT}"
 
       - name: Send slack notification
         if: steps.check-timeout.outputs.should_notify == 'true'

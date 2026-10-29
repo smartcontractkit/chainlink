@@ -23,7 +23,6 @@ import (
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
@@ -31,7 +30,8 @@ import (
 var _ host.ExecutionHelper = (*ExecutionHelper)(nil)
 
 type ExecutionHelper struct {
-	*Engine
+	base *baseEngine
+
 	WorkflowExecutionID string
 	ExecutionTimestamp  time.Time
 	UserLogChan         chan<- *protoevents.LogLine
@@ -45,10 +45,6 @@ type ExecutionHelper struct {
 	callCounts         map[limits.Limiter[int]]int
 
 	executionProfile *executionProfileCollector
-
-	// suspension accumulates wall-clock time the guest spent blocked in DON-time
-	// host calls, so it can be excluded from metered compute. See compute_metering.go.
-	suspension *suspensionTracker
 }
 
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
@@ -135,7 +131,7 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 	c.callCounts[limiter] = cnt
 	c.mu.Unlock()
 
-	free, err := c.capCallsSemaphore.Wait(ctx, 1)
+	free, err := c.base.capCallsSemaphore.Wait(ctx, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -145,9 +141,9 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 }
 
 func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
-	execLogger := c.logger().With("workflowExecutionID", c.WorkflowExecutionID, "capabilityID", request.Id, "callbackID", request.CallbackId, "method", request.Method)
+	execLogger := c.base.logger().With("workflowExecutionID", c.WorkflowExecutionID, "capabilityID", request.Id, "callbackID", request.CallbackId, "method", request.Method)
 	// TODO (CAPPL-735): use request.Metadata.WorkflowExecutionId to associate the call with a specific execution
-	capability, err := c.cfg.CapRegistry.GetExecutable(ctx, request.Id)
+	capability, err := c.base.cfg.CapRegistry.GetExecutable(ctx, request.Id)
 	if err != nil {
 		return nil, fmt.Errorf("action capability not found: %w, ", err)
 	}
@@ -161,7 +157,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		return nil, fmt.Errorf("capability %q is system-only and cannot be called from a workflow", info.ID)
 	}
 
-	localNode := c.localNode.Load()
+	localNode := c.base.localNode.Load()
 
 	// If the capability info is missing a DON, then
 	// the capability is local, and we should use the localNode's DON ID.
@@ -175,14 +171,14 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		donID = localNode.WorkflowDON.ID
 	}
 
-	config, err := c.cfg.CapRegistry.ConfigForCapability(ctx, info.ID, donID)
+	config, err := c.base.cfg.CapRegistry.ConfigForCapability(ctx, info.ID, donID)
 	if err != nil {
 		// not explicitly an error case and more relevant (helpful) logging occurs in the metering package
 		// debug level should be sufficient here
 		execLogger.Debugw("capability config not found", "err", err)
 	}
 
-	meterReport, ok := c.meterReports.Get(c.WorkflowExecutionID)
+	meterReport, ok := c.base.meterReports.Get(c.WorkflowExecutionID)
 	if !ok {
 		execLogger.Error("no metering report found")
 	}
@@ -197,7 +193,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		userSpendLimit.Valid = false
 
 		var openConcurrentCallSlots int
-		if openConcurrentCallSlots, err = c.cfg.LocalLimiters.CapabilityConcurrency.Available(ctx); err != nil {
+		if openConcurrentCallSlots, err = c.base.cfg.LocalLimiters.CapabilityConcurrency.Available(ctx); err != nil {
 			return nil, err
 		}
 
@@ -210,7 +206,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 				config.RestrictedConfig,
 			),
 		); err != nil {
-			c.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
+			c.base.cfg.Lggr.Errorw("could not deduct balance for capability request", "capReq", request.Id, "capReqCallbackID", request.CallbackId, "err", err)
 		}
 	}
 
@@ -219,74 +215,74 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		Method:       request.Method,
 		CapabilityId: request.Id,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowOwner:            c.cfg.WorkflowOwner,
-			WorkflowID:               c.cfg.WorkflowID,
+			WorkflowOwner:            c.base.cfg.WorkflowOwner,
+			WorkflowID:               c.base.cfg.WorkflowID,
 			WorkflowExecutionID:      c.WorkflowExecutionID,
-			WorkflowName:             c.cfg.WorkflowName.Hex(),
+			WorkflowName:             c.base.cfg.WorkflowName.Hex(),
 			WorkflowDonID:            localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: pinnedWorkflowDonConfigVersion,
 			ReferenceID:              strconv.Itoa(int(request.CallbackId)),
-			DecodedWorkflowName:      c.cfg.WorkflowName.String(),
+			DecodedWorkflowName:      c.base.cfg.WorkflowName.String(),
 			SpendLimits:              spendLimits,
-			WorkflowTag:              c.cfg.WorkflowTag,
+			WorkflowTag:              c.base.cfg.WorkflowTag,
 			ExecutionTimestamp:       c.ExecutionTimestamp,
 		},
 		Config: values.EmptyMap(),
 	}
 	var creGetter settings.Getter
-	if c.cfg.LocalLimiters != nil {
-		creGetter = c.cfg.LocalLimiters.Settings
+	if c.base.cfg.LocalLimiters != nil {
+		creGetter = c.base.cfg.LocalLimiters.Settings
 	}
 	propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, creGetter)
-	if propagateOrgIDMeta && c.orgID != "" {
-		capReq.Metadata.OrgID = c.orgID
+	if propagateOrgIDMeta && c.base.orgID != "" {
+		capReq.Metadata.OrgID = c.base.orgID
 	}
 
 	execLogger.Debug("Executing capability ...")
-	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
-	loggerLabels := c.eventLabels()
-	_ = events.EmitCapabilityStartedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, request.Method)
+	c.base.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
+	loggerLabels := c.base.eventLabels()
+	_ = c.base.cfg.EventEmitter.EmitCapabilityStartedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, request.Method)
 
-	execCtx, execCancel, err := c.cfg.LocalLimiters.CapabilityCallTime.WithTimeout(ctx)
+	execCtx, execCancel, err := c.base.cfg.LocalLimiters.CapabilityCallTime.WithTimeout(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer execCancel()
 
-	executionStart := c.cfg.Clock.Now()
+	executionStart := c.base.cfg.Clock.Now()
 	c.executionProfile.recordStepStart(meteringRef, request.Id, executionStart)
 
 	capResp, err := capability.Execute(execCtx, capReq)
-	executionEnd := c.cfg.Clock.Now()
+	executionEnd := c.base.cfg.Clock.Now()
 	executionDuration := executionEnd.Sub(executionStart)
 	c.executionProfile.recordStepEnd(meteringRef, executionEnd, err != nil)
 
-	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
+	c.base.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, executionDuration.Seconds())
 	if err != nil {
 		if capabilityError, ok := errors.AsType[caperrors.Error](err); ok {
 			if capabilityError.Origin() == caperrors.OriginUser {
 				execLogger.Debugw("Capability execution failed with user error", "userErr", err)
-				_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, err)
-				c.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, capabilityError.Code().String()).IncrementCapabilityUserErrorCounter(ctx)
+				_ = c.base.cfg.EventEmitter.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, err)
+				c.base.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, capabilityError.Code().String()).IncrementCapabilityUserErrorCounter(ctx)
 				return nil, fmt.Errorf("capability execution failed with user error: %w", err)
 			}
 
 			execLogger.Debugw("Capability execution failed with system error", "systemErr", err)
-			_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
-			c.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, capabilityError.Code().String()).IncrementCapabilityFailureCounter(ctx)
-			c.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
+			_ = c.base.cfg.EventEmitter.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
+			c.base.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, capabilityError.Code().String()).IncrementCapabilityFailureCounter(ctx)
+			c.base.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 			return nil, fmt.Errorf("failed to execute capability: %w", err)
 		}
 
 		execLogger.Debugw("Capability execution failed", "err", err)
-		_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
-		c.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, caperrors.Internal.String()).IncrementCapabilityFailureCounter(ctx)
-		c.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
+		_ = c.base.cfg.EventEmitter.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
+		c.base.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, caperrors.Internal.String()).IncrementCapabilityFailureCounter(ctx)
+		c.base.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
 
 	execLogger.Debug("Capability execution succeeded")
-	_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, nil)
+	_ = c.base.cfg.EventEmitter.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, nil)
 
 	if meterReport != nil {
 		if err = meterReport.Settle(meteringRef, capResp.Metadata); err != nil {
@@ -301,6 +297,81 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}, nil
 }
 
+// runWithGetSecretsEvents runs fn (a Vault get-secrets call) and emits a
+// Started/Finished pair around it via the engine's injected event emitter, so
+// the call surfaces in the CRE UI like any other capability call (see
+// callCapability). One pair is emitted per batch call. A call-level error
+// finishes as errored; otherwise outcome classifies the per-secret result — a
+// partial batch finishes succeeded with an error summary, which the CRE UI uses
+// to derive "completed with errors" for the execution.
+//
+// The returned error is the call-level error only: a partial or fully-failed
+// batch still returns its responses to the caller (the per-secret errors live in
+// them).
+func runWithGetSecretsEvents[T any](
+	ctx context.Context,
+	base *baseEngine,
+	executionID string,
+	callbackID int32,
+	run func() (T, error),
+	outcome func(T) (string, error),
+) (T, error) {
+	stepRef := strconv.FormatInt(int64(callbackID), 10)
+	_ = base.cfg.EventEmitter.EmitCapabilityStartedEvent(
+		ctx, base.eventLabels(), executionID,
+		vaultcommon.CapabilityID, stepRef, vaultcommon.MethodGetSecrets,
+	)
+
+	v, err := run()
+
+	emitStatus := store.StatusCompleted
+	var emitErr error
+	switch {
+	case err != nil:
+		emitStatus, emitErr = store.StatusErrored, err
+	case outcome != nil:
+		emitStatus, emitErr = outcome(v)
+	}
+	_ = base.cfg.EventEmitter.EmitCapabilityFinishedEvent(
+		ctx, base.eventLabels(), executionID,
+		vaultcommon.CapabilityID, stepRef, emitStatus, vaultcommon.MethodGetSecrets, emitErr,
+	)
+	return v, err
+}
+
+// vaultSecretBatchOutcome classifies a get-secrets batch for the CRE UI event:
+// all requests succeeded, some failed (partial), or all failed. The summary is
+// counts only — never secret keys or values — so the event carries no
+// secret-identifying data.
+func vaultSecretBatchOutcome(total, failed int) (string, error) {
+	switch failed {
+	case 0:
+		return store.StatusCompleted, nil
+	case total:
+		return store.StatusErrored, fmt.Errorf("all %d secret requests failed", total)
+	default:
+		return store.StatusCompleted, fmt.Errorf("%d of %d secret requests failed", failed, total)
+	}
+}
+
+// GetSecrets wraps the embedded SecretsFetcher so a Vault get-secrets call from a
+// normal workflow is observable in the CRE UI as a capability execution step.
+func (c *ExecutionHelper) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+	return runWithGetSecretsEvents(ctx, c.base, c.WorkflowExecutionID, request.GetCallbackId(),
+		func() ([]*sdkpb.SecretResponse, error) {
+			return c.SecretsFetcher.GetSecrets(ctx, request)
+		},
+		func(responses []*sdkpb.SecretResponse) (string, error) {
+			failed := 0
+			for _, r := range responses {
+				if r.GetError() != nil {
+					failed++
+				}
+			}
+			return vaultSecretBatchOutcome(len(responses), failed)
+		})
+}
+
 func (c *ExecutionHelper) GetWorkflowExecutionID() string {
 	return c.WorkflowExecutionID
 }
@@ -313,7 +384,7 @@ func (c *ExecutionHelper) EmitUserLog(msg string) error {
 	}:
 		// Successfully sent to channel
 	default:
-		c.logger().Warnw("Exceeded max allowed user log messages, dropping")
+		c.base.logger().Warnw("Exceeded max allowed user log messages, dropping")
 	}
 	return nil
 }
@@ -337,7 +408,7 @@ func (c *ExecutionHelper) EmitUserMetric(ctx context.Context, metric *eventsv2.W
 		return err
 	}
 	metric.Name = userMetricPrefix + metric.Name + suffix
-	return events.EmitUserMetric(ctx, c.eventLabels(), metric)
+	return c.base.cfg.EventEmitter.EmitUserMetric(ctx, c.base.eventLabels(), metric)
 }
 
 // dontimeCapabilityID matches the capability ID registered by the OCR2 delegate
@@ -370,8 +441,36 @@ type executionHelperWithRawSecrets struct {
 	*ExecutionHelper
 }
 
+// GetRawSecrets exists only to satisfy chainlink-common's
+// host.ExecutionHelperWithRawSecrets interface, which still declares it. It
+// delegates to GetRawSecretsResponse and drops the response public key. Remove
+// once chainlink-common drops GetRawSecrets from the interface.
 func (e *executionHelperWithRawSecrets) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vaultcommon.SecretResponse, error) {
-	return e.SecretsFetcher.(RawSecretsFetcher).GetRawSecrets(ctx, request, fetcher)
+	resp, err := e.GetRawSecretsResponse(ctx, request, fetcher)
+	if err != nil {
+		return nil, err
+	}
+	return resp.GetResponses(), nil
+}
+
+// GetRawSecretsResponse wraps the raw-secrets fetch so a Vault get-secrets call
+// from a confidential (TEE) workflow is observable in the CRE UI as a capability
+// execution step, matching the normal GetSecrets path.
+func (e *executionHelperWithRawSecrets) GetRawSecretsResponse(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) (*vaultcommon.GetSecretsResponse, error) {
+	return runWithGetSecretsEvents(ctx, e.base, e.WorkflowExecutionID, request.GetCallbackId(),
+		func() (*vaultcommon.GetSecretsResponse, error) {
+			return e.SecretsFetcher.(RawSecretsFetcher).GetRawSecretsResponse(ctx, request, fetcher)
+		},
+		func(resp *vaultcommon.GetSecretsResponse) (string, error) {
+			responses := resp.GetResponses()
+			failed := 0
+			for _, r := range responses {
+				if r.GetError() != "" {
+					failed++
+				}
+			}
+			return vaultSecretBatchOutcome(len(responses), failed)
+		})
 }
 
 func (e *executionHelperWithRawSecrets) GetOwner() string {

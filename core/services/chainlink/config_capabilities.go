@@ -19,10 +19,6 @@ type capabilitiesConfig struct {
 	c toml.Capabilities
 }
 
-func (c *capabilitiesConfig) Peering() config.P2P {
-	return &p2p{c: c.c.Peering}
-}
-
 func (c *capabilitiesConfig) SharedPeering() config.SharedPeering {
 	return &sharedPeering{s: c.c.SharedPeering}
 }
@@ -73,20 +69,12 @@ type dispatcher struct {
 	d toml.Dispatcher
 }
 
-func (d *dispatcher) SupportedVersion() int {
-	return *d.d.SupportedVersion
-}
-
 func (d *dispatcher) ReceiverBufferSize() int {
 	return *d.d.ReceiverBufferSize
 }
 
 func (d *dispatcher) RateLimit() config.DispatcherRateLimit {
 	return &dispatcherRateLimit{r: d.d.RateLimit}
-}
-
-func (d *dispatcher) SendToSharedPeer() bool {
-	return *d.d.SendToSharedPeer
 }
 
 type sharedPeering struct {
@@ -214,10 +202,6 @@ func (c *capabilitiesWorkflowRegistry) Address() string {
 	return *c.c.Address
 }
 
-func (c *capabilitiesWorkflowRegistry) MaxEncryptedSecretsSize() utils.FileSize {
-	return *c.c.MaxEncryptedSecretsSize
-}
-
 func (c *capabilitiesWorkflowRegistry) MaxBinarySize() utils.FileSize {
 	return *c.c.MaxBinarySize
 }
@@ -236,6 +220,14 @@ func (c *capabilitiesWorkflowRegistry) MaxConcurrency() int {
 
 func (c *capabilitiesWorkflowRegistry) MaxActivationRetries() int {
 	return *c.c.MaxActivationRetries
+}
+
+func (c *capabilitiesWorkflowRegistry) FetchMode() string {
+	return *c.c.FetchMode
+}
+
+func (c *capabilitiesWorkflowRegistry) FetchAllowedHosts() []string {
+	return *c.c.FetchAllowedHosts
 }
 
 func (c *capabilitiesWorkflowRegistry) WorkflowStorage() config.WorkflowStorage {
@@ -422,15 +414,8 @@ func (l *localCapabilities) RegistryBasedLaunchAllowlist() []string {
 	return l.c.RegistryBasedLaunchAllowlist
 }
 
-func (l *localCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
-	if l.c.Capabilities == nil {
-		return nil
-	}
-	result := make(map[string]config.CapabilityNodeConfig, len(l.c.Capabilities))
-	for k, v := range l.c.Capabilities {
-		result[k] = &capabilityNodeConfig{c: v}
-	}
-	return result
+func (l *localCapabilities) UseOffchainRegistry() bool {
+	return l.c.UseOffchainRegistry != nil && *l.c.UseOffchainRegistry
 }
 
 func (l *localCapabilities) compileRegexes() {
@@ -452,31 +437,4 @@ func (l *localCapabilities) IsAllowlisted(capabilityID string) bool {
 		}
 	}
 	return false
-}
-
-func (l *localCapabilities) GetCapabilityConfig(capabilityID string) config.CapabilityNodeConfig {
-	if l.c.Capabilities == nil {
-		return nil
-	}
-	if c, ok := l.c.Capabilities[capabilityID]; ok {
-		return &capabilityNodeConfig{c: c}
-	}
-	return nil
-}
-
-var _ config.CapabilityNodeConfig = (*capabilityNodeConfig)(nil)
-
-type capabilityNodeConfig struct {
-	c toml.CapabilityNodeConfig
-}
-
-func (c *capabilityNodeConfig) BinaryPathOverride() string {
-	if c.c.BinaryPathOverride == nil {
-		return ""
-	}
-	return *c.c.BinaryPathOverride
-}
-
-func (c *capabilityNodeConfig) Config() map[string]string {
-	return c.c.Config
 }

@@ -64,9 +64,7 @@ type registrySyncer struct {
 
 var _ services.Service = &registrySyncer{}
 
-var (
-	defaultTickInterval = 12 * time.Second
-)
+var defaultTickInterval = 12 * time.Second
 
 // New instantiates a new RegistrySyncer
 func New(
@@ -379,7 +377,7 @@ func toCapabilityType(capabilityType uint8) capabilities.CapabilityType {
 }
 
 func toDONInfo(don kcr.CapabilitiesRegistryDONInfo) *capabilities.DON {
-	peerIDs := []p2ptypes.PeerID{}
+	peerIDs := make([]p2ptypes.PeerID, 0, len(don.NodeP2PIds))
 	for _, p := range don.NodeP2PIds {
 		peerIDs = append(peerIDs, p)
 	}
@@ -403,10 +401,11 @@ func (s *registrySyncer) AddListener(listeners ...Listener) {
 func (s *registrySyncer) Close() error {
 	return s.StopOnce("RegistrySyncer", func() error {
 		close(s.stopCh)
+		// Wait before locking: syncLoop may be blocked in Sync on mu.RLock, which Lock would starve.
+		s.wg.Wait()
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		close(s.updateChan)
-		s.wg.Wait()
 		return nil
 	})
 }

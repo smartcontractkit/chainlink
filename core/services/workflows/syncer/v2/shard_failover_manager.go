@@ -7,28 +7,47 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 // cachedExpiry is how long a cached trigger event is kept for potential failover replay.
 const cachedExpiry = 10 * time.Minute
+
+const timeoutBasedFailoverTick = time.Second
+
+const failoverAutoExecutionTotalMetric = "failover_auto_execution_total"
 
 // ShardFailoverManager wraps a workflow Engine and handles shard ownership
 // decisions externally, keeping the Engine oblivious to sharding. On the
 // primary shard it allows all trigger events through. On a secondary shard
 // with failover enabled it caches trigger events so they can be replayed if
 // the primary reports a system failure.
+//
+// The ownership check runs wherever the wrapped engine receives events. A legacy
+// engine registers its own triggers and calls the OnTriggerAdmission hook before
+// enqueueing. A coordinated engine relies on the trigger coordinator, which
+// subscribes and delivers through this manager, so ExecuteTrigger runs the check
+// before delegating. Either way the manager only decides; whoever holds the
+// trigger handles acts on a denial (ACK and drop) or a cached event (no ACK).
 //
 // Lifecycle:
 //   - NewShardFailoverManager(cfg) creates the manager (no engine yet).
@@ -45,21 +64,25 @@ type ShardFailoverManager struct {
 	services.Service
 	eng *services.Engine
 
-	engine *v2.Engine
+	engine v2.WorkflowEngine
 	cfg    ShardFailoverManagerConfig
+
+	autoExecCounter metric.Int64Counter
 
 	mu    sync.RWMutex
 	cache map[string]cachedEvent
 }
 
 type cachedEvent struct {
-	event    v2.RoutedTriggerEvent
-	cachedAt time.Time
+	event      triggers.CoordinatedEvent
+	cachedAt   time.Time
+	failoverAt time.Time
 }
 
 type ShardFailoverManagerConfig struct {
 	ShardingEnabled bool
-	MyShardID       uint32
+	MyDONID         uint32
+	MyShardIndex    uint32
 	WorkflowID      string
 	WorkflowOwner   string
 
@@ -67,12 +90,32 @@ type ShardFailoverManagerConfig struct {
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardRoutingSteady      *shardownership.SteadySignal
 
-	FailoverGate   limits.GateLimiter
-	Communicator   *sharding.ShardFailoverCommunicator
-	ShardDonLookup func(ctx context.Context, shardID uint32) *commoncap.DON
+	// ShardDonLookup resolves a DON ID to the current DON, e.g. via
+	// capRegistry.DONByID. ResolveAllShards always returns real DON IDs
+	// (shardownership.manualShardResolver translates any configured shard
+	// index to a DON ID internally), so no shard-index remapping happens here.
+	ShardDonLookup func(ctx context.Context, donID uint32) *commoncap.DON
 	DonSubscriber  capabilities.DonSubscriber
 
+	Failover FailoverConfig
+
 	Logger logger.Logger
+}
+
+// FailoverConfig groups the failover machinery: the gates and window that
+// decide when a secondary shard takes over an owned workflow, and the
+// communicator the shards exchange execution outcomes over.
+type FailoverConfig struct {
+	ShardingFailoverGate limits.GateLimiter
+	// TimeoutBasedFailoverGate opens the timeout-based failover path: a secondary executes
+	// a cached trigger event itself if no execution outcome from the primary
+	// arrives within TimeoutBasedFailoverWindow (the silent-primary-death case).
+	TimeoutBasedFailoverGate limits.GateLimiter
+	// TimeoutBasedFailoverWindow is how long a cached trigger event waits for the
+	// primary's execution outcome before the secondary executes it itself.
+	// A nil limiter (or closed gate) disables timeout-based failover.
+	TimeoutBasedFailoverWindow limits.TimeLimiter
+	Communicator               *sharding.ShardFailoverCommunicator
 }
 
 // NewShardFailoverManager creates a manager that is not yet wired to an engine.
@@ -81,6 +124,12 @@ func NewShardFailoverManager(cfg ShardFailoverManagerConfig) *ShardFailoverManag
 	m := &ShardFailoverManager{
 		cfg:   cfg,
 		cache: make(map[string]cachedEvent),
+	}
+	autoExecCounter, err := beholder.GetMeter().Int64Counter(failoverAutoExecutionTotalMetric)
+	if err != nil {
+		m.cfg.Logger.Warnw("shard failover: failed to register failover_auto_execution_total counter", "err", err)
+	} else {
+		m.autoExecCounter = autoExecCounter
 	}
 	m.Service, m.eng = services.Config{
 		Name:  "ShardFailoverManager",
@@ -99,7 +148,7 @@ func (m *ShardFailoverManager) WireHooks(cfg *v2.EngineConfig) {
 }
 
 // SetEngine injects the engine after it has been created. Required before Start.
-func (m *ShardFailoverManager) SetEngine(engine *v2.Engine) {
+func (m *ShardFailoverManager) SetEngine(engine v2.WorkflowEngine) {
 	m.engine = engine
 }
 
@@ -108,7 +157,7 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 		return errors.New("engine not set, call SetEngine before Start")
 	}
 
-	if m.cfg.Communicator != nil {
+	if m.cfg.Failover.Communicator != nil {
 		if err := m.wireFailover(ctx); err != nil {
 			return fmt.Errorf("failed to wire failover: %w", err)
 		}
@@ -119,12 +168,13 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 	}
 
 	m.eng.GoCtx(ctx, m.pruneLoop)
+	m.eng.GoCtx(ctx, m.timeoutBasedFailoverLoop)
 	return nil
 }
 
 func (m *ShardFailoverManager) close() error {
-	if m.cfg.Communicator != nil {
-		m.cfg.Communicator.UnregisterHandler(m.cfg.WorkflowID)
+	if m.cfg.Failover.Communicator != nil {
+		m.cfg.Failover.Communicator.UnregisterHandler(m.cfg.WorkflowID)
 	}
 	if m.engine != nil {
 		return m.engine.Close()
@@ -132,10 +182,11 @@ func (m *ShardFailoverManager) close() error {
 	return nil
 }
 
-// admissionCheck is wired as the engine's OnTriggerAdmission hook. It
-// checks shard ownership dynamically per-trigger and decides whether the
-// engine should process the event.
-func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event v2.RoutedTriggerEvent) error {
+// admissionCheck decides whether the engine should process a trigger event,
+// checking shard ownership dynamically per-trigger. It is wired as a legacy
+// engine's OnTriggerAdmission hook and called by ExecuteTrigger for a
+// coordinated engine.
+func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event triggers.CoordinatedEvent) error {
 	if !m.cfg.ShardingEnabled {
 		return nil
 	}
@@ -146,8 +197,8 @@ func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event v2.Rout
 	case shardownership.Allow:
 		return nil
 	case shardownership.DenyNotOwner:
-		if m.cfg.FailoverGate != nil && m.cfg.FailoverGate.AllowErr(ctx) == nil {
-			m.cacheEvent(event)
+		if m.cfg.Failover.ShardingFailoverGate != nil && m.cfg.Failover.ShardingFailoverGate.AllowErr(ctx) == nil {
+			m.cacheEvent(ctx, event)
 			return v2.ErrAdmissionCache
 		}
 		return v2.ErrShardDeniedNotOwner
@@ -164,32 +215,36 @@ func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event v2.Rout
 // it is a no-op. This naturally handles role changes — if the orchestrator
 // reassigns ownership, the next execution picks up the new role.
 func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
-	if m.cfg.Communicator == nil {
+	if m.cfg.Failover.Communicator == nil {
 		return
 	}
 	if !m.isPrimaryShard(context.Background(), m.cfg.WorkflowID, m.cfg.WorkflowOwner) {
 		return
 	}
+	// Position 1 in ResolveAllShards' result is the secondary DON ID for this
+	// workflow; ShardDonLookup resolves it to the current DON.
 	secondaryDon := m.resolveDon(context.Background(), m.cfg.WorkflowID, m.cfg.WorkflowOwner, 1)
 	if secondaryDon == nil {
 		m.cfg.Logger.Warnw("failover: primary cannot resolve secondary DON, skipping status update",
-			"workflowID", workflowID, "myShardID", m.cfg.MyShardID)
+			"workflowID", workflowID, "myShardIndex", m.cfg.MyShardIndex)
 		return
 	}
 	execStatus := mapExecutionStatus(status, errClass)
-	m.cfg.Communicator.Send(context.Background(), &ringpb.ExecutionStatusUpdate{
+	m.cfg.Failover.Communicator.Send(context.Background(), &ringpb.ExecutionStatusUpdate{
 		WorkflowId:     workflowID,
 		ExecutionId:    executionID,
 		TriggerEventId: triggerEventID,
 		TriggerIndex:   uint32(triggerIndex), //nolint:gosec // G115: triggerIndex is small
 		Status:         execStatus,
-		PrimaryDonId:   m.cfg.MyShardID,
+		PrimaryDonId:   m.cfg.MyDONID,
 	}, *secondaryDon)
 }
 
 // HandleExecutionStatusUpdate is called on the secondary shard when the
 // primary reports an execution outcome. On system failure it replays the
-// cached trigger event through the engine.
+// cached trigger event through the engine. Replay calls the wrapped engine
+// directly, not ExecuteTrigger: this node is still not the owner, so the
+// admission check would only cache the event again.
 func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.ExecutionStatusUpdate) {
 	switch msg.Status {
 	case ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED:
@@ -210,7 +265,7 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 			"triggerEventID", msg.TriggerEventId,
 			"workflowID", msg.WorkflowId,
 			"executionID", msg.ExecutionId)
-		if err := m.engine.ExecuteTrigger(context.Background(), event); err != nil {
+		if err := m.engine.ExecuteTrigger(m.replayExecCtx(context.Background()), event); err != nil {
 			m.cfg.Logger.Errorw("failover: failed to replay cached trigger event",
 				"triggerEventID", msg.TriggerEventId,
 				"workflowID", msg.WorkflowId,
@@ -218,6 +273,12 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 				"err", err)
 		}
 	}
+}
+
+// replayExecCtx stamps the workflow's tenant identity onto the replay context,
+// matching the engine's queue path (capability calls fail without it).
+func (m *ShardFailoverManager) replayExecCtx(parent context.Context) context.Context {
+	return contexts.WithCRE(parent, m.engine.Tenant())
 }
 
 // checkShardOwnership performs a dynamic per-trigger shard ownership check.
@@ -229,40 +290,151 @@ func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardown
 
 	switch {
 	case m.cfg.ShardResolver != nil:
-		shardID, found, err := m.cfg.ShardResolver.ResolveShard(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner)
+		donID, found, err := m.cfg.ShardResolver.ResolveShard(ctx, m.cfg.WorkflowID, m.cfg.WorkflowOwner)
 		if err != nil {
 			return shardownership.DenyOrchestratorError
 		}
-		if !found || shardID != m.cfg.MyShardID {
+		if !found || donID != m.cfg.MyDONID {
 			return shardownership.DenyNotOwner
 		}
 		return shardownership.Allow
 	case m.cfg.ShardOrchestratorClient != nil:
-		verdict, _, _ := shardownership.CheckCommittedOwner(ctx, m.cfg.ShardOrchestratorClient, m.cfg.WorkflowID, m.cfg.MyShardID)
+		verdict, _, _ := shardownership.CheckCommittedOwner(ctx, m.cfg.ShardOrchestratorClient, m.cfg.WorkflowID, m.cfg.MyDONID)
 		return verdict
 	default:
 		return shardownership.Allow
 	}
 }
 
-func (m *ShardFailoverManager) cacheEvent(event v2.RoutedTriggerEvent) {
+func (m *ShardFailoverManager) cacheEvent(ctx context.Context, event triggers.CoordinatedEvent) {
 	eventID := event.Event.Event.ID
+	failoverAt := m.timeoutBasedFailoverDeadline(ctx)
 	m.mu.Lock()
-	m.cache[eventID] = cachedEvent{event: event, cachedAt: time.Now()}
+	m.cache[eventID] = cachedEvent{event: event, cachedAt: time.Now(), failoverAt: failoverAt}
 	m.mu.Unlock()
 	m.cfg.Logger.Infow("secondary shard: cached trigger event for failover",
 		"eventID", eventID,
-		"myShardID", m.cfg.MyShardID,
+		"myShardIndex", m.cfg.MyShardIndex,
 		"workflowID", m.cfg.WorkflowID,
-		"triggerIndex", event.TriggerIndex)
+		"triggerIndex", event.TriggerIndex,
+		"failoverAt", failoverAt)
 }
 
-func (m *ShardFailoverManager) popCachedEvent(eventID string) (v2.RoutedTriggerEvent, bool) {
+// timeoutBasedFailoverDeadline returns the instant after which this node may execute a
+// just-cached event itself, or the zero time if automatic failover is disabled.
+func (m *ShardFailoverManager) timeoutBasedFailoverDeadline(ctx context.Context) time.Time {
+	if m.cfg.Failover.TimeoutBasedFailoverGate == nil || m.cfg.Failover.TimeoutBasedFailoverWindow == nil {
+		return time.Time{}
+	}
+	if m.cfg.Failover.TimeoutBasedFailoverGate.AllowErr(ctx) != nil {
+		return time.Time{}
+	}
+	window, err := m.cfg.Failover.TimeoutBasedFailoverWindow.Limit(ctx)
+	if err != nil {
+		if !limits.IsErrRecoverable(err) {
+			m.cfg.Logger.Warnw("secondary shard: failed to read failover auto window, automatic failover disabled for this event", "err", err)
+			return time.Time{}
+		}
+		m.cfg.Logger.Errorw("secondary shard: failed to read failover auto window; continuing with the value the limiter returned", "err", err)
+	}
+	if window <= 0 {
+		return time.Time{}
+	}
+	return time.Now().Add(window)
+}
+
+// timeoutBasedFailoverLoop periodically executes cached trigger events whose failover
+// window elapsed without an execution outcome from the primary shard.
+func (m *ShardFailoverManager) timeoutBasedFailoverLoop(ctx context.Context) {
+	if m.cfg.Failover.TimeoutBasedFailoverGate == nil || m.cfg.Failover.TimeoutBasedFailoverWindow == nil {
+		return
+	}
+	ticker := time.NewTicker(timeoutBasedFailoverTick)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			m.executeDueTimeoutBasedFailovers(ctx)
+		}
+	}
+}
+
+// executeDueTimeoutBasedFailovers runs one auto-failover pass over cached events whose
+// failover deadline has elapsed.
+func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Context) {
+	if m.engine == nil {
+		return
+	}
+
+	now := time.Now()
+	type candidate struct {
+		eventID string
+		event   triggers.CoordinatedEvent
+	}
+	var due []candidate
+	m.mu.RLock()
+	for id, ce := range m.cache {
+		if ce.failoverAt.IsZero() || now.Before(ce.failoverAt) {
+			continue
+		}
+		due = append(due, candidate{eventID: id, event: ce.event})
+	}
+	m.mu.RUnlock()
+
+	for _, c := range due {
+		if m.cfg.Failover.TimeoutBasedFailoverGate.AllowErr(ctx) != nil {
+			return
+		}
+
+		switch m.checkShardOwnership(ctx) {
+		case shardownership.DenyNotOwner:
+			event, ok := m.popCachedEvent(c.eventID)
+			if !ok {
+				continue
+			}
+			m.cfg.Logger.Infow("secondary shard: auto failover executed cached trigger event",
+				"eventID", c.eventID,
+				"myShardIndex", m.cfg.MyShardIndex,
+				"workflowID", m.cfg.WorkflowID,
+				"triggerIndex", event.TriggerIndex)
+			if m.autoExecCounter != nil {
+				m.autoExecCounter.Add(ctx, 1,
+					metric.WithAttributes(
+						attribute.String(platform.KeyWorkflowID, m.cfg.WorkflowID),
+						attribute.String(platform.KeyOrganizationID, m.engine.Tenant().Org),
+					))
+			}
+			// Async: ExecuteTrigger blocks for the execution's duration, and
+			// serializing due events would prevent concurrent executions of
+			// this workflow.
+			m.eng.GoCtx(ctx, func(ctx context.Context) {
+				if err := m.engine.ExecuteTrigger(m.replayExecCtx(ctx), event); err != nil {
+					m.cfg.Logger.Errorw("secondary shard: auto failover failed to execute cached trigger event",
+						"eventID", c.eventID,
+						"workflowID", m.cfg.WorkflowID,
+						"triggerIndex", event.TriggerIndex,
+						"err", err)
+				}
+			})
+		case shardownership.Allow:
+			if _, ok := m.popCachedEvent(c.eventID); ok {
+				m.cfg.Logger.Infow("secondary shard: dropped cached trigger event, shard is owner again",
+					"eventID", c.eventID,
+					"workflowID", m.cfg.WorkflowID)
+			}
+		case shardownership.DenyOrchestratorError:
+		}
+	}
+}
+
+func (m *ShardFailoverManager) popCachedEvent(eventID string) (triggers.CoordinatedEvent, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ce, ok := m.cache[eventID]
 	if !ok {
-		return v2.RoutedTriggerEvent{}, false
+		return triggers.CoordinatedEvent{}, false
 	}
 	delete(m.cache, eventID)
 	return ce.event, true
@@ -325,13 +497,13 @@ func (m *ShardFailoverManager) wireFailover(ctx context.Context) error {
 		primaryDonVal = *primaryDon
 	}
 
-	m.cfg.Communicator.RegisterHandler(m.cfg.WorkflowID, primaryDonVal, m.HandleExecutionStatusUpdate)
+	m.cfg.Failover.Communicator.RegisterHandler(m.cfg.WorkflowID, primaryDonVal, m.HandleExecutionStatusUpdate)
 	m.cfg.Logger.Infow("shard failover: wired communicator",
-		"myShardID", m.cfg.MyShardID,
+		"myShardIndex", m.cfg.MyShardIndex,
 		"workflowID", m.cfg.WorkflowID,
 		"primaryDonID", primaryDonIDOrZero(primaryDon))
 
-	if err := m.cfg.Communicator.Start(ctx); err != nil {
+	if err := m.cfg.Failover.Communicator.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start communicator: %w", err)
 	}
 	return nil
@@ -346,19 +518,19 @@ func primaryDonIDOrZero(d *commoncap.DON) uint32 {
 
 func (m *ShardFailoverManager) isPrimaryShard(ctx context.Context, workflowID, owner string) bool {
 	if m.cfg.ShardResolver == nil {
-		return m.cfg.MyShardID == 0
+		return m.cfg.MyShardIndex == 0
 	}
 	allResolver, ok := m.cfg.ShardResolver.(shardownership.AllShardsResolver)
 	if !ok {
-		return m.cfg.MyShardID == 0
+		return m.cfg.MyShardIndex == 0
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	shards, found, err := allResolver.ResolveAllShards(ctx, workflowID, owner)
 	if err != nil || !found || len(shards) == 0 {
-		return m.cfg.MyShardID == 0
+		return m.cfg.MyShardIndex == 0
 	}
-	return shards[0] == m.cfg.MyShardID
+	return shards[0] == m.cfg.MyDONID
 }
 
 func (m *ShardFailoverManager) resolveDon(ctx context.Context, workflowID, owner string, shardIndex int) *commoncap.DON {
@@ -401,4 +573,35 @@ func (m *ShardFailoverManager) ActiveExecutions() int32 { return m.engine.Active
 // DrainStartedAt delegates to the wrapped engine.
 func (m *ShardFailoverManager) DrainStartedAt() (time.Time, bool) { return m.engine.DrainStartedAt() }
 
-var _ DrainableService = (*ShardFailoverManager)(nil)
+// ExecuteTrigger is how the trigger coordinator delivers events to a
+// coordinated engine on a sharded node. The coordinated engine never calls
+// OnTriggerAdmission, so the shard ownership check runs here first. An
+// admission error (triggers.ErrAdmissionDenied or triggers.ErrAdmissionCached)
+// is returned for the coordinator to act on; otherwise the event is delegated.
+func (m *ShardFailoverManager) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	if err := m.admissionCheck(ctx, event); err != nil {
+		return err
+	}
+	return m.engine.ExecuteTrigger(ctx, event)
+}
+
+// Subscribe delegates to the wrapped engine. The trigger coordinator calls it
+// while registering triggers for a coordinated engine.
+func (m *ShardFailoverManager) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
+	return m.engine.Subscribe(ctx)
+}
+
+// Tenant delegates to the wrapped engine.
+func (m *ShardFailoverManager) Tenant() contexts.CRE { return m.engine.Tenant() }
+
+// SdkName delegates to the wrapped engine, same reasoning as Tenant.
+func (m *ShardFailoverManager) SdkName() string { return m.engine.SdkName() }
+
+// IsCoordinated delegates to the wrapped engine, so the registry classifies the
+// manager as whichever engine it wraps.
+func (m *ShardFailoverManager) IsCoordinated() bool { return m.engine.IsCoordinated() }
+
+var (
+	_ DrainableService  = (*ShardFailoverManager)(nil)
+	_ v2.WorkflowEngine = (*ShardFailoverManager)(nil)
+)

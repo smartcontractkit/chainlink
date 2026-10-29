@@ -55,9 +55,11 @@ type Client interface {
 	SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, signers [][]byte, minResponsesToAggregate uint32) error
 }
 
-var _ Client = &client{}
-var _ types.Receiver = &client{}
-var _ services.Service = &client{}
+var (
+	_ Client           = &client{}
+	_ types.Receiver   = &client{}
+	_ services.Service = &client{}
+)
 
 const defaultExpiryCheckInterval = 30 * time.Second
 
@@ -66,8 +68,8 @@ var (
 	ErrContextDoneBeforeResponseQuorum = errors.New("context done before remote client received a quorum of responses")
 )
 
-func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *client {
-	return &client{
+func NewClient(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *client {
+	c := &client{
 		capabilityID:             capabilityID,
 		capMethodName:            capMethodName,
 		dispatcher:               dispatcher,
@@ -75,6 +77,7 @@ func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispa
 		requestIDToCallerRequest: make(map[string]*request.ClientRequest),
 		stopCh:                   make(services.StopChan),
 	}
+	return c
 }
 
 // SetConfig sets the remote capability configuration dynamically
@@ -244,6 +247,7 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	if err = c.storeRequest(req); err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to store request: %w", err)
 	}
+	req.Send()
 
 	var respResult []byte
 	var respErr error

@@ -13,17 +13,13 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-
 	"gopkg.in/yaml.v3"
-
-	workflowsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/privateregistry"
-
+	workflowsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	grpcsourcemock "github.com/smartcontractkit/chainlink/system-tests/lib/cre/grpc_source_mock"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
@@ -462,7 +458,10 @@ func assertWorkflowStillExecuting(t *testing.T, testEnv *ttypes.TestEnvironment,
 			// A successful API call indicates the node is still healthy
 			// The workflow engine running is implied if the node is responsive
 			// (crashes would make the node unresponsive)
-			_, _, err := node.Clients.RestClient.Health()
+			_, httpResp, err := node.Clients.RestClient.Health()
+			if httpResp != nil && httpResp.Body != nil {
+				httpResp.Body.Close()
+			}
 			if err != nil {
 				testLogger.Warn().
 					Str("workflowName", workflowName).
@@ -497,7 +496,10 @@ func assertNodesHealthy(t *testing.T, testEnv *ttypes.TestEnvironment) {
 				continue
 			}
 
-			healthResp, _, err := node.Clients.RestClient.Health()
+			healthResp, httpResp, err := node.Clients.RestClient.Health()
+			if httpResp != nil && httpResp.Body != nil {
+				httpResp.Body.Close()
+			}
 			require.NoError(t, err, "node %s health check failed", node.Name)
 
 			// Check that the node reports healthy status

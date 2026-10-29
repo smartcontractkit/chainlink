@@ -18,11 +18,11 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonv1 "github.com/smartcontractkit/chainlink-protos/node-platform/common/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -66,6 +66,9 @@ type NodePlatformBuildInfoConfig struct {
 	DockerTag    string
 	VersionTag   string
 	Version      string
+	// Emitter receives the build info payloads. Nil defaults to
+	// beholder.GlobalEmitter(), which resolves the global client at emit time.
+	Emitter beholder.Emitter
 }
 
 func NewNodePlatformBuildInfoConfig(opts ApplicationOpts) NodePlatformBuildInfoConfig {
@@ -96,10 +99,15 @@ func NewNodePlatformBuildInfoConfig(opts ApplicationOpts) NodePlatformBuildInfoC
 }
 
 func NewNodePlatformBuildInfoService(cfg NodePlatformBuildInfoConfig) NodePlatformBuildInfoService {
+	emitter := cfg.Emitter
+	if emitter == nil {
+		emitter = beholder.GlobalEmitter()
+	}
+
 	s := NodePlatformBuildInfoService{
 		opts:    cfg,
 		beat:    cfg.Beat,
-		emitter: beholder.GetEmitter(),
+		emitter: emitter,
 	}
 
 	s.Service, s.eng = commonservices.Config{
@@ -143,12 +151,7 @@ func (s *NodePlatformBuildInfoService) emit(ctx context.Context) {
 		return
 	}
 
-	emitter := s.emitter
-	if emitter == nil {
-		emitter = beholder.GetEmitter()
-	}
-
-	err = emitter.Emit(ctx, payloadBytes,
+	err = s.emitter.Emit(ctx, payloadBytes,
 		beholder.AttrKeyDomain, nodePlatformDomain,
 		beholder.AttrKeyEntity, nodePlatformBuildInfoEntity,
 		beholder.AttrKeyDataSchema, nodePlatformDataSchema,
@@ -178,6 +181,9 @@ type NodePlatformJobInfoConfig struct {
 	JobReader          NodePlatformJobReader
 	SubmitterKeyReader NodePlatformSubmitterKeyReader
 	CSAPublicKey       string
+	// Emitter receives the job info payloads. Nil defaults to
+	// beholder.GlobalEmitter(), which resolves the global client at emit time.
+	Emitter beholder.Emitter
 }
 
 type NodePlatformJobReader interface {
@@ -242,8 +248,6 @@ func (r nodePlatformSubmitterKeyReader) submitterKeysForRelay(ctx context.Contex
 		return nodePlatformKeyIDs(r.keyStore.Solana())
 	case relay.NetworkAptos:
 		return nodePlatformKeyIDs(r.keyStore.Aptos())
-	case relay.NetworkCosmos:
-		return nodePlatformKeyIDs(r.keyStore.Cosmos())
 	case relay.NetworkStarkNet:
 		return nodePlatformKeyIDs(r.keyStore.StarkNet())
 	case relay.NetworkTON:
@@ -288,10 +292,15 @@ func NewNodePlatformJobInfoConfig(opts ApplicationOpts, jobReader NodePlatformJo
 }
 
 func NewNodePlatformJobInfoService(cfg NodePlatformJobInfoConfig) NodePlatformJobInfoService {
+	emitter := cfg.Emitter
+	if emitter == nil {
+		emitter = beholder.GlobalEmitter()
+	}
+
 	s := NodePlatformJobInfoService{
 		opts:    cfg,
 		beat:    cfg.Beat,
-		emitter: beholder.GetEmitter(),
+		emitter: emitter,
 	}
 
 	s.Service, s.eng = commonservices.Config{
@@ -332,12 +341,7 @@ func (s *NodePlatformJobInfoService) emit(ctx context.Context) {
 		return
 	}
 
-	emitter := s.emitter
-	if emitter == nil {
-		emitter = beholder.GetEmitter()
-	}
-
-	err = emitter.Emit(ctx, payloadBytes,
+	err = s.emitter.Emit(ctx, payloadBytes,
 		beholder.AttrKeyDomain, nodePlatformDomain,
 		beholder.AttrKeyEntity, nodePlatformJobInfoEntity,
 		beholder.AttrKeyDataSchema, nodePlatformDataSchema,

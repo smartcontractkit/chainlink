@@ -9,6 +9,7 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
@@ -50,8 +51,12 @@ func TestSaveExistingCCIP(t *testing.T) {
 
 	output, err := commonchangeset.SaveExistingContractsChangeset(*e, cfg)
 	require.NoError(t, err)
-	err = e.ExistingAddresses.Merge(output.AddressBook) //nolint:staticcheck // AddressBook is deprecated but still in use for this changeset
+	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)
+	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(e.DataStore))
+	require.NoError(t, ds.Merge(output.DataStore.Seal()))
+	e.DataStore = ds.Seal()
 	state, err := stateview.LoadOnchainState(*e)
 	require.NoError(t, err)
 	require.Equal(t, state.SolChains[selector].Router.String(), solAddr1)
@@ -85,7 +90,7 @@ func TestSaveExisting(t *testing.T) {
 
 	output, err := commonchangeset.SaveExistingContractsChangeset(*e, ExistingContracts)
 	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // AddressBook is deprecated but still in use for this changeset
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 	addresses, err := e.ExistingAddresses.Addresses()
 	require.NoError(t, err)
 	require.Len(t, addresses, 1)

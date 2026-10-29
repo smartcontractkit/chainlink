@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 func TestPluginPortManager(t *testing.T) {
@@ -45,6 +45,14 @@ func (m *mockCfgTracing) CollectorTarget() string { return "http://localhost:900
 func (m *mockCfgTracing) SamplingRatio() float64  { return 0.1 }
 func (m *mockCfgTracing) TLSCertPath() string     { return "/path/to/cert.pem" }
 func (m *mockCfgTracing) Mode() string            { return "tls" }
+
+type mockCfgApp struct {
+	coreconfig.AppConfig // nil; only ResourceAttributes is used
+}
+
+func (mockCfgApp) ResourceAttributes() map[string]string {
+	return map[string]string{"foo": "bar"}
+}
 
 type mockCfgTelemetry struct{}
 
@@ -117,7 +125,7 @@ func (m mockCfgTelemetry) MetricViewsDenyAttributes() []string {
 }
 func (m mockCfgTelemetry) MetricCardinalityLimit() int { return 100000 }
 
-func (m mockCfgTelemetry) PrometheusBridge() config.PrometheusBridge {
+func (m mockCfgTelemetry) PrometheusBridge() coreconfig.PrometheusBridge {
 	return mockPrometheusBridge{}
 }
 
@@ -140,11 +148,11 @@ func (m mockPrometheusBridge) Prefixes() []string { return nil }
 
 type mockCfgDatabase struct{}
 
-func (m mockCfgDatabase) Backup() config.Backup { panic("unimplemented") }
+func (m mockCfgDatabase) Backup() coreconfig.Backup { panic("unimplemented") }
 
-func (m mockCfgDatabase) Listener() config.Listener { return mockCfgListener{} }
+func (m mockCfgDatabase) Listener() coreconfig.Listener { return mockCfgListener{} }
 
-func (m mockCfgDatabase) Lock() config.Lock { panic("unimplemented") }
+func (m mockCfgDatabase) Lock() coreconfig.Lock { panic("unimplemented") }
 
 func (m mockCfgDatabase) DefaultIdleInTxSessionTimeout() time.Duration { return time.Hour }
 
@@ -238,6 +246,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 		cfgMercury:       mockCfgMercury,
 		cfgTracing:       mockCfgTracing,
 		cfgTelemetry:     mockCfgTelemetry,
+		cfgApp:           mockCfgApp{},
 		cfgMetering:      mockCfgMetering,
 	}
 
@@ -274,7 +283,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.True(t, envCfg.TracingEnabled)
 	require.Equal(t, "http://localhost:9000", envCfg.TracingCollectorTarget)
 	require.Equal(t, map[string]string{"attribute": "value"}, envCfg.TracingAttributes)
-	require.Equal(t, 0.1, envCfg.TracingSamplingRatio)
+	require.InEpsilon(t, 0.1, envCfg.TracingSamplingRatio, 1e-9)
 	require.Equal(t, "/path/to/cert.pem", envCfg.TracingTLSCertPath)
 
 	require.True(t, envCfg.TelemetryEnabled)
@@ -282,7 +291,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, "path/to/cert.pem", envCfg.TelemetryCACertFile)
 	require.Equal(t, "http://localhost:9001", envCfg.TelemetryEndpoint)
 	require.Equal(t, beholder.OtelAttributes{"foo": "bar"}, envCfg.TelemetryAttributes)
-	require.Equal(t, 0.42, envCfg.TelemetryTraceSampleRatio)
+	require.InEpsilon(t, 0.42, envCfg.TelemetryTraceSampleRatio, 1e-9)
 	require.True(t, envCfg.TelemetryEmitterBatchProcessor)
 	require.Equal(t, 1*time.Second, envCfg.TelemetryEmitterExportTimeout)
 	require.False(t, envCfg.TelemetryLogStreamingEnabled)

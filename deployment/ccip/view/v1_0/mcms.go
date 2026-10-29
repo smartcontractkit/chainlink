@@ -91,11 +91,9 @@ func GenerateMCMSView(mcms owner_helpers.ManyChainMultiSig) (MCMSView, error) {
 
 	return MCMSView{
 		// Has no type and version on the contract
-		ContractMetaData: view.ContractMetaData{
-			Owner:   owner,
-			Address: mcms.Address(),
-		},
-		Config: *parsedConfig,
+		Owner:   owner,
+		Address: mcms.Address(),
+		Config:  *parsedConfig,
 	}, nil
 }
 
@@ -123,9 +121,7 @@ func GenerateTimelockView(tl owner_helpers.RBACTimelock) (TimelockView, error) {
 
 	return TimelockView{
 		// Has no type and version or owner.
-		ContractMetaData: view.ContractMetaData{
-			Address: tl.Address(),
-		},
+		Address:       tl.Address(),
 		MembersByRole: membersByRole,
 	}, nil
 }
@@ -136,9 +132,7 @@ type CallProxyView struct {
 
 func GenerateCallProxyView(cp owner_helpers.CallProxy) (CallProxyView, error) {
 	return CallProxyView{
-		ContractMetaData: view.ContractMetaData{
-			Address: cp.Address(),
-		},
+		Address: cp.Address(),
 	}, nil
 }
 

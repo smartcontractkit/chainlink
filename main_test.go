@@ -1,7 +1,11 @@
 package main
 
 import (
+	"errors"
+	"flag"
 	"fmt"
+	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -36,22 +40,25 @@ const (
 	integrationBuildName = "go:build.integration"
 )
 
+// updateScripts enables updating testscript golden files, like `go test . -update`
+var updateScripts = flag.Bool("update", false, "update testscript golden files")
+
 func TestMain(m *testing.M) {
+	// keep GOTMPDIR short: osx default is too long for go-plugin sockets.
+	// Not removed afterwards because testscript.Main never returns (os.Exit).
+	tmp, err := os.MkdirTemp("", "chainlink-testscripts")
+	if err != nil {
+		log.Fatalf("failed to create temp dir: %v", err)
+	}
+	os.Setenv("GOTMPDIR", tmp)
+
 	testscript.Main(m, map[string]func(){
 		"chainlink": func() { os.Exit(core.Main()) },
 	})
 }
 
-var (
-	// Temporary workaround for skipping flaky tests as we improve our tracking process
-	skipFlakyTests = map[string]string{ // test name: issue number
-		// "TestScripts/nodes/evm/list/list":       "https://smartcontract-it.atlassian.net/browse/DX-107",
-		// "TestScripts/keys/eth/list/unavailable": "https://smartcontract-it.atlassian.net/browse/DX-110",
-	}
-)
-
-// TestScripts walks through the testdata/scripts directory and runs all tests that end in
-// .txt or .txtar with the testscripts library. To run an individual test, specify it in the
+// TestScripts walks through the testdata/scripts directory and runs all .txtar
+// files with the testscripts library. To run an individual test, specify it in the
 // -run param of go test without the txtar or txt suffix, like so:
 // go test . -run TestScripts/node/validate/default
 func TestScripts(t *testing.T) {
@@ -59,43 +66,24 @@ func TestScripts(t *testing.T) {
 		t.Skip("skipping testscript")
 	}
 
-	tmp := t.TempDir()
-	require.NoError(t, os.Setenv("GOTMPDIR", tmp))
-	t.Cleanup(func() {
-		require.NoError(t, os.Unsetenv("GOTMPDIR"))
-	})
 	t.Parallel()
 
 	visitor := txtar.NewDirVisitor("testdata/scripts", txtar.Recurse, func(path string) error {
 		t.Run(strings.TrimPrefix(path, "testdata/scripts/"), func(t *testing.T) {
 			t.Parallel()
 
-			// Check each .txtar file against skipFlakyTests
 			matches, err := filepath.Glob(filepath.Join(path, "*.txtar"))
 			require.NoError(t, err)
-
-			var filesToRun []string
-			for _, match := range matches {
-				scriptName := strings.TrimSuffix(filepath.Base(match), ".txtar")
-				fullTestName := t.Name() + "/" + scriptName
-
-				if message, shouldSkip := skipFlakyTests[fullTestName]; shouldSkip {
-					t.Logf("Skipping Flaky Test: %s - %s", fullTestName, message)
-					continue
-				}
-				filesToRun = append(filesToRun, match)
-			}
-
-			if len(filesToRun) == 0 {
-				t.Skip("all scripts in directory skipped")
+			if len(matches) == 0 {
+				t.Skip("no scripts found")
 			}
 
 			testscript.Run(t, testscript.Params{
-				Files:               filesToRun,
-				Setup:               commonEnv(t),
+				Files:               matches,
+				Setup:               commonEnv(),
 				ContinueOnError:     true,
 				RequireExplicitExec: true,
-				// UpdateScripts:   true, // uncomment to update golden files
+				UpdateScripts:       *updateScripts,
 			})
 		})
 		return nil
@@ -107,21 +95,25 @@ func TestScripts(t *testing.T) {
 // isIntegrationBuild is toggled true by a func init() with a //go:build integration gate
 var isIntegrationBuild = false
 
-func commonEnv(t testing.TB) func(*testscript.Env) error {
+func commonEnv() func(*testscript.Env) error {
 	return func(te *testscript.Env) error {
 		if _, err := os.Stat(filepath.Join(te.WorkDir, integrationBuildName)); err == nil && !isIntegrationBuild {
 			te.T().Skip("integration test")
 			return nil
 		}
 
-		te.Setenv("HOME", "$WORK/home")
+		home := filepath.Join(te.WorkDir, "home")
+		if err := os.MkdirAll(home, 0o777); err != nil {
+			return fmt.Errorf("failed to create home dir %s: %w", home, err)
+		}
+		te.Setenv("HOME", home)
 		te.Setenv("VERSION", static.Version)
 		te.Setenv("VERSION_TAG", static.VersionTag)
 		te.Setenv("COMMIT_SHA", static.Sha)
 		te.Setenv("TMPDIR", "/tmp") // osx default is too long for go-plugin sockets
 
 		b, err := os.ReadFile(filepath.Join(te.WorkDir, testPortName))
-		if err != nil && !os.IsNotExist(err) {
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("failed to read file %s: %w", testPortName, err)
 		} else if err == nil {
 			envVarName := strings.TrimSpace(string(b))
@@ -137,13 +129,19 @@ func commonEnv(t testing.TB) func(*testscript.Env) error {
 		}
 
 		b, err = os.ReadFile(filepath.Join(te.WorkDir, testDBName))
-		if err != nil && !os.IsNotExist(err) {
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("failed to read file %s: %w", testDBName, err)
 		} else if err == nil {
 			envVarName := strings.TrimSpace(string(b))
 			te.T().Log("test database requested:", envVarName)
 
-			u2 := testdb.New(t, true).String()
+			// Env.T implements testing.TB when started via testscript.Run
+			// (it wraps the per-script *testing.T), so its Cleanup runs when
+			// this script ends — not when the whole TestScripts suite finishes.
+			// Do not switch this suite to testscript.RunT.
+			// https://pkg.go.dev/github.com/rogpeppe/go-internal/testscript#Env.T
+			tb := te.T().(testing.TB)
+			u2 := testdb.New(tb, true).String()
 
 			te.Setenv(envVarName, u2)
 		}

@@ -76,6 +76,7 @@ var (
 
 	// Solana
 	Receiver             deployment.ContractType = "Receiver"
+	TestReceiver         deployment.ContractType = "TestReceiver" // same program; the deploy pipelines' spelling
 	SPL2022Tokens        deployment.ContractType = "SPL2022Tokens"
 	SPLTokens            deployment.ContractType = "SPLTokens"
 	WSOL                 deployment.ContractType = "WSOL"

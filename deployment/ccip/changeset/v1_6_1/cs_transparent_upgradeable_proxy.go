@@ -49,7 +49,9 @@ type TransparentUpgradeableProxyChangesetConfig struct {
 }
 
 // PlannedRefs returns every datastore key this changeset will write. The qualifier is the
-// configured symbol, not the map key.
+// token's symbol (the same key the state loader and the ProxyAdmin row use): for a proxy token
+// the token's address is this proxy's own address, so qualifying by it would be circular: you'd
+// need the address to find the address.
 func (c TransparentUpgradeableProxyChangesetConfig) PlannedRefs() []datastore.AddressRef {
 	version := deployment.Version1_6_1
 	refs := make([]datastore.AddressRef, 0)
@@ -59,7 +61,7 @@ func (c TransparentUpgradeableProxyChangesetConfig) PlannedRefs() []datastore.Ad
 				ChainSelector: chainSelector,
 				Type:          datastore.ContractType(shared.TransparentUpgradeableProxy),
 				Version:       &version,
-				Qualifier:     config.BurnMintERC20Transparent.String(),
+				Qualifier:     config.Symbol,
 			})
 		}
 	}
@@ -195,7 +197,7 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 		chain := e.BlockChains.EVMChains()[chainSelector]
 
 		for token, config := range tokens {
-			_, err := shared.DeployContractAndRecord(e.Logger, chain, addressBook, ds, cldf.NewTypeAndVersion(shared.TransparentUpgradeableProxy, deployment.Version1_6_1), config.BurnMintERC20Transparent.String(),
+			_, err := shared.DeployContractAndRecord(e.Logger, chain, addressBook, ds, cldf.NewTypeAndVersion(shared.TransparentUpgradeableProxy, deployment.Version1_6_1), config.Symbol,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*transparent_upgradeable_proxy.TransparentUpgradeableProxy] {
 					var errs []error
 
@@ -226,7 +228,6 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 						config.PreMint,
 						chain.DeployerKey.From,
 					)
-
 					if err != nil {
 						errs = append(errs, fmt.Errorf("failed to pack initialize data: %w", err))
 					}
@@ -245,7 +246,6 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 					}
 				},
 			)
-
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy TransparentUpgradeableProxy for %s token on %s: %w", token, chain.Name(), err)
 			}

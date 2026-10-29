@@ -4,22 +4,43 @@ inputs:
   version:
     description: Version of gotestsum to install
     default: v1.13.0
+  bin-dir:
+    description: |
+      Directory that may already contain gotestsum, typically a restored
+      test-binary cache. When gotestsum is present there it is used as-is and
+      nothing is downloaded.
 
 runs:
   using: composite
   steps:
+    - name: Use pre-installed gotestsum
+      id: preinstalled
+      if: ${{ inputs.bin-dir != '' }}
+      shell: bash
+      env:
+        BIN_DIR: ${{ inputs.bin-dir }}
+      run: |
+        if [[ -x "$BIN_DIR/gotestsum" ]]; then
+          echo "$BIN_DIR" >> "$GITHUB_PATH"
+          echo "found=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "::warning::gotestsum is missing from $BIN_DIR; installing it"
+        fi
+
     - name: Cache gotestsum
       id: cache-gotestsum
+      if: ${{ steps.preinstalled.outputs.found != 'true' }}
       uses: actions/cache@v6
       with:
         path: ~/go/bin/gotestsum
         key: ${{ runner.os }}-${{ runner.arch }}-gotestsum-${{ inputs.version }}
 
     - name: Install gotestsum
-      if: steps.cache-gotestsum.outputs.cache-hit != 'true'
+      if: ${{ steps.preinstalled.outputs.found != 'true' && steps.cache-gotestsum.outputs.cache-hit != 'true' }}
       shell: bash
       run: go install gotest.tools/gotestsum@${{ inputs.version }}
 
     - name: Add go bin to path
+      if: ${{ steps.preinstalled.outputs.found != 'true' }}
       shell: bash
       run: echo "$HOME/go/bin" | tee -a "$GITHUB_PATH"

@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
@@ -36,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	registrysyncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
@@ -64,7 +64,7 @@ func (c *crFactory) NewContractReader(ctx context.Context, cfg []byte) (types.Co
 }
 
 func newContractReaderFactory(t *testing.T, simulatedBackend *simulated.Backend) *crFactory {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	client := evmclient.NewSimulatedBackendClient(
 		t,
 		simulatedBackend,
@@ -164,7 +164,7 @@ func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
 
 func TestReader_Integration(t *testing.T) {
 	ctx := t.Context()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	// Create a simulated backend similar to V1 tests
 	owner := evmtestutils.MustNewSimTransactor(t)
@@ -384,7 +384,7 @@ func TestReader_Integration(t *testing.T) {
 
 func TestSyncer_V2_DBIntegration(t *testing.T) {
 	ctx := t.Context()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	// Create a simulated backend similar to V1 tests
 	owner := evmtestutils.MustNewSimTransactor(t)
@@ -544,7 +544,7 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 
 func TestSyncer_V2_LocalNode(t *testing.T) {
 	ctx := t.Context()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	var pid p2ptypes.PeerID
 	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
@@ -659,7 +659,7 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 
 func TestReader_V2_FamilyOperations(t *testing.T) {
 	ctx := t.Context()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	// Create a simulated backend
 	owner := evmtestutils.MustNewSimTransactor(t)
@@ -713,7 +713,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	nodeSetD := [][32]byte{randomWord(), randomWord(), randomWord()}
 
 	// Create all nodes with both capabilities
-	allNodes := []capabilities_registry_v2.CapabilitiesRegistryNodeParams{}
+	allNodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, 0, len(nodeSetA)+len(nodeSetB)+len(nodeSetC)+len(nodeSetD))
 
 	// Add nodes for DON A (workflow-family-a)
 	for _, nodeID := range nodeSetA {
@@ -1034,7 +1034,7 @@ func (r *CapabilitiesRegistryReader) GetDONsInFamily(ctx context.Context, family
 	return familyADONs, err
 }
 
-func (r *CapabilitiesRegistryReader) GetHistoricalDONInfo(ctx context.Context, donID uint32, configCount uint32) (*capabilities_registry_v2.CapabilitiesRegistryDONInfo, error) {
+func (r *CapabilitiesRegistryReader) GetHistoricalDONInfo(ctx context.Context, donID, configCount uint32) (*capabilities_registry_v2.CapabilitiesRegistryDONInfo, error) {
 	var historicalDON capabilities_registry_v2.CapabilitiesRegistryDONInfo
 	err := r.contractReader.GetLatestValue(
 		ctx,
@@ -1047,4 +1047,51 @@ func (r *CapabilitiesRegistryReader) GetHistoricalDONInfo(ctx context.Context, d
 		&historicalDON,
 	)
 	return &historicalDON, err
+}
+
+type stubReader struct {
+	types.UnimplementedContractReader
+	nodes []capabilities_registry_v2.INodeInfoProviderNodeInfo
+}
+
+func (r *stubReader) Bind(context.Context, []types.BoundContract) error { return nil }
+
+func (r *stubReader) GetLatestValue(_ context.Context, _ string, _ primitives.ConfidenceLevel, _, out any) error {
+	if nodes, ok := out.(*[]capabilities_registry_v2.INodeInfoProviderNodeInfo); ok {
+		*nodes = r.nodes
+	}
+	return nil
+}
+
+type stubReaderFactory struct {
+	reader types.ContractReader
+}
+
+func (f *stubReaderFactory) NewContractReader(context.Context, []byte) (types.ContractReader, error) {
+	return f.reader, nil
+}
+
+func TestSync_V2_PreservesNodeCapabilitiesDONIds(t *testing.T) {
+	t.Parallel()
+
+	donIDs := []*big.Int{big.NewInt(1), big.NewInt(7)}
+	node := capabilities_registry_v2.INodeInfoProviderNodeInfo{
+		P2pId:              [32]byte{1},
+		CapabilitiesDONIds: donIDs,
+	}
+
+	reader := &stubReader{nodes: []capabilities_registry_v2.INodeInfoProviderNodeInfo{node}}
+
+	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: reader}, "0x0", nil)
+	require.NoError(t, err)
+
+	l := &launcher{}
+	syncer.AddListener(l)
+	require.NoError(t, syncer.Sync(t.Context(), false))
+
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	require.NotNil(t, l.localRegistry)
+	got := l.localRegistry.IDsToNodes[p2ptypes.PeerID(node.P2pId)]
+	require.Equal(t, donIDs, got.CapabilitiesDONIds)
 }

@@ -23,19 +23,15 @@ import (
 	mobyclient "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
-
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/topologyviz"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
@@ -44,8 +40,6 @@ import (
 	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/topologyviz"
 )
 
 const (
@@ -205,8 +199,6 @@ var StartCmdRecoverHandlerFunc = func(p any, persistedChipIngressStackState *env
 func startCmd() *cobra.Command {
 	var (
 		extraAllowedGatewayPorts []int
-		withExampleFlag          bool
-		exampleWorkflowTimeout   time.Duration
 		withPluginsDockerImage   string
 		doSetup                  bool
 		cleanupOnFailure         bool
@@ -355,6 +347,14 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to validate test configuration")
 			}
 
+			var extensionsDonFamily string
+			if in.Extensions != nil {
+				var extErr error
+				if extensionsDonFamily, extErr = validateExtensions(cmdContext, in); extErr != nil {
+					return errors.Wrap(extErr, "invalid extensions config")
+				}
+			}
+
 			topologySummary, _, topErr := generateTopologyArtifactsForLoadedConfig(in)
 			if topErr != nil {
 				framework.L.Warn().Err(topErr).Msg("failed to generate topology visualization artifacts")
@@ -365,6 +365,9 @@ func startCmd() *cobra.Command {
 			features := feature_set.New()
 			gatewayWhitelistConfig := defaultGatewayWhitelistConfig(in, extraAllowedGatewayPorts)
 			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, nil, features, nil, envDependencies, gatewayWhitelistConfig)
+			if startErr == nil && in.Extensions != nil {
+				startErr = errors.Wrap(startExtensions(cmdContext, in.Extensions, extensionsDonFamily, output), "failed to start extensions")
+			}
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
@@ -402,8 +405,6 @@ func startCmd() *cobra.Command {
 					framework.L.Warn().Err(err).Msg("failed to restore persisted Chip Ingress stack state after router re-registration")
 				}
 			}
-
-			registryChainOut := output.CreEnvironment.Blockchains[0]
 
 			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil, "")
 			if dxErr != nil {
@@ -488,39 +489,6 @@ func startCmd() *cobra.Command {
 					return errors.Wrap(startBillingErr, "failed to start Billing Platform Service")
 				}
 			}
-
-			if withExampleFlag {
-				if output.GatewayConnectors == nil || len(output.GatewayConnectors.Configurations) == 0 {
-					return errors.New("no gateway connector configurations found")
-				}
-
-				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
-				workflowRegistryAddress := libcontracts.MustGetAddressFromDataStore(output.CreEnvironment.CldfEnvironment.DataStore, output.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
-
-				var workflowDonID uint32
-				var donFamily string
-				for idx, don := range output.Dons.List() {
-					if don.HasFlag(cre.WorkflowDON) {
-						workflowDonID = libc.MustSafeUint32(idx + 1)
-						donFamily = don.DonFamily()
-						break
-					}
-				}
-
-				if workflowDonID == 0 {
-					return errors.New("no workflow DON found")
-				}
-
-				donFamily, familyErr := finalizeWorkflowDonFamily(donFamily)
-				if familyErr != nil {
-					return familyErr
-				}
-
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, donFamily, exampleWorkflowTimeout, workflowRegistryAddress, output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
-				if deployErr != nil {
-					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
-				}
-			}
 			fmt.Print(libformat.PurpleText("\nEnvironment setup completed successfully in %.2f seconds\n\n", time.Since(provisioningStartTime).Seconds()))
 			fmt.Print("To terminate execute:`go run . env stop`\n\n")
 
@@ -549,8 +517,6 @@ func startCmd() *cobra.Command {
 	cmd.Flags().DurationVarP(&cleanupWait, "wait-on-error-timeout", "w", 15*time.Second, "Time to wait before removing Docker containers if environment fails to start (e.g. 10s, 1m, 1h)")
 	cmd.Flags().BoolVarP(&cleanupOnFailure, "cleanup-on-error", "l", false, "Whether to remove Docker containers if startup fails")
 	cmd.Flags().IntSliceVarP(&extraAllowedGatewayPorts, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway Connector (e.g. 8080,8081)")
-	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploys and registers example workflow")
-	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
 	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "DEPRECATED:Docker image to use (set Docker image in TOML config instead)")
 	cmd.Flags().BoolVar(&withChipIngressStack, "with-chip-ingress-stack", false, "Deploy Chip Ingress stack (Chip Ingress + Red Panda)")
 	cmd.Flags().BoolVarP(&withChipIngressStack, "with-beholder", "b", false, "Deprecated: use --with-chip-ingress-stack. Deploy Chip Ingress stack (Chip Ingress + Red Panda)")
@@ -576,14 +542,18 @@ func setupDashboards(ctx context.Context, setupCfg SetupConfig) error {
 	}
 
 	// Wait for grafana at localhost:3000 to be available
-	var isGrafanaUp = func() bool {
+	isGrafanaUp := func() bool {
 		for range 30 {
 			time.Sleep(1 * time.Second)
-			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
-			_, err := http.DefaultClient.Do(req)
+			req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
+			if reqErr != nil {
+				continue
+			}
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				continue
 			}
+			_ = resp.Body.Close()
 			return true
 		}
 
@@ -681,6 +651,10 @@ func stopCmd() *cobra.Command {
 			removeErr := framework.RemoveTestContainers()
 			if removeErr != nil {
 				return errors.Wrap(removeErr, "failed to remove environment containers. Please remove them manually")
+			}
+
+			if err := stopExtensions(); err != nil {
+				framework.L.Warn().Msgf("failed to stop extensions: %s", err)
 			}
 
 			if allFlag {
@@ -854,6 +828,9 @@ func defaultGatewayWhitelistConfig(in *envconfig.Config, extraAllowedPorts []int
 	if in.FakeHTTP != nil {
 		ports = append(ports, in.FakeHTTP.Port)
 	}
+	if in.Extensions != nil {
+		ports = append(ports, artifactStorePort)
+	}
 
 	return gateway.WhitelistConfig{
 		ExtraAllowedPorts:   ports,
@@ -865,7 +842,7 @@ func StartCLIEnvironment(
 	cmdContext context.Context,
 	relativePathToRepoRoot string,
 	in *envconfig.Config,
-	capabilities []cre.InstallableCapability, // Deprecated: use Features instead
+	capabilities []cre.InstallableCapability, //nolint:staticcheck // use Features instead; retained for backward compatibility
 	features cre.Features,
 	extraJobSpecFunctions []cre.JobSpecFn,
 	env cre.CLIEnvironmentDependencies,
@@ -901,6 +878,9 @@ func StartCLIEnvironment(
 		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
 		ContractVersions:        env.ContractVersions(),
 	}
+	if in.Extensions != nil {
+		addExtensionsNodeOverrides(in.NodeSets)
+	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 20*time.Minute)
 	defer cancel()
@@ -924,31 +904,6 @@ func StartCLIEnvironment(
 	}
 
 	return universalSetupOutput, nil
-}
-
-func isBlockscoutRunning(cmdContext context.Context) bool {
-	dockerClient, err := mobyclient.New()
-	if err != nil {
-		return false
-	}
-
-	ctx, cancel := context.WithTimeout(cmdContext, 15*time.Second)
-	defer cancel()
-	listRes, err := dockerClient.ContainerList(ctx, mobyclient.ContainerListOptions{All: true})
-	if err != nil {
-		return false
-	}
-
-	for _, ctr := range listRes.Items {
-		if len(ctr.Names) == 0 {
-			continue
-		}
-		if strings.Contains(strings.ToLower(ctr.Names[0]), "blockscout") {
-			return true
-		}
-	}
-
-	return false
 }
 
 func PrintCRELogo() {

@@ -35,12 +35,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-ldap/ldap/v3"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -50,15 +50,17 @@ const (
 	UniqueMemberAttribute = "uniqueMember"
 )
 
-var ErrUserNotInUpstream = errors.New("LDAP query returned no matching users")
-var ErrUserNoLDAPGroups = errors.New("user present in directory, but matching no role groups assigned")
+var (
+	ErrUserNotInUpstream = errors.New("LDAP query returned no matching users")
+	ErrUserNoLDAPGroups  = errors.New("user present in directory, but matching no role groups assigned")
+)
 
 type ldapAuthenticator struct {
 	ds          sqlutil.DataSource
 	ldapClient  LDAPClient
 	config      config.LDAP
-	lggr        logger.Logger
-	auditLogger audit.AuditLogger
+	lggr        logger.SugaredLogger
+	auditLogger audit.Logger
 }
 
 // ldapAuthenticator implements sessions.AuthenticationProvider interface
@@ -69,7 +71,7 @@ func NewLDAPAuthenticator(
 	ldapCfg config.LDAP,
 	dev bool,
 	lggr logger.Logger,
-	auditLogger audit.AuditLogger,
+	auditLogger audit.Logger,
 ) (*ldapAuthenticator, error) {
 	// If not chainlink dev and not tls, error
 	if !dev && !ldapCfg.ServerTLS() {
@@ -92,7 +94,7 @@ func NewLDAPAuthenticator(
 		ds:          ds,
 		ldapClient:  newLDAPClient(ldapCfg),
 		config:      ldapCfg,
-		lggr:        lggr.Named("LDAPAuthenticationProvider"),
+		lggr:        logger.Sugared(lggr).Named("LDAPAuthenticationProvider"),
 		auditLogger: auditLogger,
 	}
 
@@ -238,13 +240,12 @@ func (l *ldapAuthenticator) FindUserByAPIToken(ctx context.Context, apiToken str
 // ListUsers will load and return all active users in applicable LDAP groups, extended with local admin users as well
 func (l *ldapAuthenticator) ListUsers(ctx context.Context) ([]sessions.User, error) {
 	// For each defined role/group, query for the list of group members to gather the full list of possible users
-	users := []sessions.User{}
 	var err error
 
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		l.lggr.Errorf("error in LDAP dial: %v", err)
-		return users, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
+		return nil, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
 
@@ -252,28 +253,29 @@ func (l *ldapAuthenticator) ListUsers(ctx context.Context) ([]sessions.User, err
 	adminUsers, err := l.ldapGroupMembersListToUser(conn, l.config.AdminUserGroupCN(), sessions.UserRoleAdmin)
 	if err != nil {
 		l.lggr.Errorf("error in ldapGroupMembersListToUser: %v", err)
-		return users, errors.New("unable to list group users")
+		return nil, errors.New("unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	editUsers, err := l.ldapGroupMembersListToUser(conn, l.config.EditUserGroupCN(), sessions.UserRoleEdit)
 	if err != nil {
 		l.lggr.Error("error in ldapGroupMembersListToUser: ", err)
-		return users, errors.New("unable to list group users")
+		return nil, errors.New("unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Run group
 	runUsers, err := l.ldapGroupMembersListToUser(conn, l.config.RunUserGroupCN(), sessions.UserRoleRun)
 	if err != nil {
 		l.lggr.Error("error in ldapGroupMembersListToUser: ", err)
-		return users, errors.New("unable to list group users")
+		return nil, errors.New("unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Read group
 	readUsers, err := l.ldapGroupMembersListToUser(conn, l.config.ReadUserGroupCN(), sessions.UserRoleView)
 	if err != nil {
 		l.lggr.Error("error in ldapGroupMembersListToUser: ", err)
-		return users, errors.New("unable to list group users")
+		return nil, errors.New("unable to list group users")
 	}
 
 	// Aggregate full list
+	users := make([]sessions.User, 0, len(adminUsers)+len(editUsers)+len(runUsers)+len(readUsers))
 	users = append(users, adminUsers...)
 	users = append(users, editUsers...)
 	users = append(users, runUsers...)
@@ -501,7 +503,7 @@ func (l *ldapAuthenticator) SetPassword(ctx context.Context, user *sessions.User
 }
 
 // TestPassword tests if an LDAP login bind can be performed with provided credentials, returns nil if success
-func (l *ldapAuthenticator) TestPassword(ctx context.Context, email string, password string) error {
+func (l *ldapAuthenticator) TestPassword(ctx context.Context, email, password string) error {
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		return errors.New("unable to establish connection to LDAP server with provided URL and credentials")
@@ -607,7 +609,7 @@ func (l *ldapAuthenticator) Sessions(ctx context.Context, offset, limit int) ([]
 	var sessions []sessions.Session
 	sql := `SELECT * FROM ldap_sessions ORDER BY created_at, id LIMIT $1 OFFSET $2;`
 	if err := l.ds.SelectContext(ctx, &sessions, sql, limit, offset); err != nil {
-		return sessions, nil
+		return nil, err
 	}
 	return sessions, nil
 }
@@ -782,7 +784,7 @@ func (l *ldapAuthenticator) groupSearchResultsToUserRole(ldapGroups []*ldap.Entr
 	)
 }
 
-func GroupSearchResultsToUserRole(ldapGroups []*ldap.Entry, adminCN string, editCN string, runCN string, readCN string) (sessions.UserRole, error) {
+func GroupSearchResultsToUserRole(ldapGroups []*ldap.Entry, adminCN, editCN, runCN, readCN string) (sessions.UserRole, error) {
 	// If defined Admin group name is present in groups search result, return UserRoleAdmin
 	for _, group := range ldapGroups {
 		if group.GetAttributeValue("cn") == adminCN {

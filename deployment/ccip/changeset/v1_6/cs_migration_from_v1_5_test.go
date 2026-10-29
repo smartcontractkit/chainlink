@@ -2,6 +2,7 @@ package v1_6_test
 
 import (
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf_deploy "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -33,7 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
-	ccipocr3types "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -96,6 +98,26 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg cldfproposalu
 		testhelpers.WithDONConfigurationSkipped(),
 	)
 	e := dEnv.Env
+	recordRef := func(chainSelector uint64, address common.Address, tv cldf_deploy.TypeAndVersion, qualifier string) error {
+		ds := datastore.NewMemoryDataStore()
+		if e.DataStore != nil {
+			if err := ds.Merge(e.DataStore); err != nil {
+				return err
+			}
+		}
+		version := tv.Version
+		if err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Address:       address.Hex(),
+			Type:          datastore.ContractType(tv.Type),
+			Version:       &version,
+			Qualifier:     qualifier,
+		}); err != nil {
+			return err
+		}
+		e.DataStore = ds.Seal()
+		return nil
+	}
 	chainSels := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily("evm"))
 
 	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
@@ -210,13 +232,14 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg cldfproposalu
 		if err != nil {
 			t.Fatalf("Failed to deploy PriceRegistry 1.2.0 on chain %d: %v", sel, err)
 		}
+		require.NoError(t, recordRef(sel, priceRegDeploy.Address, cldf_deploy.NewTypeAndVersion(shared.PriceRegistry, deployment.Version1_2_0), ""))
 
 		// Deploy one EVM2EVMOnRamp 1.5.0 & one EVM2EVMOffRamp for each of the other chains
 		for _, otherSel := range chainSels {
 			if otherSel == sel {
 				continue // Skip self
 			}
-			_, err = cldf_deploy.DeployContract(e.Logger, e.BlockChains.EVMChains()[sel], e.ExistingAddresses, func(chain evm.Chain) cldf_deploy.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp] {
+			onRampDeploy, err := cldf_deploy.DeployContract(e.Logger, e.BlockChains.EVMChains()[sel], e.ExistingAddresses, func(chain evm.Chain) cldf_deploy.ContractDeploy[*evm_2_evm_onramp.EVM2EVMOnRamp] {
 				addr, tx, onRamp, err := evm_2_evm_onramp.DeployEVM2EVMOnRamp(chain.DeployerKey, chain.Client,
 					evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
 						LinkToken:          state.Chains[sel].LinkToken.Address(),
@@ -287,6 +310,7 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg cldfproposalu
 			if err != nil {
 				t.Fatalf("Failed to deploy EVM2EVMOnRamp 1.5.0 on chain %d for %d: %v", sel, otherSel, err)
 			}
+			require.NoError(t, recordRef(sel, onRampDeploy.Address, cldf_deploy.NewTypeAndVersion(shared.OnRamp, deployment.Version1_5_0), strconv.FormatUint(otherSel, 10)))
 
 			commitStoreDeploy, err := cldf_deploy.DeployContract(e.Logger, e.BlockChains.EVMChains()[sel], e.ExistingAddresses, func(chain evm.Chain) cldf_deploy.ContractDeploy[*commit_store.CommitStore] {
 				addr, tx, commitStore, err := commit_store.DeployCommitStore(chain.DeployerKey, chain.Client,
@@ -308,8 +332,9 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg cldfproposalu
 			if err != nil {
 				t.Fatalf("Failed to deploy CommitStore 1.5.0 on chain %d for %d: %v", sel, otherSel, err)
 			}
+			require.NoError(t, recordRef(sel, commitStoreDeploy.Address, cldf_deploy.NewTypeAndVersion(shared.CommitStore, deployment.Version1_5_0), strconv.FormatUint(otherSel, 10)))
 
-			_, err = cldf_deploy.DeployContract(e.Logger, e.BlockChains.EVMChains()[sel], e.ExistingAddresses, func(chain evm.Chain) cldf_deploy.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
+			offRampDeploy, err := cldf_deploy.DeployContract(e.Logger, e.BlockChains.EVMChains()[sel], e.ExistingAddresses, func(chain evm.Chain) cldf_deploy.ContractDeploy[*evm_2_evm_offramp.EVM2EVMOffRamp] {
 				addr, tx, offRamp, err := evm_2_evm_offramp.DeployEVM2EVMOffRamp(chain.DeployerKey, chain.Client,
 					evm_2_evm_offramp.EVM2EVMOffRampStaticConfig{
 						CommitStore:         commitStoreDeploy.Address,
@@ -337,6 +362,7 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg cldfproposalu
 			if err != nil {
 				t.Fatalf("Failed to deploy EVM2EVMOffRamp 1.5.0 on chain %d for %d: %v", sel, otherSel, err)
 			}
+			require.NoError(t, recordRef(sel, offRampDeploy.Address, cldf_deploy.NewTypeAndVersion(shared.OffRamp, deployment.Version1_5_0), strconv.FormatUint(otherSel, 10)))
 		}
 	}
 
@@ -385,10 +411,8 @@ func TestInitAndPromoteChainUpgrades(t *testing.T) {
 				// #nosec G115 - Overflow is not a concern in this test scenario
 				FChain: uint8(len(readers) / 3),
 				EncodableChainConfig: chainconfig.ChainConfig{
-					//nolint:staticcheck // SA1019: Type required by ChainConfig
-					GasPriceDeviationPPB: ccipocr3types.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
-					//nolint:staticcheck // SA1019: Type required by ChainConfig
-					DAGasPriceDeviationPPB:    ccipocr3types.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+					GasPriceDeviationPPB:      ccipocr3common.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+					DAGasPriceDeviationPPB:    ccipocr3common.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
 					OptimisticConfirmations:   globals.OptimisticConfirmations,
 					ChainFeeDeviationDisabled: true,
 				},

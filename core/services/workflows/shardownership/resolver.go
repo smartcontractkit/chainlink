@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"strings"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -70,13 +71,14 @@ func (r *ringOCRShardResolver) GetRoutingResponse(ctx context.Context, workflowI
 }
 
 type manualShardResolver struct {
-	settings    *loop.AtomicSettings
-	orgResolver OrgResolver
-	lggr        logger.Logger
+	settings         *loop.AtomicSettings
+	orgResolver      OrgResolver
+	shardIndexMapper *ShardIndexMapper
+	lggr             logger.Logger
 }
 
-func NewManualShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, lggr logger.Logger) ShardResolver {
-	return &manualShardResolver{settings: settings, orgResolver: orgResolver, lggr: logger.Named(lggr, "ManualShardResolver")}
+func NewManualShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, lggr logger.Logger) ShardResolver {
+	return &manualShardResolver{settings: settings, orgResolver: orgResolver, shardIndexMapper: shardIndexMapper, lggr: logger.Named(lggr, "ManualShardResolver")}
 }
 
 func (m *manualShardResolver) ResolveShard(ctx context.Context, _ string, ownerHex string) (uint32, bool, error) {
@@ -84,7 +86,11 @@ func (m *manualShardResolver) ResolveShard(ctx context.Context, _ string, ownerH
 	if err != nil || cfg == nil {
 		return 0, false, err
 	}
-	return resolveManual(ctx, cfg, ownerHex, m.orgResolver)
+	shardIndex, found, err := resolveManual(ctx, cfg, ownerHex, m.orgResolver)
+	if err != nil || !found {
+		return 0, found, err
+	}
+	return m.toDonID(ctx, shardIndex), true, nil
 }
 
 func (m *manualShardResolver) ResolveAllShards(ctx context.Context, _ string, ownerHex string) ([]uint32, bool, error) {
@@ -92,7 +98,11 @@ func (m *manualShardResolver) ResolveAllShards(ctx context.Context, _ string, ow
 	if err != nil || cfg == nil {
 		return nil, false, err
 	}
-	return resolveAllManual(ctx, cfg, ownerHex, m.orgResolver)
+	shardIndices, found, err := resolveAllManual(ctx, cfg, ownerHex, m.orgResolver)
+	if err != nil || !found {
+		return nil, found, err
+	}
+	return m.toDonIDs(ctx, shardIndices), true, nil
 }
 
 func (m *manualShardResolver) ResolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error) {
@@ -108,15 +118,46 @@ func (m *manualShardResolver) ResolveShards(ctx context.Context, workflowIDs []s
 		if i >= len(ownerHexes) {
 			break
 		}
-		donID, found, err := resolveManual(ctx, cfg, ownerHexes[i], m.orgResolver)
+		shardIndex, found, err := resolveManual(ctx, cfg, ownerHexes[i], m.orgResolver)
 		if err != nil {
 			return nil, err
 		}
 		if found {
-			result[wfID] = donID
+			result[wfID] = m.toDonID(ctx, shardIndex)
 		}
 	}
 	return result, nil
+}
+
+// toDonID translates a configured shard index into the DON ID currently
+// assigned that index. Falls back to returning shardIndex unchanged when no
+// donIndex is wired, or the index is out of range for the current registry
+// snapshot.
+func (m *manualShardResolver) toDonID(ctx context.Context, shardIndex uint32) uint32 {
+	if m.shardIndexMapper == nil {
+		return shardIndex
+	}
+	// Prevent a boot-time race where a workflow is launched before
+	// the registry syncer has delivered its first snapshot.
+	// NOTE: consider waiting indefinitely or put a global lock earlier
+	waitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err := m.shardIndexMapper.WaitReady(waitCtx); err != nil {
+		m.lggr.Warnw("shard DON index not ready, resolving with a possibly incomplete registry view", "shardIndex", shardIndex, "err", err)
+	}
+	don := m.shardIndexMapper.DonByShardIndex(ctx, shardIndex)
+	if don == nil {
+		return shardIndex
+	}
+	return don.ID
+}
+
+func (m *manualShardResolver) toDonIDs(ctx context.Context, shardIndices []uint32) []uint32 {
+	donIDs := make([]uint32, len(shardIndices))
+	for i, idx := range shardIndices {
+		donIDs[i] = m.toDonID(ctx, idx)
+	}
+	return donIDs
 }
 
 func loadShardAssignmentConfig(settings *loop.AtomicSettings) (*cresettings.ShardAssignmentConfig, error) {
@@ -199,9 +240,9 @@ type overrideShardResolver struct {
 	lggr        logger.Logger
 }
 
-func NewOverrideShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, ringOCR ShardResolver, lggr logger.Logger) ShardResolver {
+func NewOverrideShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, ringOCR ShardResolver, lggr logger.Logger) ShardResolver {
 	return &overrideShardResolver{
-		manual:      &manualShardResolver{settings: settings, orgResolver: orgResolver, lggr: logger.Named(lggr, "ManualShardResolver")},
+		manual:      &manualShardResolver{settings: settings, orgResolver: orgResolver, shardIndexMapper: shardIndexMapper, lggr: logger.Named(lggr, "ManualShardResolver")},
 		orgResolver: orgResolver,
 		ringOCR:     ringOCR,
 		lggr:        logger.Named(lggr, "OverrideShardResolver"),
@@ -214,12 +255,12 @@ func (o *overrideShardResolver) ResolveShard(ctx context.Context, workflowID str
 		return 0, false, err
 	}
 	if cfg != nil {
-		donID, found, err := resolveManual(ctx, cfg, ownerHex, o.orgResolver)
+		shardIndex, found, err := resolveManual(ctx, cfg, ownerHex, o.orgResolver)
 		if err != nil {
 			return 0, false, err
 		}
 		if found {
-			return donID, true, nil
+			return o.manual.toDonID(ctx, shardIndex), true, nil
 		}
 	}
 	return o.ringOCR.ResolveShard(ctx, workflowID, ownerHex)
@@ -231,12 +272,12 @@ func (o *overrideShardResolver) ResolveAllShards(ctx context.Context, workflowID
 		return nil, false, cfgErr
 	}
 	if cfg != nil {
-		shards, found, resolveErr := resolveAllManual(ctx, cfg, ownerHex, o.orgResolver)
+		shardIndices, found, resolveErr := resolveAllManual(ctx, cfg, ownerHex, o.orgResolver)
 		if resolveErr != nil {
 			return nil, false, resolveErr
 		}
 		if found {
-			return shards, true, nil
+			return o.manual.toDonIDs(ctx, shardIndices), true, nil
 		}
 	}
 	shardID, found, err := o.ringOCR.ResolveShard(ctx, workflowID, ownerHex)
@@ -262,12 +303,12 @@ func (o *overrideShardResolver) ResolveShards(ctx context.Context, workflowIDs [
 		if i >= len(ownerHexes) {
 			break
 		}
-		donID, found, err := resolveManual(ctx, cfg, ownerHexes[i], o.orgResolver)
+		shardIndex, found, err := resolveManual(ctx, cfg, ownerHexes[i], o.orgResolver)
 		if err != nil {
 			return nil, err
 		}
 		if found {
-			result[wfID] = donID
+			result[wfID] = o.manual.toDonID(ctx, shardIndex)
 		} else {
 			ringWorkflowIDs = append(ringWorkflowIDs, wfID)
 		}

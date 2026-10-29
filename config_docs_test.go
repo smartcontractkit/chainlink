@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 )
@@ -17,11 +18,13 @@ var (
 )
 
 func TestConfigDocs(t *testing.T) {
+	t.Parallel()
+
 	config, err := docs.GenerateConfig()
-	assert.NoError(t, err, "invalid config docs")
+	require.NoError(t, err, "invalid config docs")
 	assert.Equal(t, configMD, config, "docs/CONFIG.md is out of date. Run 'make config-docs' to regenerate.")
 
 	secrets, err := docs.GenerateSecrets()
-	assert.NoError(t, err, "invalid secrets docs")
+	require.NoError(t, err, "invalid secrets docs")
 	assert.Equal(t, secretsMD, secrets, "docs/SECRETS.md is out of date. Run 'make config-docs' to regenerate.")
 }

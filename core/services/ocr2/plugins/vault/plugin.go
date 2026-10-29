@@ -33,14 +33,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -57,11 +57,12 @@ type ReportingPluginConfig struct {
 
 	// Sourced from the offchain config
 	MaxSecretsPerOwner              limits.BoundLimiter[int]
-	MaxShareLengthBytes             limits.BoundLimiter[pkgconfig.Size]
+	MaxShareLengthBytes             limits.BoundLimiter[commonconfig.Size]
 	MaxBatchSize                    limits.BoundLimiter[int]
 	MaxPendingQueueWriteSize        limits.BoundLimiter[int]
-	MaxBlobPayloadBytes             limits.BoundLimiter[pkgconfig.Size]
+	MaxBlobPayloadBytes             limits.BoundLimiter[commonconfig.Size]
 	VaultForceEmptyOCRRounds        limits.GateLimiter
+	VaultGetSecretsIncludePublicKey limits.GateLimiter
 	VaultPendingQueueStallThreshold limits.BoundLimiter[int]
 }
 
@@ -91,7 +92,7 @@ func NewReportingPluginFactory(
 	}
 
 	return &ReportingPluginFactory{
-		lggr:          lggr.Named("VaultReportingPluginFactory"),
+		lggr:          logger.Sugared(lggr).Named("VaultReportingPluginFactory"),
 		store:         store,
 		cfg:           cfg,
 		db:            db,
@@ -102,7 +103,7 @@ func NewReportingPluginFactory(
 }
 
 type ReportingPluginFactory struct {
-	lggr          logger.Logger
+	lggr          logger.SugaredLogger
 	store         *requests.Store[*vaulttypes.Request]
 	cfg           *ReportingPluginConfig
 	db            dkgocrtypes.ResultPackageDatabase
@@ -182,6 +183,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultForceEmptyOCRRounds: %w", err)
 	}
 
+	vaultGetSecretsIncludePublicKey, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultGetSecretsIncludePublicKeyEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("VaultGetSecretsIncludePublicKeyEnabled: %w", err)
+	}
+
 	vaultPendingQueueStallThreshold, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultPendingQueueStallThreshold)
 	if err != nil {
 		return nil, fmt.Errorf("VaultPendingQueueStallThreshold: %w", err)
@@ -202,6 +208,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		MaxBlobPayloadBytes:             maxBlobPayloadBytesLimiter,
 		MaxPendingQueueWriteSize:        maxPendingQueueWriteSizeLimiter,
 		VaultForceEmptyOCRRounds:        vaultForceEmptyOCRRounds,
+		VaultGetSecretsIncludePublicKey: vaultGetSecretsIncludePublicKey,
 		VaultPendingQueueStallThreshold: vaultPendingQueueStallThreshold,
 	}, nil
 }
@@ -296,7 +303,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
 
-	plugin := &ReportingPlugin{
+	return &ReportingPlugin{
 		lggr:                         r.lggr.Named("VaultReportingPlugin"),
 		store:                        r.store,
 		cfg:                          cfg,
@@ -314,15 +321,14 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
 			return handle.MarshalBinary()
 		},
-	}
-	return plugin, ocr3_1types.ReportingPluginInfo1{
+	}, ocr3_1types.ReportingPluginInfo1{
 		Name:   "VaultReportingPlugin",
 		Limits: pluginLimits,
 	}, nil
 }
 
 type ReportingPlugin struct {
-	lggr       logger.Logger
+	lggr       logger.SugaredLogger
 	store      *requests.Store[*vaulttypes.Request]
 	onchainCfg ocr3types.ReportingPluginConfig
 	cfg        *ReportingPluginConfig
@@ -557,7 +563,15 @@ func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 
 		if len(payload) > maxBlobBytes {
 			if len(currentBatch) == 0 {
-				return pendingQueueBlobPack{}, fmt.Errorf("single pending queue item exceeds max blob payload size (%d > %d)", len(payload), maxBlobBytes)
+				// The item can never be advertised so skip it
+				r.lggr.Warnw("single pending queue item exceeds max blob payload size; skipping",
+					"seqNr", seqNr,
+					"requestID", queueItem.ID(),
+					"payloadBytes", len(payload),
+					"maxBlobBytes", maxBlobBytes,
+				)
+				r.metrics.trackPendingQueueItemOversized(ctx, len(payload), maxBlobBytes)
+				continue
 			}
 			// Current batch is full; flush it and retry the same item on the next iteration.
 			var ferr error
@@ -586,7 +600,7 @@ func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 }
 
 func (r *ReportingPlugin) shouldPurgePendingQueue(ctx context.Context) bool {
-	if gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if r.isForceEmptyOCRRoundsEnabled(ctx) {
 		return true
 	}
 	stallThreshold, err := r.cfg.VaultPendingQueueStallThreshold.Limit(ctx)
@@ -629,6 +643,11 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		return nil, fmt.Errorf("could not generate nonce for observation: %w", ierr)
 	}
 	obspb.SortNonce = nonce
+
+	// Broadcast this node's view of the DKG public key so StateTransition can
+	// attach the quorum-agreed value to GetSecrets responses without reading
+	// node-local config, keeping StateTransition a pure function of observations.
+	obspb.RawVaultPublicKey = r.observedVaultPublicKey(ctx)
 
 	if shouldPurge := r.shouldPurgePendingQueue(ctx); shouldPurge {
 		obspb.PendingQueueStallSignal = vaultcommon.PendingQueueStallSignal_PENDING_QUEUE_STALL_SIGNAL_STALLED
@@ -1254,7 +1273,7 @@ func userFacingError(err error, fallback string) string {
 
 func logUserErrorAware(l logger.Logger, msg string, err error, keysAndValues ...any) {
 	keysAndValues = append(keysAndValues, "error", err)
-	lggr := l.Helper(1)
+	lggr := logger.Sugared(l).Helper(1)
 	if vaulttypes.IsUserError(err) {
 		lggr.Debugw(msg, keysAndValues...)
 		return
@@ -1289,7 +1308,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 
 	readKV := NewReadStore(keyValueReader, r.metrics)
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if !r.isForceEmptyOCRRoundsEnabled(ctx) {
 		var err error
 		pendingQueueItems, err = readKV.GetPendingQueue(ctx)
 		if err != nil {
@@ -1325,7 +1344,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	//   This is because honest nodes may omit tail items when the full Observations proto would exceed the
 	//   max observation byte limit.
 	// - that all pending queue items can be fetched as blobs.
-	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if !r.isForceEmptyOCRRoundsEnabled(ctx) {
 		if err := r.validatePendingQueueObservationsPrefix(pendingQueueItems, obs); err != nil {
 			return err
 		}
@@ -1434,7 +1453,7 @@ func (r *ReportingPlugin) ObservationQuorum(ctx context.Context, seqNr uint64, a
 		return true, nil
 	}
 
-	if gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if r.isForceEmptyOCRRoundsEnabled(ctx) {
 		return true, nil
 	}
 
@@ -1562,6 +1581,12 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		}
 		marshalledObs[uint8(ao.Observer)] = obs
 	}
+
+	// Aggregate the DKG public key from the observations once for the round; it is
+	// attached to every GetSecrets response below. Doing this over observations
+	// (rather than reading r.cfg) keeps StateTransition pure and tolerant of a
+	// staggered rollout of the include-public-key gate.
+	rawVaultPublicKey := r.aggregateVaultPublicKey(marshalledObs)
 
 	if stallSignalCount := countPendingQueueStallSignalsInMap(marshalledObs); stallSignalCount >= r.onchainCfg.F+1 {
 		return r.purgeStalledPendingQueue(ctx, l, writeKV, stallSignalCount)
@@ -1736,7 +1761,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		}
 		switch first.RequestType {
 		case vaultcommon.RequestType_GET_SECRETS:
-			r.stateTransitionGetSecrets(chosen, o)
+			r.stateTransitionGetSecrets(chosen, o, rawVaultPublicKey)
 		case vaultcommon.RequestType_CREATE_SECRETS:
 			r.stateTransitionCreateSecrets(ctx, writeKV, chosen, o)
 		case vaultcommon.RequestType_UPDATE_SECRETS:
@@ -1907,7 +1932,77 @@ func sortKey(id string, nonce []byte) []byte {
 	return h.Sum(nil)
 }
 
-func (r *ReportingPlugin) stateTransitionGetSecrets(chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
+// observedVaultPublicKey returns the marshaled DKG public key when the
+// include-public-key gate is open for this node, or nil otherwise. Each node
+// broadcasts this in its observation so StateTransition can aggregate it.
+func (r *ReportingPlugin) observedVaultPublicKey(ctx context.Context) []byte {
+	open, err := r.cfg.VaultGetSecretsIncludePublicKey.IsOpen(ctx)
+	if err != nil {
+		r.lggr.Errorw("unexpected error evaluating CRE gate", "gate", "VaultGetSecretsIncludePublicKey", "error", err)
+		return nil
+	}
+	if !open || r.cfg.PublicKey == nil {
+		return nil
+	}
+	pkb, mErr := r.cfg.PublicKey.Marshal()
+	if mErr != nil {
+		r.lggr.Errorw("could not marshal vault public key for observation", "error", mErr)
+		return nil
+	}
+	return pkb
+}
+
+// aggregateVaultPublicKey returns the hex-encoded DKG public key advertised by at
+// least F+1 observations (guaranteeing at least one honest node), or "" when no
+// such quorum exists. Honest nodes all broadcast the same instance key, so the
+// result is deterministic; selecting it here over observations rather than from
+// r.cfg keeps StateTransition pure and tolerant of a staggered gate rollout.
+func (r *ReportingPlugin) aggregateVaultPublicKey(marshalledObs map[uint8]*vaultcommon.Observations) string {
+	counts := map[string]int{}
+	for _, obs := range marshalledObs {
+		pk := obs.GetRawVaultPublicKey()
+		if len(pk) == 0 {
+			continue
+		}
+		counts[string(pk)]++
+	}
+
+	// Honest nodes all broadcast the same instance key, so more than one distinct
+	// key means some nodes disagree (config skew, mid-reshare, or Byzantine). Log
+	// the breakdown to aid debugging.
+	if len(counts) > 1 {
+		keyValues := make([]any, 0, 2*len(counts)+1)
+		keyValues = append(keyValues, "distinctKeys", len(counts))
+		for _, k := range slices.Sorted(maps.Keys(counts)) {
+			keyValues = append(keyValues, hex.EncodeToString([]byte(k)), counts[k])
+		}
+		r.lggr.Warnw("nodes reported differing vault public keys in observations", keyValues...)
+	}
+
+	threshold := r.onchainCfg.F + 1
+	var chosen string
+	// Iterate in sorted order and keep the last key meeting the threshold so the
+	// choice is deterministic even in the (cryptographically unreachable) case of
+	// two keys each reaching F+1.
+	for _, k := range slices.Sorted(maps.Keys(counts)) {
+		if counts[k] >= threshold {
+			chosen = k
+		}
+	}
+	if chosen == "" {
+		// Empty counts is the expected no-op when the include-public-key gate is off
+		// on all nodes; only flag the case where keys were advertised but none
+		// reached quorum, which is a genuine consensus failure.
+		if len(counts) > 0 {
+			r.lggr.Errorw("no vault public key reached quorum in observations; GetSecrets responses will omit RawVaultPublicKey",
+				"threshold", threshold, "distinctKeys", len(counts))
+		}
+		return ""
+	}
+	return hex.EncodeToString([]byte(chosen))
+}
+
+func (r *ReportingPlugin) stateTransitionGetSecrets(chosen []*vaultcommon.Observation, o *vaultcommon.Outcome, rawVaultPublicKey string) {
 	// Next, we deal with the responses.
 	// For each request, we take the Id of the first observation
 	// then aggregate the encrypted shares across all observations.
@@ -1932,15 +2027,24 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(chosen []*vaultcommon.Observ
 		}
 	}
 
-	sortedResponses := []*vaultcommon.SecretResponse{}
+	sortedResponses := make([]*vaultcommon.SecretResponse, 0, len(idToAggResponse))
 	for _, k := range slices.Sorted(maps.Keys(idToAggResponse)) {
 		sortedResponses = append(sortedResponses, idToAggResponse[k])
 	}
 
+	resp := &vaultcommon.GetSecretsResponse{
+		Responses: sortedResponses,
+	}
+
+	// Attach the vault public key of the DKG instance that produced these shares so
+	// decrypt-side callers read the matching key live from the response instead of
+	// from CapReg / static config. The value is the key agreed by a quorum of the
+	// observations for this round (see aggregateVaultPublicKey), so it is derived
+	// purely from observations rather than from node-local config.
+	resp.RawVaultPublicKey = rawVaultPublicKey
+
 	o.Response = &vaultcommon.Outcome_GetSecretsResponse{
-		GetSecretsResponse: &vaultcommon.GetSecretsResponse{
-			Responses: sortedResponses,
-		},
+		GetSecretsResponse: resp,
 	}
 }
 
@@ -2417,6 +2521,7 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxPendingQueueWriteSize.Close(),
 		r.cfg.MaxBlobPayloadBytes.Close(),
 		r.cfg.VaultForceEmptyOCRRounds.Close(),
+		r.cfg.VaultGetSecretsIncludePublicKey.Close(),
 		r.cfg.VaultPendingQueueStallThreshold.Close(),
 	)
 }

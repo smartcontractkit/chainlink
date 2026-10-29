@@ -44,9 +44,8 @@ type fakeModule struct {
 	closeCalls atomic.Int32
 }
 
-func (f *fakeModule) Start()            {}
-func (f *fakeModule) IsLegacyDAG() bool { return false }
-func (f *fakeModule) Close()            { f.closeCalls.Add(1) }
+func (f *fakeModule) Start() {}
+func (f *fakeModule) Close() { f.closeCalls.Add(1) }
 func (f *fakeModule) Execute(_ context.Context, _ *sdkpb.ExecuteRequest, _ host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
 	return &sdkpb.ExecutionResult{}, nil
 }
@@ -180,7 +179,6 @@ func TestEvictable_DelegatesToInner(t *testing.T) { //nolint:paralleltest // pac
 	result, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
-	assert.False(t, em.IsLegacyDAG())
 }
 
 func TestEvictable_LastUsedUpdated(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config

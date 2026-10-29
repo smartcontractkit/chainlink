@@ -1,8 +1,8 @@
 package pg
 
 import (
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonpg "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type (

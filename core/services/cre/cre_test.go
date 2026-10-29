@@ -8,10 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	registrysyncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 	registrysyncerV2Mocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2/mocks"
+	syncerV2Mocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -27,6 +29,7 @@ func (*registryListenerStub) OnNewRegistry(context.Context, *registry.RegistryMe
 type wfRegTestStub struct {
 	addr           string
 	additionalURLs []string
+	fetchMode      string
 }
 
 type wfRegAddSrcStub struct{ u string }
@@ -54,13 +57,14 @@ func (w wfRegTestStub) Address() string                         { return w.addr 
 func (w wfRegTestStub) NetworkID() string                       { return "" }
 func (w wfRegTestStub) ChainID() string                         { return "" }
 func (w wfRegTestStub) ContractVersion() string                 { return "" }
-func (w wfRegTestStub) MaxEncryptedSecretsSize() utils.FileSize { return 0 }
 func (w wfRegTestStub) MaxBinarySize() utils.FileSize           { return 0 }
 func (w wfRegTestStub) MaxConfigSize() utils.FileSize           { return 0 }
 func (w wfRegTestStub) RelayID() commontypes.RelayID            { return commontypes.RelayID{} }
 func (w wfRegTestStub) SyncStrategy() string                    { return "" }
 func (w wfRegTestStub) MaxConcurrency() int                     { return 0 }
 func (w wfRegTestStub) MaxActivationRetries() int               { return 0 }
+func (w wfRegTestStub) FetchMode() string                       { return w.fetchMode }
+func (w wfRegTestStub) FetchAllowedHosts() []string             { return nil }
 func (w wfRegTestStub) WorkflowStorage() config.WorkflowStorage { return wfRegStorageStub{} }
 func (w wfRegTestStub) ModuleCache() config.ModuleCache         { return wfRegModuleCacheStub{} }
 func (w wfRegTestStub) AdditionalSources() []config.AdditionalWorkflowSource {
@@ -75,40 +79,13 @@ func testWorkflowRegistry(addr string, urls ...string) config.CapabilitiesWorkfl
 	return wfRegTestStub{addr: addr, additionalURLs: urls}
 }
 
-func TestWorkflowRegistrySemverMajor(t *testing.T) {
-	t.Parallel()
-
-	major, err := workflowRegistrySemverMajor("")
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), major)
-
-	major, err = workflowRegistrySemverMajor("   ")
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), major)
-
-	major, err = workflowRegistrySemverMajor("2.0.0")
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), major)
-
-	major, err = workflowRegistrySemverMajor("1.0.0")
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), major)
-
-	_, err = workflowRegistrySemverMajor("not-a-version")
-	require.Error(t, err)
-}
-
 func TestWorkflowRegistryConfigured(t *testing.T) {
 	t.Parallel()
 
-	require.False(t, workflowRegistryConfigured(testWorkflowRegistry(""), 1))
-	require.False(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "  "), 1))
-	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xabc"), 1))
-
-	require.False(t, workflowRegistryConfigured(testWorkflowRegistry(""), 2))
-	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xdef"), 2))
-	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "https://example"), 2))
-	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "grpc://x"), 2))
+	require.False(t, workflowRegistryConfigured(testWorkflowRegistry("")))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xabc")))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "https://example")))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "grpc://x")))
 }
 
 func TestWireRegistrySyncerV2(t *testing.T) {
@@ -118,10 +95,11 @@ func TestWireRegistrySyncerV2(t *testing.T) {
 	ocrConfigService := registrysyncerV2Mocks.NewRegistrySyncer(t)
 	ocrConfigListener := &registryListenerStub{name: "OCR config service"}
 	wfLauncher := &registryListenerStub{name: "workflow launcher"}
+	shardIndexMapper := &registryListenerStub{name: "shard index mapper"}
 
-	registrySyncer.EXPECT().AddListener(ocrConfigListener, wfLauncher)
+	registrySyncer.EXPECT().AddListener(ocrConfigListener, wfLauncher, shardIndexMapper)
 
-	services := wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigListener, wfLauncher)
+	services := wireRegistrySyncerV2(registrySyncer, ocrConfigService, ocrConfigListener, wfLauncher, shardIndexMapper)
 	require.Len(t, services, 2)
 	require.Same(t, ocrConfigService, services[0])
 	require.Same(t, registrySyncer, services[1])
@@ -129,9 +107,32 @@ func TestWireRegistrySyncerV2(t *testing.T) {
 	var _ registrysyncerV2.Listener = (*registryListenerStub)(nil)
 }
 
-func TestNewLocalTestMetadataRegistry(t *testing.T) {
-	t.Parallel()
+type capabilitiesStub struct {
+	config.Capabilities
+	wfReg config.CapabilitiesWorkflowRegistry
+}
 
-	registry := newLocalTestMetadataRegistry(nil)
-	require.Equal(t, uint8(0), registry.WorkflowDONF)
+func (c capabilitiesStub) WorkflowRegistry() config.CapabilitiesWorkflowRegistry { return c.wfReg }
+
+func TestNewFetcherServiceV2_FetchMode(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	opts := Opts{StorageClient: syncerV2Mocks.NewWorkflowClient(t)}
+
+	t.Run("gateway mode requires gateway connector", func(t *testing.T) {
+		t.Parallel()
+		capCfg := capabilitiesStub{wfReg: wfRegTestStub{fetchMode: config.WorkflowFetchModeGateway}}
+		_, _, _, err := newFetcherServiceV2(opts, capCfg, lggr, nil)
+		require.ErrorContains(t, err, "without gateway connector")
+	})
+
+	t.Run("direct mode does not need gateway connector", func(t *testing.T) {
+		t.Parallel()
+		capCfg := capabilitiesStub{wfReg: wfRegTestStub{fetchMode: config.WorkflowFetchModeDirect}}
+		fetch, retrieve, srvs, err := newFetcherServiceV2(opts, capCfg, lggr, nil)
+		require.NoError(t, err)
+		require.NotNil(t, fetch)
+		require.NotNil(t, retrieve)
+		require.Empty(t, srvs)
+	})
 }

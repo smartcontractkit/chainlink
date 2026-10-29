@@ -118,39 +118,8 @@ jobs:
         id: define-matrix
         shell: bash
         env:
-          RUN_ID: ${{ github.run_id }}
-          RUN_ATTEMPT: ${{ github.run_attempt }}
-          SPOT_FLAG: ${{ steps.spot.outputs.spot_flag }}
-        run: |
-          # Tests worth running under mixed-env: the OCR3/DON2DON-heavy ones.
-          # The confidential relay test runs against its own topology (the
-          # standard mixed-env topology lacks the confidential-workflows /
-          # confidential-relay capabilities and ConfidentialWorkflows.Enabled).
-          TESTS='[
-            "Test_CRE_V2_Suite_Bucket_A",
-            "Test_CRE_V2_Suite_Bucket_B",
-            "Test_CRE_V2_EVM_Read_HeavyCalls",
-            "Test_CRE_V2_EVM_Read_StateQueries",
-            "Test_CRE_V2_EVM_Read_TxArtifacts"
-          ]'
-          # Per-test topology override. Tests not listed here default to the
-          # standard mixed-env topology (configs/mixed-env-don.toml).
-          PER_TEST_CONFIGS='{
-            "Test_CRE_V2_ConfidentialWorkflows_Relay": "configs/mixed-env-confidential-workflows.toml"
-          }'
-          matrix=$(jq -c -n \
-            --argjson tests "$TESTS" \
-            --argjson per "$PER_TEST_CONFIGS" \
-            --argjson run_id "$RUN_ID" \
-            --arg run_attempt "$RUN_ATTEMPT" \
-            --arg spot_flag "$SPOT_FLAG" '
-            $tests | to_entries | map({
-              test_name: .value,
-              test_id: .key,
-              configs: ($per[.value] // "configs/mixed-env-don.toml"),
-              runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/\($spot_flag)/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
-            })')
-          echo "matrix=$matrix" | tee -a "${GITHUB_OUTPUT}"
+          RUNNER_SPOT_FLAG: ${{ steps.spot.outputs.spot_flag }}
+        run: ci matrix mixed-env
 
   run-mixed-env-tests:
     name: ${{ matrix.tests.test_name }} (mixed-env)
@@ -189,20 +158,36 @@ jobs:
           persist-credentials: false
 
       - name: Set up Go
-        id: setup-go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+        uses: actions/setup-go@v7
         with:
-          go_mod_path: system-tests/tests/go.mod
-          # No Go build/restore: mixed-env runs the pre-compiled cre-smoke.test binary
-          # (restored below), and the non-determinism gate reuses that same binary — so
-          # nothing is compiled here and cache restore would only waste ~30-60s per run.
-          no_cache: true
+          go-version-file: system-tests/tests/go.mod
+          # The tests run a pre-compiled binary; only the toolchain is needed here.
+          # Modules they resolve at runtime come from the warmed cache below.
+          cache: false
+
+      - name: Restore CRE runtime module cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/cre-runtime-gomod
+          key: cre-runtime-gomod-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('system-tests/tests/smoke/cre/**/go.sum', 'system-tests/tests/regression/cre/**/go.sum', 'core/scripts/go.sum', 'go.sum') }}
+
+      - name: Point Go at the runtime module cache
+        shell: bash
+        run: echo "GOMODCACHE=${{ runner.temp }}/cre-runtime-gomod" >> "$GITHUB_ENV"
 
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6
         with:
           path: system-tests/tests/bin/
           key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
+
+      # compile-tests installs gotestsum alongside the test binaries, so a cache
+      # hit needs no install. A cold cache (standalone workflow_dispatch) falls
+      # back to installing it.
+      - name: Setup gotestsum
+        uses: ./.github/actions/setup-gotestsum
+        with:
+          bin-dir: ${{ github.workspace }}/system-tests/tests/bin
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
@@ -228,9 +213,6 @@ jobs:
           registry-type: public
         env:
           AWS_REGION: us-east-1
-
-      - name: Setup gotestsum
-        uses: ./.github/actions/setup-gotestsum
 
       - name: Resolve baseline (develop side) image
         id: baseline

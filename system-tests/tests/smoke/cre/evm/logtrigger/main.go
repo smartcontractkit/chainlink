@@ -9,14 +9,13 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
+
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
-	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
-	"github.com/stretchr/testify/require"
-
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
-
-	"gopkg.in/yaml.v3"
+	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 
 	logtrigger "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
 )

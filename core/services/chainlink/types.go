@@ -8,7 +8,6 @@ import (
 type GeneralConfig interface {
 	coreconfig.AppConfig
 	toml.HasEVMConfigs
-	CosmosConfigs() RawConfigs
 	SolanaConfigs() RawConfigs
 	StarknetConfigs() RawConfigs
 	AptosConfigs() RawConfigs

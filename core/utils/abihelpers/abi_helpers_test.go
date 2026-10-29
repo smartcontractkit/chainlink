@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestProofFlagToBits(t *testing.T) {
@@ -79,14 +80,14 @@ func TestABIEncodeDecode(t *testing.T) {
 	}{big.NewInt(10), big.NewInt(12)}}
 
 	encoded, err := ABIEncode(abiStr, values...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, encoded)
 
 	encodedAgain, err := ABIEncode(abiStr, values...)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, bytes.Equal(encoded, encodedAgain))
 
 	decoded, err := ABIDecode(abiStr, encoded)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, decoded, values)
 }

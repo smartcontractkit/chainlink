@@ -7,6 +7,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -33,7 +34,7 @@ func TestSetupFromNewConfig_SharedDONAndLegacyMethodRouting(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics()
+	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
 	require.NoError(t, err)
 
 	cfg := &config.GatewayConfig{
@@ -108,7 +109,7 @@ func TestSetupFromNewConfig_SharedDONAndLegacyMethodRouting(t *testing.T) {
 		"setupFromNewConfig should normalize node addresses before passing DON configs to handlers",
 	)
 
-	donConnMgr := connMgr.DONConnectionManager(config.ShardDONID("shared-don", 0))
+	donConnMgr := connMgr.DONConnectionManager(config.GatewayDONIDForShard("shared-don", 0))
 	require.NotNil(t, donConnMgr)
 
 	legacyHandler, err := donConnMgr.getHandler("legacyMethodWithoutServicePrefix")

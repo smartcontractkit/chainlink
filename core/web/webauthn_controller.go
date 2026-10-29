@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -63,7 +62,7 @@ func (w *WebAuthnController) FinishRegistration(c *gin.Context) {
 	ctx := c.Request.Context()
 	user, ok := auth.GetAuthenticatedUser(c)
 	if !ok {
-		logger.Sugared(w.App.GetLogger()).AssumptionViolationf("failed to obtain current user from context")
+		w.App.GetLogger().AssumptionViolationf("failed to obtain current user from context")
 		jsonAPIError(c, http.StatusInternalServerError, errors.New("unable to register key"))
 		return
 	}

@@ -90,8 +90,7 @@ func ensureSchema(tree toml.Tree) (errs error) {
 	}
 	schema := cresettings.Default // copy
 	if err := toml2.NewDecoder(strings.NewReader(string(b))).DisallowUnknownFields().Decode(&schema); err != nil {
-		var missingErr *toml2.StrictMissingError
-		if errors.As(err, &missingErr) {
+		if missingErr, ok := errors.AsType[*toml2.StrictMissingError](err); ok {
 			return fmt.Errorf("unknown fields - if these are new fields, then chainlink-common must be updated:\n%s", missingErr.String())
 		}
 		return fmt.Errorf("invalid toml settings: %w", err)

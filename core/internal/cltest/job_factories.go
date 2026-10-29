@@ -57,8 +57,10 @@ func MustInsertWebhookSpec(t *testing.T, ds sqlutil.DataSource, externalJobID ..
 		extID = externalJobID[0]
 	}
 
-	createdJob := job.Job{WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook",
-		ExternalJobID: extID, PipelineSpecID: pipelineSpecID}
+	createdJob := job.Job{
+		WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook",
+		ExternalJobID: extID, PipelineSpecID: pipelineSpecID, //nolint:staticcheck // SA1019: InsertJob persists the legacy jobs.pipeline_spec_id column
+	}
 	require.NoError(t, jobORM.InsertJob(ctx, &createdJob))
 
 	return createdJob, webhookSpec
@@ -72,5 +74,5 @@ func getORMs(t *testing.T, ds sqlutil.DataSource) (jobORM job.ORM, pipelineORM p
 	bridgeORM := bridges.NewORM(ds)
 	jobORM = job.NewORM(ds, pipelineORM, bridgeORM, keyStore, lggr)
 	t.Cleanup(func() { jobORM.Close() })
-	return
+	return jobORM, pipelineORM
 }

@@ -131,10 +131,12 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 	t.Run("returns nil error if gasLanePrice not set in job spec", func(tt *testing.T) {
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
+				VRFVersion:       vrfcommon.V2Plus,
 				PublicKey:        "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800",
 				FromAddresses:    []string{"0x1111111111111111111111111111111111111111"},
 				OmitGasLanePrice: true,
-			}).Toml())
+			},
+		).Toml())
 		require.NoError(tt, err)
 
 		cfg := vrf_mocks.NewFeeConfig(t)
@@ -142,7 +144,7 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 	})
 
 	t.Run("returns nil error on valid gas lane <=> key specific gas price setting", func(tt *testing.T) {
-		var fromAddresses []string
+		fromAddresses := make([]string, 0, 3)
 		for range 3 {
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
@@ -155,13 +157,15 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
+				VRFVersion:          vrfcommon.V2Plus,
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
 				ChunkSize:           25,
 				BackoffInitialDelay: time.Minute,
 				BackoffMaxDelay:     time.Hour,
 				GasLanePrice:        assets.GWei(100),
-			}).
+			},
+		).
 			Toml())
 		require.NoError(t, err)
 
@@ -169,7 +173,7 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 	})
 
 	t.Run("returns error on invalid setting", func(tt *testing.T) {
-		var fromAddresses []string
+		fromAddresses := make([]string, 0, 3)
 		for range 3 {
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
@@ -182,13 +186,15 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
+				VRFVersion:          vrfcommon.V2Plus,
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
 				ChunkSize:           25,
 				BackoffInitialDelay: time.Minute,
 				BackoffMaxDelay:     time.Hour,
 				GasLanePrice:        assets.GWei(100),
-			}).
+			},
+		).
 			Toml())
 		require.NoError(t, err)
 
@@ -204,21 +210,23 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
-		var fromAddresses []string
+		fromAddresses := make([]string, 0, 3)
 		for range 3 {
 			k, err := ks.Eth().Create(t.Context(), big.NewInt(1337))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			fromAddresses = append(fromAddresses, k.Address.Hex())
 		}
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
+				VRFVersion:          vrfcommon.V2Plus,
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
 				ChunkSize:           25,
 				BackoffInitialDelay: time.Minute,
 				BackoffMaxDelay:     time.Hour,
 				GasLanePrice:        assets.GWei(100),
-			}).
+			},
+		).
 			Toml())
 		assert.NoError(t, err)
 
@@ -232,24 +240,26 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
-		var fromAddresses []string
+		fromAddresses := make([]string, 0, 4)
 		for range 3 {
 			k, err := ks.Eth().Create(t.Context(), big.NewInt(1337))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			fromAddresses = append(fromAddresses, k.Address.Hex())
 		}
 		fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
+				VRFVersion:          vrfcommon.V2Plus,
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
 				ChunkSize:           25,
 				BackoffInitialDelay: time.Minute,
 				BackoffMaxDelay:     time.Hour,
 				GasLanePrice:        assets.GWei(100),
-			}).
+			},
+		).
 			Toml())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assert.Error(t, vrf.CheckFromAddressesExist(t.Context(), jb, ks.Eth()))
 	})
@@ -326,7 +336,8 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 		vuni.prm,
 		vuni.legacyChains,
 		logger.TestLogger(t),
-		mailMon)
+		mailMon,
+	)
 	chainService, err := vuni.legacyChains.Get(testutils.FixtureChainID.String())
 	require.NoError(t, err)
 	chain, ok := chainService.(legacyevm.Chain)

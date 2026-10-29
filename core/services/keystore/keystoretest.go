@@ -65,7 +65,6 @@ func NewInMemory(ds sqlutil.DataSource, scryptParams keystore.ScryptParams, logf
 
 	return &master{
 		keyManager:   km,
-		cosmos:       newCosmosKeyStore(km),
 		csa:          newCSAKeyStore(km),
 		eth:          newEthKeyStore(km, dbORM, ds),
 		ocr:          newOCRKeyStore(km),

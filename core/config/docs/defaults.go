@@ -4,25 +4,17 @@ import (
 	"log"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/config/configdoc"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
-var (
-	defaults toml.Core
-)
-
-func init() {
-	if err := configdoc.DefaultsOnly(strings.NewReader(coreTOML), &defaults, config.DecodeTOML); err != nil {
+func CoreDefaults() (c toml.Core) {
+	if err := configdoc.DefaultsOnly(strings.NewReader(coreTOML), &c, commonconfig.DecodeTOML); err != nil {
 		log.Fatalf("Failed to initialize defaults from docs: %v", err)
 	}
-}
-
-func CoreDefaults() (c toml.Core) {
-	c.SetFrom(&defaults)
 	c.Database.DriverName = pgcommon.DriverPostgres // not user visible - overridden for tests only
 	c.Tracing.Attributes = make(map[string]string)
-	return
+	return c
 }

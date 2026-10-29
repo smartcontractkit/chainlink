@@ -4,16 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -29,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 type EngineConfig struct {
@@ -57,6 +61,15 @@ type EngineConfig struct {
 
 	BeholderEmitter custmsg.MessageEmitter
 
+	// EventEmitter emits workflow platform events. Defaults to events.DefaultEmitter().
+	EventEmitter *events.Emitter
+
+	// Meter is the OTel meter the engine registers its metrics on. If nil,
+	// newBaseEngine falls back to beholder.GetMeter() at engine construction
+	// time, preserving the default read timing. It is deliberately NOT
+	// resolved in Validate.
+	Meter metric.Meter
+
 	Hooks         LifecycleHooks
 	BillingClient metering.BillingClient
 
@@ -67,6 +80,13 @@ type EngineConfig struct {
 
 	// OrgResolver is used to resolve organization IDs from workflow owners
 	OrgResolver orgresolver.OrgResolver
+
+	// MeterRecordsEnabled emits a cre:workflow:compute usage record per execution.
+	MeterRecordsEnabled bool
+	// MeteringIdentity is the node's [Metering] deployment dimensions; the engine adds service, pool and DON.
+	MeteringIdentity resourcemanager.DeploymentIdentity
+	// UsageEmitter delivers compute usage records; required when MeterRecordsEnabled.
+	UsageEmitter resourcemanager.Emitter
 
 	// includes additional logging of events internal to user workflows
 	DebugMode bool
@@ -80,31 +100,34 @@ type EngineConfig struct {
 	ShardRoutingSteady      *shardownership.SteadySignal
 	ShardResolver           shardownership.ShardResolver
 
-	TriggerAcknowledger Acknowledger
+	TriggerAcknowledger triggers.Acknowledger
+
+	CachedTriggerSubscriptions        []*sdkpb.TriggerSubscription
+	CachedTriggerSubscriptionsEnabled bool
 }
 
 type EngineLimiters struct {
 	// Settings is the CRE dynamic settings getter from [limits.Factory.Settings] (optional).
 	Settings settings.Getter
 
-	ExecutionResponse        limits.BoundLimiter[config.Size]
+	ExecutionResponse        limits.BoundLimiter[commonconfig.Size]
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
 	TriggerSubscription      limits.BoundLimiter[int]
-	TriggerEventQueue        limits.QueueLimiter[RoutedTriggerEvent]
-	TriggerEventQueueTime    limits.TimeLimiter
+	TriggerEventQueue        limits.QueueLimiter[triggers.CoordinatedEvent]
+	TriggerEventQueueTimeout limits.BoundLimiter[time.Duration]
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
-	WASMBinarySize           limits.BoundLimiter[config.Size]
-	WASMCompressedBinarySize limits.BoundLimiter[config.Size]
-	WASMMemorySize           limits.BoundLimiter[config.Size]
+	WASMBinarySize           limits.BoundLimiter[commonconfig.Size]
+	WASMCompressedBinarySize limits.BoundLimiter[commonconfig.Size]
+	WASMMemorySize           limits.BoundLimiter[commonconfig.Size]
 
 	CapabilityConcurrency limits.ResourcePoolLimiter[int]
 	SecretsConcurrency    limits.ResourcePoolLimiter[int]
 	ExecutionTime         limits.TimeLimiter
 	CapabilityCallTime    limits.TimeLimiter
 	LogEvent              limits.BoundLimiter[int]
-	LogLine               limits.BoundLimiter[config.Size]
+	LogLine               limits.BoundLimiter[commonconfig.Size]
 	ChainAllowed          limits.GateLimiter
 
 	ChainWriteTargets     limits.BoundLimiter[int]
@@ -115,7 +138,7 @@ type EngineLimiters struct {
 	SecretsCalls          limits.BoundLimiter[int]
 
 	UserMetricEnabled          limits.GateLimiter
-	UserMetricPayload          limits.BoundLimiter[config.Size]
+	UserMetricPayload          limits.BoundLimiter[commonconfig.Size]
 	UserMetricNameLength       limits.BoundLimiter[int]
 	UserMetricLabelsPerMetric  limits.BoundLimiter[int]
 	UserMetricLabelValueLength limits.BoundLimiter[int]
@@ -124,7 +147,13 @@ type EngineLimiters struct {
 	ConfidentialWorkflowsEnabled                limits.GateLimiter
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
 	ShardingFailoverEnabled                     limits.GateLimiter
+	TimeoutBasedFailover                        limits.GateLimiter
+	TimeoutBasedFailoverWindow                  limits.TimeLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
+
+	// newTriggerEventQueue builds a trigger event queue from the same factory and
+	// setting as TriggerEventQueue, for a coordinator's trigger registration to own.
+	newTriggerEventQueue func() (limits.QueueLimiter[triggers.CoordinatedEvent], error)
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -157,11 +186,14 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
-	l.TriggerEventQueue, err = limits.MakeQueueLimiter[RoutedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
+	l.TriggerEventQueue, err = limits.MakeQueueLimiter[triggers.CoordinatedEvent](lf, cfg.TriggerEventQueueLimit)
 	if err != nil {
 		return err
 	}
-	l.TriggerEventQueueTime, err = lf.MakeTimeLimiter(cfg.TriggerEventQueueTimeout)
+	l.newTriggerEventQueue = func() (limits.QueueLimiter[triggers.CoordinatedEvent], error) {
+		return limits.MakeQueueLimiter[triggers.CoordinatedEvent](lf, cfg.TriggerEventQueueLimit)
+	}
+	l.TriggerEventQueueTimeout, err = limits.MakeUpperBoundLimiter(lf, cfg.TriggerEventQueueTimeout)
 	if err != nil {
 		return err
 	}
@@ -280,10 +312,15 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
-	shardingFailoverSetting := settings.Bool(false)
-	shardingFailoverSetting.Key = "ShardingFailoverEnabled"
-	shardingFailoverSetting.Scope = settings.ScopeGlobal
-	l.ShardingFailoverEnabled, err = limits.MakeGateLimiter(lf, shardingFailoverSetting)
+	l.ShardingFailoverEnabled, err = limits.MakeGateLimiter(lf, cresettings.Default.ShardingFailoverEnabled)
+	if err != nil {
+		return err
+	}
+	l.TimeoutBasedFailover, err = limits.MakeGateLimiter(lf, cresettings.Default.TimeoutBasedFailover)
+	if err != nil {
+		return err
+	}
+	l.TimeoutBasedFailoverWindow, err = lf.MakeTimeLimiter(cresettings.Default.TimeoutBasedFailoverWindow)
 	if err != nil {
 		return err
 	}
@@ -305,7 +342,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,
 		l.TriggerEventQueue,
-		l.TriggerEventQueueTime,
+		l.TriggerEventQueueTimeout,
 		l.ExecutionConcurrency,
 		l.WASMBinarySize,
 		l.WASMMemorySize,
@@ -349,7 +386,7 @@ func (l *EngineLimiters) Close() error {
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,
 		l.TriggerEventQueue,
-		l.TriggerEventQueueTime,
+		l.TriggerEventQueueTimeout,
 		l.ExecutionConcurrency,
 		l.WASMBinarySize,
 		l.WASMMemorySize,
@@ -379,12 +416,29 @@ func (l *EngineLimiters) Close() error {
 	)
 }
 
+// Admission returns the limiters a trigger coordinator admits events with.
+// ExecutionConcurrency is this same instance, so coordinated and legacy
+// executions share every concurrency limit. Each registration gets its own
+// trigger event queue, built from the same setting as TriggerEventQueue, so an
+// engine evicting its workflow from these limiters never touches it.
+func (l *EngineLimiters) Admission() triggers.AdmissionLimiters {
+	return triggers.AdmissionLimiters{
+		NewTriggerEventQueue:     l.newTriggerEventQueue,
+		TriggerEventQueueTimeout: l.TriggerEventQueueTimeout,
+		ExecutionConcurrency:     l.ExecutionConcurrency,
+	}
+}
+
 type EngineFeatureFlags struct {
 	// WorkflowTagBackfill gates the reconciler backfill of workflow_specs_v2.workflow_tag.
 	// The Check succeeds only when time.Now() is inside the configured active period,
 	// which lets ops schedule a healing window across the DON via cresettings.
 	// Nil when construction fails; call sites must nil-check.
-	WorkflowTagBackfill limits.RangeLimiter[config.Timestamp]
+	WorkflowTagBackfill limits.RangeLimiter[commonconfig.Timestamp]
+
+	// CoordinatedEngine selects the coordinatedEngine over the legacy trigger-owning
+	// Engine for newly created workflows. Nil when construction fails; call sites must nil-check.
+	CoordinatedEngine limits.GateLimiter
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -392,13 +446,26 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}
-	workflowTagBackfill, err := limits.MakeRangeLimiter[config.Timestamp](lf, cfg.FeatureWorkflowTagBackfillActivePeriod)
+	workflowTagBackfill, err := limits.MakeRangeLimiter[commonconfig.Timestamp](lf, cfg.FeatureWorkflowTagBackfillActivePeriod)
 	if err != nil {
 		return nil, fmt.Errorf("workflow tag backfill flag: %w", err)
 	}
+
+	coordinatedEngine, err := limits.MakeGateLimiter(lf, cresettings.Default.CoordinatedEngineEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("coordinated engine flag: %w", err)
+	}
 	return &EngineFeatureFlags{
 		WorkflowTagBackfill: workflowTagBackfill,
+		CoordinatedEngine:   coordinatedEngine,
 	}, nil
+}
+
+func (e *EngineFeatureFlags) Close() error {
+	if e == nil || e.WorkflowTagBackfill == nil {
+		return nil
+	}
+	return e.WorkflowTagBackfill.Close()
 }
 
 const (
@@ -418,17 +485,16 @@ type LifecycleHooks struct {
 	// has completed initialization. It is also helpful for testing.
 	OnInitialized func(err error)
 
-	// OnSubscriptionsReady is called after the WASM Subscribe call returns
-	// and the subscriptions have been validated, but before trigger
-	// registration begins. It allows the caller (syncer/dispatcher) to
-	// inspect or modify the subscriptions before they are registered with
-	// the capabilities registry. Returning an error aborts initialization.
-	OnSubscriptionsReady    func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error
+	// OnSubscriptionsReady is called once trigger subscriptions are available,
+	// whether freshly computed by the WASM Subscribe call or returned from
+	// EngineConfig.CachedTriggerSubscriptions; fromCache distinguishes the two
+	OnSubscriptionsReady func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE, fromCache bool) error
+
 	OnSubscribedToTriggers  func(triggerIDs []string)
 	OnTriggerEventDropped   func(triggerID, eventID, reason string)
-	OnExecutionFinished     func(executionID string, status string)
+	OnExecutionFinished     func(executionID, status string)
 	OnExecutionError        func(msg string)
-	OnExecutionStatusUpdate func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification)
+	OnExecutionStatusUpdate func(workflowID, executionID, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification)
 	OnResultReceived        func(*sdkpb.ExecutionResult)
 	OnRateLimited           func(executionID string)
 	OnNodeSynced            func(node commoncap.Node, err error)
@@ -441,7 +507,7 @@ type LifecycleHooks struct {
 	//   - ErrAdmissionCache: the event was cached by the admission layer;
 	//     the engine drops it without ACKing.
 	//   - any other error: the event is denied; the engine ACKs and drops it.
-	OnTriggerAdmission func(ctx context.Context, event RoutedTriggerEvent) error
+	OnTriggerAdmission func(ctx context.Context, event triggers.CoordinatedEvent) error
 
 	// Used by the standalone engine
 	OnRequirementsSet func(executionId string, requirements *sdkpb.Requirements)
@@ -466,6 +532,9 @@ func (c *EngineConfig) Validate() error {
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
 	}
+	if c.MeterRecordsEnabled && c.UsageEmitter == nil {
+		return errors.New("usage emitter not set")
+	}
 
 	_, err := types.WorkflowIDFromHex(c.WorkflowID)
 	if err != nil {
@@ -486,6 +555,10 @@ func (c *EngineConfig) Validate() error {
 
 	if c.BeholderEmitter == nil {
 		return errors.New("beholder emitter not set")
+	}
+
+	if c.EventEmitter == nil {
+		c.EventEmitter = events.DefaultEmitter()
 	}
 
 	if c.FeatureFlags == nil {
@@ -514,7 +587,7 @@ func (h *LifecycleHooks) setDefaultHooks() {
 		h.OnInitialized = func(err error) {}
 	}
 	if h.OnSubscriptionsReady == nil {
-		h.OnSubscriptionsReady = func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error { return nil }
+		h.OnSubscriptionsReady = func(_ []*sdkpb.TriggerSubscription, _ contexts.CRE, _ bool) error { return nil }
 	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
@@ -532,11 +605,11 @@ func (h *LifecycleHooks) setDefaultHooks() {
 		h.OnExecutionFinished = func(executionID, status string) {}
 	}
 	if h.OnExecutionStatusUpdate == nil {
-		h.OnExecutionStatusUpdate = func(workflowID string, executionID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
+		h.OnExecutionStatusUpdate = func(workflowID, executionID, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
 		}
 	}
 	if h.OnTriggerAdmission == nil {
-		h.OnTriggerAdmission = func(_ context.Context, _ RoutedTriggerEvent) error { return nil }
+		h.OnTriggerAdmission = func(_ context.Context, _ triggers.CoordinatedEvent) error { return nil }
 	}
 	if h.OnRateLimited == nil {
 		h.OnRateLimited = func(executionID string) {}
