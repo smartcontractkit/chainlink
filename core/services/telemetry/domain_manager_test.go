@@ -15,6 +15,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -426,4 +428,45 @@ func TestSupportedTelemetry_SourcesSitUnderTheirDomain(t *testing.T) {
 		assert.True(t, source == string(d) || strings.HasPrefix(source, string(d)+"."),
 			"%s: source %q is not under domain %q", telemType, source, d)
 	}
+}
+
+func newObservedDomainManager(t *testing.T, src DomainEmitterSource) (*DomainManager, *observer.ObservedLogs) {
+	t.Helper()
+	lggr, logs := logger.TestObserved(t, zapcore.WarnLevel)
+	m, err := NewDomainManager(src, testCSAPubKeyHex, lggr,
+		WithMeterProvider(sdkmetric.NewMeterProvider(sdkmetric.WithReader(sdkmetric.NewManualReader()))))
+	require.NoError(t, err)
+	return m, logs
+}
+
+// A refused event means telemetry is being lost, so the first refusal per route and error code
+// is logged at Error; repeats are only counted.
+func TestDomainManager_LogsTheFirstRefusalPerRouteAtError(t *testing.T) {
+	t.Parallel()
+	src := newFakeEmitterSource()
+	src[beholder.DomainDataFeeds].emitErr = errors.New("not started")
+	m, logs := newObservedDomainManager(t, src)
+
+	ep := m.GenMonitoringEndpoint("EVM", ethMainnetChainID, "0xabc", synchronization.OCR2Median)
+	for range 3 {
+		ep.SendLog([]byte("p"))
+	}
+
+	refusals := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet("refused").All()
+	require.Len(t, refusals, 1, "logged once, however many events are refused")
+	assert.Equal(t, synchronization.OCR2Median, refusals[0].ContextMap()["telemType"])
+}
+
+func TestDomainManager_WarnsOnceForAnUnsupportedTypeOnAMultitypeEndpoint(t *testing.T) {
+	t.Parallel()
+	m, logs := newObservedDomainManager(t, newFakeEmitterSource())
+
+	ep := m.GenMultitypeMonitoringEndpoint("EVM", ethMainnetChainID, "0xabc/1")
+	for range 3 {
+		ep.SendTypedLog(synchronization.LLOReport, []byte("p"))
+	}
+
+	warnings := logs.FilterLevelExact(zapcore.WarnLevel).FilterMessageSnippet("not supported").All()
+	require.Len(t, warnings, 1)
+	assert.Equal(t, synchronization.LLOReport, warnings[0].ContextMap()["telemType"])
 }

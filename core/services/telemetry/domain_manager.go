@@ -56,13 +56,18 @@ func supportedTelemetryDomains() map[synchronization.TelemetryType]beholder.Doma
 }
 
 // Metric names and attribute values. The manager's metrics are OTel (Beholder) metrics, so they
-// reach us from every node; the existing Prometheus telemetry counters are incremented too, so
-// node-local dashboards keep working.
+// reach us from every node.
+//
+// It also increments the existing Prometheus telemetry_client_messages_{sent,send_errors,dropped}
+// counters for node-local dashboards, with two differences from the WSRPC path: they count
+// messages, where the WSRPC batch worker counts batches, and their endpoint label is
+// "beholder/<domain>" rather than the ingress URL. Unsupported types and chains are counted only
+// in OTel (telemetry_messages_unsupported_total).
 const (
-	metricMessagesSent        = "telemetry.messages_sent"
-	metricMessagesSendErrors  = "telemetry.messages_send_errors"
-	metricMessagesDropped     = "telemetry.messages_dropped"
-	metricMessagesUnsupported = "telemetry.messages_unsupported"
+	metricMessagesSent        = "telemetry_messages_sent_total"
+	metricMessagesSendErrors  = "telemetry_messages_send_errors_total"
+	metricMessagesDropped     = "telemetry_messages_dropped_total"
+	metricMessagesUnsupported = "telemetry_messages_unsupported_total"
 
 	unsupportedReasonTelemetryType = "telemetry_type"
 	unsupportedReasonChain         = "chain"
@@ -83,12 +88,13 @@ type DomainManager struct {
 	services.Service
 	eng *services.Engine
 
-	routes        map[synchronization.TelemetryType]*telemetryRoute
-	csaPubKeyHex  string
-	meterProvider otelmetric.MeterProvider
-	metrics       domainManagerMetrics
-	now           func() time.Time
-	reported      sync.Map // keys of unsupported types and chains already logged
+	routes          map[synchronization.TelemetryType]*telemetryRoute
+	csaPubKeyHex    string
+	meterProvider   otelmetric.MeterProvider
+	metrics         domainManagerMetrics
+	now             func() time.Time
+	reported        sync.Map // keys of unsupported types, chains and refusals already logged
+	unsupportedOpts sync.Map // "<type>/<reason>" -> otelmetric.AddOption
 }
 
 // telemetryRoute is where one telemetry type goes, with its metric handles precomputed.
@@ -219,16 +225,14 @@ func newDomainManagerMetrics(mp otelmetric.MeterProvider) (m domainManagerMetric
 func (m *DomainManager) GenMonitoringEndpoint(network string, chainID string, contractID string, telemType synchronization.TelemetryType) commontypes.MonitoringEndpoint {
 	route, ok := m.routes[telemType]
 	if !ok {
-		m.reportOnce("type:"+string(telemType), func() {
-			m.eng.Warnw("Telemetry type is not supported: its telemetry will be dropped", "telemType", telemType)
-		})
+		m.warnUnsupportedType(telemType)
 		return &unsupportedAgent{m: m, telemType: telemType, reason: unsupportedReasonTelemetryType}
 	}
 	selector, ok := m.chainSelector(network, chainID)
 	if !ok {
 		return &unsupportedAgent{m: m, telemType: telemType, reason: unsupportedReasonChain}
 	}
-	return &domainAgent{m: m, route: route, network: strings.ToLower(network), contractID: contractID, selector: selector}
+	return &domainAgent{m: m, route: route, target: m.newEventTarget(network, contractID, selector)}
 }
 
 // GenMultitypeMonitoringEndpoint returns an endpoint whose messages carry their own type.
@@ -237,7 +241,24 @@ func (m *DomainManager) GenMultitypeMonitoringEndpoint(network string, chainID s
 	if !ok {
 		return &unsupportedAgent{m: m, reason: unsupportedReasonChain}
 	}
-	return &multitypeDomainAgent{m: m, network: strings.ToLower(network), contractID: contractID, selector: selector}
+	return &multitypeDomainAgent{m: m, target: m.newEventTarget(network, contractID, selector)}
+}
+
+// eventTarget holds an endpoint's per-event values, computed once when the endpoint is created.
+type eventTarget struct {
+	network      string // lower case, e.g. "evm"
+	contractID   string
+	selector     string // decimal chain selector
+	partitionKey string // <contractID>-<csaPubKeyHex>, the Kafka record key, as OTI's
+}
+
+func (m *DomainManager) newEventTarget(network, contractID string, selector uint64) eventTarget {
+	return eventTarget{
+		network:      strings.ToLower(network),
+		contractID:   contractID,
+		selector:     strconv.FormatUint(selector, 10),
+		partitionKey: contractID + "-" + m.csaPubKeyHex,
+	}
 }
 
 // chainSelector resolves the job's chain to its chain-selectors selector, which legacy-mode chip
@@ -260,19 +281,30 @@ func (m *DomainManager) reportOnce(key string, report func()) {
 	}
 }
 
-// send builds the event and hands it to the route's emitter. Fates are counted; the emitter
-// rate-limits its own failure logs.
-func (m *DomainManager) send(route *telemetryRoute, network, contractID string, selector uint64, telemetry []byte) {
+// send builds the event and hands it to the route's emitter. Fates are counted; publish failures
+// are logged (rate-limited) by the emitter, and events that never reach it are logged here, once
+// per route and error code, since they mean telemetry is being lost.
+func (m *DomainManager) send(route *telemetryRoute, target eventTarget, telemetry []byte) {
 	// SendLog has no context (libocr's MonitoringEndpoint); the emitter only queues.
 	ctx := context.Background()
-	ev, err := m.newEvent(route, network, contractID, selector, telemetry)
+	ev, err := m.newEvent(route, target, telemetry)
 	if err != nil {
-		m.recordDropped(ctx, route, errorCodeEventBuild)
+		m.refused(ctx, route, errorCodeEventBuild, err)
 		return
 	}
 	if err := route.emitter.EmitEvent(ctx, ev, func(sendErr error) { m.recordFate(ctx, route, sendErr) }); err != nil {
-		m.recordDropped(ctx, route, errorCodeEmitRejected)
+		m.refused(ctx, route, errorCodeEmitRejected, err)
 	}
+}
+
+// refused counts an event that never reached the emitter's buffer and logs the first one per
+// route and error code at Error.
+func (m *DomainManager) refused(ctx context.Context, route *telemetryRoute, code string, err error) {
+	m.recordDropped(ctx, route, code)
+	m.reportOnce("refused:"+string(route.telemType)+"/"+code, func() {
+		m.eng.Errorw("Telemetry refused: it is being dropped (further refusals are only counted)",
+			"telemType", route.telemType, "domain", route.domain, "errorCode", code, "err", err)
+	})
 }
 
 // recordFate counts an event's fate as reported by the emitter: published, failed to publish,
@@ -305,17 +337,30 @@ func (r *telemetryRoute) errorOpt(code string) otelmetric.AddOption {
 	return v.(otelmetric.AddOption)
 }
 
+// countUnsupported counts a dropped message whose type or chain is not supported. The metric
+// option is cached per (type, reason): unsupported LLO types arrive on the hot path.
 func (m *DomainManager) countUnsupported(telemType synchronization.TelemetryType, reason string) {
-	m.metrics.unsupported.Add(context.Background(), 1, otelmetric.WithAttributes(
-		attribute.String("telemetry_type", string(telemType)),
-		attribute.String("reason", reason),
-	))
+	key := string(telemType) + "/" + reason
+	v, ok := m.unsupportedOpts.Load(key)
+	if !ok {
+		v, _ = m.unsupportedOpts.LoadOrStore(key, otelmetric.WithAttributes(
+			attribute.String("telemetry_type", string(telemType)),
+			attribute.String("reason", reason),
+		))
+	}
+	m.metrics.unsupported.Add(context.Background(), 1, v.(otelmetric.AddOption))
+}
+
+func (m *DomainManager) warnUnsupportedType(telemType synchronization.TelemetryType) {
+	m.reportOnce("type:"+string(telemType), func() {
+		m.eng.Warnw("Telemetry type is not supported: its telemetry will be dropped", "telemType", telemType)
+	})
 }
 
 // newEvent builds the CloudEvent legacy-mode chip ingress expects. Each extension becomes a
 // "ce_<name>" Kafka header; the comments name the header OTI used for the same value. Chip
 // ingress derives nodeoperatorname/nodename (from the CSA key's NOP info) and receivedat itself.
-func (m *DomainManager) newEvent(route *telemetryRoute, network, contractID string, selector uint64, telemetry []byte) (chipingress.CloudEvent, error) {
+func (m *DomainManager) newEvent(route *telemetryRoute, target eventTarget, telemetry []byte) (chipingress.CloudEvent, error) {
 	now := m.now()
 	event, err := chipingress.NewEvent(route.source, route.entity, telemetry, map[string]any{
 		"time":         now.UTC(),
@@ -324,45 +369,42 @@ func (m *DomainManager) newEvent(route *telemetryRoute, network, contractID stri
 	if err != nil {
 		return event, fmt.Errorf("failed creating CloudEvent: %w", err)
 	}
-	event.SetExtension("legacytelemetry", "true")                         // marks node-sent legacy telemetry
-	event.SetExtension("telemetrytype", string(route.telemType))          // "telemetry-type"
-	event.SetExtension("chainselector", strconv.FormatUint(selector, 10)) // chain-selectors ID of the job's chain
-	event.SetExtension("networkname", network)                            // lower case, e.g. "evm"
-	event.SetExtension("contractid", contractID)                          // "contract-address"
-	event.SetExtension("csapublickey", m.csaPubKeyHex)                    // "node-operator-csa-public-key"
-	event.SetExtension("partitionkey", contractID+"-"+m.csaPubKeyHex)     // Kafka record key, as OTI's
-	event.SetExtension("sentat", strconv.FormatInt(now.UnixNano(), 10))   // "sent-at", unix ns as over WSRPC
+	event.SetExtension("legacytelemetry", "true")                       // marks node-sent legacy telemetry
+	event.SetExtension("telemetrytype", string(route.telemType))        // "telemetry-type"
+	event.SetExtension("chainselector", target.selector)                // chain-selectors ID of the job's chain
+	event.SetExtension("networkname", target.network)                   // lower case, e.g. "evm"
+	event.SetExtension("contractid", target.contractID)                 // "contract-address"
+	event.SetExtension("csapublickey", m.csaPubKeyHex)                  // "node-operator-csa-public-key"
+	event.SetExtension("partitionkey", target.partitionKey)             // Kafka record key, as OTI's
+	event.SetExtension("sentat", strconv.FormatInt(now.UnixNano(), 10)) // "sent-at", unix ns as over WSRPC
 	return event, nil
 }
 
 // domainAgent sends one telemetry type through its domain's emitter.
 type domainAgent struct {
-	m          *DomainManager
-	route      *telemetryRoute
-	network    string
-	contractID string
-	selector   uint64
+	m      *DomainManager
+	route  *telemetryRoute
+	target eventTarget
 }
 
 func (a *domainAgent) SendLog(telemetry []byte) {
-	a.m.send(a.route, a.network, a.contractID, a.selector, telemetry)
+	a.m.send(a.route, a.target, telemetry)
 }
 
 // multitypeDomainAgent routes each message by the type it carries.
 type multitypeDomainAgent struct {
-	m          *DomainManager
-	network    string
-	contractID string
-	selector   uint64
+	m      *DomainManager
+	target eventTarget
 }
 
 func (a *multitypeDomainAgent) SendTypedLog(telemType synchronization.TelemetryType, telemetry []byte) {
 	route, ok := a.m.routes[telemType]
 	if !ok {
+		a.m.warnUnsupportedType(telemType)
 		a.m.countUnsupported(telemType, unsupportedReasonTelemetryType)
 		return
 	}
-	a.m.send(route, a.network, a.contractID, a.selector, telemetry)
+	a.m.send(route, a.target, telemetry)
 }
 
 // unsupportedAgent drops everything it is given and counts it. telemType is empty for a
