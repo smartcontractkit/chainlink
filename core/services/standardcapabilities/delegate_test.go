@@ -259,10 +259,11 @@ func TestResolveCapabilityDonID(t *testing.T) {
 			donWithNodes(20, node(localPeerID)),
 		}, nil)
 
-		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
+		got, err := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return localPeerID, nil
 		}, capabilityID)
 
+		require.NoError(t, err)
 		assert.Equal(t, uint32(20), got)
 	})
 
@@ -274,10 +275,11 @@ func TestResolveCapabilityDonID(t *testing.T) {
 			donWithNodes(10, node(testPeerID(2))),
 		}, nil)
 
-		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
+		got, err := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return localPeerID, nil
 		}, capabilityID)
 
+		require.NoError(t, err)
 		assert.Equal(t, uint32(0), got)
 	})
 
@@ -290,35 +292,38 @@ func TestResolveCapabilityDonID(t *testing.T) {
 			donWithNodes(20, node(localPeerID)),
 		}, nil)
 
-		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
+		got, err := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return localPeerID, nil
 		}, capabilityID)
 
+		require.NoError(t, err)
 		assert.Equal(t, uint32(0), got)
 	})
 
-	t.Run("falls back to 0 when getPeerID fails", func(t *testing.T) {
+	t.Run("errors for retry when getPeerID fails", func(t *testing.T) {
 		t.Parallel()
 
 		registry := mocks.NewCapabilitiesRegistry(t)
 
-		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
+		got, err := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return p2ptypes.PeerID{}, errors.New("dispatcher not ready")
 		}, capabilityID)
 
+		require.Error(t, err)
 		assert.Equal(t, uint32(0), got)
 	})
 
-	t.Run("falls back to 0 when registry call fails", func(t *testing.T) {
+	t.Run("errors for retry when registry call fails", func(t *testing.T) {
 		t.Parallel()
 
 		registry := mocks.NewCapabilitiesRegistry(t)
 		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return(nil, errors.New("registry unavailable"))
 
-		got := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
+		got, err := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
 			return localPeerID, nil
 		}, capabilityID)
 
+		require.Error(t, err)
 		assert.Equal(t, uint32(0), got)
 	})
 }
