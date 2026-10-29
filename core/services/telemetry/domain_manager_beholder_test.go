@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress/batch"
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
@@ -98,14 +99,15 @@ func startChipServer(t *testing.T, chip *capturingChipServer) string {
 func startBeholderClient(t *testing.T, addr string, tune func(*beholder.Config)) (client *beholder.Client, closeClient func() error) {
 	t.Helper()
 	cfg := beholder.Config{
-		OtelExporterGRPCEndpoint:         addr,
-		InsecureConnection:               true,
-		ChipIngressEmitterEnabled:        true,
-		ChipIngressEmitterGRPCEndpoint:   addr,
-		ChipIngressInsecureConnection:    true,
-		ChipIngressSendInterval:          10 * time.Millisecond,
-		ChipIngressDomainEmittersEnabled: true,
-		AuthHeaders:                      map[string]string{"X-Beholder-Node-Auth-Token": "1:abc:2:def"},
+		OtelExporterGRPCEndpoint:       addr,
+		InsecureConnection:             true,
+		ChipIngressEmitterEnabled:      true,
+		ChipIngressEmitterGRPCEndpoint: addr,
+		ChipIngressInsecureConnection:  true,
+		ChipIngressSendInterval:        10 * time.Millisecond,
+		ChipDomainEmittersEnabled:      true,
+		ChipIngressLogger:              logger.Test(t),
+		AuthHeaders:                    map[string]string{"X-Beholder-Node-Auth-Token": "1:abc:2:def"},
 	}
 	if tune != nil {
 		tune(&cfg)

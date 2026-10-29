@@ -64,11 +64,12 @@ func TestNewTelemetryManager(t *testing.T) {
 		t.Cleanup(srv.Stop)
 
 		client, err := beholder.NewGRPCClient(beholder.Config{
-			OtelExporterGRPCEndpoint:         lis.Addr().String(),
-			InsecureConnection:               true,
-			ChipIngressEmitterGRPCEndpoint:   lis.Addr().String(),
-			ChipIngressInsecureConnection:    true,
-			ChipIngressDomainEmittersEnabled: true,
+			OtelExporterGRPCEndpoint:       lis.Addr().String(),
+			InsecureConnection:             true,
+			ChipIngressEmitterGRPCEndpoint: lis.Addr().String(),
+			ChipIngressInsecureConnection:  true,
+			ChipDomainEmittersEnabled:      true,
+			ChipIngressLogger:              logger.TestLogger(t),
 		}, func(...otlploggrpc.Option) (sdklog.Exporter, error) { return nopLogExporter{}, nil })
 		require.NoError(t, err)
 		require.NoError(t, client.Start(t.Context()))
