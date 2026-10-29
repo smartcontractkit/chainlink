@@ -179,6 +179,9 @@ jobs:
           echo "Setting up environment with: $ENV_CMD"
           eval "$ENV_CMD"
 
+      - name: Start coverage flusher
+        uses: $/.github/actions/start-coverage-flusher
+
       - name: Run tests
         working-directory: devenv/tests/${{ matrix.tests_dir }}
         env:

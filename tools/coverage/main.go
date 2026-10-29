@@ -7,6 +7,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -115,7 +116,7 @@ func runMerge(args []string) error {
 	}
 	dirs := splitList(*covdata)
 	if len(dirs) == 0 {
-		return fmt.Errorf("--covdata is required")
+		return errors.New("--covdata is required")
 	}
 	for _, dir := range dirs {
 		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
@@ -159,7 +160,7 @@ func runReport(args []string) error {
 	}
 	profilePaths := splitList(*profiles)
 	if len(profilePaths) == 0 {
-		return fmt.Errorf("--profile is required")
+		return errors.New("--profile is required")
 	}
 
 	blocks, err := loadProfiles(profilePaths)
@@ -177,7 +178,7 @@ func runReport(args []string) error {
 
 	if *base != "" || *head != "" {
 		if *base == "" || *head == "" {
-			return fmt.Errorf("--base and --head must be provided together")
+			return errors.New("--base and --head must be provided together")
 		}
 		diff, err := gitDiff(*repo, *base, *head)
 		if err != nil {

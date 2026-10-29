@@ -84,7 +84,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: coverage-tools-${{ matrix.target.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: coverage-tools-${{ strategy.job-index }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: .covdata/tools-${{ strategy.job-index }}
           retention-days: 7
           if-no-files-found: warn
