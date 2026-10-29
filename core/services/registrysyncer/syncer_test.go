@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"google.golang.org/protobuf/proto"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -286,7 +287,7 @@ func TestReader_Integration(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	factory := newContractReaderFactory(t, sim)
 	syncerORM := registrysyncer.NewORM(db, logger.Test(t))
-	syncer, err := registrysyncer.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
+	syncer, err := registrysyncer.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -578,7 +579,7 @@ func newTestSyncer(
 	registryAddress string,
 	orm *orm,
 ) (registrysyncer.RegistrySyncer, error) {
-	rs, err := registrysyncer.New(lggr, getPeerID, relayer, registryAddress, orm)
+	rs, err := registrysyncer.New(lggr, getPeerID, relayer, registryAddress, orm, noop.NewMeterProvider().Meter("test"))
 	if err != nil {
 		return nil, err
 	}

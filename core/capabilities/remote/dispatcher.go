@@ -13,7 +13,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -45,6 +44,7 @@ type dispatcher struct {
 	stopCh            services.StopChan
 	wg                sync.WaitGroup
 	lggr              logger.Logger
+	meter             metric.Meter
 
 	metrics dispatcherMetrics
 }
@@ -70,7 +70,7 @@ type key struct {
 
 var _ services.Service = &dispatcher{}
 
-func NewDispatcher(cfg config.Dispatcher, don2donSharedPeer p2ptypes.SharedPeer, signer p2ptypes.Signer, registry registry.CapabilitiesRegistry, lggr logger.Logger, lf limits.Factory) (*dispatcher, error) {
+func NewDispatcher(cfg config.Dispatcher, don2donSharedPeer p2ptypes.SharedPeer, signer p2ptypes.Signer, registry registry.CapabilitiesRegistry, lggr logger.Logger, lf limits.Factory, meter metric.Meter) (*dispatcher, error) {
 	if don2donSharedPeer == nil {
 		return nil, errors.New("don2donSharedPeer is required")
 	}
@@ -89,40 +89,41 @@ func NewDispatcher(cfg config.Dispatcher, don2donSharedPeer p2ptypes.SharedPeer,
 		stopCh:            make(services.StopChan),
 		lggr:              logger.Named(lggr, "Dispatcher"),
 		don2donSharedPeer: don2donSharedPeer,
+		meter:             meter,
 	}, nil
 }
 
 func (d *dispatcher) initMetrics() error {
 	var err error
-	d.metrics.sharedPeerMsgsRcvdCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_shared_peer_msgs_rcvd_total")
+	d.metrics.sharedPeerMsgsRcvdCounter, err = d.meter.Int64Counter("platform_don2don_dispatcher_shared_peer_msgs_rcvd_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_shared_peer_msgs_rcvd_total): %w", err)
 	}
-	d.metrics.rateLimitedMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_rate_limited_msgs_total")
+	d.metrics.rateLimitedMsgsCounter, err = d.meter.Int64Counter("platform_don2don_dispatcher_rate_limited_msgs_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_rate_limited_msgs_total: %w", err)
 	}
-	d.metrics.invalidMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_invalid_msgs_total")
+	d.metrics.invalidMsgsCounter, err = d.meter.Int64Counter("platform_don2don_dispatcher_invalid_msgs_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_invalid_msgs_total: %w", err)
 	}
-	d.metrics.unknownCapMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_unknown_capability_msgs_total")
+	d.metrics.unknownCapMsgsCounter, err = d.meter.Int64Counter("platform_don2don_dispatcher_unknown_capability_msgs_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_unknown_capability_msgs_total: %w", err)
 	}
-	d.metrics.receiveChannelUsageGauge, err = beholder.GetMeter().Float64Gauge("platform_don2don_dispatcher_receive_channel_usage")
+	d.metrics.receiveChannelUsageGauge, err = d.meter.Float64Gauge("platform_don2don_dispatcher_receive_channel_usage")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_receive_channel_usage: %w", err)
 	}
-	d.metrics.receiverDroppedMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_receiver_dropped_msgs_total")
+	d.metrics.receiverDroppedMsgsCounter, err = d.meter.Int64Counter("platform_don2don_dispatcher_receiver_dropped_msgs_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_receiver_dropped_msgs_total: %w", err)
 	}
-	d.metrics.messagesSentCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_messages_sent_total")
+	d.metrics.messagesSentCounter, err = d.meter.Int64Counter("platform_don2don_dispatcher_messages_sent_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_messages_sent_total: %w", err)
 	}
-	d.metrics.sendErrorsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_send_errors_total")
+	d.metrics.sendErrorsCounter, err = d.meter.Int64Counter("platform_don2don_dispatcher_send_errors_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_send_errors_total: %w", err)
 	}

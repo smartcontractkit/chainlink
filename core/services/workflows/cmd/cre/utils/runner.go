@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -93,10 +94,6 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capreg.Reg
 		srvcs = append(srvcs, cap)
 	}
 
-	if cfg.EnableBeholder {
-		_ = SetupBeholder(logger.Named(cfg.Lggr, "Fake_Stdlog_Beholder"))
-	}
-
 	return registry, srvcs
 }
 
@@ -104,13 +101,28 @@ var defaultWait = func(ctx context.Context, cfg RunnerConfig, registry *capreg.R
 	<-ctx.Done()
 }
 
+// newBeholderClient returns the beholder client the standalone engine uses for
+// metrics and platform events, plus a func that releases it. With beholder
+// disabled the CLI uses a no-op client.
+func newBeholderClient(cfg RunnerConfig) (*beholder.Client, func()) {
+	if !cfg.EnableBeholder {
+		return beholder.NewNoopClient(), func() {}
+	}
+
+	client, err := NewBeholderClient(logger.Named(cfg.Lggr, "Fake_Stdlog_Beholder"))
+	if err != nil {
+		fmt.Printf("Failed to create beholder client: %v\n", err)
+		os.Exit(1)
+	}
+
+	return client, func() { _ = client.Close() }
+}
+
 var defaultCleanup = func(ctx context.Context, cfg RunnerConfig, registry *capreg.Registry, services []services.Service) {
 	for _, service := range services {
 		cfg.Lggr.Infow("Shutting down", "id", service.Name())
 		_ = service.Close()
 	}
-
-	_ = cleanupBeholder()
 }
 
 func DefaultHooks() *RunnerHooks {
@@ -143,6 +155,8 @@ func (r *Runner) Run(
 ) {
 	cfg.Lggr.Infof("executing engine in process: %d", os.Getpid())
 
+	beholderClient, closeBeholder := newBeholderClient(cfg)
+
 	registry, services := r.hooks.Initialize(ctx, cfg)
 
 	billingAddress := ""
@@ -150,7 +164,7 @@ func (r *Runner) Run(
 		billingAddress = "localhost:4319"
 	}
 
-	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, billingAddress, cfg.LifecycleHooks, workflowName, cfg.WorkflowSettingsCfgFn)
+	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, billingAddress, cfg.LifecycleHooks, workflowName, cfg.WorkflowSettingsCfgFn, beholderClient.Meter, beholderClient.Emitter)
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)
@@ -165,6 +179,9 @@ func (r *Runner) Run(
 		fmt.Printf("Failed to start engine: %v\n", err)
 		os.Exit(1)
 	}
+	// Declared after the os.Exit paths: the process is exiting there, so there is
+	// nothing to release. Runs after the engine's Close below (defers are LIFO).
+	defer closeBeholder()
 	defer func() {
 		if err2 := engine.Close(); err2 != nil {
 			fmt.Printf("Failed to close engine: %v\n", err2)

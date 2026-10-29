@@ -5,8 +5,6 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 // connectorMetrics holds Beholder-backed metrics for the gateway connector.
@@ -14,11 +12,10 @@ type connectorMetrics struct {
 	gatewaysPerDon metric.Int64Gauge
 }
 
-// newConnectorMetrics constructs the connector metrics. Returns nil and a
-// non-nil error if the Beholder meter is unavailable; callers should treat a
-// nil *connectorMetrics as "metrics disabled" and skip recording.
-func newConnectorMetrics() (*connectorMetrics, error) {
-	gatewaysPerDon, err := beholder.GetMeter().Int64Gauge("platform_gateway_connector_gateways_per_don")
+// newConnectorMetrics constructs the connector metrics on meter. Callers
+// should treat a nil *connectorMetrics as "metrics disabled" and skip recording.
+func newConnectorMetrics(meter metric.Meter) (*connectorMetrics, error) {
+	gatewaysPerDon, err := meter.Int64Gauge("platform_gateway_connector_gateways_per_don")
 	if err != nil {
 		return nil, err
 	}

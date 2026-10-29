@@ -329,18 +329,9 @@ func initCCVCommand(s *Shell) cli.Command {
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0o700)
 
-// beholderEmitter returns the shell's own beholder emitter when the client is
-// configured, falling back to the global one (resolved at emit time) otherwise.
-func (s *Shell) beholderEmitter() beholder.Emitter {
-	if s.BeholderClient != nil && s.BeholderClient.Emitter != nil {
-		return s.BeholderClient.Emitter
-	}
-	return beholder.GlobalEmitter()
-}
-
 // EmitNodeConfig emits the node configuration through beholder as a pb.BaseMessage
 func (s *Shell) EmitNodeConfig(ctx context.Context) {
-	cme := custmsg.NewLabelerWithEmitter(s.beholderEmitter())
+	cme := custmsg.NewLabelerWithEmitter(s.BeholderClient.Emitter)
 	labels := map[string]string{
 		"system":  "Application",
 		"version": static.Version,
@@ -373,7 +364,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	lggr := logger.Sugared(s.Logger.Named("RunNode"))
 	lggr.Infow("configuration args", "config files", s.configFiles, "secret files", s.secretsFiles)
 
-	beholderConfigRecorder := beholderServices.NewConfigRecorder(lggr, 1*time.Hour)
+	beholderConfigRecorder := beholderServices.NewConfigRecorder(lggr, s.BeholderClient, 1*time.Hour)
 	if err := beholderConfigRecorder.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start beholder config recorder service: %w", err)
 	}
@@ -428,7 +419,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		os.Exit(-1)
 	})
 
-	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
+	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore, s.BeholderClient)
 	if err != nil {
 		return s.errorOut(fmt.Errorf("fatal error instantiating application: %w", err))
 	}
@@ -780,7 +771,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	lggr := logger.Sugared(s.Logger.Named("RebroadcastTransactions"))
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, s.Registerer, s.DS, s.KeyStore)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, s.Registerer, s.DS, s.KeyStore, s.BeholderClient)
 	if err != nil {
 		return s.errorOut(fmt.Errorf("fatal error instantiating application: %w", err))
 	}
@@ -1145,7 +1136,7 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 		s.afterNode(lggr)
 	})
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore, s.BeholderClient)
 	if err != nil {
 		return s.errorOut(fmt.Errorf("fatal error instantiating application: %w", err))
 	}

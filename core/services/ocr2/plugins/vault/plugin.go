@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/sync/errgroup"
@@ -74,6 +75,7 @@ func NewReportingPluginFactory(
 	lazyPublicKey *vaultcap.LazyPublicKey,
 	limitsFactory limits.Factory,
 	lifecycle *vaultcap.RequestLifecycleTracker,
+	meter metric.Meter,
 ) (*ReportingPluginFactory, error) {
 	if db == nil {
 		return nil, errors.New("result package db cannot be nil")
@@ -99,6 +101,7 @@ func NewReportingPluginFactory(
 		recipientKey:  recipientKey,
 		limitsFactory: limitsFactory,
 		lifecycle:     lifecycle,
+		meter:         meter,
 	}, nil
 }
 
@@ -110,6 +113,7 @@ type ReportingPluginFactory struct {
 	recipientKey  *dkgrecipientkey.Key
 	limitsFactory limits.Factory
 	lifecycle     *vaultcap.RequestLifecycleTracker
+	meter         metric.Meter
 }
 
 func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID string) (publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, err error) {
@@ -263,7 +267,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	cfg.PublicKey = publicKey
 	cfg.PrivateKeyShare = privateKeyShare
 
-	metrics, err := newPluginMetrics(config.ConfigDigest.String())
+	metrics, err := newPluginMetrics(config.ConfigDigest.String(), r.meter)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create plugin metrics: %w", err)
 	}

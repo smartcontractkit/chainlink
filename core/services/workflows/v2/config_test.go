@@ -8,6 +8,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncaps "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -48,8 +49,15 @@ func TestEngineConfig_Validate(t *testing.T) {
 		require.Error(t, cfg.Validate())
 	})
 
+	t.Run("nil meter", func(t *testing.T) { //nolint:paralleltest // subtests mutate shared config
+		cfg.Module = modulemocks.NewModuleV2(t)
+		cfg.Meter = nil
+		require.ErrorContains(t, cfg.Validate(), "meter not set")
+	})
+
 	t.Run("success", func(t *testing.T) { //nolint:paralleltest // subtests mutate shared config
 		cfg.Module = modulemocks.NewModuleV2(t)
+		cfg.Meter = noop.NewMeterProvider().Meter("test")
 		require.NoError(t, cfg.Validate())
 		require.NotEqual(t, 0, cfg.LocalLimits.HeartbeatFrequencyMs)
 		require.NotEqual(t, 0, cfg.LocalLimits.ShutdownTimeoutMs)
@@ -99,6 +107,7 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 		FeatureFlags:                  featureFlags,
 		GlobalWorkflowLimit:           sLimiter,
 		BeholderEmitter:               &noopBeholderEmitter{},
+		Meter:                         noop.NewMeterProvider().Meter("test"),
 		BillingClient:                 metmocks.NewBillingClient(t),
 		WorkflowRegistryAddress:       "0x123",
 		WorkflowRegistryChainSelector: "11155111", // Sepolia chain ID

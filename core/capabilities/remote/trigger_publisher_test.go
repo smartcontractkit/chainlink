@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
@@ -161,7 +162,7 @@ func TestTriggerPublisher_AckEvent_ForwardedOnceAfterQuorum(t *testing.T) {
 		registrationsCh: make(chan commoncap.TriggerRegistrationRequest, 2),
 		eventCh:         make(chan commoncap.TriggerResponse, 2),
 	}
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, logger.Test(t))
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, logger.Test(t), noop.Meter{})
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, map[uint32]commoncap.DON{workflowDONID: workflowDonInfo}))
 	servicetest.Run(t, publisher)
 
@@ -212,7 +213,7 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := mocks.NewDispatcher(t)
-		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr, noop.Meter{})
 		config := &commoncap.RemoteTriggerConfig{}
 		err := publisher.SetConfig(config, nil, capDonInfo, workflowDONs)
 		require.Error(t, err)
@@ -223,7 +224,7 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := mocks.NewDispatcher(t)
-		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr, noop.Meter{})
 		// Set config as nil - should use defaults
 		err := publisher.SetConfig(nil, underlying, capDonInfo, workflowDONs)
 		require.NoError(t, err)
@@ -238,7 +239,7 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := mocks.NewDispatcher(t)
-		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr, noop.Meter{})
 		config := &commoncap.RemoteTriggerConfig{
 			RegistrationRefresh:     100 * time.Millisecond,
 			RegistrationExpiry:      100 * time.Second,
@@ -259,7 +260,7 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := mocks.NewDispatcher(t)
-		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr, noop.Meter{})
 		// Set initial config
 		initialConfig := &commoncap.RemoteTriggerConfig{
 			RegistrationRefresh:     100 * time.Millisecond,
@@ -331,7 +332,7 @@ func newServices(t *testing.T, capabilityDONID, workflowDONID, maxBatchSize uint
 		registrationsCh: make(chan commoncap.TriggerRegistrationRequest, 2),
 		eventCh:         make(chan commoncap.TriggerResponse, 2),
 	}
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr, noop.Meter{})
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	servicetest.Run(t, publisher)
 	return underlying, publisher, dispatcher, peers
@@ -492,7 +493,7 @@ func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
 		BatchCollectionPeriod:   time.Second,
 	}
 
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr, noop.Meter{})
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	require.NoError(t, publisher.Start(ctx))
 
@@ -597,7 +598,7 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 
 	underlying := newMultiTrigger(capInfo)
 
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr, noop.Meter{})
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	servicetest.Run(t, publisher)
 
@@ -677,7 +678,7 @@ func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
 		BatchCollectionPeriod:   time.Second,
 	}
 
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr, noop.Meter{})
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 
 	checkReceived := make(chan *remotetypes.MessageBody, 10)
@@ -758,7 +759,7 @@ func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
 		mu.Unlock()
 	}).Return(nil).Maybe()
 
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr, noop.Meter{})
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	servicetest.Run(t, publisher)
 
@@ -833,7 +834,7 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 		BatchCollectionPeriod:   time.Second,
 	}
 
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr, noop.Meter{})
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	servicetest.Run(t, publisher)
 
@@ -917,7 +918,7 @@ func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
 	}
 
 	underlying := newMultiTrigger(capInfo)
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr, noop.Meter{})
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	servicetest.Run(t, publisher)
 
@@ -1071,7 +1072,7 @@ func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
 		BatchCollectionPeriod:   time.Second,
 	}
 
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr, noop.Meter{})
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 
 	// Start before Receive so initMetrics() has run on registration and ACK paths.
@@ -1164,7 +1165,7 @@ func TestTriggerPublisher_SecondDeliveryAfterFullAck_ReachesAllPeers(t *testing.
 		BatchCollectionPeriod:   time.Second,
 	}
 
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr, noop.Meter{})
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	servicetest.Run(t, publisher)
 
@@ -1253,7 +1254,7 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 			MaxBatchSize:            1,
 			BatchCollectionPeriod:   time.Second,
 		}
-		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr, noop.Meter{})
 		require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 		servicetest.Run(t, publisher)
 
@@ -1307,7 +1308,7 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 			MaxBatchSize:            1,
 			BatchCollectionPeriod:   time.Second,
 		}
-		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr, noop.Meter{})
 		require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 		servicetest.Run(t, publisher)
 

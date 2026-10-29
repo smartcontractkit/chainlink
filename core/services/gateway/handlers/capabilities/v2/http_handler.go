@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -121,7 +123,7 @@ type RetryConfig struct {
 	Multiplier float64 `json:"multiplier"`
 }
 
-func NewGatewayHandler(handlerConfig json.RawMessage, dons *handlers.ShardedDONs, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory, orgResolver orgresolver.OrgResolver) (*gatewayHandler, error) {
+func NewGatewayHandler(handlerConfig json.RawMessage, dons *handlers.ShardedDONs, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory, orgResolver orgresolver.OrgResolver, meter metric.Meter) (*gatewayHandler, error) {
 	var cfg ServiceConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -178,7 +180,7 @@ func NewGatewayHandler(handlerConfig json.RawMessage, dons *handlers.ShardedDONs
 		perNodeOutboundLimiters[member.Address] = pl
 	}
 
-	metrics, err := metrics.NewMetrics(members)
+	metrics, err := metrics.NewMetrics(members, meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize metrics: %w", err)
 	}

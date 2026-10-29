@@ -15,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -54,18 +53,18 @@ type metrics struct {
 	requestSuccess       metric.Int64Counter
 }
 
-func newMetrics() (*metrics, error) {
-	requestInternalError, err := beholder.GetMeter().Int64Counter("confidential_relay_gateway_request_internal_error")
+func newMetrics(meter metric.Meter) (*metrics, error) {
+	requestInternalError, err := meter.Int64Counter("confidential_relay_gateway_request_internal_error")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register internal error counter: %w", err)
 	}
 
-	requestUserError, err := beholder.GetMeter().Int64Counter("confidential_relay_gateway_request_user_error")
+	requestUserError, err := meter.Int64Counter("confidential_relay_gateway_request_user_error")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register user error counter: %w", err)
 	}
 
-	requestSuccess, err := beholder.GetMeter().Int64Counter("confidential_relay_gateway_request_success")
+	requestSuccess, err := meter.Int64Counter("confidential_relay_gateway_request_success")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register success counter: %w", err)
 	}
@@ -233,7 +232,7 @@ func (h *handler) Name() string {
 	return h.lggr.Name()
 }
 
-func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory, meter metric.Meter) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -274,7 +273,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		perNodeRateLimiters[member.Address] = rl
 	}
 
-	metrics, err := newMetrics()
+	metrics, err := newMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}

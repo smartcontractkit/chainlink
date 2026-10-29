@@ -22,11 +22,6 @@ type TriggerDrainerMetrics struct {
 	hookDurationSeconds  metric.Float64Histogram
 }
 
-// InitTriggerDrainerMetrics registers the drainer instruments on the beholder meter.
-func InitTriggerDrainerMetrics() (*TriggerDrainerMetrics, error) {
-	return NewTriggerDrainerMetrics(beholder.GetMeter())
-}
-
 // NewTriggerDrainerMetrics registers the drainer instruments on meter.
 func NewTriggerDrainerMetrics(meter metric.Meter) (*TriggerDrainerMetrics, error) {
 	var (

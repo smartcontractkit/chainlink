@@ -12,6 +12,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -191,7 +192,7 @@ func setupRemoteExecutableHarness(t *testing.T, underlying commoncap.ExecutableC
 	for i := range numCapabilityPeers {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, limits.NewGateLimiter(false), lggr)
+		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, limits.NewGateLimiter(false), lggr, noop.NewMeterProvider().Meter("test"))
 		cfg := &commoncap.RemoteExecutableConfig{
 			RequestTimeout:            capabilityNodeResponseTimeout,
 			ServerMaxParallelRequests: 10,

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
@@ -40,6 +41,7 @@ func TestIntegration_Launcher(t *testing.T) {
 		uni,
 		uni.CapReg.Address().String(),
 		registrysyncer.NewORM(db, lggr),
+		noop.NewMeterProvider().Meter("test"),
 	)
 	require.NoError(t, err)
 

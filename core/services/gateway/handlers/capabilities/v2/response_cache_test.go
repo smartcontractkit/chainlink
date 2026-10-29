@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
@@ -17,7 +18,7 @@ import (
 )
 
 func createCacheTestMetrics(t *testing.T) *metrics.Metrics {
-	m, err := metrics.NewMetrics(nil)
+	m, err := metrics.NewMetrics(nil, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	return m
 }

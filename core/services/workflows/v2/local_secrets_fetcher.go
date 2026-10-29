@@ -5,7 +5,6 @@ import (
 
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 )
 
@@ -15,9 +14,9 @@ type localSecretsFetcher struct {
 	callsCounter metric.Int64Counter
 }
 
-func NewLocalSecretsFetcher(owner string, secrets map[string]string) SecretsFetcher {
+func NewLocalSecretsFetcher(meter metric.Meter, owner string, secrets map[string]string) SecretsFetcher {
 	var callsCounter metric.Int64Counter
-	if c, err := beholder.GetMeter().Int64Counter(
+	if c, err := meter.Int64Counter(
 		"platform_engine_local_secrets_getsecrets_total",
 		metric.WithUnit("1"),
 		metric.WithDescription("Workflow local secrets override fetcher batch GetSecrets invocations"),

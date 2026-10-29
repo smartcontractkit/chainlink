@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -31,6 +32,7 @@ import (
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -126,9 +128,11 @@ type workflowRegistry struct {
 
 	// myDonID is the DON ID of the shard this syncer belongs to.
 	// Set from don.ID after WaitForDon resolves. Used to filter workflows.
-	myDonID              uint32
-	shardingEnabled      bool
-	shardingFailoverGate limits.GateLimiter
+	myDonID                uint32
+	shardingEnabled        bool
+	shardingFailoverGate   limits.GateLimiter
+	shardFailoverMetrics   *monitoring.ShardFailoverMetrics
+	shardAssignmentMetrics *monitoring.ShardAssignmentMetrics
 
 	centralizedOwnerVerificationEnabled limits.GateLimiter
 	settingsGetter                      settings.Getter
@@ -287,7 +291,7 @@ func WithShardOrchestratorClient(client shardorchestrator.ClientInterface) Optio
 	return func(wr *workflowRegistry) {
 		wr.shardOrchestratorClient = client
 		if wr.shardResolver == nil && client != nil {
-			wr.shardResolver = shardownership.NewRingOCRShardResolver(client, wr.lggr)
+			wr.shardResolver = shardownership.NewRingOCRShardResolver(client, wr.shardAssignmentMetrics, wr.lggr)
 		}
 	}
 }
@@ -310,6 +314,22 @@ func WithRegistryShardRoutingObserver(signal shardRoutingSteadyObserver) Option 
 	}
 }
 
+// WithRegistryShardFailoverMetrics supplies the node-wide failover instruments
+// shared with the event handler. Nil disables failover instrumentation.
+func WithRegistryShardFailoverMetrics(m *monitoring.ShardFailoverMetrics) Option {
+	return func(wr *workflowRegistry) {
+		wr.shardFailoverMetrics = m
+	}
+}
+
+// WithRegistryShardAssignmentMetrics supplies the node-wide shard assignment
+// instruments used by the default ring resolver.
+func WithRegistryShardAssignmentMetrics(m *monitoring.ShardAssignmentMetrics) Option {
+	return func(wr *workflowRegistry) {
+		wr.shardAssignmentMetrics = m
+	}
+}
+
 func WithRegistryShardResolver(resolver shardownership.ShardResolver) Option {
 	return func(wr *workflowRegistry) {
 		wr.shardResolver = resolver
@@ -329,13 +349,14 @@ func NewWorkflowRegistry(
 	handler evtHandler,
 	workflowDonNotifier donNotifier,
 	engineRegistry *EngineRegistry,
+	meter metric.Meter,
 	opts ...Option,
 ) (*workflowRegistry, error) {
 	if engineRegistry == nil {
 		return nil, errors.New("engine registry must be provided")
 	}
 
-	m, err := newMetrics()
+	m, err := newMetrics(meter)
 	if err != nil {
 		return nil, err
 	}
@@ -836,7 +857,7 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 	}
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
 	failoverEnabled := w.shardingFailoverGate != nil && w.shardingFailoverGate.AllowErr(ctx) == nil
-	shardFailoverMetrics().SetFailoverEnabled(ctx, failoverEnabled)
+	w.shardFailoverMetrics.SetFailoverEnabled(ctx, failoverEnabled)
 	for _, wf := range workflows {
 		id := wf.WorkflowID.Hex()
 		if failoverEnabled {

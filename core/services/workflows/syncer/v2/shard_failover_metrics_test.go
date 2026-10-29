@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -13,7 +14,6 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -24,20 +24,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
-// shardFailoverReader receives every metric emitted through beholder.GetMeter()
-// for the duration of the test binary. TestMain installs it before any test
-// runs, so the GlobalShardFailoverMetrics singleton binds to it regardless of
-// which test emits first, and these tests assert on before/after deltas
-// because the counters are process-global.
-var shardFailoverReader *sdkmetric.ManualReader
+// shardFailoverReader receives every metric recorded through the package-wide
+// testFailoverMetrics instance. TestMain installs it before any test runs, and
+// the metric tests assert on before/after deltas because the instruments are
+// shared across the managers under test.
+var (
+	shardFailoverReader *sdkmetric.ManualReader
+	testFailoverMetrics *monitoring.ShardFailoverMetrics
+)
 
 func TestMain(m *testing.M) {
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-	client := beholder.NoopClientConfig{}.New()
-	client.Meter = mp.Meter("shard-failover-test")
-	client.MeterProvider = mp
-	beholder.SetClient(client)
+	fm, err := monitoring.NewShardFailoverMetrics(mp.Meter("shard-failover-test"))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "register failover metrics:", err)
+		os.Exit(1)
+	}
+	testFailoverMetrics = fm
 	shardFailoverReader = reader
 	code := m.Run()
 	_ = mp.Shutdown(context.Background())
@@ -138,7 +142,7 @@ func newFailoverTestManager(t *testing.T, engine *recordingEngine) *ShardFailove
 // Every cached event leaves exactly one counted exit, a verdict for an event
 // that was never cached is not an exit, and replays record their outcome and
 // duration. The cached-events metric is a node-wide total across all managers,
-// so it is asserted as a delta from its pre-test value (the singleton
+// so it is asserted as a delta from its pre-test value (the shared instance
 // accumulates across tests in this package).
 //
 //nolint:paralleltest // asserts deltas on process-global failover metrics
@@ -366,10 +370,11 @@ func TestWorkflowRegistry_ShardFailoverEnabledGauge(t *testing.T) {
 
 	newReg := func(gate limits.GateLimiter) *workflowRegistry {
 		return &workflowRegistry{
-			shardResolver:        shardownership.NewRingOCRShardResolver(client, logger.TestLogger(t)),
+			shardResolver:        shardownership.NewRingOCRShardResolver(client, nil, logger.TestLogger(t)),
 			myDonID:              1,
 			shardingEnabled:      true,
 			shardingFailoverGate: gate,
+			shardFailoverMetrics: testFailoverMetrics,
 		}
 	}
 

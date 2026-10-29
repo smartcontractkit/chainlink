@@ -6,8 +6,6 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 const (
@@ -26,9 +24,7 @@ type metrics struct {
 	offchainDivergences metric.Int64Gauge
 }
 
-func newMetrics() (*metrics, error) {
-	meter := beholder.GetMeter()
-
+func newMetrics(meter metric.Meter) (*metrics, error) {
 	launchesTotal, err := meter.Int64Counter("platform_capability_launches_total",
 		metric.WithDescription("Total capabilities started via registry"))
 	if err != nil {

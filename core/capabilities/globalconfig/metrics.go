@@ -4,12 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"math"
-	"sync"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 // Metric names and labels from the Offchain Capabilities Registry design (Observability).
@@ -28,7 +25,7 @@ type Metrics struct {
 	validationErrors metric.Int64Counter
 }
 
-// NewMetrics registers the metrics on meter.
+// NewMetrics registers the metrics on meter. A nil *Metrics is a no-op.
 func NewMetrics(meter metric.Meter) (*Metrics, error) {
 	appliedVersion, err := meter.Int64Gauge(MetricAppliedVersion,
 		metric.WithDescription("Currently applied OffchainCapabilitiesRegistry version (0 when none is applied)"))
@@ -42,17 +39,6 @@ func NewMetrics(meter metric.Meter) (*Metrics, error) {
 	}
 	return &Metrics{appliedVersion: appliedVersion, validationErrors: validationErrors}, nil
 }
-
-var defaultMetrics = sync.OnceValue(func() *Metrics {
-	m, err := NewMetrics(beholder.GetMeter())
-	if err != nil {
-		return nil // metrics are best-effort; a nil *Metrics is a no-op
-	}
-	return m
-})
-
-// DefaultMetrics returns the process-wide metrics, registered on the Beholder meter.
-func DefaultMetrics() *Metrics { return defaultMetrics() }
 
 func labels(domain, env string) metric.MeasurementOption {
 	return metric.WithAttributes(attribute.String(labelDomain, domain), attribute.String(labelEnv, env))

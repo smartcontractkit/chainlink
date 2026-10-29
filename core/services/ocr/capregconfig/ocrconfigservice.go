@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -52,10 +53,10 @@ type cachedConfig struct {
 	ContractConfig ocrtypes.ContractConfig
 }
 
-func NewOCRConfigService(lggr logger.Logger, peerIDProviderFn PeerIDProvider, chainID uint64, registryAddress string) *ocrConfigService {
+func NewOCRConfigService(lggr logger.Logger, peerIDProviderFn PeerIDProvider, chainID uint64, registryAddress string, meter metric.Meter) *ocrConfigService {
 	namedLggr := logger.Named(lggr, "OCRConfigService")
 
-	metrics, err := InitMetrics()
+	metrics, err := InitMetrics(meter)
 	if err != nil {
 		namedLggr.Warnw("failed to initialize metrics, metrics will be disabled", "error", err)
 	}

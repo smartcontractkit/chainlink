@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -55,7 +56,7 @@ func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON,
 	}
 	dons, err := handlers.NewShardedDONs(shardedDONs, [][]handlers.DON{{don}})
 	require.NoError(t, err)
-	handler, err := NewHandler(json.RawMessage(cfgBytes), dons, httpClient, lggr)
+	handler, err := NewHandler(json.RawMessage(cfgBytes), dons, httpClient, lggr, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	return handler, httpClient, don, nodes
 }

@@ -11,7 +11,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/beholderwrapper/metrics"
 )
 
@@ -30,20 +29,20 @@ type pluginMetrics struct {
 	kvDurations   metric.Int64Histogram
 }
 
-func newPluginMetrics(plugin, configDigest string) (*pluginMetrics, error) {
+func newPluginMetrics(plugin, configDigest string, meter metric.Meter) (*pluginMetrics, error) {
 	// Create base metrics using shared package
-	base, err := metrics.NewPluginMetrics(MetricPrefix, plugin, configDigest)
+	base, err := metrics.NewPluginMetrics(MetricPrefix, plugin, configDigest, meter)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create OCR3.1-specific metrics
-	blobDurations, err := beholder.GetMeter().Int64Histogram(MetricPrefix+"_blob_duration_ms", metric.WithUnit("ms"))
+	blobDurations, err := meter.Int64Histogram(MetricPrefix+"_blob_duration_ms", metric.WithUnit("ms"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create blob duration histogram: %w", err)
 	}
 
-	kvDurations, err := beholder.GetMeter().Int64Histogram(MetricPrefix+"_kv_duration_ms", metric.WithUnit("ms"))
+	kvDurations, err := meter.Int64Histogram(MetricPrefix+"_kv_duration_ms", metric.WithUnit("ms"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kv duration histogram: %w", err)
 	}

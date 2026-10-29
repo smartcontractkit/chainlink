@@ -10,7 +10,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -91,6 +90,14 @@ type ShardFailoverManagerConfig struct {
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardRoutingSteady      *shardownership.SteadySignal
 
+	// FailoverMetrics holds the node-wide failover instruments, shared by every
+	// manager and the syncer. Nil disables them (all methods are nil-safe).
+	FailoverMetrics *monitoring.ShardFailoverMetrics
+
+	// Meter registers the per-workflow auto-execution counter. The node-wide
+	// failover instruments come from FailoverMetrics.
+	Meter metric.Meter
+
 	// ShardDonLookup resolves a DON ID to the current DON, e.g. via
 	// capRegistry.DONByID. ResolveAllShards always returns real DON IDs
 	// (shardownership.manualShardResolver translates any configured shard
@@ -126,11 +133,13 @@ func NewShardFailoverManager(cfg ShardFailoverManagerConfig) *ShardFailoverManag
 		cfg:   cfg,
 		cache: make(map[string]cachedEvent),
 	}
-	autoExecCounter, err := beholder.GetMeter().Int64Counter(failoverAutoExecutionTotalMetric)
-	if err != nil {
-		m.cfg.Logger.Warnw("shard failover: failed to register failover_auto_execution_total counter", "err", err)
-	} else {
-		m.autoExecCounter = autoExecCounter
+	if cfg.Meter != nil {
+		autoExecCounter, err := cfg.Meter.Int64Counter(failoverAutoExecutionTotalMetric)
+		if err != nil {
+			m.cfg.Logger.Warnw("shard failover: failed to register failover_auto_execution_total counter", "err", err)
+		} else {
+			m.autoExecCounter = autoExecCounter
+		}
 	}
 	m.Service, m.eng = services.Config{
 		Name:  "ShardFailoverManager",
@@ -194,8 +203,7 @@ func (m *ShardFailoverManager) close() error {
 	clear(m.cache)
 	m.mu.Unlock()
 	if cached > 0 {
-		fm := shardFailoverMetrics()
-		fm.RecordCacheExit(context.Background(), monitoring.ShardFailoverCacheExitClosed, cached)
+		m.cfg.FailoverMetrics.RecordCacheExit(context.Background(), monitoring.ShardFailoverCacheExitClosed, cached)
 	}
 	return err
 }
@@ -277,7 +285,7 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 				"triggerEventID", msg.TriggerEventId,
 				"workflowID", msg.WorkflowId,
 				"executionID", msg.ExecutionId)
-			shardFailoverMetrics().RecordReplay(context.Background(), monitoring.ShardFailoverReplayMiss)
+			m.cfg.FailoverMetrics.RecordReplay(context.Background(), monitoring.ShardFailoverReplayMiss)
 			return
 		}
 		m.cfg.Logger.Infow("failover: replaying cached trigger event after system error",
@@ -295,9 +303,8 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 				"executionID", msg.ExecutionId,
 				"err", err)
 		}
-		fm := shardFailoverMetrics()
-		fm.RecordReplay(context.Background(), outcome)
-		fm.RecordReplayDuration(context.Background(), outcome, time.Since(replayStart))
+		m.cfg.FailoverMetrics.RecordReplay(context.Background(), outcome)
+		m.cfg.FailoverMetrics.RecordReplayDuration(context.Background(), outcome, time.Since(replayStart))
 	}
 }
 
@@ -332,13 +339,6 @@ func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardown
 	}
 }
 
-// shardFailoverMetrics returns the process-global failover instruments, or nil
-// when they failed to register (all methods are nil-receiver safe).
-func shardFailoverMetrics() *monitoring.ShardFailoverMetrics {
-	m, _ := monitoring.GlobalShardFailoverMetrics()
-	return m
-}
-
 func (m *ShardFailoverManager) cacheEvent(ctx context.Context, event triggers.CoordinatedEvent) {
 	eventID := event.Event.Event.ID
 	failoverAt := m.timeoutBasedFailoverDeadline(ctx)
@@ -349,8 +349,7 @@ func (m *ShardFailoverManager) cacheEvent(ctx context.Context, event triggers.Co
 	// A redelivered event ID overwrites its own entry; recounting it would
 	// inflate the cached counter and the node-wide total.
 	if !alreadyCached {
-		fm := shardFailoverMetrics()
-		fm.RecordTriggerCached(ctx)
+		m.cfg.FailoverMetrics.RecordTriggerCached(ctx)
 	}
 	m.cfg.Logger.Infow("secondary shard: cached trigger event for failover",
 		"eventID", eventID,
@@ -479,8 +478,7 @@ func (m *ShardFailoverManager) popCachedEvent(eventID string, exit string) (trig
 		return triggers.CoordinatedEvent{}, false
 	}
 	delete(m.cache, eventID)
-	fm := shardFailoverMetrics()
-	fm.RecordCacheExit(context.Background(), exit, 1)
+	m.cfg.FailoverMetrics.RecordCacheExit(context.Background(), exit, 1)
 	return ce.event, true
 }
 
@@ -494,8 +492,7 @@ func (m *ShardFailoverManager) removeCachedEvent(eventID string) {
 	if !cached {
 		return
 	}
-	fm := shardFailoverMetrics()
-	fm.RecordCacheExit(context.Background(), monitoring.ShardFailoverCacheExitDrained, 1)
+	m.cfg.FailoverMetrics.RecordCacheExit(context.Background(), monitoring.ShardFailoverCacheExitDrained, 1)
 }
 
 func (m *ShardFailoverManager) pruneLoop(ctx context.Context) {
@@ -527,8 +524,7 @@ func (m *ShardFailoverManager) pruneExpiredCachedEvents(ctx context.Context) {
 	if expired == 0 {
 		return
 	}
-	fm := shardFailoverMetrics()
-	fm.RecordCacheExit(ctx, monitoring.ShardFailoverCacheExitExpired, int64(expired))
+	m.cfg.FailoverMetrics.RecordCacheExit(ctx, monitoring.ShardFailoverCacheExitExpired, int64(expired))
 }
 
 // wireFailover sets up the communicator for ExecutionStatusUpdate messages.

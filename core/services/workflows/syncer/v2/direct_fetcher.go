@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -27,14 +29,14 @@ const (
 // NewDirectHTTPClient returns an HTTP client for fetching workflow artifacts without the Gateway.
 // Only HTTPS on port 443 is allowed. Internal IPs are blocked and redirects are disabled.
 // Requests without their own timeout use defaultTimeout. maxResponseBytes is a hard backstop; requests can only lower it.
-func NewDirectHTTPClient(lggr logger.Logger, maxResponseBytes uint32) (network.HTTPClient, error) {
+func NewDirectHTTPClient(lggr logger.Logger, maxResponseBytes uint32, meter metric.Meter) (network.HTTPClient, error) {
 	return network.NewHTTPClient(network.HTTPClientConfig{
 		AllowedSchemes:   []string{"https"},
 		AllowedPorts:     []int{443},
 		AllowedMethods:   []string{http.MethodGet},
 		DefaultTimeout:   defaultTimeout,
 		MaxResponseBytes: maxResponseBytes,
-	}, lggr)
+	}, lggr, meter)
 }
 
 // NewDirectFetcherFunc returns a FetcherFunc that downloads artifacts straight from the node.

@@ -18,6 +18,7 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -62,6 +63,7 @@ func TestPluginOracleCreatorCreate_InvalidSelector(t *testing.T) {
 		/* homeChainSelector */ 0,
 		/* addressCodec */ ccipcommon.NewAddressCodec(nil),
 		p2pk,
+		beholder.NewNoopClient(),
 	).(*pluginOracleCreator)
 
 	// Zero value config will have ChainSelector == 0 which is not present in

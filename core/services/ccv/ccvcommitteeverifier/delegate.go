@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pelletier/go-toml/v2"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-ccv/integration/pkg/constructors"
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
@@ -38,11 +39,12 @@ type Delegate struct {
 	chainServices []commontypes.ChainService
 	ocrKs         keystore.OCR2
 	ds            sqlutil.DataSource
+	meter         metric.Meter
 
 	isNewlyCreatedJob bool
 }
 
-func NewDelegate(lggr logger.Logger, ds sqlutil.DataSource, ccvConfig config.CCV, ocrKs keystore.OCR2, chainServices []commontypes.ChainService) *Delegate {
+func NewDelegate(lggr logger.Logger, ds sqlutil.DataSource, ccvConfig config.CCV, ocrKs keystore.OCR2, chainServices []commontypes.ChainService, meter metric.Meter) *Delegate {
 	return &Delegate{
 		delegateLogger: logger.Named(lggr, "CCVCommitteeVerifierDelegate"),
 		lggr:           lggr,
@@ -50,6 +52,7 @@ func NewDelegate(lggr logger.Logger, ds sqlutil.DataSource, ccvConfig config.CCV
 		ccvConfig:      ccvConfig,
 		chainServices:  chainServices,
 		ocrKs:          ocrKs,
+		meter:          meter,
 	}
 }
 
@@ -101,6 +104,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		"CCVCommitteeVerifier/"+decodedCfg.VerifierID,
 		missingChains,
 		ccvcommon.DefaultMissingChainsReportInterval,
+		d.meter,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create missing chains monitor: %w", err)

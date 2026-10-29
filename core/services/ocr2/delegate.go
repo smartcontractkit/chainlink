@@ -17,6 +17,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/grpc"
 	"gopkg.in/guregu/null.v4"
 
@@ -156,6 +157,7 @@ type Delegate struct {
 	OrgResolver                    orgresolver.OrgResolver
 	limitsFactory                  limits.Factory
 	ocrConfigService               capregconfig.OCRConfigService
+	meter                          metric.Meter
 
 	// Registry-driven launch support: when the delegate is used via
 	// LocalCapabilityManager (no job spec), these fields provide the
@@ -296,6 +298,7 @@ type DelegateOpts struct {
 	OrgResolver                    orgresolver.OrgResolver
 	LimitsFactory                  limits.Factory
 	OCRConfigService               capregconfig.OCRConfigService
+	Meter                          metric.Meter
 
 	// Registry-driven launch support: defaults for capabilities launched
 	// via LocalCapabilityManager (no job spec).
@@ -338,6 +341,7 @@ func NewDelegate(
 		OrgResolver:                    opts.OrgResolver,
 		limitsFactory:                  opts.LimitsFactory,
 		ocrConfigService:               opts.OCRConfigService,
+		meter:                          opts.Meter,
 		defaultBootstrappers:           opts.DefaultBootstrappers,
 		capRegistryAddress:             opts.CapRegistryAddress,
 		capRegistryChainID:             opts.CapRegistryChainID,
@@ -886,7 +890,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		return nil, err
 	}
 
-	wrappedRpf := beholderwrapper.NewReportingPluginFactory(rpf, lggr, string(types.ConsensusQueue))
+	wrappedRpf := beholderwrapper.NewReportingPluginFactory(rpf, lggr, string(types.ConsensusQueue), d.meter)
 	oracleArgs.ReportingPluginFactory = wrappedRpf
 
 	oracle, err := libocr2.NewOracle(oracleArgs)
@@ -959,7 +963,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	dkgRecipientKey := dkgRecipientKeys[0]
 
-	requestLifecycle, err := vaultcap.NewRequestLifecycleTracker(lggr)
+	requestLifecycle, err := vaultcap.NewRequestLifecycleTracker(lggr, d.meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create request lifecycle tracker: %w", err)
 	}
@@ -980,7 +984,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, vaultCapability)
 
-	handler, err := vaultcap.NewGatewayHandler(vaultCapability, gwconnector, syncer, d.lggr, limitsFactory, nil, cfg.Auth0)
+	handler, err := vaultcap.NewGatewayHandler(vaultCapability, gwconnector, syncer, d.lggr, limitsFactory, nil, cfg.Auth0, d.meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
 	}
@@ -1079,6 +1083,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		lpk,
 		limitsFactory,
 		requestLifecycle,
+		d.meter,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
@@ -1087,6 +1092,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		rpf,
 		lggr,
 		"vault",
+		d.meter,
 	)
 	oracleArgs.ReportingPluginFactory = wrappedRpf
 
@@ -1270,6 +1276,7 @@ func (d *Delegate) newDonTimePlugin(
 		baseFactory,
 		lggr,
 		"dontime",
+		d.meter,
 	)
 
 	oracle, err := libocr2.NewOracle(oracleArgs)

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -81,7 +83,7 @@ const (
 	HealthCheckResponse = "OK"
 )
 
-func NewHTTPServer(config *HTTPServerConfig, healthChecker HealthChecker, lggr logger.Logger, lf limits.Factory) (HTTPServer, error) {
+func NewHTTPServer(config *HTTPServerConfig, healthChecker HealthChecker, lggr logger.Logger, lf limits.Factory, meter metric.Meter) (HTTPServer, error) {
 	if healthChecker == nil {
 		return nil, errors.New("health checker is required")
 	}
@@ -91,7 +93,7 @@ func NewHTTPServer(config *HTTPServerConfig, healthChecker HealthChecker, lggr l
 	if err := config.ensureLimiters(lf); err != nil {
 		return nil, fmt.Errorf("failed to create limiters: %w", err)
 	}
-	hMetrics, err := monitoring.NewHTTPServerMetrics()
+	hMetrics, err := monitoring.NewHTTPServerMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create http server metrics: %w", err)
 	}

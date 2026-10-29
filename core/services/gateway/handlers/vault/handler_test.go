@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 
@@ -84,7 +85,7 @@ func setupHandlerWithLogger(t *testing.T, lggr logger.Logger, limitsFactory limi
 
 	clock := clockwork.NewFakeClock()
 	authorizer := vaultcap.NewAuthorizer(&stubAllowListBasedAuth{clock: clock}, nil, lggr)
-	handler, err := newHandlerWithAuthorizer(methodConfig, dons, nil, authorizer, nil, lggr, clock, limitsFactory)
+	handler, err := newHandlerWithAuthorizer(methodConfig, dons, nil, authorizer, nil, lggr, clock, limitsFactory, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	handler.aggregator = &mockAggregator{}
 	cb := common.NewCallback()
@@ -298,6 +299,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			lggr,
 			clock,
 			limitsFactory,
+			noop.NewMeterProvider().Meter("test"),
 		)
 		require.NoError(t, err)
 
@@ -1420,6 +1422,7 @@ func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
 		lggr,
 		clock,
 		limits.Factory{Settings: cresettings.DefaultGetter},
+		noop.NewMeterProvider().Meter("test"),
 	)
 	require.NoError(t, err)
 
@@ -1512,7 +1515,7 @@ func TestVaultHandler_NewHandler_Shards(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		h, err := newHandlerWithAuthorizer(methodConfig, dons, nil, authorizer, nil, lggr, clockwork.NewFakeClock(), limitsFactory)
+		h, err := newHandlerWithAuthorizer(methodConfig, dons, nil, authorizer, nil, lggr, clockwork.NewFakeClock(), limitsFactory, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 		require.Len(t, h.shards, 1)
 		assert.Equal(t, "test_don_id", h.donID)
@@ -1530,7 +1533,7 @@ func TestVaultHandler_NewHandler_Shards(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		h, err := newHandlerWithAuthorizer(methodConfig, dons, nil, authorizer, nil, lggr, clockwork.NewFakeClock(), limitsFactory)
+		h, err := newHandlerWithAuthorizer(methodConfig, dons, nil, authorizer, nil, lggr, clockwork.NewFakeClock(), limitsFactory, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 		require.Len(t, h.shards, 1)
 		assert.Equal(t, "a", h.donID)

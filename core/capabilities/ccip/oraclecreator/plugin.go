@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -82,6 +83,8 @@ type pluginOracleCreator struct {
 	relayers              map[types.RelayID]loop.Relayer
 	addressCodec          ccipcommon.AddressCodec
 	p2pID                 p2pkey.KeyV2
+	// beholderClient scopes the observation metrics publisher to a per-package client.
+	beholderClient *beholder.Client
 }
 
 func NewPluginOracleCreator(
@@ -101,6 +104,7 @@ func NewPluginOracleCreator(
 	homeChainSelector cciptypes.ChainSelector,
 	addressCodec ccipcommon.AddressCodec,
 	p2pID p2pkey.KeyV2,
+	beholderClient *beholder.Client,
 ) cctypes.OracleCreator {
 	return &pluginOracleCreator{
 		ocrKeyBundles:         ocrKeyBundles,
@@ -119,6 +123,7 @@ func NewPluginOracleCreator(
 		homeChainSelector:     homeChainSelector,
 		addressCodec:          addressCodec,
 		p2pID:                 p2pID,
+		beholderClient:        beholderClient,
 	}
 }
 
@@ -907,6 +912,7 @@ func (i *pluginOracleCreator) setupObservationMetricsCollector(
 
 	// Create a Beholder publisher to send observation metrics to Beholder
 	metricsPublisher, err := NewBeholderMetricsPublisher(
+		i.beholderClient,
 		i.lggr.
 			Named("ObservationMetricsPublisher").
 			Named(strconv.FormatUint(chainSelector, 10)),

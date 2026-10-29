@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -278,7 +279,7 @@ func TestHTTPClient_Send(t *testing.T) {
 				AllowedPorts:     []int{int(portInt)},
 			}
 
-			client, err := NewHTTPClient(*config, lggr)
+			client, err := NewHTTPClient(*config, lggr, noop.Meter{})
 			require.NoError(t, err)
 
 			if tt.configOption != nil {
@@ -503,7 +504,7 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 				AllowedPorts:     allowedPorts,
 			}
 
-			client, err := NewHTTPClient(config, lggr)
+			client, err := NewHTTPClient(config, lggr, noop.Meter{})
 			require.NoError(t, err)
 
 			_, err = client.Send(t.Context(), HTTPRequest{
@@ -567,7 +568,7 @@ func TestHTTPClient_AllowedIPsCIDR(t *testing.T) {
 				AllowedIPsCIDR:   tt.allowedCIDRs,
 			}
 
-			client, err := NewHTTPClient(config, lggr)
+			client, err := NewHTTPClient(config, lggr, noop.Meter{})
 			require.NoError(t, err)
 
 			_, err = client.Send(t.Context(), HTTPRequest{
@@ -620,7 +621,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	t.Run("expands port ranges into AllowedPorts", func(t *testing.T) {
 		c, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"8000-8003"},
-		}, lggr)
+		}, lggr, noop.Meter{})
 		require.NoError(t, err)
 		require.Equal(t, []int{8000, 8001, 8002, 8003}, c.(*httpClient).config.AllowedPorts)
 	})
@@ -629,7 +630,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 		c, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPorts:      []int{443},
 			AllowedPortRanges: []string{"8080-8082"},
-		}, lggr)
+		}, lggr, noop.Meter{})
 		require.NoError(t, err)
 		require.Equal(t, []int{443, 8080, 8081, 8082}, c.(*httpClient).config.AllowedPorts)
 	})
@@ -637,7 +638,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	t.Run("multiple port ranges", func(t *testing.T) {
 		c, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"80-80", "443-443", "8000-8002"},
-		}, lggr)
+		}, lggr, noop.Meter{})
 		require.NoError(t, err)
 		require.Equal(t, []int{80, 443, 8000, 8001, 8002}, c.(*httpClient).config.AllowedPorts)
 	})
@@ -645,7 +646,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	t.Run("port range suppresses default ports", func(t *testing.T) {
 		c, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"9000-9001"},
-		}, lggr)
+		}, lggr, noop.Meter{})
 		require.NoError(t, err)
 		require.Equal(t, []int{9000, 9001}, c.(*httpClient).config.AllowedPorts)
 	})
@@ -653,7 +654,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	t.Run("single port treated as range of one", func(t *testing.T) {
 		c, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"8080"},
-		}, lggr)
+		}, lggr, noop.Meter{})
 		require.NoError(t, err)
 		require.Equal(t, []int{8080}, c.(*httpClient).config.AllowedPorts)
 	})
@@ -661,28 +662,28 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	t.Run("rejects invalid port range format", func(t *testing.T) {
 		_, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"not-a-range"},
-		}, lggr)
+		}, lggr, noop.Meter{})
 		require.ErrorContains(t, err, "invalid port range")
 	})
 
 	t.Run("rejects reversed port range", func(t *testing.T) {
 		_, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"9000-8000"},
-		}, lggr)
+		}, lggr, noop.Meter{})
 		require.ErrorContains(t, err, "invalid port range")
 	})
 
 	t.Run("rejects port 0", func(t *testing.T) {
 		_, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"0-100"},
-		}, lggr)
+		}, lggr, noop.Meter{})
 		require.ErrorContains(t, err, "start port must be >= 1")
 	})
 
 	t.Run("rejects port above 65535", func(t *testing.T) {
 		_, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"80-70000"},
-		}, lggr)
+		}, lggr, noop.Meter{})
 		require.ErrorContains(t, err, "invalid port range")
 	})
 }
@@ -731,7 +732,7 @@ func TestHTTPClient_ValidateMethod(t *testing.T) {
 				AllowedPorts:   []int{80, 443},
 			}
 
-			client, err := NewHTTPClient(config, lggr)
+			client, err := NewHTTPClient(config, lggr, noop.Meter{})
 			require.NoError(t, err)
 
 			httpClient := client.(*httpClient)
@@ -813,7 +814,7 @@ func TestHTTPClient_ValidateHeaders(t *testing.T) {
 				AllowedPorts:   []int{80, 443},
 			}
 
-			client, err := NewHTTPClient(config, lggr)
+			client, err := NewHTTPClient(config, lggr, noop.Meter{})
 			require.NoError(t, err)
 
 			httpClient := client.(*httpClient)
@@ -883,7 +884,7 @@ func TestHTTPClient_BlockedRequests_ReturnErrBlockedRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Use default config - this will apply all the default security restrictions
 			config := HTTPClientConfig{}
-			client, err := NewHTTPClient(config, lggr)
+			client, err := NewHTTPClient(config, lggr, noop.Meter{})
 			require.NoError(t, err)
 
 			method := tt.requestMethod
@@ -933,7 +934,7 @@ func TestHTTPClient_RedirectIsErrBlockedRequest(t *testing.T) {
 		AllowedPorts: []int{int(portInt)},
 	}
 
-	client, err := NewHTTPClient(config, lggr)
+	client, err := NewHTTPClient(config, lggr, noop.Meter{})
 	require.NoError(t, err)
 
 	_, err = client.Send(t.Context(), HTTPRequest{
@@ -970,7 +971,7 @@ func TestTruncateLogError(t *testing.T) {
 		AllowedPorts: []int{int(portInt)},
 	}
 
-	client, err := NewHTTPClient(config, lggr)
+	client, err := NewHTTPClient(config, lggr, noop.Meter{})
 	require.NoError(t, err)
 
 	// Grab the underlying doer so we get the raw *url.Error; Send wraps it.
@@ -1039,7 +1040,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 			AllowedPorts:     []int{int(portInt)},
 		}
 
-		client, err := NewHTTPClient(*config, lggr)
+		client, err := NewHTTPClient(*config, lggr, noop.Meter{})
 		require.NoError(t, err)
 
 		resp, err := client.Send(t.Context(), HTTPRequest{
@@ -1095,7 +1096,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 			AllowedPorts:     []int{int(portInt)},
 		}
 
-		client, err := NewHTTPClient(*config, lggr)
+		client, err := NewHTTPClient(*config, lggr, noop.Meter{})
 		require.NoError(t, err)
 
 		resp, err := client.Send(t.Context(), HTTPRequest{
@@ -1145,7 +1146,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 			AllowedPorts:     []int{int(portInt)},
 		}
 
-		client, err := NewHTTPClient(*config, lggr)
+		client, err := NewHTTPClient(*config, lggr, noop.Meter{})
 		require.NoError(t, err)
 
 		resp, err := client.Send(t.Context(), HTTPRequest{
@@ -1191,7 +1192,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 			AllowedPorts:     []int{int(portInt)},
 		}
 
-		client, err := NewHTTPClient(*config, lggr)
+		client, err := NewHTTPClient(*config, lggr, noop.Meter{})
 		require.NoError(t, err)
 
 		resp, err := client.Send(t.Context(), HTTPRequest{

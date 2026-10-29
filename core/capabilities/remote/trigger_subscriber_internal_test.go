@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
@@ -38,7 +39,7 @@ func TestTriggerSubscriber_SendDueBuckets(t *testing.T) {
 
 	dispatcher := mocks.NewDispatcher(t)
 	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
-	s := NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(false), logger.Test(t))
+	s := NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(false), logger.Test(t), noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, s.initMetrics())
 	require.NoError(t, s.SetConfig(cfg, capInfo, 2, commoncap.DON{ID: 1, Members: []p2ptypes.PeerID{peer}}, aggregation.NewDefaultModeAggregator(1)))
 	for i := range nRegistrations {
@@ -105,7 +106,7 @@ func TestTriggerSubscriber_RegistrationOrgIDMetric(t *testing.T) {
 
 			dispatcher := mocks.NewDispatcher(t)
 			dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
-			s := NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(gateOpen), logger.Test(t))
+			s := NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(gateOpen), logger.Test(t), noop.NewMeterProvider().Meter("test"))
 
 			// A local provider avoids mutating the global beholder client, which parallel tests share.
 			reader := sdkmetric.NewManualReader()

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"google.golang.org/protobuf/proto"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -32,7 +33,7 @@ func testPeerIDProvider() PeerIDProvider {
 
 func TestOCRConfigService_StartClose(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -41,7 +42,7 @@ func TestOCRConfigService_StartClose(t *testing.T) {
 
 func TestOCRConfigService_Start_NilPeerIDProvider(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, nil, 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, nil, 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	err := svc.Start(ctx)
@@ -51,7 +52,7 @@ func TestOCRConfigService_Start_NilPeerIDProvider(t *testing.T) {
 
 func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -104,7 +105,7 @@ func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 func TestOCRConfigService_GetContractConfig(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -167,7 +168,7 @@ func TestOCRConfigService_GetContractConfig(t *testing.T) {
 
 func TestOCRConfigService_GetConfigTracker(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -185,7 +186,7 @@ func TestOCRConfigService_GetConfigTracker(t *testing.T) {
 
 func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -249,7 +250,7 @@ func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 
 func TestOCRConfigService_GetConfigDigester(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -267,7 +268,7 @@ func TestOCRConfigService_GetConfigDigester(t *testing.T) {
 
 func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -323,7 +324,7 @@ func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 
 func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -418,7 +419,7 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 
 func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -476,7 +477,7 @@ func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 
 func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -537,7 +538,7 @@ func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 
 func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -594,7 +595,7 @@ func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 
 func TestOCRConfigService_LegacyFallbackAfterRegistryReceived(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -649,7 +650,7 @@ func (m *mockConfigTracker) LatestBlockHeight(ctx context.Context) (uint64, erro
 
 func TestOCRConfigService_MultipleOCRKeys(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -726,7 +727,7 @@ func TestOCRConfigService_DONMembershipFiltering(t *testing.T) {
 	copy(otherPeerID[:], []byte("other-peer-id-12345678901234"))
 
 	peerIDProvider := func() (ragetypes.PeerID, error) { return myPeerID, nil }
-	svc := NewOCRConfigService(lggr, peerIDProvider, 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, peerIDProvider, 1, "0x1234567890abcdef", noop.NewMeterProvider().Meter("test"))
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))

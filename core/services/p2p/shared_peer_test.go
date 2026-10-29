@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/freeport"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -43,7 +44,7 @@ func TestDon2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
 	defer pw.Close()
 
 	require.Equal(t, k.PeerID(), pw.PeerID)
-	sp := p2p.NewDon2DonSharedPeer(pw, nil, logger.TestLogger(t))
+	sp := p2p.NewDon2DonSharedPeer(pw, nil, logger.TestLogger(t), noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, sp.Start(t.Context()))
 
 	_, peerID2 := newKeyPair(t)
@@ -57,7 +58,7 @@ func TestDon2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
 }
 
 func TestDon2DonSharedPeer_ErrorOnNilSingletonPeerWrapper(t *testing.T) {
-	sp := p2p.NewDon2DonSharedPeer(nil, nil, logger.TestLogger(t))
+	sp := p2p.NewDon2DonSharedPeer(nil, nil, logger.TestLogger(t), noop.NewMeterProvider().Meter("test"))
 	require.Error(t, sp.Start(t.Context()))
 }
 
@@ -71,7 +72,7 @@ func TestDon2DonSharedPeer_UpdateConnectionsByDONs(t *testing.T) {
 	pw.PeerGroupFactory = &mockPGFactory
 	pw.PeerID = p2pkey.PeerID(myPeerID)
 
-	sp := p2p.NewDon2DonSharedPeer(pw, nil, logger.TestLogger(t))
+	sp := p2p.NewDon2DonSharedPeer(pw, nil, logger.TestLogger(t), noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, sp.Start(t.Context()))
 
 	donPairs := make([]p2ptypes.DonPair, 0, 2)
@@ -138,7 +139,7 @@ func TestDon2DonSharedPeer_DONMembershipChange(t *testing.T) {
 	pw.PeerGroupFactory = &mockPGFactory
 	pw.PeerID = p2pkey.PeerID(myPeerID)
 
-	sp := p2p.NewDon2DonSharedPeer(pw, nil, logger.TestLogger(t))
+	sp := p2p.NewDon2DonSharedPeer(pw, nil, logger.TestLogger(t), noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, sp.Start(t.Context()))
 	defer func() { require.NoError(t, sp.Close()) }()
 

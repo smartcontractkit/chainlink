@@ -9,8 +9,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 type GatewayMetrics struct {
@@ -204,13 +202,13 @@ func (m *HTTPServerMetrics) RecordRequestCount(ctx context.Context, responseCode
 	))
 }
 
-func NewHTTPServerMetrics() (*HTTPServerMetrics, error) {
-	requestDuration, err := beholder.GetMeter().Int64Histogram("platform_gateway_http_server_request_duration_ms")
+func NewHTTPServerMetrics(meter metric.Meter) (*HTTPServerMetrics, error) {
+	requestDuration, err := meter.Int64Histogram("platform_gateway_http_server_request_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	requestCount, err := beholder.GetMeter().Int64Counter("platform_gateway_http_server_requests_total")
+	requestCount, err := meter.Int64Counter("platform_gateway_http_server_requests_total")
 	if err != nil {
 		return nil, err
 	}

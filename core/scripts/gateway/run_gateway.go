@@ -8,6 +8,7 @@ import (
 	"os/signal"
 
 	"github.com/pelletier/go-toml/v2"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -51,8 +52,8 @@ func main() {
 
 	lf := limits.Factory{Logger: lggr}
 	// Note: these nils are optional dependencies that are not needed for simple handlers.
-	handlerFactory := gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr, lf, nil, nil)
-	gw, err := gateway.NewGatewayFromConfig(&cfg, handlerFactory, lggr, lf)
+	handlerFactory := gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr, lf, nil, nil, noop.NewMeterProvider().Meter("gateway"))
+	gw, err := gateway.NewGatewayFromConfig(&cfg, handlerFactory, lggr, lf, noop.NewMeterProvider().Meter("gateway"))
 	if err != nil {
 		fmt.Println("error creating Gateway object:", err)
 		return

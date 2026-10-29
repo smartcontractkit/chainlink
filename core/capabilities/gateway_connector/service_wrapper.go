@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -42,6 +43,7 @@ type ServiceWrapper struct {
 	lggr                  logger.Logger
 	clock                 clockwork.Clock
 	csa                   keystore.CSA
+	meter                 metric.Meter
 	discoveredNodeAddress string // Stores auto-discovered node address if not configured
 }
 
@@ -51,6 +53,7 @@ type ServiceWrapper struct {
 // csa is the CSA keystore used to resolve the node's CSA key ID for metrics
 // labeling. May be nil for callers that do not have a CSA keystore available;
 // in that case the per-DON gateway count metric is not recorded.
+// meter receives the connector's metrics.
 func NewGatewayConnectorServiceWrapper(
 	config config.GatewayConnector,
 	keystore Keystore,
@@ -59,6 +62,7 @@ func NewGatewayConnectorServiceWrapper(
 	clock clockwork.Clock,
 	lggr logger.Logger,
 	csa keystore.CSA,
+	meter metric.Meter,
 ) *ServiceWrapper {
 	return &ServiceWrapper{
 		stopCh:   make(services.StopChan),
@@ -69,6 +73,7 @@ func NewGatewayConnectorServiceWrapper(
 		clock:    clock,
 		lggr:     logger.Named(lggr, "GatewayConnectorServiceWrapper"),
 		csa:      csa,
+		meter:    meter,
 	}
 }
 
@@ -124,7 +129,7 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 			csaKeyID = csaKey.ID()
 		}
 
-		e.connector, err = connector.NewGatewayConnector(&translated, e, e.clock, e.lggr, csaKeyID)
+		e.connector, err = connector.NewGatewayConnector(&translated, e, e.clock, e.lggr, csaKeyID, e.meter)
 		if err != nil {
 			return err
 		}

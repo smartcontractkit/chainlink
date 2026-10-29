@@ -17,6 +17,7 @@ import (
 
 	"github.com/docker/go-connections/nat"
 	"github.com/doyensec/safeurl"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -266,7 +267,7 @@ type httpClient struct {
 
 // NewHTTPClient creates a new HTTPClient. For mTLS support, set Mtls on the
 // config, or use NewHTTPClientFactory to merge a dynamic config carrying it.
-func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, error) {
+func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger, meter metric.Meter) (HTTPClient, error) {
 	if len(config.AllowedPortRanges) > 0 {
 		expanded, err := expandPortRanges(config.AllowedPortRanges)
 		if err != nil {
@@ -324,7 +325,7 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		client = safeurl.Client(safeConfigBuilder.Build())
 	}
 
-	metrics, err := newHTTPClientMetrics()
+	metrics, err := newHTTPClientMetrics(meter)
 	if err != nil {
 		return nil, err
 	}
@@ -340,9 +341,9 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 // NewHTTPClientFactory returns a factory that builds an HTTPClient by merging
 // the supplied dynamic config on top of the static base config. The dynamic
 // config typically carries per-request settings such as Mtls.
-func NewHTTPClientFactory(config HTTPClientConfig, lggr logger.Logger) HTTPClientFactory {
+func NewHTTPClientFactory(config HTTPClientConfig, lggr logger.Logger, meter metric.Meter) HTTPClientFactory {
 	return func(dynamic HTTPClientConfig) (HTTPClient, error) {
-		return NewHTTPClient(config.merge(dynamic), lggr)
+		return NewHTTPClient(config.merge(dynamic), lggr, meter)
 	}
 }
 

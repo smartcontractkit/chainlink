@@ -7,8 +7,6 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 // Metrics holds all the metric instruments for OCRConfigService.
@@ -22,11 +20,11 @@ type Metrics struct {
 }
 
 // InitMetrics initializes the Beholder metrics for OCRConfigService.
-func InitMetrics() (*Metrics, error) {
+func InitMetrics(meter metric.Meter) (*Metrics, error) {
 	m := &Metrics{}
 	var err error
 
-	m.configUpdatesCounter, err = beholder.GetMeter().Int64Counter(
+	m.configUpdatesCounter, err = meter.Int64Counter(
 		"platform_ocr_config_service_updates_total",
 		metric.WithDescription("Total OCR config updates received from registry"),
 	)
@@ -34,7 +32,7 @@ func InitMetrics() (*Metrics, error) {
 		return nil, fmt.Errorf("failed to register config updates counter: %w", err)
 	}
 
-	m.parseErrorsCounter, err = beholder.GetMeter().Int64Counter(
+	m.parseErrorsCounter, err = meter.Int64Counter(
 		"platform_ocr_config_service_parse_errors_total",
 		metric.WithDescription("Total OCR config parse errors"),
 	)
@@ -42,7 +40,7 @@ func InitMetrics() (*Metrics, error) {
 		return nil, fmt.Errorf("failed to register parse errors counter: %w", err)
 	}
 
-	m.configCountGauge, err = beholder.GetMeter().Int64Gauge(
+	m.configCountGauge, err = meter.Int64Gauge(
 		"platform_ocr_config_service_config_count",
 		metric.WithDescription("Current config count per capability/DON/key"),
 	)
@@ -50,7 +48,7 @@ func InitMetrics() (*Metrics, error) {
 		return nil, fmt.Errorf("failed to register config count gauge: %w", err)
 	}
 
-	m.capabilityConfigErrors, err = beholder.GetMeter().Int64Counter(
+	m.capabilityConfigErrors, err = meter.Int64Counter(
 		"platform_ocr_config_service_capability_config_errors_total",
 		metric.WithDescription("Total capability config processing errors (unmarshal failures)"),
 	)
@@ -58,7 +56,7 @@ func InitMetrics() (*Metrics, error) {
 		return nil, fmt.Errorf("failed to register capability config errors counter: %w", err)
 	}
 
-	m.trackerLegacyFallbackGauge, err = beholder.GetMeter().Int64Gauge(
+	m.trackerLegacyFallbackGauge, err = meter.Int64Gauge(
 		"platform_ocr_config_service_tracker_legacy_fallback",
 		metric.WithDescription("Indicates whether the config tracker is using legacy fallback (1) or registry config (0)"),
 	)
@@ -66,7 +64,7 @@ func InitMetrics() (*Metrics, error) {
 		return nil, fmt.Errorf("failed to register tracker legacy fallback gauge: %w", err)
 	}
 
-	m.digesterLegacyFallbackGauge, err = beholder.GetMeter().Int64Gauge(
+	m.digesterLegacyFallbackGauge, err = meter.Int64Gauge(
 		"platform_ocr_config_service_digester_legacy_fallback",
 		metric.WithDescription("Indicates whether the config digester is using legacy fallback (1) or registry config (0)"),
 	)

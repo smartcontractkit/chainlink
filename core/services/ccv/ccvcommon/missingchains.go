@@ -11,7 +11,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
@@ -29,8 +28,8 @@ type missingChainsMetrics struct {
 	missingChain metric.Int64Gauge
 }
 
-func newMissingChainsMetrics() (*missingChainsMetrics, error) {
-	missingChain, err := beholder.GetMeter().Int64Gauge("ccv_missing_chain")
+func newMissingChainsMetrics(meter metric.Meter) (*missingChainsMetrics, error) {
+	missingChain, err := meter.Int64Gauge("ccv_missing_chain")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ccv_missing_chain gauge: %w", err)
 	}
@@ -62,6 +61,7 @@ func NewMissingChainsMonitor(
 	name string,
 	missing []protocol.ChainSelector,
 	interval time.Duration,
+	meter metric.Meter,
 ) (*MissingChainsMonitor, error) {
 	if len(missing) == 0 {
 		return nil, nil
@@ -69,7 +69,7 @@ func NewMissingChainsMonitor(
 	if interval <= 0 {
 		interval = DefaultMissingChainsReportInterval
 	}
-	m, err := newMissingChainsMetrics()
+	m, err := newMissingChainsMetrics(meter)
 	if err != nil {
 		return nil, err
 	}

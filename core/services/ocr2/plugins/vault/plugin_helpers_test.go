@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -143,7 +144,7 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	if o.maxReportsPlusPrecursorBytesOverride > 0 {
 		maxPrec = o.maxReportsPlusPrecursorBytesOverride
 	}
-	lc, err := vaultcap.NewRequestLifecycleTracker(o.lggr)
+	lc, err := vaultcap.NewRequestLifecycleTracker(o.lggr, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	return &ReportingPlugin{
 		lggr:       o.lggr,

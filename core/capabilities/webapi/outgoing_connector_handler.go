@@ -11,7 +11,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -58,7 +57,7 @@ type OutgoingConnectorHandler struct {
 	metrics             *metrics
 }
 
-func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger, opts ...func(*gateway.RoundRobinSelector)) (*OutgoingConnectorHandler, error) {
+func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger, meter metric.Meter, opts ...func(*gateway.RoundRobinSelector)) (*OutgoingConnectorHandler, error) {
 	outgoingRLCfg := outgoingRateLimiterConfigDefaults(config.OutgoingRateLimiter)
 	outgoingRateLimiter, err := ratelimit.NewRateLimiter(outgoingRLCfg)
 	if err != nil {
@@ -74,7 +73,7 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 		return nil, fmt.Errorf("invalid outgoing connector handler method: %s", method)
 	}
 
-	m, err := newMetrics(method)
+	m, err := newMetrics(method, meter)
 	if err != nil {
 		return nil, err
 	}
@@ -508,13 +507,13 @@ func (m *metrics) recordAwaitConnectionDuration(ctx context.Context, d time.Dura
 	))
 }
 
-func newMetrics(method string) (*metrics, error) {
-	h, err := beholder.GetMeter().Int64Histogram("platform_outgoing_connector_handler_single_node_request_duration_ms")
+func newMetrics(method string, meter metric.Meter) (*metrics, error) {
+	h, err := meter.Int64Histogram("platform_outgoing_connector_handler_single_node_request_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	a, err := beholder.GetMeter().Int64Histogram("platform_outgoing_connector_handler_await_conn_duration_ms")
+	a, err := meter.Int64Histogram("platform_outgoing_connector_handler_await_conn_duration_ms")
 	if err != nil {
 		return nil, err
 	}

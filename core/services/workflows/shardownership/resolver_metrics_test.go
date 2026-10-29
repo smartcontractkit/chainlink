@@ -47,7 +47,7 @@ func newAssignmentMetricsFixture(t *testing.T) *assignmentMetricsFixture {
 }
 
 func (f *assignmentMetricsFixture) manualResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, lggr logger.Logger) *manualShardResolver {
-	r := NewManualShardResolver(settings, orgResolver, nil, lggr).(*manualShardResolver)
+	r := NewManualShardResolver(settings, orgResolver, nil, nil, lggr).(*manualShardResolver)
 	r.metrics = f.metrics
 	return r
 }
@@ -419,7 +419,7 @@ func TestResolverMetrics_RingRequests(t *testing.T) {
 
 	r := NewRingOCRShardResolver(&stubClient{
 		resp: &ringpb.GetWorkflowShardMappingResponse{Mappings: map[string]uint32{"wf-a": 1}},
-	}, nopLogger).(*ringOCRShardResolver)
+	}, nil, nopLogger).(*ringOCRShardResolver)
 	r.metrics = f.metrics
 
 	donID, found, err := r.ResolveShard(ctx, "wf-a", "")
@@ -442,7 +442,7 @@ func TestResolverMetrics_RingRequests(t *testing.T) {
 		"resolver": wfmon.ShardResolverRing, "outcome": wfmon.ShardResolverOutcomeNotFound, "source": "",
 	}))
 
-	rErr := NewRingOCRShardResolver(&stubClient{err: errors.New("rpc down")}, nopLogger).(*ringOCRShardResolver)
+	rErr := NewRingOCRShardResolver(&stubClient{err: errors.New("rpc down")}, nil, nopLogger).(*ringOCRShardResolver)
 	rErr.metrics = f.metrics
 	_, _, err = rErr.ResolveShard(ctx, "wf-a", "")
 	require.Error(t, err)
@@ -470,10 +470,10 @@ hashed_default_assignment = true
 
 	ring := NewRingOCRShardResolver(&stubClient{
 		resp: &ringpb.GetWorkflowShardMappingResponse{Mappings: map[string]uint32{"wf-b": 2}},
-	}, nopLogger).(*ringOCRShardResolver)
+	}, nil, nopLogger).(*ringOCRShardResolver)
 	ring.metrics = f.metrics
 
-	o := NewOverrideShardResolver(settings, nil, nil, ring, nopLogger).(*overrideShardResolver)
+	o := NewOverrideShardResolver(settings, nil, nil, ring, nil, nopLogger).(*overrideShardResolver)
 	o.metrics = f.metrics
 	o.manual.metrics = f.metrics
 
@@ -544,7 +544,7 @@ hashed_default_assignment = true
 	// With no manual settings at all, the whole batch is decided (and counted)
 	// by the ring resolver; the override resolver adds nothing.
 	empty := &loop.AtomicSettings{}
-	o2 := NewOverrideShardResolver(empty, nil, nil, ring, nopLogger).(*overrideShardResolver)
+	o2 := NewOverrideShardResolver(empty, nil, nil, ring, nil, nopLogger).(*overrideShardResolver)
 	o2.metrics = f.metrics
 	o2.manual.metrics = f.metrics
 	resolved, err = o2.ResolveShards(ctx, []string{"wf-b"}, []string{ownerB})

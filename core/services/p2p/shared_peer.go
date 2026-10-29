@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/networking"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -53,6 +55,7 @@ type don2DonSharedPeer struct {
 	remotePeers     map[ragetypes.PeerID]*remotePeer
 	mu              sync.RWMutex // protects discoveryGroups and remotePeers
 
+	meter   metric.Meter
 	metrics *SharedPeerMetrics
 }
 
@@ -67,7 +70,7 @@ type remotePeer struct {
 	stream networking.Stream
 }
 
-func NewDon2DonSharedPeer(singletonPeerWrapper *ocrcommon.SingletonPeerWrapper, bootstrappers []ocrcommontypes.BootstrapperLocator, lggr logger.Logger) *don2DonSharedPeer {
+func NewDon2DonSharedPeer(singletonPeerWrapper *ocrcommon.SingletonPeerWrapper, bootstrappers []ocrcommontypes.BootstrapperLocator, lggr logger.Logger, meter metric.Meter) *don2DonSharedPeer {
 	sp := &don2DonSharedPeer{
 		singletonPeerWrapper: singletonPeerWrapper,
 		bootstrappers:        bootstrappers,
@@ -75,6 +78,7 @@ func NewDon2DonSharedPeer(singletonPeerWrapper *ocrcommon.SingletonPeerWrapper, 
 		discoveryGroups:      make(map[string]networking.PeerGroup),
 		remotePeers:          make(map[ragetypes.PeerID]*remotePeer),
 		lggr:                 logger.Named(lggr, "Don2DonSharedPeer"),
+		meter:                meter,
 	}
 	sp.Service, sp.srvcEng = services.Config{
 		Name:  "Don2DonSharedPeer",
@@ -104,7 +108,7 @@ func (sp *don2DonSharedPeer) start(ctx context.Context) error {
 			break
 		}
 	}
-	metrics, err := initSharedPeerMetrics()
+	metrics, err := initSharedPeerMetrics(sp.meter)
 	if err != nil {
 		return fmt.Errorf("failed to init Don2DonSharedPeer metrics: %w", err)
 	}

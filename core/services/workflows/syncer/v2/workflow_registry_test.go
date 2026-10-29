@@ -58,7 +58,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -133,7 +133,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -211,7 +211,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -261,7 +261,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -302,7 +302,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			func(context.Context, []byte) (types.ContractReader, error) { return nil, nil },
 			"", "test-chain-selector",
 			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
-			&eventHandler{}, capabilities.NewDonNotifier(), er,
+			&eventHandler{}, capabilities.NewDonNotifier(), er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -332,7 +332,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			func(context.Context, []byte) (types.ContractReader, error) { return nil, nil },
 			"", "test-chain-selector",
 			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
-			&eventHandler{}, capabilities.NewDonNotifier(), er,
+			&eventHandler{}, capabilities.NewDonNotifier(), er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -368,7 +368,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -412,7 +412,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -451,7 +451,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -530,7 +530,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -591,7 +591,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -651,7 +651,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		fakeClock := clockwork.NewFakeClock()
 		wr.clock = fakeClock
@@ -741,7 +741,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -785,7 +785,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		fakeClock := clockwork.NewFakeClock()
 		wr.clock = fakeClock
@@ -875,7 +875,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		fakeClock := clockwork.NewFakeClock()
 		wr.clock = fakeClock
@@ -936,7 +936,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		fakeClock := clockwork.NewFakeClock()
 		wr.clock = fakeClock
@@ -997,7 +997,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1053,7 +1053,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1101,7 +1101,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		fakeClock := clockwork.NewFakeClock()
 		wr.clock = fakeClock
@@ -1184,7 +1184,7 @@ func Test_Start(t *testing.T) {
 			},
 			h,
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		fakeClock := clockwork.NewFakeClock()
 		wr.clock = fakeClock
@@ -1233,7 +1233,7 @@ func Test_GetAllowlistedRequests(t *testing.T) {
 		},
 		&eventHandler{},
 		workflowDonNotifier,
-		er,
+		er, testMeter(),
 	)
 	require.NoError(t, err)
 
@@ -1314,7 +1314,7 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1352,7 +1352,7 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1406,7 +1406,7 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1450,7 +1450,7 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1499,7 +1499,7 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1544,7 +1544,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1603,7 +1603,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1659,7 +1659,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1701,7 +1701,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 			},
 			&eventHandler{},
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1815,7 +1815,7 @@ func Test_ParallelEventHandling(t *testing.T) {
 			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
 			handler,
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1886,7 +1886,7 @@ func Test_ParallelEventHandling(t *testing.T) {
 			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
 			handler,
 			workflowDonNotifier,
-			er,
+			er, testMeter(),
 		)
 		require.NoError(t, err)
 
@@ -1970,7 +1970,7 @@ func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
 	}
 	wr := &workflowRegistry{
 		shardOrchestratorClient: client,
-		shardResolver:           shardownership.NewRingOCRShardResolver(client, logger.TestLogger(t)),
+		shardResolver:           shardownership.NewRingOCRShardResolver(client, nil, logger.TestLogger(t)),
 		myDonID:                 1,
 		shardingEnabled:         true,
 	}
@@ -2009,7 +2009,7 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
 			&eventHandler{},
 			&testDonNotifier{don: commonCap.DON{ID: 1}},
-			NewEngineRegistry(),
+			NewEngineRegistry(), testMeter(),
 			opts...,
 		)
 		require.NoError(t, err)
@@ -2041,7 +2041,7 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 			Settings: manualConfigTOML,
 			Hash:     "test",
 		}))
-		manual := shardownership.NewManualShardResolver(settings, nil, nil, logger.TestLogger(t))
+		manual := shardownership.NewManualShardResolver(settings, nil, nil, nil, logger.TestLogger(t))
 		wr := newReg(t,
 			WithShardEnabled(true),
 			WithShardOrchestratorClient(nil),
@@ -2068,7 +2068,8 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 			wf2.Hex(): 1,
 		}}
 		override := shardownership.NewOverrideShardResolver(settings, nil, nil,
-			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
+			shardownership.NewRingOCRShardResolver(ringClient, nil, logger.TestLogger(t)),
+			nil,
 			logger.TestLogger(t))
 		wr := newReg(t,
 			WithShardEnabled(true),
@@ -2096,7 +2097,8 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 			wf1.Hex(): 0,
 		}}
 		override := shardownership.NewOverrideShardResolver(settings, nil, nil,
-			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
+			shardownership.NewRingOCRShardResolver(ringClient, nil, logger.TestLogger(t)),
+			nil,
 			logger.TestLogger(t))
 		wr := newReg(t,
 			WithShardEnabled(true),
@@ -2202,7 +2204,7 @@ func (h *orphanSweepFakeHandler) OrphanDeletes() []string {
 
 func newTestRegistryMetrics(t *testing.T) *metrics {
 	t.Helper()
-	m, err := newMetrics()
+	m, err := newMetrics(testMeter())
 	require.NoError(t, err)
 	return m
 }
@@ -2315,7 +2317,7 @@ func newSweepLoopRegistry(t *testing.T, h evtHandler, er *EngineRegistry, source
 		Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
 		h,
 		&testDonNotifier{don: commonCap.DON{ID: 1}},
-		er,
+		er, testMeter(),
 		append([]Option{WithTicker(tick)}, opts...)...,
 	)
 	require.NoError(t, err)

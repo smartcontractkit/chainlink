@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -78,8 +80,9 @@ func New(
 	relayer ContractReaderFactory,
 	registryAddress string,
 	orm registrysyncer.ORM,
+	meter metric.Meter,
 ) (RegistrySyncer, error) {
-	metricLabeler, err := newSyncerMetricLabeler()
+	metricLabeler, err := newSyncerMetricLabeler(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create syncer metric labeler: %w", err)
 	}

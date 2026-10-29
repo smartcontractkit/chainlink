@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -115,7 +116,7 @@ func TestDirectFetcherFunc(t *testing.T) {
 func TestNewDirectHTTPClient_BlocksInternalAndNonHTTPS(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
-	client, err := NewDirectHTTPClient(lggr, 100_000_000)
+	client, err := NewDirectHTTPClient(lggr, 100_000_000, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	f := NewDirectFetcherFunc(client, nil, lggr)
 

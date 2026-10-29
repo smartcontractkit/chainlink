@@ -13,8 +13,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -54,14 +54,14 @@ func (h *handlerFactory) NewHandler(handlerType gateway.HandlerType, _ json.RawM
 
 func newGatewayHandler(t *testing.T) gateway.HandlerFactory {
 	lggr := logger.Test(t)
-	return gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr, limits.Factory{Logger: lggr}, nil, nil)
+	return gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr, limits.Factory{Logger: lggr}, nil, nil, noop.NewMeterProvider().Meter("test"))
 }
 
 func TestGateway_NewGatewayFromConfig_NoServicesOrDONs(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), newGatewayHandler(t), lggr, limits.Factory{Logger: lggr})
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), newGatewayHandler(t), lggr, limits.Factory{Logger: lggr}, noop.NewMeterProvider().Meter("test"))
 	require.ErrorContains(t, err, "no services or DONs configured")
 }
 
@@ -91,7 +91,7 @@ Name = "dummy"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), newGatewayHandler(t), lggr, limits.Factory{Logger: lggr})
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), newGatewayHandler(t), lggr, limits.Factory{Logger: lggr}, noop.NewMeterProvider().Meter("test"))
 	require.ErrorContains(t, err, "invalid gateway config: PongTimeoutSec (10) must be greater than HeartbeatIntervalSec (20)")
 }
 
@@ -117,7 +117,7 @@ Name = "no_such_handler"
 `)
 
 	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), newGatewayHandler(t), lggr, limits.Factory{Logger: lggr})
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), newGatewayHandler(t), lggr, limits.Factory{Logger: lggr}, noop.NewMeterProvider().Meter("test"))
 	require.Error(t, err)
 }
 
@@ -304,7 +304,7 @@ Name = "dummy"
 	cfg := parseTOMLConfig(t, tomlConfig)
 	require.NoError(t, cfg.Validate())
 
-	gatewayObj, err := gateway.NewGatewayFromConfig(cfg, newGatewayHandler(t), lggr, limits.Factory{Logger: lggr})
+	gatewayObj, err := gateway.NewGatewayFromConfig(cfg, newGatewayHandler(t), lggr, limits.Factory{Logger: lggr}, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	require.NotNil(t, gatewayObj)
 }
@@ -362,7 +362,7 @@ ServiceName = "svcA"
 	cfg := parseTOMLConfig(t, tomlConfig)
 	require.NoError(t, cfg.Validate())
 
-	gatewayObj, err := gateway.NewGatewayFromConfig(cfg, factory, lggr, limits.Factory{Logger: lggr})
+	gatewayObj, err := gateway.NewGatewayFromConfig(cfg, factory, lggr, limits.Factory{Logger: lggr}, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	ctx := t.Context()
@@ -405,7 +405,7 @@ Name = "dummy"
 `)
 
 	lggr := logger.Test(t)
-	gatewayObj, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), newGatewayHandler(t), lggr, limits.Factory{Logger: lggr})
+	gatewayObj, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), newGatewayHandler(t), lggr, limits.Factory{Logger: lggr}, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	servicetest.Run(t, gatewayObj)
 }
@@ -432,7 +432,7 @@ func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handlermocks.Han
 	handlersObj := map[string]handlers.Handler{
 		"testDON": handler,
 	}
-	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
+	gMetrics, err := monitoring.NewGatewayMetrics(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	gw := gateway.NewGateway(&api.JSONRPCCodec{}, httpServer, handlersObj, map[string]string{"testDON": "testDON"}, nil, nil, gMetrics, logger.Test(t))
 	return gw, handler
@@ -645,7 +645,7 @@ func TestGateway_NewStyleConfig_UserMessageRouting(t *testing.T) {
 	// Set up gateway with serviceToMultiHandler (new-style config)
 	httpServer := netmocks.NewHTTPServer(t)
 	httpServer.On("SetHTTPRequestHandler", mock.Anything).Return(nil)
-	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
+	gMetrics, err := monitoring.NewGatewayMetrics(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	// Map services to their handlers (as would be created by setupFromNewConfig)
@@ -716,7 +716,7 @@ func TestGateway_NewStyleConfig_NodeResponseRouting(t *testing.T) {
 
 	httpServer := netmocks.NewHTTPServer(t)
 	httpServer.On("SetHTTPRequestHandler", mock.Anything).Return(nil)
-	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
+	gMetrics, err := monitoring.NewGatewayMetrics(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	// Map services to their handlers

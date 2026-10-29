@@ -11,10 +11,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -181,34 +182,37 @@ type coordinatorFixture struct {
 // already in the registry for testTenant's workflow.
 func newCoordinatorFixture(t *testing.T) *coordinatorFixture {
 	t.Helper()
-	return newCoordinatorFixtureWithAdmission(t, newTestAdmission())
+	return newCoordinatorFixtureWithMeter(t, testMeter())
+}
+
+// newCoordinatorFixtureWithMeter is newCoordinatorFixture whose metrics register
+// on meter, for tests that read metric values back.
+func newCoordinatorFixtureWithMeter(t *testing.T, meter metric.Meter) *coordinatorFixture {
+	t.Helper()
+	return newCoordinatorFixtureWithMeterAndAdmission(t, meter, newTestAdmission())
 }
 
 // newCoordinatorFixtureWithAdmission is newCoordinatorFixture with the given admission limiters.
 func newCoordinatorFixtureWithAdmission(t *testing.T, admission AdmissionLimiters) *coordinatorFixture {
 	t.Helper()
-	capReg := regmocks.NewCapabilitiesRegistry(t)
-	engines := newFakeEngineRegistry()
-	wfLimits := &fakeWorkflowLimits{}
-	clock := clockwork.NewFakeClock()
+	return newCoordinatorFixtureWithMeterAndAdmission(t, testMeter(), admission)
+}
 
-	wid, err := types.WorkflowIDFromHex(validWorkflowID)
-	require.NoError(t, err)
-	engine := &fakeEngine{coordinated: true}
-	engines.set(wid, engine)
-
-	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), admission, engines, wfLimits, clock)
-	servicetest.Run(t, c)
-
-	return &coordinatorFixture{
-		c: c.(*coordinator), capReg: capReg, engines: engines, limits: wfLimits,
-		clock: clock, wid: wid, engine: engine,
-	}
+// newCoordinatorFixtureWithMeterAndAdmission is newCoordinatorFixtureWithMeter
+// with the given admission limiters.
+func newCoordinatorFixtureWithMeterAndAdmission(t *testing.T, meter metric.Meter, admission AdmissionLimiters) *coordinatorFixture {
+	t.Helper()
+	return newCoordinatorFixtureWithDeps(t, meter, admission, logger.Test(t))
 }
 
 // newCoordinatorFixtureWithLogger is newCoordinatorFixture, but with the given
 // logger instead of a plain test logger, for tests that assert on log output.
 func newCoordinatorFixtureWithLogger(t *testing.T, lggr logger.Logger) *coordinatorFixture {
+	t.Helper()
+	return newCoordinatorFixtureWithDeps(t, testMeter(), newTestAdmission(), lggr)
+}
+
+func newCoordinatorFixtureWithDeps(t *testing.T, meter metric.Meter, admission AdmissionLimiters, lggr logger.Logger) *coordinatorFixture {
 	t.Helper()
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	engines := newFakeEngineRegistry()
@@ -222,8 +226,9 @@ func newCoordinatorFixtureWithLogger(t *testing.T, lggr logger.Logger) *coordina
 
 	deps := newRegisterDeps(t, capReg, limits.NewGateLimiter(true))
 	deps.Logger = lggr
+	deps.Metrics = newTestMetricsWithMeter(t, meter)
 
-	c := NewCoordinator(deps, newTestAdmission(), engines, wfLimits, clock)
+	c := NewCoordinator(deps, admission, engines, wfLimits, clock)
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{
@@ -379,22 +384,22 @@ func (p *countingPool) Available(ctx context.Context) (int, error) {
 	return p.ResourcePoolLimiter.Available(ctx)
 }
 
-// useTestMeter points the global beholder meter at a manual reader, so workflow
-// metrics created after this call can be read back. It swaps a global, so a test
-// that uses it must not run in parallel.
-func useTestMeter(t *testing.T) *sdkmetric.ManualReader {
+// testMeter returns a private no-op meter for helpers that need one but whose
+// metrics the test does not read back. It never touches the process-global
+// beholder client, so it is safe in parallel tests.
+func testMeter() metric.Meter {
+	return noop.NewMeterProvider().Meter("test")
+}
+
+// testMeterWithReader returns a meter backed by a manual reader plus the reader,
+// so a test that builds its metrics from the meter can read the values back. It
+// never touches the process-global beholder client, so it is safe in parallel.
+func testMeterWithReader(t *testing.T) (metric.Meter, *sdkmetric.ManualReader) {
 	t.Helper()
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
-
-	prev := beholder.GetClient()
-	t.Cleanup(func() { beholder.SetClient(prev) })
-	client := beholder.NoopClientConfig{Lggr: logger.Test(t)}.New()
-	client.Meter = mp.Meter("beholder")
-	client.MeterProvider = mp
-	beholder.SetClient(client)
-	return reader
+	return mp.Meter("test"), reader
 }
 
 // counterTotal sums the named counter over the data points that carry every

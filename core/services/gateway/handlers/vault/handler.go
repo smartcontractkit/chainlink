@@ -22,7 +22,6 @@ import (
 
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -55,18 +54,18 @@ type metrics struct {
 	requestSuccess       metric.Int64Counter
 }
 
-func newMetrics() (*metrics, error) {
-	requestInternalError, err := beholder.GetMeter().Int64Counter("gateway_vault_request_internal_error")
+func newMetrics(meter metric.Meter) (*metrics, error) {
+	requestInternalError, err := meter.Int64Counter("gateway_vault_request_internal_error")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register internal error counter: %w", err)
 	}
 
-	requestUserError, err := beholder.GetMeter().Int64Counter("gateway_vault_request_user_error")
+	requestUserError, err := meter.Int64Counter("gateway_vault_request_user_error")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register user error counter: %w", err)
 	}
 
-	requestSuccess, err := beholder.GetMeter().Int64Counter("gateway_vault_request_success")
+	requestSuccess, err := meter.Int64Counter("gateway_vault_request_success")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register success counter: %w", err)
 	}
@@ -180,7 +179,7 @@ type Config struct {
 }
 
 // NewHandler creates the gateway-side Vault handler with internal auth wiring.
-func NewHandler(methodConfig json.RawMessage, dons *gwhandlers.ShardedDONs, capabilitiesRegistry capabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+func NewHandler(methodConfig json.RawMessage, dons *gwhandlers.ShardedDONs, capabilitiesRegistry capabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory, meter metric.Meter) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -203,10 +202,10 @@ func NewHandler(methodConfig json.RawMessage, dons *gwhandlers.ShardedDONs, capa
 	}
 	authorizer := vaultcap.NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)
 
-	return newHandlerWithAuthorizer(methodConfig, dons, capabilitiesRegistry, authorizer, jwtAuth, lggr, clock, limitsFactory)
+	return newHandlerWithAuthorizer(methodConfig, dons, capabilitiesRegistry, authorizer, jwtAuth, lggr, clock, limitsFactory, meter)
 }
 
-func newHandlerWithAuthorizer(methodConfig json.RawMessage, dons *gwhandlers.ShardedDONs, capabilitiesRegistry capabilitiesRegistry, authorizer vaultcap.Authorizer, jwtAuth services.Service, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+func newHandlerWithAuthorizer(methodConfig json.RawMessage, dons *gwhandlers.ShardedDONs, capabilitiesRegistry capabilitiesRegistry, authorizer vaultcap.Authorizer, jwtAuth services.Service, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory, meter metric.Meter) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -239,7 +238,7 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, dons *gwhandlers.Sha
 		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
 	}
 
-	metrics, err := newMetrics()
+	metrics, err := newMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}

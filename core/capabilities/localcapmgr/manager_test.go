@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"google.golang.org/protobuf/proto"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -18,6 +19,8 @@ import (
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
+
+var testMeter = noop.NewMeterProvider().Meter("test")
 
 func TestConfigHash(t *testing.T) {
 	t.Run("empty config returns empty string", func(t *testing.T) {
@@ -149,7 +152,7 @@ func failingServiceBuilder(_ context.Context, _ string, _ uint32, _ string, _ st
 func TestReconcile_StartsNewCapabilities(t *testing.T) {
 	ctx := context.Background()
 	lggr := testLogger(t)
-	metrics, err := newMetrics()
+	metrics, err := newMetrics(testMeter)
 	require.NoError(t, err)
 
 	mgr := &localCapabilityManager{
@@ -182,7 +185,7 @@ func TestReconcile_StartsNewCapabilities(t *testing.T) {
 func TestReconcile_StopsRemovedCapabilities(t *testing.T) {
 	ctx := context.Background()
 	lggr := testLogger(t)
-	metrics, err := newMetrics()
+	metrics, err := newMetrics(testMeter)
 	require.NoError(t, err)
 
 	emptyCfg := mustMarshalCapConfig(t, nil)
@@ -231,7 +234,7 @@ func TestReconcile_StopsRemovedCapabilities(t *testing.T) {
 func TestReconcile_DetectsConfigChange(t *testing.T) {
 	ctx := context.Background()
 	lggr := testLogger(t)
-	metrics, err := newMetrics()
+	metrics, err := newMetrics(testMeter)
 	require.NoError(t, err)
 
 	oldCfg := mustMarshalCapConfig(t, map[string]string{"version": "1"})
@@ -280,7 +283,7 @@ func TestReconcile_DetectsConfigChange(t *testing.T) {
 func TestReconcile_ContinuesOnStartFailure(t *testing.T) {
 	ctx := context.Background()
 	lggr := testLogger(t)
-	metrics, err := newMetrics()
+	metrics, err := newMetrics(testMeter)
 	require.NoError(t, err)
 
 	emptyCfg := mustMarshalCapConfig(t, nil)
@@ -313,7 +316,7 @@ func TestReconcile_ContinuesOnStartFailure(t *testing.T) {
 
 func TestClose_StopsAllRunningCapabilities(t *testing.T) {
 	lggr := testLogger(t)
-	metrics, err := newMetrics()
+	metrics, err := newMetrics(testMeter)
 	require.NoError(t, err)
 
 	svc1 := &mockService{}

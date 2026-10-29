@@ -69,6 +69,7 @@ func eip55AddressPtr(raw string) *evmtypes.EIP55Address {
 }
 
 func TestNewNodePlatformBuildInfoConfig_UsesThreeMinuteBeat(t *testing.T) {
+	t.Parallel()
 	csaStore := &keystoremocks.CSA{}
 	keyStore := &keystoremocks.Master{}
 	keyStore.EXPECT().CSA().Return(csaStore).Once()
@@ -77,14 +78,17 @@ func TestNewNodePlatformBuildInfoConfig_UsesThreeMinuteBeat(t *testing.T) {
 		c.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(5 * time.Second)
 	})
 
+	rec := beholdertest.NewRecorder()
 	buildInfoCfg := chainlink.NewNodePlatformBuildInfoConfig(chainlink.ApplicationOpts{
 		Config:   cfg,
 		Logger:   logger.TestLogger(t),
 		KeyStore: keyStore,
+		Beholder: &beholder.Client{Emitter: rec},
 	})
 
 	require.Equal(t, 3*time.Minute, buildInfoCfg.Beat)
 	require.Same(t, csaStore, buildInfoCfg.CSAKeyStore)
+	require.Same(t, rec, buildInfoCfg.Emitter)
 }
 
 func TestNodePlatformBuildInfo_EmitsNodeBuildInfo(t *testing.T) {

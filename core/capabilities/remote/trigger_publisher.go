@@ -14,7 +14,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -53,6 +52,7 @@ type triggerPublisher struct {
 	registerExecutor *ParallelExecutor
 	lggr             logger.Logger
 	metrics          triggerPublisherMetrics
+	meter            metric.Meter
 }
 
 type triggerPublisherMetrics struct {
@@ -116,7 +116,7 @@ const (
 	defaultMaxParallelRegisters     = 100 // TODO: make this configurable https://smartcontract-it.atlassian.net/browse/PLEX-3266
 )
 
-func NewTriggerPublisher(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+func NewTriggerPublisher(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger, meter metric.Meter) *triggerPublisher {
 	slotUsageAttrs := []attribute.KeyValue{
 		attribute.String("capabilityID", capabilityID),
 		attribute.String("capMethodName", capMethodName),
@@ -133,11 +133,12 @@ func NewTriggerPublisher(capabilityID, capMethodName string, dispatcher types.Di
 		batchingQueue:   make(map[[32]byte]*batchedResponse),
 		stopCh:          make(services.StopChan),
 		lggr:            logger.With(logger.Named(lggr, "TriggerPublisher"), "capabilityID", capabilityID, "capMethodName", capMethodName),
-		ackExecutor: NewParallelExecutor(defaultMaxParallelAcks,
+		meter:           meter,
+		ackExecutor: NewParallelExecutor(meter, defaultMaxParallelAcks,
 			"trigger_publisher_ack_executor",
 			slotUsageAttrs...,
 		),
-		registerExecutor: NewParallelExecutor(defaultMaxParallelRegisters,
+		registerExecutor: NewParallelExecutor(meter, defaultMaxParallelRegisters,
 			"trigger_publisher_register_executor",
 			slotUsageAttrs...,
 		),
@@ -186,32 +187,32 @@ func (p *triggerPublisher) SetConfig(config *commoncap.RemoteTriggerConfig, unde
 
 func (p *triggerPublisher) initMetrics() error {
 	var err error
-	p.metrics.registerTriggerCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_publisher_register_trigger_total")
+	p.metrics.registerTriggerCounter, err = p.meter.Int64Counter("platform_trigger_publisher_register_trigger_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_total: %w", err)
 	}
-	p.metrics.registerTriggerOrgIDCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_publisher_register_trigger_org_id_total")
+	p.metrics.registerTriggerOrgIDCounter, err = p.meter.Int64Counter("platform_trigger_publisher_register_trigger_org_id_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_org_id_total: %w", err)
 	}
-	p.metrics.unregisterTriggerCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_publisher_unregister_trigger_total")
+	p.metrics.unregisterTriggerCounter, err = p.meter.Int64Counter("platform_trigger_publisher_unregister_trigger_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_unregister_trigger_total: %w", err)
 	}
-	p.metrics.ackEventCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_publisher_ack_event_total")
+	p.metrics.ackEventCounter, err = p.meter.Int64Counter("platform_trigger_publisher_ack_event_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_ack_event_total: %w", err)
 	}
 	durationBuckets := metric.WithExplicitBucketBoundaries(1, 50, 250, 1_000, 5_000, 30_000)
-	p.metrics.registerTriggerDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_register_trigger_duration_ms", durationBuckets)
+	p.metrics.registerTriggerDurationMs, err = p.meter.Int64Histogram("platform_trigger_publisher_register_trigger_duration_ms", durationBuckets)
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_duration_ms: %w", err)
 	}
-	p.metrics.unregisterTriggerDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_unregister_trigger_duration_ms", durationBuckets)
+	p.metrics.unregisterTriggerDurationMs, err = p.meter.Int64Histogram("platform_trigger_publisher_unregister_trigger_duration_ms", durationBuckets)
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_unregister_trigger_duration_ms: %w", err)
 	}
-	p.metrics.ackEventDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_ack_event_duration_ms", durationBuckets)
+	p.metrics.ackEventDurationMs, err = p.meter.Int64Histogram("platform_trigger_publisher_ack_event_duration_ms", durationBuckets)
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_ack_event_duration_ms: %w", err)
 	}

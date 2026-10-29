@@ -32,20 +32,6 @@ type OrgResolver interface {
 	Get(ctx context.Context, owner string) (string, error)
 }
 
-var warnGlobalShardAssignmentMetricsOnce sync.Once
-
-func globalShardAssignmentMetrics(lggr logger.Logger) *wfmon.ShardAssignmentMetrics {
-	m, err := wfmon.GlobalShardAssignmentMetrics()
-	if err != nil {
-		// Once per process: every resolver constructor fetches the same global
-		// registration and the failure is process-wide, not per resolver.
-		warnGlobalShardAssignmentMetricsOnce.Do(func() {
-			lggr.Warnw("Failed to register shard assignment metrics; continuing without assignment instrumentation", "err", err)
-		})
-	}
-	return m
-}
-
 func resolverOutcome(found bool, err error) string {
 	switch {
 	case err != nil:
@@ -63,8 +49,8 @@ type ringOCRShardResolver struct {
 	metrics *wfmon.ShardAssignmentMetrics
 }
 
-func NewRingOCRShardResolver(client shardorchestrator.ClientInterface, lggr logger.Logger) ShardResolver {
-	return &ringOCRShardResolver{client: client, lggr: logger.Named(lggr, "RingOCRShardResolver"), metrics: globalShardAssignmentMetrics(lggr)}
+func NewRingOCRShardResolver(client shardorchestrator.ClientInterface, metrics *wfmon.ShardAssignmentMetrics, lggr logger.Logger) ShardResolver {
+	return &ringOCRShardResolver{client: client, lggr: logger.Named(lggr, "RingOCRShardResolver"), metrics: metrics}
 }
 
 func (r *ringOCRShardResolver) ResolveShard(ctx context.Context, workflowID string, _ string) (uint32, bool, error) {
@@ -140,8 +126,8 @@ type manualShardResolver struct {
 	lastErr    error
 }
 
-func NewManualShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, lggr logger.Logger) ShardResolver {
-	return &manualShardResolver{settings: settings, orgResolver: orgResolver, shardIndexMapper: shardIndexMapper, lggr: logger.Named(lggr, "ManualShardResolver"), metrics: globalShardAssignmentMetrics(lggr)}
+func NewManualShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, metrics *wfmon.ShardAssignmentMetrics, lggr logger.Logger) ShardResolver {
+	return &manualShardResolver{settings: settings, orgResolver: orgResolver, shardIndexMapper: shardIndexMapper, lggr: logger.Named(lggr, "ManualShardResolver"), metrics: metrics}
 }
 
 func (m *manualShardResolver) ResolveShard(ctx context.Context, _ string, ownerHex string) (uint32, bool, error) {
@@ -455,10 +441,8 @@ type overrideShardResolver struct {
 	metrics     *wfmon.ShardAssignmentMetrics
 }
 
-func NewOverrideShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, ringOCR ShardResolver, lggr logger.Logger) ShardResolver {
-	// One fetch shared by the override and its inner manual resolver so a
-	// registration failure warns once and both see the same instruments.
-	metrics := globalShardAssignmentMetrics(lggr)
+func NewOverrideShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, ringOCR ShardResolver, metrics *wfmon.ShardAssignmentMetrics, lggr logger.Logger) ShardResolver {
+	// The override and its inner manual resolver share the node-wide instruments.
 	return &overrideShardResolver{
 		manual:      &manualShardResolver{settings: settings, orgResolver: orgResolver, shardIndexMapper: shardIndexMapper, lggr: logger.Named(lggr, "ManualShardResolver"), metrics: metrics},
 		orgResolver: orgResolver,

@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jonboulle/clockwork"
 	"github.com/pelletier/go-toml/v2"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -89,7 +90,7 @@ func main() {
 	}
 	client := &client{privateKey: sampleKey, lggr: lggr}
 	// client acts as a signer here
-	connector, _ := connector.NewGatewayConnector(&cfg, client, clockwork.NewRealClock(), lggr, "")
+	connector, _ := connector.NewGatewayConnector(&cfg, client, clockwork.NewRealClock(), lggr, "", noop.NewMeterProvider().Meter("connector"))
 	err = connector.AddHandler(context.Background(), []string{"test_method"}, client)
 	if err != nil {
 		fmt.Println("error adding handler:", err)

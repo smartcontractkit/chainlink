@@ -2,13 +2,10 @@ package monitoring
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 // Outcome values for platform_shard_failover_cache_exit (low cardinality).
@@ -26,11 +23,11 @@ const (
 	ShardFailoverReplayMiss      = "miss"
 )
 
-// ShardFailoverMetrics are the process-global failover instruments, emitted by
-// the per-workflow ShardFailoverManager instances and the syncer through the
-// shared unlabeled meter. The instruments are per-node aggregates with no
+// ShardFailoverMetrics are the node-wide failover instruments, constructed once
+// from the injected meter and shared by the per-workflow ShardFailoverManager
+// instances and the syncer. The instruments are per-node aggregates with no
 // per-workflow labels, so all managers on this node emit through this one
-// singleton: cachedEvents is an up/down counter whose value is the node-wide
+// instance: cachedEvents is an up/down counter whose value is the node-wide
 // number of currently cached events (OTel translates it to a Prometheus
 // gauge) — every manager's +1 on cache and -n on exit sums into it, whereas a
 // plain gauge would be last-writer-wins and hide the other managers' events.
@@ -43,42 +40,8 @@ type ShardFailoverMetrics struct {
 	replayDurationSeconds metric.Float64Histogram
 }
 
-var (
-	globalShardFailoverMetricsMu     sync.Mutex
-	globalShardFailoverMetrics       *ShardFailoverMetrics
-	globalShardFailoverMetricsClient *beholder.Client
-)
-
-// GlobalShardFailoverMetrics binds the shard failover instruments to the meter
-// of the current global beholder client. beholder starts out with a noop
-// client and only receives the real one via SetClient during boot, so a
-// binding made too early must not be cached for the life of the process
-// (every metric would be silently dropped). The binding is therefore retried
-// whenever the global client changes, mirroring how the rest of the codebase
-// reads beholder.GetMeter() at call time instead of caching it. Failures are
-// not cached either: a later call retries the registration.
-func GlobalShardFailoverMetrics() (*ShardFailoverMetrics, error) {
-	client := beholder.GetClient()
-	globalShardFailoverMetricsMu.Lock()
-	defer globalShardFailoverMetricsMu.Unlock()
-	if globalShardFailoverMetrics != nil && globalShardFailoverMetricsClient == client {
-		return globalShardFailoverMetrics, nil
-	}
-	m, err := newShardFailoverMetricsWithMeter(client.Meter)
-	if err != nil {
-		return nil, err
-	}
-	globalShardFailoverMetrics, globalShardFailoverMetricsClient = m, client
-	return m, nil
-}
-
-func newShardFailoverMetrics() (*ShardFailoverMetrics, error) {
-	return newShardFailoverMetricsWithMeter(beholder.GetMeter())
-}
-
-// newShardFailoverMetricsWithMeter registers the shard failover instruments on
-// the given meter instead of the global beholder meter.
-func newShardFailoverMetricsWithMeter(meter metric.Meter) (*ShardFailoverMetrics, error) {
+// NewShardFailoverMetrics registers the shard failover instruments on meter.
+func NewShardFailoverMetrics(meter metric.Meter) (*ShardFailoverMetrics, error) {
 	m := &ShardFailoverMetrics{}
 	var err error
 	m.enabledGauge, err = meter.Int64Gauge("platform_shard_failover_enabled",

@@ -17,8 +17,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/jonboulle/clockwork"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -110,8 +110,8 @@ type connAttempt struct {
 	timestamp   uint32
 }
 
-func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock, gMetrics *monitoring.GatewayMetrics, lggr logger.Logger, lf limits.Factory) (ConnectionManager, error) {
-	wsMetrics, err := network.NewWSConnectionMetrics(beholder.GetMeter())
+func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock, gMetrics *monitoring.GatewayMetrics, lggr logger.Logger, lf limits.Factory, meter metric.Meter) (ConnectionManager, error) {
+	wsMetrics, err := network.NewWSConnectionMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create websocket connection metrics: %w", err)
 	}

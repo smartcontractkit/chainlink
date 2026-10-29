@@ -100,7 +100,7 @@ func TestEvictable_Execute_TryAcquireExhausted(t *testing.T) { //nolint:parallel
 	tryAcquireCompareAndSwap = func(_ *loadedModule, _, _ int64) bool { return false }
 	t.Cleanup(func() { tryAcquireCompareAndSwap = prevCAS })
 
-	cm, err := NewCacheMetrics()
+	cm, err := NewCacheMetrics(testMeter())
 	require.NoError(t, err)
 
 	var tryAcquireExhaustedRecorded atomic.Int32
@@ -140,7 +140,7 @@ func TestEvictable_Execute_PinRetriesExhausted(t *testing.T) { //nolint:parallel
 	evictAfterEnsureLoadedHook = func(em *EvictableModule) { em.Evict() }
 	t.Cleanup(func() { evictAfterEnsureLoadedHook = prevHook })
 
-	cm, err := NewCacheMetrics()
+	cm, err := NewCacheMetrics(testMeter())
 	require.NoError(t, err)
 
 	var pinExhaustedRecorded atomic.Int32
@@ -263,7 +263,7 @@ func TestEvictable_ReloadFromDisk_RejectsEngineVersionMismatch(t *testing.T) { /
 	require.NoError(t, err)
 	require.NoError(t, store.StoreModule("wf-test", []byte("v1-binary"), "v1"))
 
-	cm, err := NewCacheMetrics()
+	cm, err := NewCacheMetrics(testMeter())
 	require.NoError(t, err)
 
 	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", "v2", factory, cm, int64(len("v1-binary")))
@@ -1300,7 +1300,7 @@ func TestEvictable_GCFiresCloseAfterEvict(t *testing.T) { //nolint:paralleltest 
 // --- Metrics integration tests ---
 
 func TestEvictable_ReloadSourceMetric(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
-	cm, err := NewCacheMetrics()
+	cm, err := NewCacheMetrics(testMeter())
 	require.NoError(t, err)
 
 	inner := modulemocks.NewModuleV2(t)
@@ -1330,7 +1330,7 @@ func TestEvictable_ReloadSourceMetric(t *testing.T) { //nolint:paralleltest // p
 }
 
 func TestLRU_EvictionMetric(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
-	cm, err := NewCacheMetrics()
+	cm, err := NewCacheMetrics(testMeter())
 	require.NoError(t, err)
 
 	clock := clockwork.NewFakeClock()
@@ -1400,7 +1400,7 @@ func TestLRU_MemorySavedMetric(t *testing.T) { //nolint:paralleltest // package-
 	reapMemorySavedHook = func(b int64) { observed = append(observed, b) }
 	t.Cleanup(func() { reapMemorySavedHook = prevHook })
 
-	cm, err := NewCacheMetrics()
+	cm, err := NewCacheMetrics(testMeter())
 	require.NoError(t, err)
 
 	clock := clockwork.NewFakeClock()
@@ -1446,7 +1446,7 @@ func TestLRU_ReapMemorySavedBytesNotCumulative(t *testing.T) { //nolint:parallel
 	reapMemorySavedHook = func(b int64) { observed = append(observed, b) }
 	t.Cleanup(func() { reapMemorySavedHook = prevHook })
 
-	cm, err := NewCacheMetrics()
+	cm, err := NewCacheMetrics(testMeter())
 	require.NoError(t, err)
 
 	clock := clockwork.NewFakeClock()

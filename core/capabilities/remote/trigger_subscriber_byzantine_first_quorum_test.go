@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -59,7 +60,7 @@ func TestTriggerSubscriber_ByzantineFirstQuorumSuppressesLaterHonestAggregation(
 					MinResponsesToAggregate: tc.minResponses,
 					MessageExpiry:           100 * time.Second,
 				}
-				subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
+				subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 				agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
 				require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
 				require.NoError(t, subscriber.Start(t.Context()))

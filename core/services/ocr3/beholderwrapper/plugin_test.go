@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -14,7 +15,7 @@ import (
 )
 
 func Test_ReportingPlugin_WrapsAllMethods(t *testing.T) {
-	m, err := metrics.NewPluginMetrics(MetricPrefix, "test", "abc")
+	m, err := metrics.NewPluginMetrics(MetricPrefix, "test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	plugin := newReportingPlugin[uint](
@@ -66,7 +67,7 @@ func Test_ReportingPlugin_WrapsAllMethods(t *testing.T) {
 }
 
 func Test_ReportingPlugin_PropagatesErrors(t *testing.T) {
-	m, err := metrics.NewPluginMetrics(MetricPrefix, "test", "abc")
+	m, err := metrics.NewPluginMetrics(MetricPrefix, "test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	expectedErr := errors.New("test error")

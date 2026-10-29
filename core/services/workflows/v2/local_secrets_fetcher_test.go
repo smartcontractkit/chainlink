@@ -5,9 +5,19 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric"
 
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 )
+
+// testMeter returns a private no-op meter for constructors that require one but
+// whose metrics the test does not read back. It never touches the
+// process-global beholder meter, so it is safe in parallel tests.
+func testMeter(t *testing.T) metric.Meter {
+	t.Helper()
+	m, _ := newTestMeter(t)
+	return m
+}
 
 func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 	t.Parallel()
@@ -19,7 +29,7 @@ func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 		"api-key":     "sk-abc123",
 		"db-password": "hunter2",
 	}
-	fetcher := NewLocalSecretsFetcher(testOwner, secrets)
+	fetcher := NewLocalSecretsFetcher(testMeter(t), testOwner, secrets)
 
 	t.Run("returns known secrets", func(t *testing.T) {
 		t.Parallel()
@@ -82,7 +92,7 @@ func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 
 	t.Run("empty map returns errors for all", func(t *testing.T) {
 		t.Parallel()
-		emptyFetcher := NewLocalSecretsFetcher(testOwner, map[string]string{})
+		emptyFetcher := NewLocalSecretsFetcher(testMeter(t), testOwner, map[string]string{})
 		resp, err := emptyFetcher.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 			Requests: []*sdkpb.SecretRequest{
 				{Id: "anything"},
@@ -97,7 +107,7 @@ func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 	t.Run("non-EVM owner is passed through", func(t *testing.T) {
 		t.Parallel()
 		raw := "not-an-evm-address"
-		f := NewLocalSecretsFetcher(raw, map[string]string{"k": "v"})
+		f := NewLocalSecretsFetcher(testMeter(t), raw, map[string]string{"k": "v"})
 		resp, err := f.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 			Requests: []*sdkpb.SecretRequest{{Id: "k"}},
 		})

@@ -12,8 +12,8 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -66,7 +66,7 @@ type gateway struct {
 	lggr                  logger.Logger
 }
 
-func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger, lf limits.Factory) (Gateway, error) {
+func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger, lf limits.Factory, meter metric.Meter) (Gateway, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid gateway config: %w", err)
 	}
@@ -75,15 +75,15 @@ func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFacto
 	}
 
 	codec := &api.JSONRPCCodec{}
-	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
+	gMetrics, err := monitoring.NewGatewayMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("error creating gateway metrics: %w", err)
 	}
-	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), gMetrics, lggr, lf)
+	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), gMetrics, lggr, lf, meter)
 	if err != nil {
 		return nil, err
 	}
-	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, connMgr.ReadyForTraffic, lggr, lf)
+	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, connMgr.ReadyForTraffic, lggr, lf, meter)
 	if err != nil {
 		return nil, err
 	}

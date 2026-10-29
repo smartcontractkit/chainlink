@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -18,17 +19,20 @@ type ReportingPluginFactory[RI any] struct {
 	wrapped ocr3types.ReportingPluginFactory[RI]
 	lggr    logger.Logger
 	plugin  string
+	meter   metric.Meter
 }
 
 func NewReportingPluginFactory[RI any](
 	wrapped ocr3types.ReportingPluginFactory[RI],
 	lggr logger.Logger,
 	plugin string,
+	meter metric.Meter,
 ) *ReportingPluginFactory[RI] {
 	return &ReportingPluginFactory[RI]{
 		wrapped: wrapped,
 		lggr:    lggr,
 		plugin:  plugin,
+		meter:   meter,
 	}
 }
 
@@ -38,7 +42,7 @@ func (r ReportingPluginFactory[RI]) NewReportingPlugin(ctx context.Context, conf
 		return nil, ocr3types.ReportingPluginInfo{}, err
 	}
 
-	m, err := metrics.NewPluginMetrics(MetricPrefix, r.plugin, config.ConfigDigest.String())
+	m, err := metrics.NewPluginMetrics(MetricPrefix, r.plugin, config.ConfigDigest.String(), r.meter)
 	if err != nil {
 		return nil, ocr3types.ReportingPluginInfo{}, fmt.Errorf("failed to create plugin metrics: %w", err)
 	}

@@ -61,13 +61,12 @@ type EngineConfig struct {
 
 	BeholderEmitter custmsg.MessageEmitter
 
-	// EventEmitter emits workflow platform events. Defaults to events.DefaultEmitter().
+	// EventEmitter emits workflow platform events. Defaults to a no-op emitter;
+	// production callers inject one bound to their beholder client.
 	EventEmitter *events.Emitter
 
-	// Meter is the OTel meter the engine registers its metrics on. If nil,
-	// newBaseEngine falls back to beholder.GetMeter() at engine construction
-	// time, preserving the default read timing. It is deliberately NOT
-	// resolved in Validate.
+	// Meter is the OTel meter the engine registers its metrics on. Required:
+	// the engine never falls back to a process-global meter.
 	Meter metric.Meter
 
 	Hooks         LifecycleHooks
@@ -532,6 +531,9 @@ func (c *EngineConfig) Validate() error {
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
 	}
+	if c.Meter == nil {
+		return errors.New("meter not set")
+	}
 	if c.MeterRecordsEnabled && c.UsageEmitter == nil {
 		return errors.New("usage emitter not set")
 	}
@@ -558,7 +560,7 @@ func (c *EngineConfig) Validate() error {
 	}
 
 	if c.EventEmitter == nil {
-		c.EventEmitter = events.DefaultEmitter()
+		c.EventEmitter = events.NewEmitter(nil)
 	}
 
 	if c.FeatureFlags == nil {

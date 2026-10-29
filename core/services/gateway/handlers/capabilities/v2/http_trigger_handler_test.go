@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -40,7 +41,7 @@ const (
 )
 
 func createTestMetrics(t *testing.T, donConfig *config.DONConfig) *metrics.Metrics {
-	m, err := metrics.NewMetrics(donConfig.Members)
+	m, err := metrics.NewMetrics(donConfig.Members, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	return m
 }
@@ -944,7 +945,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_DeliversOnlyToRegisteredSha
 	require.Equal(t, "don_shard-2", shards[2].DonID)
 
 	allMembersSlice := handlers.AllMembers(shards)
-	testMetrics, err := metrics.NewMetrics(allMembersSlice)
+	testMetrics, err := metrics.NewMetrics(allMembersSlice, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
 	userRateLimiter := createTestUserRateLimiter()
@@ -2261,7 +2262,7 @@ func createMultiShardTriggerHandler(t *testing.T, donName string, shardNodeSets 
 	require.NoError(t, err)
 
 	allMembersSlice := handlers.AllMembers(shards)
-	testMetrics, err := metrics.NewMetrics(allMembersSlice)
+	testMetrics, err := metrics.NewMetrics(allMembersSlice, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
 	userRateLimiter := createTestUserRateLimiter()
@@ -2476,7 +2477,7 @@ func TestHttpTriggerHandler_MultiShardSendFailureResilience(t *testing.T) {
 	require.NoError(t, err)
 
 	allMembersSlice := handlers.AllMembers(shards)
-	testMetrics, err := metrics.NewMetrics(allMembersSlice)
+	testMetrics, err := metrics.NewMetrics(allMembersSlice, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
 	userRateLimiter := createTestUserRateLimiter()

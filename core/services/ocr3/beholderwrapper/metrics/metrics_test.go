@@ -6,16 +6,17 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 )
 
 func TestNewPluginMetrics(t *testing.T) {
-	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123")
+	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	require.NotNil(t, metrics)
 }
 
 func TestRecordDuration(t *testing.T) {
-	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123")
+	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	// Should not panic and should complete without error
@@ -29,7 +30,7 @@ func TestRecordDuration(t *testing.T) {
 }
 
 func TestTrackReports(t *testing.T) {
-	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123")
+	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	// Should not panic and should complete without error
@@ -39,7 +40,7 @@ func TestTrackReports(t *testing.T) {
 }
 
 func TestTrackSize(t *testing.T) {
-	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123")
+	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	// Should not panic and should complete without error
@@ -48,7 +49,7 @@ func TestTrackSize(t *testing.T) {
 }
 
 func TestUpdateStatus(t *testing.T) {
-	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123")
+	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	// Should not panic and should complete without error

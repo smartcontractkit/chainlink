@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
@@ -15,7 +16,7 @@ func TestNewMetrics(t *testing.T) {
 		{Address: "0xnode1", Name: "node1"},
 		{Address: "0xnode2", Name: "node2"},
 	}
-	metrics, err := NewMetrics(members)
+	metrics, err := NewMetrics(members, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	require.NotNil(t, metrics)
 	require.NotNil(t, metrics.action)

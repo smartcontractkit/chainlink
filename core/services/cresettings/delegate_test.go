@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
@@ -24,7 +25,7 @@ static_default_assignment = [0, 1]
 
 func newTestDelegate(t *testing.T) *delegate {
 	t.Helper()
-	return NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New())
+	return NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New(), noop.NewMeterProvider().Meter("test"))
 }
 
 func cresettingsJob(id int32, settings string) job.Job {
@@ -152,7 +153,7 @@ func TestServicesForSpecCapRegistry(t *testing.T) {
 
 	ctx := context.Background()
 	gc := globalconfig.New()
-	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, gc)
+	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, gc, noop.NewMeterProvider().Meter("test"))
 	capRegJob := func(id int32, payload string) job.Job {
 		jb := cresettingsJob(id, capRegSettings(payload))
 		jb.CRESettingsSpec.Hash = payload
@@ -186,7 +187,7 @@ func TestServicesForSpecCapRegistryInvalidPayloadFreesSlot(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New())
+	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New(), noop.NewMeterProvider().Meter("test"))
 
 	_, err := d.ServicesForSpec(ctx, cresettingsJob(1, "config_type = \"capabilities_registry\"\n"))
 	require.Error(t, err)

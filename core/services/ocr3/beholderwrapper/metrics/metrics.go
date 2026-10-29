@@ -10,8 +10,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 // FunctionType represents the OCR plugin function being measured
@@ -45,23 +43,23 @@ type PluginMetrics struct {
 }
 
 // NewPluginMetrics creates metrics with the given prefix (e.g., "platform_ocr3_reporting_plugin" or "platform_ocr3_1_reporting_plugin")
-func NewPluginMetrics(metricPrefix, plugin, configDigest string) (*PluginMetrics, error) {
-	durations, err := beholder.GetMeter().Int64Histogram(metricPrefix+"_duration_ms", metric.WithUnit("ms"))
+func NewPluginMetrics(metricPrefix, plugin, configDigest string, meter metric.Meter) (*PluginMetrics, error) {
+	durations, err := meter.Int64Histogram(metricPrefix+"_duration_ms", metric.WithUnit("ms"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create duration histogram: %w", err)
 	}
 
-	reportsGenerated, err := beholder.GetMeter().Int64Counter(metricPrefix+"_reports_processed", metric.WithUnit("1"))
+	reportsGenerated, err := meter.Int64Counter(metricPrefix+"_reports_processed", metric.WithUnit("1"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create reports counter: %w", err)
 	}
 
-	sizes, err := beholder.GetMeter().Int64Histogram(metricPrefix+"_data_sizes", metric.WithUnit("By"))
+	sizes, err := meter.Int64Histogram(metricPrefix+"_data_sizes", metric.WithUnit("By"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sizes histogram: %w", err)
 	}
 
-	status, err := beholder.GetMeter().Int64Gauge(metricPrefix + "_status")
+	status, err := meter.Int64Gauge(metricPrefix + "_status")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create status gauge: %w", err)
 	}

@@ -645,7 +645,8 @@ func (h *engineLifecycleHarness) newCoordinator(capreg *regmocks.CapabilitiesReg
 	require.NoError(h.t, err)
 	h.t.Cleanup(func() { require.NoError(h.t, workflowLimits.Close()) })
 
-	em, err := monitoring.InitMonitoringResources()
+	meter := h.cfg.Meter
+	em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 	require.NoError(h.t, err)
 	coordinator := triggers.NewCoordinator(
 		triggers.RegisterDeps{

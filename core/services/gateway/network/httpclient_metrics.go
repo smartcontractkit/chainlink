@@ -10,8 +10,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 // TracePhase identifies a phase of the HTTP client request lifecycle as
@@ -32,8 +30,8 @@ type httpClientMetrics struct {
 	phaseDuration metric.Int64Histogram
 }
 
-func newHTTPClientMetrics() (*httpClientMetrics, error) {
-	phaseDuration, err := beholder.GetMeter().Int64Histogram(
+func newHTTPClientMetrics(meter metric.Meter) (*httpClientMetrics, error) {
+	phaseDuration, err := meter.Int64Histogram(
 		"platform_gateway_http_client_phase_duration",
 		metric.WithUnit("ms"),
 		metric.WithDescription("HTTP client request phase duration observed via httptrace. The count of phase=total observations is the request count, partitioned by method, statusCode, success, and connectionReused. Success does not imply a 2xx status code"),

@@ -5,8 +5,6 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 const (
@@ -73,43 +71,43 @@ func (m *launcherMetrics) recordCapabilityHostingDONs(ctx context.Context, capab
 	m.capabilityHostingDONs.Record(ctx, donCount, attrs)
 }
 
-func newLauncherMetrics() (*launcherMetrics, error) {
-	remoteAddedSuccess, err := beholder.GetMeter().Int64Gauge("platform_launcher_remote_capability_added_success")
+func newLauncherMetrics(meter metric.Meter) (*launcherMetrics, error) {
+	remoteAddedSuccess, err := meter.Int64Gauge("platform_launcher_remote_capability_added_success")
 	if err != nil {
 		return nil, err
 	}
 
-	remoteAddedFailure, err := beholder.GetMeter().Int64Gauge("platform_launcher_remote_capability_added_failure")
+	remoteAddedFailure, err := meter.Int64Gauge("platform_launcher_remote_capability_added_failure")
 	if err != nil {
 		return nil, err
 	}
 
-	remoteSkipped, err := beholder.GetMeter().Int64Gauge("platform_launcher_remote_capability_skipped")
+	remoteSkipped, err := meter.Int64Gauge("platform_launcher_remote_capability_skipped")
 	if err != nil {
 		return nil, err
 	}
 
-	localExposedSuccess, err := beholder.GetMeter().Int64Gauge("platform_launcher_local_capability_exposed_success")
+	localExposedSuccess, err := meter.Int64Gauge("platform_launcher_local_capability_exposed_success")
 	if err != nil {
 		return nil, err
 	}
 
-	localExposedFailure, err := beholder.GetMeter().Int64Gauge("platform_launcher_local_capability_exposed_failure")
+	localExposedFailure, err := meter.Int64Gauge("platform_launcher_local_capability_exposed_failure")
 	if err != nil {
 		return nil, err
 	}
 
-	localSkipped, err := beholder.GetMeter().Int64Gauge("platform_launcher_local_capability_skipped")
+	localSkipped, err := meter.Int64Gauge("platform_launcher_local_capability_skipped")
 	if err != nil {
 		return nil, err
 	}
 
-	capabilityHostingDONs, err := beholder.GetMeter().Int64Gauge("platform_launcher_capability_hosting_dons")
+	capabilityHostingDONs, err := meter.Int64Gauge("platform_launcher_capability_hosting_dons")
 	if err != nil {
 		return nil, err
 	}
 
-	completedUpdates, err := beholder.GetMeter().Int64Counter("platform_launcher_completed_updates_total")
+	completedUpdates, err := meter.Int64Counter("platform_launcher_completed_updates_total")
 	if err != nil {
 		return nil, err
 	}

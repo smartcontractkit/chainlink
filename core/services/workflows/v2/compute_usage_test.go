@@ -243,7 +243,7 @@ func TestEngine_ComputeUsageMeterRecord_ConfidentialRun(t *testing.T) {
 	conf, err := v2.NewConfidentialModule(capreg, &confidentialrelay.ExecutionHandlers{}, "https://example.com/binary.wasm", []byte("hash"),
 		cfg.WorkflowID, cfg.WorkflowOwner, cfg.WorkflowName.String(), cfg.WorkflowTag,
 		func(context.Context, string) (string, error) { return "org-123", nil },
-		limits.NewGateLimiter(true), cfg.LocalLimiters.Settings, lggr)
+		limits.NewGateLimiter(true), cfg.LocalLimiters.Settings, cfg.Meter, lggr)
 	require.NoError(t, err)
 
 	local := modulemocks.NewModuleV2(t)

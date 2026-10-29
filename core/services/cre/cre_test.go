@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -117,7 +118,10 @@ func (c capabilitiesStub) WorkflowRegistry() config.CapabilitiesWorkflowRegistry
 func TestNewFetcherServiceV2_FetchMode(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	opts := Opts{StorageClient: syncerV2Mocks.NewWorkflowClient(t)}
+	opts := Opts{
+		StorageClient: syncerV2Mocks.NewWorkflowClient(t),
+		Meter:         noop.NewMeterProvider().Meter("test"),
+	}
 
 	t.Run("gateway mode requires gateway connector", func(t *testing.T) {
 		t.Parallel()

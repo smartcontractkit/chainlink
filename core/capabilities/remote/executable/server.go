@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -36,6 +37,7 @@ type server struct {
 	dispatcher    types.Dispatcher
 	cfg           atomic.Pointer[dynamicServerConfig]
 	lggr          logger.Logger
+	meter         metric.Meter
 
 	requestIDToRequest map[string]requestAndMsgID
 
@@ -80,7 +82,7 @@ type requestAndMsgID struct {
 	messageID string
 }
 
-func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatcher types.Dispatcher, workflowDONBindingGate limits.GateLimiter, lggr logger.Logger) *server {
+func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatcher types.Dispatcher, workflowDONBindingGate limits.GateLimiter, lggr logger.Logger, meter metric.Meter) *server {
 	return &server{
 		capabilityID:               capabilityID,
 		capMethodName:              methodName,
@@ -91,6 +93,7 @@ func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatch
 		messageIDToRequestIDsCount: map[string]map[string]int{},
 		stopCh:                     make(services.StopChan),
 		workflowDONBindingGate:     workflowDONBindingGate,
+		meter:                      meter,
 	}
 }
 
@@ -180,7 +183,7 @@ func (r *server) Start(ctx context.Context) error {
 			attribute.String("capabilityID", r.capabilityID),
 			attribute.String("capMethodName", r.capMethodName),
 		}
-		r.parallelExecutor = remote.NewParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests), "executable_server", slotUsageAttrs...)
+		r.parallelExecutor = remote.NewParallelExecutor(r.meter, int(cfg.remoteExecutableConfig.ServerMaxParallelRequests), "executable_server", slotUsageAttrs...)
 
 		r.wg.Go(func() {
 			ticker := time.NewTicker(getServerTickerInterval(cfg))
@@ -285,7 +288,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	// Info-level so container logs prove which DON served each executable
 	// request: sharded-capability routing is otherwise unobservable (the
 	// client picks the target DON silently via its family-filtered routing
-	// table, so a mis-route only manifests as missing/wrong responses).
+	// table, so a misroute only manifests as missing/wrong responses).
 	r.lggr.Infow("received request", "msgId", msg.MessageId, "requestID", requestID, "capabilityId", r.capabilityID, "method", r.capMethodName, "callerDonId", msg.CallerDonId)
 
 	requestIDs, requestIDsOK := r.messageIDToRequestIDsCount[messageID]
@@ -316,7 +319,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		}
 
 		sr, ierr := request.NewServerRequest(cfg.underlying, msg.Method, cfg.capInfo.ID, cfg.localDonInfo.ID, r.peerID,
-			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.workflowDONBindingGate, accumulator, r.lggr)
+			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.workflowDONBindingGate, accumulator, r.lggr, r.meter)
 		if ierr != nil {
 			r.lggr.Errorw("failed to instantiate server request", "err", ierr)
 			return

@@ -11,7 +11,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -48,7 +47,7 @@ type HandlerConfig struct {
 
 var _ handlers.Handler = (*handler)(nil)
 
-func NewHandler(handlerConfig json.RawMessage, dons *handlers.ShardedDONs, httpClient network.HTTPClient, lggr logger.Logger) (*handler, error) {
+func NewHandler(handlerConfig json.RawMessage, dons *handlers.ShardedDONs, httpClient network.HTTPClient, lggr logger.Logger, meter metric.Meter) (*handler, error) {
 	var cfg HandlerConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -69,7 +68,7 @@ func NewHandler(handlerConfig json.RawMessage, dons *handlers.ShardedDONs, httpC
 		return nil, err
 	}
 
-	metrics, err := newMetrics()
+	metrics, err := newMetrics(meter)
 	if err != nil {
 		return nil, err
 	}
@@ -301,23 +300,23 @@ func (m *metrics) recordArtifactFetchResponseDelivery(ctx context.Context, succe
 	))
 }
 
-func newMetrics() (*metrics, error) {
-	h, err := beholder.GetMeter().Int64Histogram("platform_gateway_capabilities_handle_node_message_duration_ms")
+func newMetrics(meter metric.Meter) (*metrics, error) {
+	h, err := meter.Int64Histogram("platform_gateway_capabilities_handle_node_message_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	requestsTotal, err := beholder.GetMeter().Int64Counter("platform_gateway_capabilities_artifact_fetch_requests_total")
+	requestsTotal, err := meter.Int64Counter("platform_gateway_capabilities_artifact_fetch_requests_total")
 	if err != nil {
 		return nil, err
 	}
 
-	fetchOutcomeTotal, err := beholder.GetMeter().Int64Counter("platform_gateway_capabilities_artifact_fetch_outcome_total")
+	fetchOutcomeTotal, err := meter.Int64Counter("platform_gateway_capabilities_artifact_fetch_outcome_total")
 	if err != nil {
 		return nil, err
 	}
 
-	deliveryTotal, err := beholder.GetMeter().Int64Counter("platform_gateway_capabilities_response_delivery_total")
+	deliveryTotal, err := meter.Int64Counter("platform_gateway_capabilities_response_delivery_total")
 	if err != nil {
 		return nil, err
 	}

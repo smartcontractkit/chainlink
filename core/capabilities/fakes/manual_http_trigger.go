@@ -54,7 +54,7 @@ func NewManualHTTPTriggerService(parentLggr logger.Logger, gatewayConfig gateway
 
 		lggr:         lggr,
 		gateway:      localGateway,
-		eventEmitter: events.DefaultEmitter(),
+		eventEmitter: events.NewEmitter(nil),
 
 		callbackCh:  make(map[string]chan capabilities.TriggerAndId[*httptypedapi.Payload]),
 		workflowIDs: make(map[string]string),

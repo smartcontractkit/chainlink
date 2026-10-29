@@ -95,6 +95,9 @@ type Opts struct {
 	BillingClient metering.BillingClient
 	LinkingClient linkingclient.LinkingServiceClient
 	Meter         metric.Meter
+	// Emitter emits node-level platform events (e.g. metering records) to
+	// beholder. Required: nil disables emission.
+	Emitter beholder.Emitter
 
 	// DurableEmit persists workflow events for durable delivery. Nil disables persistence.
 	DurableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
@@ -196,7 +199,7 @@ func (s *Services) newSubservices(
 
 	if capCfg.GatewayConnector().DonID() != "" {
 		lggr.Debugw("Creating GatewayConnector wrapper", "donID", capCfg.GatewayConnector().DonID())
-		gatewayConnectorWrapper, ierr := newGatewayConnectorWrapper(capCfg, keyStore, lggr)
+		gatewayConnectorWrapper, ierr := newGatewayConnectorWrapper(capCfg, keyStore, lggr, opts.Meter)
 		if ierr != nil {
 			return nil, fmt.Errorf("could not create gateway connector wrapper: %w", ierr)
 		}
@@ -224,6 +227,7 @@ func (s *Services) newSubservices(
 				opts.LimitsFactory,
 				attestationValidator,
 				cfg.CRE().ConfidentialRelay().RequireBFTQuorum(),
+				opts.Meter,
 			)
 			srvs = append(srvs, relayService)
 		}
@@ -328,6 +332,7 @@ func newGatewayConnectorWrapper(
 	capCfg config.Capabilities,
 	keyStore Keystore,
 	lggr logger.Logger,
+	meter metric.Meter,
 ) (*gatewayconnector.ServiceWrapper, error) {
 	chainID, ok := new(big.Int).SetString(capCfg.GatewayConnector().ChainIDForNodeKey(), 0)
 	if !ok {
@@ -341,7 +346,8 @@ func newGatewayConnectorWrapper(
 		chainID,
 		clockwork.NewRealClock(),
 		lggr,
-		keyStore.CSA())
+		keyStore.CSA(),
+		meter)
 
 	return wrapper, nil
 }
@@ -372,6 +378,7 @@ func newRegistrySyncerV2(
 	ocrConfigService capregconfig.OCRConfigService,
 	wfLauncher registrysyncerV2.Listener,
 	shardIndexMapper registrysyncerV2.Listener,
+	meter metric.Meter,
 ) ([]commonsrv.Service, error) {
 	registrySyncer, err := registrysyncerV2.New(
 		lggr,
@@ -379,6 +386,7 @@ func newRegistrySyncerV2(
 		relayer,
 		registryAddress,
 		registrysyncerV1.NewORM(ds, lggr),
+		meter,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not configure syncer: %w", err)
@@ -427,7 +435,7 @@ func (s *Services) newRegistrySyncer(
 
 	donNotifier := capabilities.NewDonNotifier()
 
-	ocrConfigService, ocrErr := newOCRConfigService(lggr, rid, registryAddress, dispatcherWrapper)
+	ocrConfigService, ocrErr := newOCRConfigService(lggr, rid, registryAddress, dispatcherWrapper, opts.Meter)
 	if ocrErr != nil {
 		return nil, nil, nil, ocrErr
 	}
@@ -466,6 +474,7 @@ func (s *Services) newRegistrySyncer(
 		opts.LimitsFactory,
 		shardingEnabled,
 		shardIndex,
+		opts.Meter,
 	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
@@ -498,7 +507,7 @@ func (s *Services) newRegistrySyncer(
 				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), oracleFactoryConfig, donID, ocr3Config)
 			}
 
-			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn, localCfg.UseOffchainRegistry())
+			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn, localCfg.UseOffchainRegistry(), opts.Meter)
 			if lcmErr != nil {
 				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
 			}
@@ -523,6 +532,7 @@ func (s *Services) newRegistrySyncer(
 		ocrConfigService,
 		wfLauncher,
 		shardIndexMapper,
+		opts.Meter,
 	)
 	if err != nil {
 		return nil, nil, nil, err
@@ -536,6 +546,7 @@ func newOCRConfigService(
 	rid commontypes.RelayID,
 	registryAddress string,
 	dispatcherWrapper *dispatcherWrapper,
+	meter metric.Meter,
 ) (capregconfig.OCRConfigService, error) {
 	registryChainID, err := strconv.ParseUint(rid.ChainID, 10, 64)
 	if err != nil {
@@ -546,6 +557,7 @@ func newOCRConfigService(
 		dispatcherWrapper.GetPeerID,
 		registryChainID,
 		registryAddress,
+		meter,
 	), nil
 }
 
@@ -581,11 +593,11 @@ func (w *dispatcherWrapper) newSubservices(
 	if len(bootstrappers) == 0 {
 		bootstrappers = cfg.P2P().V2().DefaultBootstrappers()
 	}
-	w.don2DonSharedPeer = p2pmain.NewDon2DonSharedPeer(singletonPeerWrapper, bootstrappers, lggr)
+	w.don2DonSharedPeer = p2pmain.NewDon2DonSharedPeer(singletonPeerWrapper, bootstrappers, lggr, opts.Meter)
 
 	signer := p2pmain.NewSigner(keyStore.P2P(), cfg.P2P().PeerID())
 
-	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr, opts.LimitsFactory)
+	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr, opts.LimitsFactory, opts.Meter)
 	if err != nil {
 		return nil, fmt.Errorf("could not create dispatcher: %w", err)
 	}
@@ -837,15 +849,15 @@ func newFetcherServiceV2(
 	}
 
 	if direct {
-		httpClient, err := syncerV2.NewDirectHTTPClient(lggr, math.MaxUint32)
+		httpClient, err := syncerV2.NewDirectHTTPClient(lggr, math.MaxUint32, opts.Meter)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to create direct fetch http client: %w", err)
 		}
-		fetcher := syncerV2.NewFetcherService(lggr, nil, storageClient)
+		fetcher := syncerV2.NewFetcherService(lggr, nil, storageClient, opts.Meter)
 		return syncerV2.NewDirectFetcherFunc(httpClient, wfReg.FetchAllowedHosts(), lggr), fetcher.RetrieveURL, []commonsrv.Service{}, nil
 	}
 
-	fetcher := syncerV2.NewFetcherService(lggr, gatewayConnectorWrapper, storageClient)
+	fetcher := syncerV2.NewFetcherService(lggr, gatewayConnectorWrapper, storageClient, opts.Meter)
 	return fetcher.Fetch, fetcher.RetrieveURL, []commonsrv.Service{fetcher}, nil
 }
 
@@ -934,7 +946,7 @@ func newWorkflowRegistrySyncerV2(
 
 	var shardRoutingSteady *shardownership.SteadySignal
 	if shardingEnabled {
-		steadyMetrics, errSteady := wfmonitoring.GlobalSteadySignalMetrics()
+		steadyMetrics, errSteady := wfmonitoring.NewSteadySignalMetrics(opts.Meter)
 		if errSteady != nil {
 			lggr.Warnw("Failed to register shard routing steady signal metrics; continuing without steady instrumentation", "err", errSteady)
 		}
@@ -942,23 +954,23 @@ func newWorkflowRegistrySyncerV2(
 	}
 
 	assignmentMode := cfg.Sharding().ShardAssignmentMode()
-	assignmentMetrics, errAssignmentMetrics := wfmonitoring.GlobalShardAssignmentMetrics()
+	assignmentMetrics, errAssignmentMetrics := wfmonitoring.NewShardAssignmentMetricsWithMeter(opts.Meter)
 	if errAssignmentMetrics != nil {
 		lggr.Warnw("Failed to register shard assignment metrics; continuing without assignment instrumentation", "err", errAssignmentMetrics)
 	}
 	var shardResolver shardownership.ShardResolver
 	switch assignmentMode {
 	case toml.ShardAssignmentModeManualOnly:
-		shardResolver = shardownership.NewManualShardResolver(opts.ShardAssignmentSettings, orgResolver, shardIndexMapper, lggr)
+		shardResolver = shardownership.NewManualShardResolver(opts.ShardAssignmentSettings, orgResolver, shardIndexMapper, assignmentMetrics, lggr)
 		assignmentMetrics.RecordAssignmentMode(context.Background(), wfmonitoring.ShardAssignmentModeManualOnly)
 		lggr.Infow("Using manual-only shard assignment mode")
 	case toml.ShardAssignmentModeRingOCROverrides:
-		ringOCR := shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
-		shardResolver = shardownership.NewOverrideShardResolver(opts.ShardAssignmentSettings, orgResolver, shardIndexMapper, ringOCR, lggr)
+		ringOCR := shardownership.NewRingOCRShardResolver(shardOrchestratorClient, assignmentMetrics, lggr)
+		shardResolver = shardownership.NewOverrideShardResolver(opts.ShardAssignmentSettings, orgResolver, shardIndexMapper, ringOCR, assignmentMetrics, lggr)
 		assignmentMetrics.RecordAssignmentMode(context.Background(), wfmonitoring.ShardAssignmentModeRingOCRWithOverrides)
 		lggr.Infow("Using ringocr-with-overrides shard assignment mode")
 	default:
-		shardResolver = shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
+		shardResolver = shardownership.NewRingOCRShardResolver(shardOrchestratorClient, assignmentMetrics, lggr)
 		assignmentMetrics.RecordAssignmentMode(context.Background(), wfmonitoring.ShardAssignmentModeRingOCROnly)
 		lggr.Infow("Using ringocr-only shard assignment mode")
 	}
@@ -966,7 +978,12 @@ func newWorkflowRegistrySyncerV2(
 	meterRecordsEnabled := meteringCfg != nil && meteringCfg.MeterRecordsEnabled()
 	meterSnapshotsEnabled := meteringCfg != nil && meteringCfg.MeterSnapshotsEnabled()
 
-	coordinatorMetrics, err := wfmonitoring.InitMonitoringResources()
+	failoverMetrics, err := wfmonitoring.NewShardFailoverMetrics(opts.Meter)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to init shard failover metrics: %w", err)
+	}
+
+	coordinatorMetrics, err := wfmonitoring.InitMonitoringResourcesWithMeter(opts.Meter)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to init trigger coordinator metrics: %w", err)
 	}
@@ -996,8 +1013,9 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithShardResolver(shardResolver),
 		syncerV2.WithShardIndex(uint32(cfg.Sharding().ShardIndex())),
 		syncerV2.WithTriggerCoordinator(triggerCoordinator),
+		syncerV2.WithShardFailoverMetrics(failoverMetrics),
 		// Shared emitter across handler and spawned engines.
-		syncerV2.WithEventEmitter(events.NewEmitter(nil, events.WithDurableEmit(opts.DurableEmit))),
+		syncerV2.WithEventEmitter(events.NewEmitter(opts.Emitter, events.WithDurableEmit(opts.DurableEmit))),
 	}
 	if shardingEnabled && dispatcher != nil {
 		handlerOpts = append(handlerOpts,
@@ -1013,7 +1031,7 @@ func newWorkflowRegistrySyncerV2(
 		rm := resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{
 			MeterRecordsEnabled:   meterRecordsEnabled,
 			MeterSnapshotsEnabled: meterSnapshotsEnabled,
-			Emitter:               beholder.GetEmitter(),
+			Emitter:               opts.Emitter,
 			SnapshotInterval:      resourcemanager.DefaultSnapshotInterval,
 		})
 		specMeter, smErr := syncerV2.NewSpecMeter(lggr, rm, meterIdentity, artifactsStore, orgResolver)
@@ -1057,7 +1075,7 @@ func newWorkflowRegistrySyncerV2(
 		}
 
 		if cacheEnabled {
-			cm, cmErr := syncerV2.NewCacheMetrics()
+			cm, cmErr := syncerV2.NewCacheMetrics(opts.Meter)
 			if cmErr != nil {
 				return nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
 			}
@@ -1106,6 +1124,7 @@ func newWorkflowRegistrySyncerV2(
 		artifactsStore,
 		key,
 		workflowDonNotifier,
+		opts.Meter,
 		handlerOpts...,
 	)
 	if err != nil {
@@ -1132,8 +1151,10 @@ func newWorkflowRegistrySyncerV2(
 		// centralized source and every workflow it serves.
 		syncerV2.WithCentralizedOwnerVerification(engineLimiters.CentralizedWorkflowOwnerVerificationEnabled, lf.Settings),
 		syncerV2.WithAdditionalSources(addSourceConfigs),
+		syncerV2.WithRegistryShardAssignmentMetrics(assignmentMetrics),
 		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
 		syncerV2.WithRegistryShardResolver(shardResolver),
+		syncerV2.WithRegistryShardFailoverMetrics(failoverMetrics),
 		syncerV2.WithMaxConcurrency(wfReg.MaxConcurrency()),
 		syncerV2.WithMaxActivationRetries(wfReg.MaxActivationRetries()),
 	}
@@ -1159,6 +1180,7 @@ func newWorkflowRegistrySyncerV2(
 		eventHandler,
 		workflowDonNotifier,
 		engineRegistry,
+		opts.Meter,
 		registryOpts...,
 	)
 	if err != nil {

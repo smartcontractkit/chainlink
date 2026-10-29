@@ -7,8 +7,6 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 // engineType label values for the running-engines gauge.
@@ -251,32 +249,33 @@ func (cm *CacheMetrics) recordTryAcquireExhausted(ctx context.Context) {
 	}
 }
 
-func NewCacheMetrics() (*CacheMetrics, error) {
-	reloadSource, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_reload_total")
+// NewCacheMetrics registers the module cache instruments on meter.
+func NewCacheMetrics(meter metric.Meter) (*CacheMetrics, error) {
+	reloadSource, err := meter.Int64Counter("platform_workflow_module_cache_reload_total")
 	if err != nil {
 		return nil, err
 	}
-	evictionTotal, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_eviction_total")
+	evictionTotal, err := meter.Int64Counter("platform_workflow_module_cache_eviction_total")
 	if err != nil {
 		return nil, err
 	}
-	loadedGauge, err := beholder.GetMeter().Int64Gauge("platform_workflow_module_cache_loaded")
+	loadedGauge, err := meter.Int64Gauge("platform_workflow_module_cache_loaded")
 	if err != nil {
 		return nil, err
 	}
-	memorySaved, err := beholder.GetMeter().Int64Gauge("platform_workflow_module_cache_memory_saved_bytes")
+	memorySaved, err := meter.Int64Gauge("platform_workflow_module_cache_memory_saved_bytes")
 	if err != nil {
 		return nil, err
 	}
-	versionMismatch, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_version_mismatch_total")
+	versionMismatch, err := meter.Int64Counter("platform_workflow_module_cache_version_mismatch_total")
 	if err != nil {
 		return nil, err
 	}
-	pinExhausted, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_pin_exhausted_total")
+	pinExhausted, err := meter.Int64Counter("platform_workflow_module_cache_pin_exhausted_total")
 	if err != nil {
 		return nil, err
 	}
-	tryAcquireExhausted, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_try_acquire_exhausted_total")
+	tryAcquireExhausted, err := meter.Int64Counter("platform_workflow_module_cache_try_acquire_exhausted_total")
 	if err != nil {
 		return nil, err
 	}
@@ -291,109 +290,110 @@ func NewCacheMetrics() (*CacheMetrics, error) {
 	}, nil
 }
 
-func newMetrics() (*metrics, error) {
-	handleDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_handler_duration_ms")
+// newMetrics registers the syncer's instruments on meter.
+func newMetrics(meter metric.Meter) (*metrics, error) {
+	handleDuration, err := meter.Int64Histogram("platform_workflow_registry_syncer_handler_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	fetchedWorkflows, err := beholder.GetMeter().Int64Gauge("platform_workflow_registry_syncer_fetched_workflows")
+	fetchedWorkflows, err := meter.Int64Gauge("platform_workflow_registry_syncer_fetched_workflows")
 	if err != nil {
 		return nil, err
 	}
 
-	runningWorkflows, err := beholder.GetMeter().Int64Gauge("platform_workflow_registry_syncer_running_workflows")
+	runningWorkflows, err := meter.Int64Gauge("platform_workflow_registry_syncer_running_workflows")
 	if err != nil {
 		return nil, err
 	}
 
-	drainingWorkflows, err := beholder.GetMeter().Int64Gauge("platform_workflow_registry_syncer_draining_workflows")
+	drainingWorkflows, err := meter.Int64Gauge("platform_workflow_registry_syncer_draining_workflows")
 	if err != nil {
 		return nil, err
 	}
 
-	runningEngines, err := beholder.GetMeter().Int64Gauge("platform_workflow_registry_syncer_running_engines")
+	runningEngines, err := meter.Int64Gauge("platform_workflow_registry_syncer_running_engines")
 	if err != nil {
 		return nil, err
 	}
 
-	completedSyncs, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_completed_syncs_total")
+	completedSyncs, err := meter.Int64Counter("platform_workflow_registry_syncer_completed_syncs_total")
 	if err != nil {
 		return nil, err
 	}
 
-	drainStarted, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_drain_started_total")
+	drainStarted, err := meter.Int64Counter("platform_workflow_registry_syncer_drain_started_total")
 	if err != nil {
 		return nil, err
 	}
 
-	drainCompleted, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_drain_completed_total")
+	drainCompleted, err := meter.Int64Counter("platform_workflow_registry_syncer_drain_completed_total")
 	if err != nil {
 		return nil, err
 	}
 
-	drainDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_drain_duration_ms")
+	drainDuration, err := meter.Int64Histogram("platform_workflow_registry_syncer_drain_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	deleteDeferred, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_delete_deferred_total")
+	deleteDeferred, err := meter.Int64Counter("platform_workflow_registry_syncer_delete_deferred_total")
 	if err != nil {
 		return nil, err
 	}
 
 	// Per-source metrics
-	sourceHealth, err := beholder.GetMeter().Int64Gauge("platform_workflow_registry_syncer_source_health")
+	sourceHealth, err := meter.Int64Gauge("platform_workflow_registry_syncer_source_health")
 	if err != nil {
 		return nil, err
 	}
 
-	workflowsPerSource, err := beholder.GetMeter().Int64Gauge("platform_workflow_registry_syncer_workflows_per_source")
+	workflowsPerSource, err := meter.Int64Gauge("platform_workflow_registry_syncer_workflows_per_source")
 	if err != nil {
 		return nil, err
 	}
 
-	sourceFetchDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_source_fetch_duration_ms")
+	sourceFetchDuration, err := meter.Int64Histogram("platform_workflow_registry_syncer_source_fetch_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	sourceFetchErrors, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_source_fetch_errors_total")
+	sourceFetchErrors, err := meter.Int64Counter("platform_workflow_registry_syncer_source_fetch_errors_total")
 	if err != nil {
 		return nil, err
 	}
 
-	reconcileEventsDispatched, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_reconcile_events_dispatched")
+	reconcileEventsDispatched, err := meter.Int64Histogram("platform_workflow_registry_syncer_reconcile_events_dispatched")
 	if err != nil {
 		return nil, err
 	}
 
-	reconcileDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_reconcile_duration_ms")
+	reconcileDuration, err := meter.Int64Histogram("platform_workflow_registry_syncer_reconcile_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	reconcileEventsBackoff, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_reconcile_events_backoff_total")
+	reconcileEventsBackoff, err := meter.Int64Counter("platform_workflow_registry_syncer_reconcile_events_backoff_total")
 	if err != nil {
 		return nil, err
 	}
 
-	activationDropped, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_activation_dropped_total")
+	activationDropped, err := meter.Int64Counter("platform_workflow_registry_syncer_activation_dropped_total")
 	if err != nil {
 		return nil, err
 	}
 
-	activationAbandoned, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_activation_abandoned_total")
+	activationAbandoned, err := meter.Int64Counter("platform_workflow_registry_syncer_activation_abandoned_total")
 	if err != nil {
 		return nil, err
 	}
 
-	moduleStoreDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_module_store_duration_ms")
+	moduleStoreDuration, err := meter.Int64Histogram("platform_workflow_registry_syncer_module_store_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	workflowTagBackfill, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_workflow_tag_backfill_total")
+	workflowTagBackfill, err := meter.Int64Counter("platform_workflow_registry_syncer_workflow_tag_backfill_total")
 	if err != nil {
 		return nil, err
 	}

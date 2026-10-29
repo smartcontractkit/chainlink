@@ -8,11 +8,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
@@ -28,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -60,6 +63,8 @@ func NewStandaloneEngine(
 	lifecycleHooks v2.LifecycleHooks,
 	workflowName string,
 	workflowSettingsCfgFn func(*cresettings.Workflows),
+	meter metric.Meter,
+	emitter beholder.Emitter,
 ) (services.Service, []*sdkpb.TriggerSubscription, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: defaultOwner, Workflow: defaultWorkflowID})
 	moduleConfig := &host.ModuleConfig{
@@ -152,6 +157,8 @@ func NewStandaloneEngine(
 		GlobalWorkflowLimit: workflowLimits,
 
 		BeholderEmitter: custmsg.NewLabeler(),
+		Meter:           meter,
+		EventEmitter:    events.NewEmitter(emitter),
 
 		BillingClient: billingClient,
 		Hooks:         lifecycleHooks,
