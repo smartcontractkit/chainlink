@@ -60,6 +60,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/arbiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -86,17 +87,17 @@ import (
 )
 
 const (
-	vaultCapabilityID   = "vault@1.0.0"
+	vaultCapabilityID   = internal.VaultCapabilityID
 	vaultOCRConfigKey   = "vault"
 	dkgOCRConfigKey     = "dkg"
-	dontimeCapabilityID = "dontime@1.0.0"
+	dontimeCapabilityID = internal.DontimeCapabilityID
 	// dontimeCapabilityPrefix matches any dontime version (e.g. "dontime@2.0.0"),
 	// so the registry-driven launch guard keeps working if the version changes.
 	dontimeCapabilityPrefix      = "dontime"
 	gaugeVaultDiskUsageBytes     = "platform_vault_disk_usage_bytes"
 	vaultDiskMonitorTickInterval = time.Minute
 
-	consensusQueueCapabilityID            = "consensus-queue@1.0.0"
+	consensusQueueCapabilityID            = internal.ConsensusQueueCapabilityID
 	consensusQueueOCRConfigKey            = "consensus-queue"
 	gaugeConsensusQueueBytes              = "platform_consensus_queue_usage_bytes"
 	consensusQueueDiskMonitorTickInterval = time.Minute
@@ -798,7 +799,11 @@ func (d *Delegate) newServicesConsensusQueue(
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	// TODO ticket validate job spec
+	cfg := &queue.PluginConfig{}
+	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal plugin config: %w", err)
+	}
 
 	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
@@ -826,7 +831,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		rid.Network,
 		rid.ChainID,
 		spec.ContractID,
-		synchronization.TelemetryType(types.VaultPlugin),
+		synchronization.TelemetryType(types.ConsensusQueue),
 	)
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
@@ -859,7 +864,6 @@ func (d *Delegate) newServicesConsensusQueue(
 		return nil, err
 	}
 
-	// Get DKG config tracker and digester, optionally wrapping with OCRConfigService
 	configTracker, configDigester, lc, err := d.maybeWrapConfigService(consensusQueueCapabilityID, consensusQueueOCRConfigKey, lggr, provider.ContractConfigTracker(), provider.OffchainConfigDigester(), lc)
 	if err != nil {
 		return nil, err
@@ -869,19 +873,20 @@ func (d *Delegate) newServicesConsensusQueue(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
-		ContractTransmitter:          nil, // TODO ticket transmitter
-		Database:                     ocrDB,
-		KeyValueDatabaseFactory:      kvFactory,
-		LocalConfig:                  lc,
-		Logger:                       ocrLogger,
-		MonitoringEndpoint:           oracleEndpoint,
-		OffchainConfigDigester:       configDigester,
-		OffchainKeyring:              kb,
-		OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
-		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+		//TODO pass engine as EventSink
+		ContractTransmitter:     queue.NewTransmitter(lggr, ocrtypes.Account(spec.TransmitterID.String), nil),
+		Database:                ocrDB,
+		KeyValueDatabaseFactory: kvFactory,
+		LocalConfig:             lc,
+		Logger:                  ocrLogger,
+		MonitoringEndpoint:      oracleEndpoint,
+		OffchainConfigDigester:  configDigester,
+		OffchainKeyring:         kb,
+		OnchainKeyring:          ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
+		MetricsRegisterer:       prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
-	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, d.limitsFactory)
+	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, cfg, d.limitsFactory)
 	if err != nil {
 		return nil, err
 	}
