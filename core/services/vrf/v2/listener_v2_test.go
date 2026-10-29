@@ -2,10 +2,12 @@ package v2
 
 import (
 	"encoding/json"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
@@ -537,14 +539,33 @@ func newRetryTestListener(t *testing.T, initial, maxDelay time.Duration) *listen
 }
 
 func newRetryTestRequest(id int64, confirmedAtBlock uint64) pendingRequest {
+	return newRetryTestRequestForSub(id, 1, confirmedAtBlock)
+}
+
+func newRetryTestRequestForSub(id int64, subID uint64, confirmedAtBlock uint64) pendingRequest {
 	return pendingRequest{
 		confirmedAtBlock: confirmedAtBlock,
 		req: NewV2RandomWordsRequested(&vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
 			RequestId: big.NewInt(id),
-			SubId:     1,
+			SubId:     subID,
 			Raw:       types.Log{BlockNumber: 1},
 		}),
 	}
+}
+
+// subErrCoordinator is a CoordinatorV2_X whose GetSubscription always fails with an RPC-style
+// error. Only the methods processPendingVRFRequests reaches before returning early are implemented;
+// calling any other method panics on the nil embedded interface.
+type subErrCoordinator struct {
+	CoordinatorV2_X
+	getSubscriptionCalls int
+}
+
+func (*subErrCoordinator) Version() vrfcommon.Version { return vrfcommon.V2 }
+
+func (c *subErrCoordinator) GetSubscription(*bind.CallOpts, *big.Int) (Subscription, error) {
+	c.getSubscriptionCalls++
+	return nil, errors.New("rpc unavailable")
 }
 
 func TestListener_updateRetryState(t *testing.T) {
@@ -636,4 +657,46 @@ func TestListener_retryStatePersistsAcrossTicks(t *testing.T) {
 	// the request gets fulfilled: it is no longer pending and its state is released.
 	lsn.updateRetryState(nil, nil, nil)
 	require.Empty(t, lsn.retries)
+}
+
+// TestListener_processPendingVRFRequests_earlyReturnKeepsRetryState covers the wiring between
+// processPendingVRFRequests and updateRetryState. When the subscription loop returns early,
+// requests that were never handed to request processing must not be recorded as failed attempts,
+// and the deferred update must still run (pruning entries of requests that are no longer pending).
+func TestListener_processPendingVRFRequests_earlyReturnKeepsRetryState(t *testing.T) {
+	t.Parallel()
+	coordinator := &subErrCoordinator{}
+	lsn := newRetryTestListener(t, time.Minute, time.Hour)
+	lsn.coordinator = coordinator
+	lsn.setLatestHead(logpoller.Block{BlockNumber: 100})
+
+	now := time.Now().UTC()
+	longAgo := now.Add(-time.Hour) // well past the backoff window, so the request is ready
+	justNow := now.Add(-time.Second)
+
+	// sub 1: a ready request that already failed twice, and one still waiting out its backoff.
+	retried := newRetryTestRequestForSub(1, 1, 2)
+	retried.attempts, retried.lastTry = 2, longAgo
+	gated := newRetryTestRequestForSub(3, 1, 2)
+	gated.attempts, gated.lastTry = 4, justNow
+	// sub 2: a ready request that was never attempted.
+	fresh := newRetryTestRequestForSub(2, 2, 2)
+
+	lsn.retries["1"] = retryState{attempts: 2, lastTry: longAgo}
+	lsn.retries["3"] = retryState{attempts: 4, lastTry: justNow}
+	lsn.retries["99"] = retryState{attempts: 1, lastTry: longAgo} // request is no longer pending
+
+	// GetSubscription fails for whichever subscription is processed first, so the loop returns
+	// before any request is handed to request processing, whatever the map iteration order is.
+	lsn.processPendingVRFRequests(t.Context(), []pendingRequest{retried, gated, fresh})
+
+	require.Equal(t, 1, coordinator.getSubscriptionCalls, "loop should return at the first failing subscription")
+	// never attempted: attempts must not be incremented and no entry created
+	require.Equal(t, retryState{attempts: 2, lastTry: longAgo}, lsn.retries["1"])
+	require.NotContains(t, lsn.retries, "2")
+	// still waiting out its backoff: state is kept
+	require.Equal(t, retryState{attempts: 4, lastTry: justNow}, lsn.retries["3"])
+	// the deferred update ran: the entry for a request that is no longer pending was pruned
+	require.NotContains(t, lsn.retries, "99")
+	require.Len(t, lsn.retries, 2)
 }
