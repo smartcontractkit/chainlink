@@ -78,6 +78,14 @@ type shardUserLogCollector struct {
 
 func startShardUserLogCollector(t *testing.T, testEnv *ttypes.TestEnvironment) *shardUserLogCollector {
 	t.Helper()
+	return startShardUserLogCollectorMatching(t, testEnv, sharedVaultUserLogPrefix, true)
+}
+
+// startShardUserLogCollectorMatching records user-log lines containing needle.
+// failOnEngineInitError fails the test on a workflow-engine init error; turn it
+// off when a shard is broken on purpose and may legitimately fail to init.
+func startShardUserLogCollectorMatching(t *testing.T, testEnv *ttypes.TestEnvironment, needle string, failOnEngineInitError bool) *shardUserLogCollector {
+	t.Helper()
 	testLogger := framework.L
 
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
@@ -91,7 +99,14 @@ func startShardUserLogCollector(t *testing.T, testEnv *ttypes.TestEnvironment) *
 
 	execCtx, cancelCause := context.WithCancelCause(t.Context())
 	defer cancelCause(nil)
-	go t_helpers.FailOnBaseMessage(execCtx, cancelCause, t, testLogger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog)
+	if failOnEngineInitError {
+		go t_helpers.FailOnBaseMessage(execCtx, cancelCause, t, testLogger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog)
+	} else {
+		go func() {
+			for range baseMessageCh {
+			}
+		}()
+	}
 
 	c := &shardUserLogCollector{}
 	go func() {
@@ -102,7 +117,7 @@ func startShardUserLogCollector(t *testing.T, testEnv *ttypes.TestEnvironment) *
 			emittedAt := time.Time{}
 			hasUserLog := false
 			for _, line := range userLogs.LogLines {
-				if !strings.Contains(line.Message, sharedVaultUserLogPrefix) {
+				if !strings.Contains(line.Message, needle) {
 					continue
 				}
 				hasUserLog = true
