@@ -1,9 +1,7 @@
 package v2
 
 import (
-	"crypto/sha256"
 	"database/sql"
-	"fmt"
 	"testing"
 	"time"
 
@@ -14,17 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
-
-// testWFID namespaces a fixed workflow ID by the calling test. pgtest gives
-// every test its own transaction over one shared schema, so parallel subtests
-// that upsert the same workflow_id make Postgres wait on each other's
-// uncommitted rows; touching the same set of rows in different orders then
-// deadlocks (SQLSTATE 40P01).
-func testWFID(t *testing.T, id string) string {
-	t.Helper()
-	sum := sha256.Sum256([]byte(t.Name()))
-	return fmt.Sprintf("%s-%x", id, sum[:4])
-}
 
 func Test_UpsertWorkflowSpec(t *testing.T) {
 	t.Parallel()
@@ -38,7 +25,7 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 		spec := &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
-			WorkflowID:    testWFID(t, "cid-123"),
+			WorkflowID:    pgtest.UniqueName(t, "cid-123"),
 			WorkflowOwner: "owner-123",
 			WorkflowName:  "Test Workflow",
 			WorkflowTag:   "workflowTag",
@@ -71,7 +58,7 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 		spec := &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
-			WorkflowID:    testWFID(t, "cid-123"),
+			WorkflowID:    pgtest.UniqueName(t, "cid-123"),
 			WorkflowOwner: "owner-123",
 			WorkflowName:  "Test Workflow",
 			WorkflowTag:   "workflowTag",
@@ -112,7 +99,7 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 		spec := &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
-			WorkflowID:    "cid-zero-time",
+			WorkflowID:    pgtest.UniqueName(t, "cid-zero-time"),
 			WorkflowOwner: "owner-123",
 			WorkflowName:  "Test Workflow",
 			WorkflowTag:   "workflowTag",
@@ -142,8 +129,8 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		orm := &orm{ds: db, lggr: lggr}
 
-		WFID1 := testWFID(t, "cid-123")
-		WFID2 := testWFID(t, "cid-456")
+		WFID1 := pgtest.UniqueName(t, "cid-123")
+		WFID2 := pgtest.UniqueName(t, "cid-456")
 		spec := &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
@@ -198,7 +185,7 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 		spec := &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
-			WorkflowID:    testWFID(t, "cid-123"),
+			WorkflowID:    pgtest.UniqueName(t, "cid-123"),
 			WorkflowOwner: "owner-123",
 			WorkflowName:  "Test Workflow",
 			WorkflowTag:   "workflowTag",
@@ -268,9 +255,9 @@ func Test_DeleteWorkflowSpecs(t *testing.T) {
 		id   string
 		name string
 	}{
-		{testWFID(t, "wf-1"), "Workflow 1"},
-		{testWFID(t, "wf-2"), "Workflow 2"},
-		{testWFID(t, "wf-3"), "Workflow 3"},
+		{pgtest.UniqueName(t, "wf-1"), "Workflow 1"},
+		{pgtest.UniqueName(t, "wf-2"), "Workflow 2"},
+		{pgtest.UniqueName(t, "wf-3"), "Workflow 3"},
 	}
 	for _, s := range specs {
 		_, err := orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
@@ -314,7 +301,7 @@ func Test_PauseWorkflowSpec(t *testing.T) {
 		_, err := orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
-			WorkflowID:    testWFID(t, "cid-123"),
+			WorkflowID:    pgtest.UniqueName(t, "cid-123"),
 			WorkflowOwner: "owner-123",
 			WorkflowName:  "Test Workflow",
 			Status:        job.WorkflowSpecStatusActive,
@@ -325,9 +312,9 @@ func Test_PauseWorkflowSpec(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		require.NoError(t, orm.PauseWorkflowSpec(ctx, testWFID(t, "cid-123")))
+		require.NoError(t, orm.PauseWorkflowSpec(ctx, pgtest.UniqueName(t, "cid-123")))
 
-		paused, err := orm.GetWorkflowSpec(ctx, testWFID(t, "cid-123"))
+		paused, err := orm.GetWorkflowSpec(ctx, pgtest.UniqueName(t, "cid-123"))
 		require.NoError(t, err)
 		assert.Equal(t, job.WorkflowSpecStatusPaused, paused.Status)
 		assert.Empty(t, paused.Workflow, "artifact payload must be cleared")
@@ -337,7 +324,7 @@ func Test_PauseWorkflowSpec(t *testing.T) {
 		assert.Equal(t, "owner-123", paused.WorkflowOwner)
 
 		// Idempotent: pausing again is a no-op.
-		require.NoError(t, orm.PauseWorkflowSpec(ctx, testWFID(t, "cid-123")))
+		require.NoError(t, orm.PauseWorkflowSpec(ctx, pgtest.UniqueName(t, "cid-123")))
 	})
 
 	t.Run("pausing an absent row is a no-op", func(t *testing.T) {
@@ -363,9 +350,9 @@ func Test_ListWorkflowSpecs(t *testing.T) {
 		source       string
 		storageBytes int64
 	}{
-		testWFID(t, "wf-1"): {"owner-1", 100, "ContractWorkflowSource", 12},
-		testWFID(t, "wf-2"): {"owner-2", 200, "GRPCWorkflowSource", 34},
-		testWFID(t, "wf-3"): {"owner-3", 0, "", 0}, // pre-migration row: registered_at, source and storage_bytes defaulted
+		pgtest.UniqueName(t, "wf-1"): {"owner-1", 100, "ContractWorkflowSource", 12},
+		pgtest.UniqueName(t, "wf-2"): {"owner-2", 200, "GRPCWorkflowSource", 34},
+		pgtest.UniqueName(t, "wf-3"): {"owner-3", 0, "", 0}, // pre-migration row: registered_at, source and storage_bytes defaulted
 	}
 	for id, w := range want {
 		_, err := orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
@@ -412,7 +399,7 @@ func Test_GetWorkflowSpec(t *testing.T) {
 		spec := &job.WorkflowSpec{
 			Workflow:      "test_workflow",
 			Config:        "test_config",
-			WorkflowID:    testWFID(t, "cid-123"),
+			WorkflowID:    pgtest.UniqueName(t, "cid-123"),
 			WorkflowOwner: "owner-123",
 			WorkflowName:  "Test Workflow",
 			WorkflowTag:   "workflowTag",
