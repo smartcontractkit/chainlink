@@ -271,6 +271,31 @@ jobs:
           artifact-name: ${{ matrix.tests.test_id }}_test_logs
           trunk-test-collection-id: qt0j1cVm # chainlink-e2e
 
+      - name: Collect coverage
+        if: ${{ always() }}
+        uses: $/.github/actions/collect-coverage
+        with:
+          destination: ${{ github.workspace }}/.covdata/e2e-${{ matrix.tests.test_id }}
+          image: ${{ env.CHAINLINK_IMAGE_FULL }}
+
+      - name: Upload coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-e2e-${{ matrix.tests.test_id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .covdata/e2e-${{ matrix.tests.test_id }}
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Store test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-e2e-${{ matrix.tests.test_id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/junit-report-regression.xml
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Show Docker containers status
         if: failure() || cancelled()
         shell: bash

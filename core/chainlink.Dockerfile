@@ -97,11 +97,14 @@ FROM deps AS build-chainlink
 ARG COMMIT_SHA
 ARG VERSION_TAG
 ARG CL_IS_PROD_BUILD=true
+ARG GO_COVER_FLAG=false
 
 RUN --mount=type=cache,id=go-mod-cache,target=/go/pkg/mod \
     --mount=type=cache,id=go-build-cache,target=/root/.cache/go-build \
     mkdir -p /gobins && \
-    if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
+    if [ "$GO_COVER_FLAG" = "true" ]; then \
+          GOBIN=/gobins make install-chainlink-cover; \
+    elif [ "$CL_IS_PROD_BUILD" = "false" ]; then \
           GOBIN=/gobins make install-chainlink-dev; \
     else \
           GOBIN=/gobins make install-chainlink; \
