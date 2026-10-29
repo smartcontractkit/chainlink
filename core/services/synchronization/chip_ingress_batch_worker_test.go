@@ -25,6 +25,10 @@ func (noopChipIngressPublisher) PublishBatch(ctx context.Context, batch *pb.Clou
 	return &pb.PublishResponse{}, nil
 }
 
+func (noopChipIngressPublisher) PublishBatchNoAck(ctx context.Context, batch *pb.CloudEventBatch, opts ...grpc.CallOption) (*pb.PublishResponse, error) {
+	return &pb.PublishResponse{}, nil
+}
+
 func (noopChipIngressPublisher) Ping(ctx context.Context, req *pb.EmptyRequest, opts ...grpc.CallOption) (*pb.PingResponse, error) {
 	return &pb.PingResponse{}, nil
 }
