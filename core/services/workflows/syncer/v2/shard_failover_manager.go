@@ -174,6 +174,18 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 }
 
 func (m *ShardFailoverManager) close() error {
+	// Stop admitting first: close the engine and unregister the handler so no
+	// trigger can be cached after the cache is cleared below. A trigger admitted
+	// between clearing and engine stop would increment cachedEvents with nothing
+	// left to decrement it.
+	var err error
+	if m.engine != nil {
+		err = m.engine.Close()
+	}
+	if m.cfg.Failover.Communicator != nil {
+		m.cfg.Failover.Communicator.UnregisterHandler(m.cfg.WorkflowID)
+	}
+
 	// The cache dies with the engine (workflow paused or deleted): its events
 	// leave the funnel as one closed exit batch, or the node-wide cached-events
 	// total stays inflated for the life of the process.
@@ -185,13 +197,7 @@ func (m *ShardFailoverManager) close() error {
 		fm := shardFailoverMetrics()
 		fm.RecordCacheExit(context.Background(), monitoring.ShardFailoverCacheExitClosed, cached)
 	}
-	if m.cfg.Failover.Communicator != nil {
-		m.cfg.Failover.Communicator.UnregisterHandler(m.cfg.WorkflowID)
-	}
-	if m.engine != nil {
-		return m.engine.Close()
-	}
-	return nil
+	return err
 }
 
 // admissionCheck decides whether the engine should process a trigger event,
