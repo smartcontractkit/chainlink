@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -130,7 +130,7 @@ hashed_default_assignment = false
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -194,7 +194,7 @@ hashed_default_assignment = false
 	defer cancelSwapCause(nil)
 	go t_helpers.FailOnBaseMessage(swapExecCtx, cancelSwapCause, t, testLogger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog)
 
-	swapUserLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	swapUserLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	swapBaseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	swapServer := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, swapUserLogsCh, swapBaseMessageCh))
 	t.Cleanup(func() {
