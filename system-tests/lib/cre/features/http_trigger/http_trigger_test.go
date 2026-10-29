@@ -55,3 +55,43 @@ func TestPostEnvStartupDoesNotCreateJobs(t *testing.T) {
 	t.Parallel()
 	require.NoError(t, (&HTTPTrigger{}).PostEnvStartup(t.Context(), zerolog.Nop(), nil, nil, nil))
 }
+
+func TestBuildCapabilityConfigNativeFieldsTakePrecedence(t *testing.T) {
+	t.Parallel()
+	gateway := map[string]any{
+		"maxPushMetadataDurationMs": 500,
+		"retryConfig":               map[string]any{"initialIntervalMs": 200},
+	}
+	config, err := BuildCapabilityConfig(map[string]any{
+		"MetadataBatchSize":         25,
+		"metadataBatchSize":         10,
+		"IncomingGlobalBurst":       10,
+		"incomingRateLimiter":       map[string]any{"globalBurst": 20},
+		"gatewayConnection":         gateway,
+		"MaxPushMetadataDurationMs": 45000,
+		"MaxPullMetadataDurationMs": 46000,
+		"ProxyMode":                 "direct",
+		"HTTPClient":                map[string]any{"allowedPorts": []int{8443}},
+	}, false)
+	require.NoError(t, err)
+	spec, err := values.FromMapValueProto(config.SpecConfig)
+	require.NoError(t, err)
+	raw, err := spec.Unwrap()
+	require.NoError(t, err)
+	got := raw.(map[string]any)
+	assert.EqualValues(t, 10, got["metadataBatchSize"])
+	assert.EqualValues(t, 20, got["incomingRateLimiter"].(map[string]any)["globalBurst"])
+	gotGateway := got["gatewayConnection"].(map[string]any)
+	assert.EqualValues(t, 200, gotGateway["retryConfig"].(map[string]any)["initialIntervalMs"])
+	assert.EqualValues(t, 500, gotGateway["maxPushMetadataDurationMs"])
+	assert.EqualValues(t, 46000, gotGateway["maxPullMetadataDurationMs"])
+	assert.NotContains(t, gateway, "maxPullMetadataDurationMs", "building config must not mutate the input")
+	assert.NotContains(t, got, "proxyMode", "action settings do not belong in the trigger config")
+	assert.NotContains(t, got, "httpClient")
+}
+
+func TestBuildCapabilityConfigRejectsUnsupportedValues(t *testing.T) {
+	t.Parallel()
+	_, err := BuildCapabilityConfig(map[string]any{"GatewayConnection": make(chan int)}, false)
+	require.ErrorContains(t, err, "build HTTP trigger spec_config")
+}

@@ -9,11 +9,6 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 )
 
-const (
-	httpTriggerCapabilityIDPrefix = "http-trigger@"
-	httpActionCapabilityIDPrefix  = "http-actions@"
-)
-
 // WARNING: Hacky and brittle - used during the current std-capability transition to map
 // job commands back to capability IDs. The standard-capability delegate still needs this
 // for registry-based launch allowlisting and OCR config wiring, including remote caps like Aptos.
@@ -107,9 +102,9 @@ func GetCommandFromCapabilityID(capabilityID string) string {
 		return "dontime"
 	case strings.HasPrefix(capabilityID, "cron-trigger"):
 		return "cron"
-	case strings.HasPrefix(capabilityID, httpTriggerCapabilityIDPrefix):
+	case strings.HasPrefix(capabilityID, "http-trigger@"):
 		return "http_trigger"
-	case strings.HasPrefix(capabilityID, httpActionCapabilityIDPrefix):
+	case strings.HasPrefix(capabilityID, "http-actions@"):
 		return "http_action"
 	case strings.HasPrefix(capabilityID, "mock"):
 		return "mock"

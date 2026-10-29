@@ -3,17 +3,16 @@ package httpaction
 import (
 	"context"
 	"fmt"
-	"maps"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/httpconfig"
 )
 
 const flag = cre.HTTPActionCapability
@@ -75,9 +74,47 @@ func (o *HTTPAction) PreEnvStartup(
 
 // BuildCapabilityConfig supplies service configuration through registry spec_config.
 func BuildCapabilityConfig(input map[string]any, localOnly bool) (*capabilitiespb.CapabilityConfig, error) {
-	config := map[string]any{"ProxyMode": "gateway"}
-	maps.Copy(config, input)
-	return httpconfig.Build(config, localOnly)
+	config := map[string]any{"proxyMode": "gateway"}
+	for source, target := range map[string]string{
+		"ProxyMode":         "proxyMode",
+		"GatewayConnection": "gatewayConnection",
+		"HTTPClient":        "httpClient",
+	} {
+		if v, ok := input[target]; ok {
+			config[target] = v
+		} else if v, ok := input[source]; ok {
+			config[target] = v
+		}
+	}
+	for _, direction := range []struct{ source, target string }{
+		{"Incoming", "incomingRateLimiter"},
+		{"Outgoing", "outgoingRateLimiter"},
+	} {
+		if v, ok := input[direction.target]; ok {
+			config[direction.target] = v
+			continue
+		}
+		limiter := make(map[string]any)
+		for source, target := range map[string]string{
+			"GlobalBurst": "globalBurst", "GlobalRPS": "globalRPS",
+			"PerSenderBurst": "perSenderBurst", "PerSenderRPS": "perSenderRPS",
+		} {
+			if v, ok := input[direction.source+source]; ok {
+				limiter[target] = v
+			}
+		}
+		if len(limiter) > 0 {
+			config[direction.target] = limiter
+		}
+	}
+	specConfig, err := values.NewMap(config)
+	if err != nil {
+		return nil, fmt.Errorf("build HTTP action spec_config: %w", err)
+	}
+	return &capabilitiespb.CapabilityConfig{
+		LocalOnly:  localOnly,
+		SpecConfig: values.ProtoMap(specConfig),
+	}, nil
 }
 
 func (o *HTTPAction) PostEnvStartup(
