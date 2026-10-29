@@ -11,7 +11,7 @@ require (
 require (
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260604171908-6734db2d444f // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20261013212015-e622e8b83b6b // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 )

@@ -12,6 +12,8 @@
   chain_id = "22222222222222222222222222222222222222222222"
   port = "8550"
   type = "solana"
+  image = "solana-validator:v4.2.2-arm64"
+  image_platform = "linux/arm64"
   public_key = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"
   contracts_dir = "../tests/smoke/cre/solana_contracts"
   [blockchains.solana_programs]
