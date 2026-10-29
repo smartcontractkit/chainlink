@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"fmt"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -14,14 +17,20 @@ import (
 
 func TestNewBeholderClient_DomainEmittersFollowTelemetryIngressBeholderEnabled(t *testing.T) {
 	t.Parallel()
-	const beholderTOML = `
+	// A local gRPC server with no services answers OTel exports at once, so Close is quick.
+	lis, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	srv := grpc.NewServer()
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+	beholderTOML := fmt.Sprintf(`
 [Telemetry]
 Enabled = true
-Endpoint = 'localhost:4317'
+Endpoint = '%s'
 InsecureConnection = true
-ChipIngressEndpoint = 'localhost:9999'
+ChipIngressEndpoint = '%s'
 ChipIngressInsecureConnection = true
-`
+`, lis.Addr(), lis.Addr())
 	for _, tt := range []struct {
 		name    string
 		toml    string

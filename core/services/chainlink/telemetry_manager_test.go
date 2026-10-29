@@ -2,12 +2,14 @@ package chainlink
 
 import (
 	"context"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
+	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -47,16 +49,30 @@ func TestNewTelemetryManager(t *testing.T) {
 		_, err := newTelemetryManager(telemetryIngress(t, true).TelemetryIngress(), noClient, ksmocks.NewCSA(t), "abc123", lggr)
 		require.Error(t, err)
 	})
+	t.Run("flag on with Beholder telemetry off (the no-op client): an error", func(t *testing.T) {
+		t.Parallel()
+		_, err := newTelemetryManager(telemetryIngress(t, true).TelemetryIngress(), beholder.NewNoopClient(), ksmocks.NewCSA(t), "abc123", lggr)
+		require.Error(t, err, "the no-op client has no domain emitters")
+	})
 	t.Run("flag on: the domain manager on Beholder's domain emitters", func(t *testing.T) {
 		t.Parallel()
+		// A local gRPC server with no services answers OTel exports at once, so Close is quick.
+		lis, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		srv := grpc.NewServer()
+		go func() { _ = srv.Serve(lis) }()
+		t.Cleanup(srv.Stop)
+
 		client, err := beholder.NewGRPCClient(beholder.Config{
-			OtelExporterGRPCEndpoint:         "localhost:4317",
+			OtelExporterGRPCEndpoint:         lis.Addr().String(),
 			InsecureConnection:               true,
-			ChipIngressEmitterGRPCEndpoint:   "localhost:9999", // never dialed: nothing is sent
+			ChipIngressEmitterGRPCEndpoint:   lis.Addr().String(),
 			ChipIngressInsecureConnection:    true,
 			ChipIngressDomainEmittersEnabled: true,
 		}, func(...otlploggrpc.Option) (sdklog.Exporter, error) { return nopLogExporter{}, nil })
 		require.NoError(t, err)
+		require.NoError(t, client.Start(t.Context()))
+		t.Cleanup(func() { _ = client.Close() })
 
 		m, err := newTelemetryManager(telemetryIngress(t, true).TelemetryIngress(), client, ksmocks.NewCSA(t), "abc123", lggr)
 		require.NoError(t, err)
