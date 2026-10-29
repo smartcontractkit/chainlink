@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -444,6 +445,10 @@ type engineLifecycleHarness struct {
 	moduleInFlight   atomic.Int32 // executions currently held in the module
 	moduleMaxFlight  atomic.Int32 // the most executions ever held in the module at once
 
+	// ackCalls counts calls to the trigger capability's AckEvent, however the event reached
+	// it: the engine acknowledging directly (legacy), or the coordinator (coordinated).
+	ackCalls atomic.Int32
+
 	// slots counts requests for an execution-concurrency slot, made by whichever component
 	// admits events: the legacy engine or the coordinator.
 	slots *slotCounter
@@ -547,7 +552,8 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	capreg.EXPECT().GetTrigger(matches.AnyContext, lifecycleTriggerCapID).Return(trigger, nil).Maybe()
 	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(h.eventCh, nil).Maybe()
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Maybe()
-	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).
+		Run(func(context.Context, string, string, string) { h.ackCalls.Add(1) }).Return(nil).Maybe()
 
 	cfg := defaultTestConfig(t, o.settings)
 	if o.limiters != nil {
@@ -563,8 +569,8 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 		cfg.OrgResolver = &mockOrgResolver{orgID: o.orgID}
 	}
 	h.sharedFlight = o.sharedFlight
-	h.slots = &slotCounter{ResourcePoolLimiter: cfg.LocalLimiters.ExecutionConcurrency}
-	cfg.LocalLimiters.ExecutionConcurrency = h.slots
+	h.slots = &slotCounter{}
+	cfg.LocalLimiters.ExecutionConcurrency = h.slots.wrap(cfg.LocalLimiters.ExecutionConcurrency)
 	cfg.CapRegistry = capreg
 	cfg.Module = h.newModule()
 	cfg.BillingClient = newLifecycleBillingClient(t)
@@ -983,26 +989,59 @@ func (b *executionBlocker) contextErrAtRelease() error {
 	return b.errAtRelease
 }
 
-// slotCounter counts Wait calls on the execution-concurrency limiter, so a scenario can tell when
-// an event is waiting for a slot.
+// slotCounter counts requests for an execution-concurrency slot, so a scenario can tell when an
+// event is waiting for one, and how many slots were granted and given back.
 type slotCounter struct {
-	limits.ResourcePoolLimiter[int]
 	waits    atomic.Int32 // Wait calls
-	acquired atomic.Int32 // slots granted
-	released atomic.Int32 // slots given back
+	acquired atomic.Int32 // slots granted at every scope
+	released atomic.Int32 // granted slots given back
 }
 
-func (s *slotCounter) Wait(ctx context.Context, amount int) (func(), error) {
-	s.waits.Add(1)
-	free, err := s.ResourcePoolLimiter.Wait(ctx, amount)
+// wrap returns pool with its slots counted in s. A MultiResourcePoolLimiter stays one, so the
+// coordinator's AvailableCapacity can still read it by scope. Only its first and last scopes are
+// wrapped. Wait takes the scopes in order and frees them in reverse. So a Wait on the first scope
+// is a request, and a grant from the last scope means every scope granted. The last scope is
+// freed first, so the other scopes can hold the slot briefly after released counts it.
+func (s *slotCounter) wrap(pool limits.ResourcePoolLimiter[int]) limits.ResourcePoolLimiter[int] {
+	multi, ok := pool.(limits.MultiResourcePoolLimiter[int])
+	if !ok || len(multi) == 0 {
+		return &countingScope{ResourcePoolLimiter: pool, request: &s.waits, grant: &s.acquired, release: &s.released}
+	}
+	wrapped := slices.Clone(multi)
+	first := &countingScope{ResourcePoolLimiter: multi[0], request: &s.waits}
+	last := first
+	if n := len(multi) - 1; n > 0 {
+		last = &countingScope{ResourcePoolLimiter: multi[n]}
+		wrapped[n] = last
+	}
+	last.grant, last.release = &s.acquired, &s.released
+	wrapped[0] = first
+	return wrapped
+}
+
+// countingScope counts Wait calls, grants and frees on one pool. A nil counter is not counted.
+type countingScope struct {
+	limits.ResourcePoolLimiter[int]
+	request, grant, release *atomic.Int32
+}
+
+func (c *countingScope) Wait(ctx context.Context, amount int) (func(), error) {
+	addOne(c.request)
+	free, err := c.ResourcePoolLimiter.Wait(ctx, amount)
 	if err != nil {
 		return free, err
 	}
-	s.acquired.Add(1)
+	addOne(c.grant)
 	return func() {
 		free()
-		s.released.Add(1)
+		addOne(c.release)
 	}, nil
+}
+
+func addOne(n *atomic.Int32) {
+	if n != nil {
+		n.Add(1)
+	}
 }
 
 // flightTracker counts executions running at once across several harnesses, and the most seen.
