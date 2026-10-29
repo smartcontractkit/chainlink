@@ -942,17 +942,24 @@ func newWorkflowRegistrySyncerV2(
 	}
 
 	assignmentMode := cfg.Sharding().ShardAssignmentMode()
+	assignmentMetrics, errAssignmentMetrics := wfmonitoring.GlobalShardAssignmentMetrics()
+	if errAssignmentMetrics != nil {
+		lggr.Warnw("Failed to register shard assignment metrics; continuing without assignment instrumentation", "err", errAssignmentMetrics)
+	}
 	var shardResolver shardownership.ShardResolver
 	switch assignmentMode {
 	case toml.ShardAssignmentModeManualOnly:
 		shardResolver = shardownership.NewManualShardResolver(opts.ShardAssignmentSettings, orgResolver, shardIndexMapper, lggr)
+		assignmentMetrics.RecordAssignmentMode(context.Background(), wfmonitoring.ShardAssignmentModeManualOnly)
 		lggr.Infow("Using manual-only shard assignment mode")
 	case toml.ShardAssignmentModeRingOCROverrides:
 		ringOCR := shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
 		shardResolver = shardownership.NewOverrideShardResolver(opts.ShardAssignmentSettings, orgResolver, shardIndexMapper, ringOCR, lggr)
+		assignmentMetrics.RecordAssignmentMode(context.Background(), wfmonitoring.ShardAssignmentModeRingOCRWithOverrides)
 		lggr.Infow("Using ringocr-with-overrides shard assignment mode")
 	default:
 		shardResolver = shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
+		assignmentMetrics.RecordAssignmentMode(context.Background(), wfmonitoring.ShardAssignmentModeRingOCROnly)
 		lggr.Infow("Using ringocr-only shard assignment mode")
 	}
 	meteringCfg := cfg.Metering()
