@@ -182,7 +182,7 @@ func (m *mockDrainableEngine) Close() error {
 
 // mockEngineFactory returns a standard mock engine factory for tests.
 // It sends nil to initDone to signal successful initialization.
-func mockEngineFactory(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (v2.WorkflowEngine, error) {
+func mockEngineFactory(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, cachedSdkName string, initDone chan<- error) (v2.WorkflowEngine, error) {
 	if initDone != nil {
 		initDone <- nil
 	}
@@ -342,7 +342,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (v2.WorkflowEngine, error) {
+			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, cachedSdkName string, initDone chan<- error) (v2.WorkflowEngine, error) {
 				if _, err := hex.DecodeString(name.Hex()); err != nil {
 					return nil, fmt.Errorf("invalid workflow name: %w", err)
 				}
@@ -386,7 +386,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (v2.WorkflowEngine, error) {
+			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, cachedSdkName string, initDone chan<- error) (v2.WorkflowEngine, error) {
 				if initDone != nil {
 					initDone <- nil
 				}
@@ -775,8 +775,9 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (v2.WorkflowEngine, error) {
+			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, cachedSdkName string, initDone chan<- error) (v2.WorkflowEngine, error) {
 				require.Equal(t, cachedSubsPayload, cachedTriggerSubs, "engine factory must receive the persisted trigger subscription payload")
+				require.Equal(t, "test-sdk", cachedSdkName, "engine factory must receive the persisted SDK name")
 				if initDone != nil {
 					initDone <- nil
 				}
@@ -800,7 +801,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				}
 				_, err := s.UpsertWorkflowSpec(ctx, entry)
 				require.NoError(t, err)
-				require.NoError(t, s.SaveTriggerSubscriptions(ctx, wfID.Hex(), cachedSubsPayload))
+				require.NoError(t, s.SaveTriggerSubscriptions(ctx, wfID.Hex(), cachedSubsPayload, "test-sdk"))
 
 				require.NoError(t, h.workflowRegisteredEvent(ctx, event))
 
@@ -1189,7 +1190,7 @@ type testCase struct {
 	fetcherFactory                    func(wfID []byte) *mockFetcher
 	Event                             func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent
 	validationFn                      func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string)
-	engineFactoryFn                   func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, initDone chan<- error) (v2.WorkflowEngine, error)
+	engineFactoryFn                   func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, cachedTriggerSubs []byte, cachedSdkName string, initDone chan<- error) (v2.WorkflowEngine, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -1328,8 +1329,8 @@ func (m *mockArtifactStore) DeleteWorkflowArtifactsBatch(ctx context.Context, wo
 	return m.artifactStore.DeleteWorkflowArtifactsBatch(ctx, workflowIDs)
 }
 
-func (m *mockArtifactStore) SaveTriggerSubscriptions(ctx context.Context, workflowID string, payload []byte) error {
-	return m.artifactStore.SaveTriggerSubscriptions(ctx, workflowID, payload)
+func (m *mockArtifactStore) SaveTriggerSubscriptions(ctx context.Context, workflowID string, payload []byte, sdkName string) error {
+	return m.artifactStore.SaveTriggerSubscriptions(ctx, workflowID, payload, sdkName)
 }
 
 func newMockArtifactStore(as *artifacts.Store, deleteWorkflowArtifactsErr error) WorkflowArtifactsStore {
@@ -1615,6 +1616,7 @@ type stubWorkflowArtifactsStore struct {
 	saveSubsCalls    atomic.Int32
 	savedSubsID      string
 	savedSubsPayload []byte
+	savedSdkName     string
 }
 
 func (s *stubWorkflowArtifactsStore) FetchWorkflowArtifacts(context.Context, string, string, string, *job.WorkflowSpec) ([]byte, []byte, error) {
@@ -1677,12 +1679,13 @@ func (s *stubWorkflowArtifactsStore) DeleteWorkflowArtifactsBatch(context.Contex
 	return nil
 }
 
-func (s *stubWorkflowArtifactsStore) SaveTriggerSubscriptions(_ context.Context, workflowID string, payload []byte) error {
+func (s *stubWorkflowArtifactsStore) SaveTriggerSubscriptions(_ context.Context, workflowID string, payload []byte, sdkName string) error {
 	// Set the plain fields before the atomic counter: callers poll the
 	// counter to learn the save (which now runs on a detached goroutine)
 	// completed, and must only then read the fields below.
 	s.savedSubsID = workflowID
 	s.savedSubsPayload = payload
+	s.savedSdkName = sdkName
 	s.saveSubsCalls.Add(1)
 	return nil
 }
@@ -1792,14 +1795,14 @@ func Test_wireTriggerSubscriptionCacheHook(t *testing.T) {
 			workflowArtifactsStore:            store,
 			cachedTriggerSubscriptionsEnabled: true,
 		}
-		cfg := &v2.EngineConfig{}
+		cfg := &v2.EngineConfig{SdkName: "go"}
 		chained := false
 		cfg.Hooks.OnSubscriptionsReady = func(_ []*sdk.TriggerSubscription, _ contexts.CRE, _ bool) error {
 			chained = true
 			return nil
 		}
 
-		h.wireTriggerSubscriptionCacheHook(cfg, "wf-id")
+		h.wireTriggerSubscriptionCacheHook(cfg, "wf-id", "")
 		require.NotNil(t, cfg.Hooks.OnSubscriptionsReady)
 		require.NoError(t, cfg.Hooks.OnSubscriptionsReady(subs, contexts.CRE{}, false))
 
@@ -1808,7 +1811,41 @@ func Test_wireTriggerSubscriptionCacheHook(t *testing.T) {
 		require.Eventually(t, func() bool { return store.saveSubsCalls.Load() == 1 }, time.Second, time.Millisecond)
 		assert.Equal(t, "wf-id", store.savedSubsID)
 		assert.Equal(t, wantPayload, store.savedSubsPayload)
+		assert.Equal(t, "go", store.savedSdkName)
 		assert.True(t, chained)
+	})
+
+	t.Run("subscriptions from cache but SDK name not stored: hook backfills it", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{}
+		h := &eventHandler{
+			lggr:                              logger.TestLogger(t),
+			workflowArtifactsStore:            store,
+			cachedTriggerSubscriptionsEnabled: true,
+		}
+		cfg := &v2.EngineConfig{SdkName: "go"}
+
+		h.wireTriggerSubscriptionCacheHook(cfg, "wf-id", "")
+		require.NoError(t, cfg.Hooks.OnSubscriptionsReady(subs, contexts.CRE{}, true))
+
+		require.Eventually(t, func() bool { return store.saveSubsCalls.Load() == 1 }, time.Second, time.Millisecond)
+		assert.Equal(t, "go", store.savedSdkName)
+	})
+
+	t.Run("subscriptions from cache and SDK name stored: no re-save", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{}
+		h := &eventHandler{
+			lggr:                              logger.TestLogger(t),
+			workflowArtifactsStore:            store,
+			cachedTriggerSubscriptionsEnabled: true,
+		}
+		cfg := &v2.EngineConfig{SdkName: "go"}
+
+		h.wireTriggerSubscriptionCacheHook(cfg, "wf-id", "go")
+		require.NoError(t, cfg.Hooks.OnSubscriptionsReady(subs, contexts.CRE{}, true))
+
+		assert.Equal(t, int32(0), store.saveSubsCalls.Load())
 	})
 
 	t.Run("caching enabled, subscriptions from cache: hook chains but does not re-save", func(t *testing.T) {
@@ -1826,7 +1863,7 @@ func Test_wireTriggerSubscriptionCacheHook(t *testing.T) {
 			return nil
 		}
 
-		h.wireTriggerSubscriptionCacheHook(cfg, "wf-id")
+		h.wireTriggerSubscriptionCacheHook(cfg, "wf-id", "")
 		require.NotNil(t, cfg.Hooks.OnSubscriptionsReady)
 		require.NoError(t, cfg.Hooks.OnSubscriptionsReady(subs, contexts.CRE{}, true))
 
@@ -1843,7 +1880,7 @@ func Test_wireTriggerSubscriptionCacheHook(t *testing.T) {
 		}
 		cfg := &v2.EngineConfig{}
 
-		h.wireTriggerSubscriptionCacheHook(cfg, "wf-id")
+		h.wireTriggerSubscriptionCacheHook(cfg, "wf-id", "")
 
 		assert.Nil(t, cfg.Hooks.OnSubscriptionsReady)
 		assert.Equal(t, int32(0), store.saveSubsCalls.Load())
