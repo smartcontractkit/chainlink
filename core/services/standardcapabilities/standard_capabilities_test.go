@@ -164,6 +164,57 @@ func TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP(t *testing.T) {
 	})
 }
 
+// Right after node start the capability registry may not have synced yet, so
+// DON ID resolution must be retried rather than settling on the workflow DON
+// for the life of the process.
+func TestStandardCapabilities_AwaitCapabilityDonID(t *testing.T) {
+	t.Parallel()
+
+	newStd := func(t *testing.T, resolve func(context.Context) (uint32, error)) *StandardCapabilities {
+		std := NewStandardCapabilities(logger.TestLogger(t), "not/found/path/to/binary", "{}", &capturingRegistrar{}, core.StandardCapabilitiesDependencies{})
+		std.resolveDonID = resolve
+		std.donIDRetryInterval = time.Millisecond
+		return std
+	}
+
+	t.Run("retries until the registry is available", func(t *testing.T) {
+		t.Parallel()
+		calls := 0
+		std := newStd(t, func(context.Context) (uint32, error) {
+			calls++
+			if calls < 3 {
+				return 0, errors.New("metadataRegistry information not available")
+			}
+			return 10, nil
+		})
+
+		require.Equal(t, uint32(10), std.awaitCapabilityDonID())
+		require.Equal(t, 3, calls)
+	})
+
+	t.Run("does not retry a definitive zero", func(t *testing.T) {
+		t.Parallel()
+		calls := 0
+		std := newStd(t, func(context.Context) (uint32, error) {
+			calls++
+			return 0, nil
+		})
+
+		require.Zero(t, std.awaitCapabilityDonID())
+		require.Equal(t, 1, calls)
+	})
+
+	t.Run("falls back to zero on timeout", func(t *testing.T) {
+		t.Parallel()
+		std := newStd(t, func(context.Context) (uint32, error) {
+			return 0, errors.New("metadataRegistry information not available")
+		})
+		std.donIDResolveTimeout = 20 * time.Millisecond
+
+		require.Zero(t, std.awaitCapabilityDonID())
+	})
+}
+
 const capturingRegistrarErr = "capturingRegistrar: stop after capture"
 
 // capturingRegistrar records the CmdConfig handed to RegisterLOOP and then

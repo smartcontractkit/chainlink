@@ -274,17 +274,6 @@ func (d *Delegate) NewServices(
 		ocrKeyBundles = map[string]ocr2key.KeyBundle{string(corekeys.EVM): offchainKB}
 	}
 
-	// Best-effort resolve the authoritative capability DON ID for this plugin
-	// process when the caller did not provide one (job-spec boot path). The LOOP
-	// uses this to label emitted events with the sending DON ID rather than the
-	// consumer workflow's DON. Resolution can return 0 (e.g. on a node that
-	// belongs to multiple DONs for this capability); in that case the plugin
-	// falls back to the workflow DON ID. See CRE-4409.
-	if capabilityDonID == 0 && capabilityID != "" {
-		capabilityDonID = resolveCapabilityDonID(ctx, log, d.registry, d.getPeerID, capabilityID)
-		log.Debugw("Resolved capability DON ID from registry", "capabilityID", capabilityID, "donID", capabilityDonID)
-	}
-
 	// Extract the transmitter paired with this node's signer from the on-chain OCR config.
 	// The caller passes it to ResolveOracleFactoryConfig so the node uses exactly the
 	// transmitter the OCR config expects. Empty when no registry config is available.
@@ -395,6 +384,16 @@ func (d *Delegate) NewServices(
 	}
 	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, dependencies)
 
+	// Job-spec boot path: resolve the authoritative capability DON ID at Start
+	// rather than here, since the registry may not have synced yet right after
+	// node start. The LOOP uses it to label emitted events with the sending DON
+	// ID instead of the consumer workflow's DON. See CRE-4409.
+	if capabilityDonID == 0 && capabilityID != "" {
+		standardCapability.resolveDonID = func(ctx context.Context) (uint32, error) {
+			return resolveCapabilityDonID(ctx, log, d.registry, d.getPeerID, capabilityID)
+		}
+	}
+
 	return []job.ServiceCtx{standardCapability}, nil
 }
 
@@ -402,28 +401,27 @@ func (d *Delegate) NewServices(
 // running the given capability for, by looking up DONsForCapability and filtering
 // by the local node's PeerID.
 //
-// This is always best-effort: it never returns an error. Any failure — including
-// infrastructure issues like getPeerID failing or the registry being unavailable —
-// results in returning 0 with a warning logged. The caller then falls back to
-// labeling events with the consumer workflow's DON ID. See CRE-4409.
-func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry registry.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) uint32 {
+// It returns an error only for failures that may clear on retry, such as the
+// peer ID or the registry not being available yet right after node start. A
+// definitive answer that cannot be honored (no DON, or multiple DONs) returns
+// 0 with a warning logged; the plugin then falls back to labeling events with
+// the consumer workflow's DON ID. See CRE-4409.
+func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry registry.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) (uint32, error) {
 	if registry == nil {
 		lggr.Warnw("Capabilities registry is nil; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID)
-		return 0
+		return 0, nil
 	}
 	if getPeerID == nil {
 		lggr.Warnw("getPeerID is nil; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID)
-		return 0
+		return 0, nil
 	}
 	peerID, err := getPeerID()
 	if err != nil {
-		lggr.Warnw("Failed to get local peer ID; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID, "err", err)
-		return 0
+		return 0, fmt.Errorf("failed to get local peer ID: %w", err)
 	}
 	dwns, err := registry.DONsForCapability(ctx, capabilityID)
 	if err != nil {
-		lggr.Warnw("DONsForCapability failed; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID, "err", err)
-		return 0
+		return 0, fmt.Errorf("DONsForCapability failed: %w", err)
 	}
 	var matched []uint32
 	for _, d := range dwns {
@@ -436,15 +434,15 @@ func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry re
 	}
 	switch len(matched) {
 	case 1:
-		return matched[0]
+		return matched[0], nil
 	case 0:
 		lggr.Warnw("No DON found for local peer on capability; falling back to workflow DON ID for event labeling",
 			"peerID", peerID, "capabilityID", capabilityID)
-		return 0
+		return 0, nil
 	default:
 		lggr.Warnw("Local peer belongs to multiple DONs for capability; cannot disambiguate, falling back to workflow DON ID for event labeling",
 			"peerID", peerID, "capabilityID", capabilityID, "matched", matched)
-		return 0
+		return 0, nil
 	}
 }
 
