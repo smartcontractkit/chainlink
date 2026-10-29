@@ -72,4 +72,19 @@ jobs:
 
       - name: Run tests
         working-directory: ${{ matrix.target.dir }}
-        run: gotestsum --format github-actions -- ${{ matrix.target.packages }}
+        env:
+          GOCOVERDIR: ${{ github.workspace }}/.covdata/tools-${{ strategy.job-index }}
+        run: |
+          mkdir -p "$GOCOVERDIR"
+          gotestsum --format github-actions -- ${{ matrix.target.packages }} \
+            -cover -covermode=atomic -coverpkg=./... \
+            -args -test.gocoverdir="$GOCOVERDIR"
+
+      - name: Upload coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-tools-${{ matrix.target.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .covdata/tools-${{ strategy.job-index }}
+          retention-days: 7
+          if-no-files-found: warn

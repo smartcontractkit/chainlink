@@ -1,0 +1,73 @@
+name: Coverage Collector
+
+on:
+  workflow_run:
+    workflows:
+      - CI Core
+      - Deployment Tests
+      - Integration In-Memory Tests
+      - Integration Tests
+      - CI Tools
+      - CRE System Tests
+      - CRE Regression System Tests
+      - CRE Mixed-Env Tests
+      - CRE Local Environment Tests
+      - CCIP System Tests
+      - Legacy System Tests
+      - Legacy Non Functional Tests
+    types: [completed]
+  # TEMP: manual trigger for pre-merge validation. Remove before opening the PR.
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit SHA to collect"
+        required: true
+        type: string
+      pr:
+        description: "Optional PR number"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+  checks: write
+
+concurrency:
+  group: coverage-${{ github.event.workflow_run.head_sha || inputs.sha }}
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    name: Collect coverage
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion != 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Collect and publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_SHA: ${{ inputs.sha || github.event.workflow_run.head_sha }}
+          PR_NUMBER: ${{ inputs.pr || (github.event.workflow_run.pull_requests[0].number || '') }}
+        run: ./tools/coverage/collect.sh
+
+      - name: Upload merged report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report-${{ inputs.sha || github.event.workflow_run.head_sha }}-${{ github.run_id }}
+          path: coverage-report
+          retention-days: 30
+          if-no-files-found: warn

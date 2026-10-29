@@ -5,14 +5,18 @@ set +e
 SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 EXTRA_FLAGS=""
+COVERAGE=${COVERAGE:-false}
 
 cd ./core/scripts || exit
 go mod download
 echo "Test execution results: ---------------------"
 echo ""
 
-if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then
-  EXTRA_FLAGS="-covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
+if [[ "$COVERAGE" == "true" ]]; then
+  COVERAGE_DIR=${GOCOVERDIR:-$PWD/coverage}
+  mkdir -p "$COVERAGE_DIR"
+  EXTRA_FLAGS="-covermode=atomic -cover -coverpkg=${COVERPKG:-./...} -args -test.gocoverdir=$COVERAGE_DIR"
+  echo "Coverage enabled: $COVERAGE_DIR"
 fi
 go test ./... $EXTRA_FLAGS | tee $OUTPUT_FILE | grep -Ev '\[no test files\]|\[no tests to run\]'
 EXITCODE=${PIPESTATUS[0]}

@@ -188,6 +188,22 @@ jobs:
           echo "Running tests for: $CHAINLINK_IMAGE, test: $TESTCMD"
           eval "$TESTCMD"
 
+      - name: Collect coverage
+        if: ${{ always() }}
+        uses: $/.github/actions/collect-coverage
+        with:
+          destination: ${{ github.workspace }}/.covdata/e2e-${{ matrix.logs_archive_name }}
+          image: ${{ env.CHAINLINK_IMAGE }}
+
+      - name: Upload coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-e2e-${{ matrix.logs_archive_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .covdata/e2e-${{ matrix.logs_archive_name }}
+          retention-days: 7
+          if-no-files-found: warn
+
       - name: Upload Logs
         if: always()
         uses: actions/upload-artifact@v7
