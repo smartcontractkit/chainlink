@@ -36,6 +36,11 @@ var (
 	// event back for possible replay (e.g. shard failover). The caller drops it
 	// without ACKing.
 	ErrAdmissionCached = errors.New("admission: event cached for failover")
+
+	// ErrShardDeniedNotOwner and ErrShardDeniedOrchestrator are the shard
+	// ownership denials. They wrap ErrAdmissionDenied.
+	ErrShardDeniedNotOwner     = fmt.Errorf("shard ownership denied: not owner: %w", ErrAdmissionDenied)
+	ErrShardDeniedOrchestrator = fmt.Errorf("shard ownership denied: orchestrator error: %w", ErrAdmissionDenied)
 )
 
 // Handle is a registered trigger capability plus the registration
@@ -127,6 +132,22 @@ func Ack(
 	}
 	tm.IncrementTriggerEventAckSuccessCounter(ctx)
 	return nil
+}
+
+// CountAdmissionDenied counts a trigger event that an admission check denied
+// with err. A shard denial gets its own drop reason and shard-denial counter.
+// Any other denial is dropped as admission_denied.
+func CountAdmissionDenied(ctx context.Context, tm *monitoring.WorkflowsMetricLabeler, err error) {
+	switch {
+	case errors.Is(err, ErrShardDeniedNotOwner):
+		tm.IncrementShardExecutionDeniedNotOwnerCounter(ctx)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonShardDeniedNotOwner)
+	case errors.Is(err, ErrShardDeniedOrchestrator):
+		tm.IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonShardDeniedOrchestrator)
+	default:
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonAdmissionDenied)
+	}
 }
 
 // CoordinatedEvent is the canonical trigger event type that flows
