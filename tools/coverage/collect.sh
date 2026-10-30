@@ -24,9 +24,14 @@ BASE_SHA=""
 if [[ -n "${PR_NUMBER:-}" ]]; then
   BASE_SHA="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.base.sha' 2>/dev/null || true)"
 fi
+PATCH_BASE="${PATCH_BASE:-$BASE_SHA}"
+PATCH_HEAD="${PATCH_HEAD:-$TARGET_SHA}"
 
 if [[ -n "$BASE_SHA" ]]; then
   git fetch --no-tags origin "$BASE_SHA" "$TARGET_SHA" >/dev/null 2>&1 || true
+fi
+if [[ -n "$PATCH_BASE" && -n "$PATCH_HEAD" ]]; then
+  git fetch --no-tags origin "$PATCH_BASE" "$PATCH_HEAD" >/dev/null 2>&1 || true
 fi
 
 echo "Collecting coverage for ${REPO}@${TARGET_SHA} (PR ${PR_NUMBER:-none}, base ${BASE_SHA:-none})"
@@ -69,8 +74,8 @@ merge_and_report() {
   go run ./tools/coverage merge --covdata "$dirs" --out "${OUT}/${category}.txt"
   local args=(--profile "${OUT}/${category}.txt" --category "$category"
     --json "${OUT}/${category}.json" --markdown "${OUT}/${category}.md")
-  if [[ -n "$BASE_SHA" ]]; then
-    args+=(--base "$BASE_SHA" --head "$TARGET_SHA")
+  if [[ -n "$PATCH_BASE" && -n "$PATCH_HEAD" ]]; then
+    args+=(--base "$PATCH_BASE" --head "$PATCH_HEAD")
   fi
   go run ./tools/coverage report "${args[@]}"
 }
@@ -78,7 +83,22 @@ merge_and_report() {
 merge_and_report unit "$unit_dirs"
 merge_and_report integration "$integration_dirs"
 merge_and_report e2e "$e2e_dirs"
-merge_and_report any "$all_dirs"
+
+profile_list=""
+for category in unit integration e2e; do
+  if [[ -f "${OUT}/${category}.txt" ]]; then
+    profile_list="${profile_list}${profile_list:+,}${OUT}/${category}.txt"
+  fi
+done
+if [[ -n "$profile_list" ]]; then
+  go run ./tools/coverage merge-profiles --profile "$profile_list" --out "${OUT}/any.txt"
+  args=(--profile "${OUT}/any.txt" --category any
+    --json "${OUT}/any.json" --markdown "${OUT}/any.md")
+  if [[ -n "$PATCH_BASE" && -n "$PATCH_HEAD" ]]; then
+    args+=(--base "$PATCH_BASE" --head "$PATCH_HEAD")
+  fi
+  go run ./tools/coverage report "${args[@]}"
+fi
 
 test_xmls="$(find "$ARTIFACTS" -type f -name '*.xml' -path '*test-results-*' 2>/dev/null | sort -u)"
 if [[ -n "$test_xmls" ]]; then
