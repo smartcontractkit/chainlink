@@ -417,6 +417,26 @@ func TestQueue_Metrics(t *testing.T) {
 	}
 }
 
+// TestQueue_CapacityGaugeOnDrain asserts the capacity gauge follows a changed limit without a put, because
+// Drain records it too. Otherwise an idle queue reports its old capacity forever.
+func TestQueue_CapacityGaugeOnDrain(t *testing.T) {
+	t.Parallel()
+	qm, reader := testQueueMetrics(t)
+	limit := &fakeLimit{limit: 2}
+	q := NewQueue(limit, qm, logger.Test(t))
+	putAll(t, q, centralEvent("wf-a", 0, "evt-1"))
+	require.Equal(t, int64(2), int64Gauge(t, reader, "platform_engine_central_trigger_queue_capacity"))
+
+	limit.set(5, nil)
+	drainIDs(t, q)
+	assert.Equal(t, int64(5), int64Gauge(t, reader, "platform_engine_central_trigger_queue_capacity"))
+
+	limit.set(3, nil)
+	drainIDs(t, q)
+	assert.Equal(t, int64(3), int64Gauge(t, reader, "platform_engine_central_trigger_queue_capacity"),
+		"an empty drain still refreshes capacity")
+}
+
 // int64Sum returns the total of the named Int64 counter across its data points.
 func int64Sum(t *testing.T, reader *sdkmetric.ManualReader, name string) int64 {
 	t.Helper()

@@ -96,8 +96,11 @@ func (q *centralQueue) Put(ctx context.Context, e CoordinatedEvent) error {
 }
 
 // Drain hands the buffered events to the caller and starts a new buffer, so later puts never write into the
-// returned slice.
+// returned slice. It also records capacity, because Drain runs on a fixed interval even when nothing is put, so
+// the gauge follows a changed limit on an idle queue.
 func (q *centralQueue) Drain(ctx context.Context) ([]CoordinatedEvent, error) {
+	capacity := q.capacity(ctx)
+
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	events := q.events
@@ -106,6 +109,7 @@ func (q *centralQueue) Drain(ctx context.Context) ([]CoordinatedEvent, error) {
 	q.depthByTriggerType = map[string]uint64{}
 	q.metrics.IncrementDrainedEventsCounter(ctx, len(events))
 	q.metrics.RecordDepth(ctx, 0)
+	q.metrics.RecordCapacity(ctx, q.effectiveCapacity(capacity))
 	return events, nil
 }
 
