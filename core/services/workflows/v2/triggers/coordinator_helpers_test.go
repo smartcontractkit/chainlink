@@ -14,16 +14,17 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -177,43 +178,60 @@ type coordinatorFixture struct {
 	engine  *fakeEngine
 }
 
-// newCoordinatorFixture starts a coordinator with one coordinated engine
-// already in the registry for testTenant's workflow.
-func newCoordinatorFixture(t *testing.T) *coordinatorFixture {
-	t.Helper()
-	return newCoordinatorFixtureWithAdmission(t, newTestAdmission())
+// fixtureConfig holds the parts of a coordinatorFixture a test can replace with a fixtureOption.
+type fixtureConfig struct {
+	clock     *clockwork.FakeClock
+	admission AdmissionLimiters
+	metrics   *monitoring.WorkflowsMetricLabeler
+	lggr      logger.Logger
+	opts      []CoordinatorOption
 }
 
-// newCoordinatorFixtureWithAdmission is newCoordinatorFixture with the given admission limiters.
-func newCoordinatorFixtureWithAdmission(t *testing.T, admission AdmissionLimiters) *coordinatorFixture {
+// fixtureOption changes one part of a coordinatorFixture's setup.
+type fixtureOption func(*fixtureConfig)
+
+// withClock replaces the fixture's fake clock, which otherwise starts at clockwork's default time.
+func withClock(clock *clockwork.FakeClock) fixtureOption {
+	return func(c *fixtureConfig) { c.clock = clock }
+}
+
+// withAdmission replaces the default newTestAdmission limiters.
+func withAdmission(admission AdmissionLimiters) fixtureOption {
+	return func(c *fixtureConfig) { c.admission = admission }
+}
+
+// withMetrics replaces the coordinator metrics, e.g. with newTestMeterMetrics to read them back.
+func withMetrics(metrics *monitoring.WorkflowsMetricLabeler) fixtureOption {
+	return func(c *fixtureConfig) { c.metrics = metrics }
+}
+
+// withLogger replaces the plain test logger, for tests that assert on log output.
+func withLogger(lggr logger.Logger) fixtureOption {
+	return func(c *fixtureConfig) { c.lggr = lggr }
+}
+
+// withCoordinatorOptions passes opts to NewCoordinator.
+func withCoordinatorOptions(opts ...CoordinatorOption) fixtureOption {
+	return func(c *fixtureConfig) { c.opts = append(c.opts, opts...) }
+}
+
+// newCoordinatorFixture starts a coordinator with one coordinated engine already in the registry for
+// testTenant's workflow. opts replace parts of the default setup.
+func newCoordinatorFixture(t *testing.T, opts ...fixtureOption) *coordinatorFixture {
 	t.Helper()
-	capReg := regmocks.NewCapabilitiesRegistry(t)
-	engines := newFakeEngineRegistry()
-	wfLimits := &fakeWorkflowLimits{}
-	clock := clockwork.NewFakeClock()
-
-	wid, err := types.WorkflowIDFromHex(validWorkflowID)
-	require.NoError(t, err)
-	engine := &fakeEngine{coordinated: true}
-	engines.set(wid, engine)
-
-	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), admission, engines, wfLimits, clock)
-	servicetest.Run(t, c)
-
-	return &coordinatorFixture{
-		c: c.(*coordinator), capReg: capReg, engines: engines, limits: wfLimits,
-		clock: clock, wid: wid, engine: engine,
+	cfg := fixtureConfig{
+		clock:     clockwork.NewFakeClock(),
+		admission: newTestAdmission(),
+		metrics:   newTestMetrics(t),
+		lggr:      logger.Test(t),
 	}
-}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 
-// newCoordinatorFixtureWithLogger is newCoordinatorFixture, but with the given
-// logger instead of a plain test logger, for tests that assert on log output.
-func newCoordinatorFixtureWithLogger(t *testing.T, lggr logger.Logger) *coordinatorFixture {
-	t.Helper()
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	engines := newFakeEngineRegistry()
 	wfLimits := &fakeWorkflowLimits{}
-	clock := clockwork.NewFakeClock()
 
 	wid, err := types.WorkflowIDFromHex(validWorkflowID)
 	require.NoError(t, err)
@@ -221,14 +239,14 @@ func newCoordinatorFixtureWithLogger(t *testing.T, lggr logger.Logger) *coordina
 	engines.set(wid, engine)
 
 	deps := newRegisterDeps(t, capReg, limits.NewGateLimiter(true))
-	deps.Logger = lggr
-
-	c := NewCoordinator(deps, newTestAdmission(), engines, wfLimits, clock)
+	deps.Metrics = cfg.metrics
+	deps.Logger = cfg.lggr
+	c := NewCoordinator(deps, cfg.admission, engines, wfLimits, cfg.clock, cfg.opts...)
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{
 		c: c.(*coordinator), capReg: capReg, engines: engines, limits: wfLimits,
-		clock: clock, wid: wid, engine: engine,
+		clock: cfg.clock, wid: wid, engine: engine,
 	}
 }
 
@@ -243,12 +261,15 @@ func (f *coordinatorFixture) expectTrigger(t *testing.T) (*capmocks.TriggerCapab
 	return trigger, eventCh
 }
 
+// testQueueTimeout is the TriggerEventQueueTimeout from newTestAdmission. It is long enough that no test
+// accidentally expires an event. Tests for expiry override it.
+const testQueueTimeout = time.Hour
+
 // newTestAdmission returns unscoped admission limiters with the production defaults.
 func newTestAdmission() AdmissionLimiters {
 	return AdmissionLimiters{
-		NewTriggerEventQueue: newTestQueue(50),
-		// Long enough that no test accidentally expires an event; tests for expiry override this.
-		TriggerEventQueueTimeout: limits.NewUpperBoundLimiter(time.Hour),
+		NewTriggerEventQueue:     newTestQueue(50),
+		TriggerEventQueueTimeout: limits.NewUpperBoundLimiter(testQueueTimeout),
 		ExecutionConcurrency:     limits.GlobalResourcePoolLimiter(5),
 	}
 }
@@ -379,22 +400,16 @@ func (p *countingPool) Available(ctx context.Context) (int, error) {
 	return p.ResourcePoolLimiter.Available(ctx)
 }
 
-// useTestMeter points the global beholder meter at a manual reader, so workflow
-// metrics created after this call can be read back. It swaps a global, so a test
-// that uses it must not run in parallel.
-func useTestMeter(t *testing.T) *sdkmetric.ManualReader {
+// newTestMeterMetrics returns coordinator metrics on a private meter, and the reader to collect them. It never
+// touches the global beholder client, so a test that uses it can run in parallel.
+func newTestMeterMetrics(t *testing.T) (*monitoring.WorkflowsMetricLabeler, *sdkmetric.ManualReader) {
 	t.Helper()
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
-
-	prev := beholder.GetClient()
-	t.Cleanup(func() { beholder.SetClient(prev) })
-	client := beholder.NoopClientConfig{Lggr: logger.Test(t)}.New()
-	client.Meter = mp.Meter("beholder")
-	client.MeterProvider = mp
-	beholder.SetClient(client)
-	return reader
+	em, err := monitoring.InitMonitoringResourcesWithMeter(mp.Meter("beholder"))
+	require.NoError(t, err)
+	return monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em), reader
 }
 
 // counterTotal sums the named counter over the data points that carry every
