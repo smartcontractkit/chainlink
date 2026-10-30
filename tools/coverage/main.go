@@ -6,6 +6,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -132,13 +133,13 @@ func runMerge(args []string) error {
 	}
 	defer os.RemoveAll(tmp)
 
-	merge := exec.Command("go", "tool", "covdata", "merge", "-i="+strings.Join(dirs, ","), "-o="+tmp)
+	merge := exec.CommandContext(context.Background(), "go", "tool", "covdata", "merge", "-i="+strings.Join(dirs, ","), "-o="+tmp) //nolint:gosec // paths are validated above
 	merge.Stdout = os.Stdout
 	merge.Stderr = os.Stderr
 	if err := merge.Run(); err != nil {
 		return fmt.Errorf("covdata merge: %w", err)
 	}
-	textfmt := exec.Command("go", "tool", "covdata", "textfmt", "-i="+tmp, "-o="+*out)
+	textfmt := exec.CommandContext(context.Background(), "go", "tool", "covdata", "textfmt", "-i="+tmp, "-o="+*out) //nolint:gosec // output path is user-provided CLI input
 	textfmt.Stdout = os.Stdout
 	textfmt.Stderr = os.Stderr
 	if err := textfmt.Run(); err != nil {
@@ -247,7 +248,7 @@ func runReport(args []string) error {
 
 	md := markdown(rep)
 	if *mdOut != "" {
-		if err := os.WriteFile(*mdOut, []byte(md), 0o644); err != nil {
+		if err := os.WriteFile(*mdOut, []byte(md), 0o600); err != nil {
 			return err
 		}
 	}
@@ -256,7 +257,7 @@ func runReport(args []string) error {
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(*jsonOut, append(data, '\n'), 0o644); err != nil {
+		if err := os.WriteFile(*jsonOut, append(data, '\n'), 0o600); err != nil {
 			return err
 		}
 	}
@@ -320,21 +321,20 @@ func parseBlock(line string) (block, error) {
 		return block{}, fmt.Errorf("malformed coverage line %q", line)
 	}
 	loc := fields[0]
-	colon := strings.LastIndex(loc, ":")
-	if colon < 0 {
+	filePart, span, ok := strings.CutLast(loc, ":")
+	if !ok {
 		return block{}, fmt.Errorf("malformed coverage location %q", loc)
 	}
-	file := normalizePath(loc[:colon])
-	span := loc[colon+1:]
-	comma := strings.Index(span, ",")
-	if comma < 0 {
+	file := normalizePath(filePart)
+	startPart, endPart, ok := strings.Cut(span, ",")
+	if !ok {
 		return block{}, fmt.Errorf("malformed coverage span %q", span)
 	}
-	start, err := parsePos(span[:comma])
+	start, err := parsePos(startPart)
 	if err != nil {
 		return block{}, err
 	}
-	end, err := parsePos(span[comma+1:])
+	end, err := parsePos(endPart)
 	if err != nil {
 		return block{}, err
 	}
@@ -359,15 +359,15 @@ func parseBlock(line string) (block, error) {
 
 func parsePos(s string) ([2]int, error) {
 	var pos [2]int
-	dot := strings.Index(s, ".")
-	if dot < 0 {
+	linePart, colPart, ok := strings.Cut(s, ".")
+	if !ok {
 		return pos, fmt.Errorf("malformed position %q", s)
 	}
-	line, err := strconv.Atoi(s[:dot])
+	line, err := strconv.Atoi(linePart)
 	if err != nil {
 		return pos, err
 	}
-	col, err := strconv.Atoi(s[dot+1:])
+	col, err := strconv.Atoi(colPart)
 	if err != nil {
 		return pos, err
 	}
@@ -381,8 +381,8 @@ func blockKey(b block) string {
 
 func normalizePath(path string) string {
 	for _, prefix := range modulePrefixes {
-		if strings.HasPrefix(path, prefix) {
-			path = strings.TrimPrefix(path, prefix)
+		if stripped, ok := strings.CutPrefix(path, prefix); ok {
+			path = stripped
 			break
 		}
 	}
@@ -392,8 +392,7 @@ func normalizePath(path string) string {
 
 func excluded(path string) bool {
 	base := filepath.Base(path)
-	parts := strings.Split(path, "/")
-	for _, part := range parts {
+	for part := range strings.SplitSeq(path, "/") {
 		switch part {
 		case "mocks", "testutils", "testhelpers", "cltest", "testdata", "fixtures":
 			return true
@@ -491,7 +490,7 @@ func percent(covered, total int) float64 {
 }
 
 func gitDiff(repo, base, head string) (map[string][]lineRange, error) {
-	cmd := exec.Command("git", "-c", "core.quotePath=false", "diff", "-U0", "--no-color", "--no-ext-diff", base+".."+head, "--", "*.go")
+	cmd := exec.CommandContext(context.Background(), "git", "-c", "core.quotePath=false", "diff", "-U0", "--no-color", "--no-ext-diff", base+".."+head, "--", "*.go") //nolint:gosec // revisions come from the caller
 	cmd.Dir = repo
 	out, err := cmd.Output()
 	if err != nil {
@@ -555,7 +554,7 @@ func parseHunk(line string) (lineRange, bool) {
 
 func splitList(value string) []string {
 	var out []string
-	for _, item := range strings.Split(value, ",") {
+	for item := range strings.SplitSeq(value, ",") {
 		if trimmed := strings.TrimSpace(item); trimmed != "" {
 			out = append(out, trimmed)
 		}

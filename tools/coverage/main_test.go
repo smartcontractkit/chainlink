@@ -7,6 +7,7 @@ import (
 )
 
 func TestParseBlockAndNormalize(t *testing.T) {
+	t.Parallel()
 	b, err := parseBlock("github.com/smartcontractkit/chainlink/v2/core/foo.go:10.2,12.4 3 7")
 	if err != nil {
 		t.Fatal(err)
@@ -20,6 +21,7 @@ func TestParseBlockAndNormalize(t *testing.T) {
 }
 
 func TestSummarizeAndExclude(t *testing.T) {
+	t.Parallel()
 	blocks := map[string]block{
 		"a": {File: "core/a.go", NumStmt: 4, Count: 1},
 		"b": {File: "core/a.go", NumStmt: 2, Count: 0},
@@ -36,6 +38,7 @@ func TestSummarizeAndExclude(t *testing.T) {
 }
 
 func TestParseDiffAndPatch(t *testing.T) {
+	t.Parallel()
 	diff := `diff --git a/core/a.go b/core/a.go
 --- a/core/a.go
 +++ b/core/a.go
@@ -78,6 +81,7 @@ diff --git a/core/a_test.go b/core/a_test.go
 }
 
 func TestLoadProfilesMergesDuplicates(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "coverage.txt")
 	content := `mode: atomic
@@ -85,7 +89,7 @@ github.com/smartcontractkit/chainlink/v2/core/a.go:1.1,1.10 2 0
 github.com/smartcontractkit/chainlink/v2/core/a.go:1.1,1.10 2 5
 github.com/smartcontractkit/chainlink/deployment/b.go:2.1,2.10 1 1
 `
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	blocks, err := loadProfiles([]string{path})
