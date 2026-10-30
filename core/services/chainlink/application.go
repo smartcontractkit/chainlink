@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
@@ -212,6 +213,9 @@ type ApplicationOpts struct {
 	NewOracleFactoryFn     standardcapabilities.NewOracleFactoryFn
 	EVMFactoryConfigFn     func(*EVMFactoryConfig)
 	DonTimeStore           *dontime.Store
+	// LLOKeyValueDatabaseFactory replaces the on-disk store LLO v31 jobs use.
+	// Tests only.
+	LLOKeyValueDatabaseFactory ocr3_1types.KeyValueDatabaseFactory
 }
 
 // safeDefaultBootstrappers returns the configured default bootstrappers from
@@ -833,6 +837,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				CapRegistryAddress:             safeExternalRegistryAddress(cfg),
 				CapRegistryChainID:             safeExternalRegistryChainID(cfg),
 				LocalCfg:                       cfg.Capabilities().Local(),
+				LLOKeyValueDatabaseFactory:     opts.LLOKeyValueDatabaseFactory,
 			},
 			ocr2DelegateConfig,
 		)

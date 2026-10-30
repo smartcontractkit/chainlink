@@ -38,6 +38,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
@@ -291,6 +292,14 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
+	var lloKVFactory ocr3_1types.KeyValueDatabaseFactory
+	for _, dep := range flagsAndDeps {
+		if f, ok := dep.(ocr3_1types.KeyValueDatabaseFactory); ok {
+			lloKVFactory = f
+			break
+		}
+	}
+
 	var capabilitiesRegistry *registry.Registry
 	capabilitiesRegistry = registry.NewRegistry(lggr)
 	for _, dep := range flagsAndDeps {
@@ -403,18 +412,19 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		Logger:   lggr,
 		// Don't use global registry here since otherwise multiple apps can create name conflicts.
 		// Could also potentially give a mock registry to test prometheus.
-		Registerer:             prometheus.NewRegistry(),
-		AuditLogger:            auditLogger,
-		CloseLogger:            lggr.Sync,
-		RestrictedHTTPClient:   c,
-		UnrestrictedHTTPClient: c,
-		SecretGenerator:        MockSecretGenerator{},
-		MercuryPool:            mercuryPool,
-		NewOracleFactoryFn:     newOracleFactoryFn,
-		RetirementReportCache:  retirement.NewRetirementReportCache(lggr, ds),
-		LLOTransmissionReaper:  llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
-		EVMFactoryConfigFn:     evmFactoryConfigFn,
-		DonTimeStore:           dontime.NewStore(dontime.DefaultRequestTimeout),
+		Registerer:                 prometheus.NewRegistry(),
+		AuditLogger:                auditLogger,
+		CloseLogger:                lggr.Sync,
+		RestrictedHTTPClient:       c,
+		UnrestrictedHTTPClient:     c,
+		SecretGenerator:            MockSecretGenerator{},
+		MercuryPool:                mercuryPool,
+		NewOracleFactoryFn:         newOracleFactoryFn,
+		RetirementReportCache:      retirement.NewRetirementReportCache(lggr, ds),
+		LLOTransmissionReaper:      llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
+		EVMFactoryConfigFn:         evmFactoryConfigFn,
+		DonTimeStore:               dontime.NewStore(dontime.DefaultRequestTimeout),
+		LLOKeyValueDatabaseFactory: lloKVFactory,
 	})
 
 	require.NoError(t, err)

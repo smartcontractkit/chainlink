@@ -3285,17 +3285,17 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	}, reportTimeout, 100*time.Millisecond, "expected a report sourced from the bridge connection manager cache")
 }
 
-func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
-	oracles, nodes, _ = setupNodesWithRestart(t, nNodes, backend, clientCSAKeys, f)
+func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config), deps ...any) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+	oracles, nodes, _ = setupNodesWithRestart(t, nNodes, backend, clientCSAKeys, f, deps...)
 	return oracles, nodes
 }
 
 // setupNodesWithRestart is setupNodes plus a per-node restart hook. See
-// setupRestartableNode.
-func setupNodesWithRestart(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node, restarts []func(t *testing.T, whileDown func()) chainlink.Application) {
+// setupRestartableNode. deps are handed to the application constructor.
+func setupNodesWithRestart(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config), deps ...any) (oracles []confighelper.OracleIdentityExtra, nodes []Node, restarts []func(t *testing.T, whileDown func()) chainlink.Application) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
-		app, peerID, transmitter, kb, observedLogs, restart := setupRestartableNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f)
+		app, peerID, transmitter, kb, observedLogs, restart := setupRestartableNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f, deps...)
 		restarts = append(restarts, restart)
 
 		nodes = append(nodes, Node{

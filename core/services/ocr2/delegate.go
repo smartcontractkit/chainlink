@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	kvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/keyvaluedatabase"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -167,6 +168,9 @@ type Delegate struct {
 	// RegistryBasedLaunchAllowlist are started by LocalCapabilityManager,
 	// and ServicesForSpec rejects job specs for them to avoid double launch.
 	localCfg coreconfig.LocalCapabilities
+	// lloKeyValueDatabaseFactory replaces the on-disk store for LLO v31
+	// jobs when set. Tests only.
+	lloKeyValueDatabaseFactory ocr3_1types.KeyValueDatabaseFactory
 }
 
 type DelegateConfig interface {
@@ -303,6 +307,10 @@ type DelegateOpts struct {
 	CapRegistryAddress   string
 	CapRegistryChainID   string
 	LocalCfg             coreconfig.LocalCapabilities
+
+	// LLOKeyValueDatabaseFactory replaces the on-disk pebble store LLO v31
+	// jobs use when set. Tests only, so a benchmark can run in memory.
+	LLOKeyValueDatabaseFactory ocr3_1types.KeyValueDatabaseFactory
 }
 
 func NewDelegate(
@@ -342,6 +350,7 @@ func NewDelegate(
 		capRegistryAddress:             opts.CapRegistryAddress,
 		capRegistryChainID:             opts.CapRegistryChainID,
 		localCfg:                       opts.LocalCfg,
+		lloKeyValueDatabaseFactory:     opts.LLOKeyValueDatabaseFactory,
 	}
 }
 
@@ -1847,12 +1856,15 @@ func (d *Delegate) newServicesLLO(
 	// directory stays per job too, since the key-value database is created per
 	// config digest and so the instances cannot collide inside it.
 	if pluginCfg.AnyV31() {
-		fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
-		if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700)); err != nil {
-			return nil, fmt.Errorf("failed to create LLO key value store directory: %w", err)
-		}
 		cfg.BinaryNetworkEndpoint2Factory = d.peerWrapper.Peer3_1
-		cfg.KeyValueDatabaseFactory = kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
+		cfg.KeyValueDatabaseFactory = d.lloKeyValueDatabaseFactory
+		if cfg.KeyValueDatabaseFactory == nil {
+			fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
+			if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700)); err != nil {
+				return nil, fmt.Errorf("failed to create LLO key value store directory: %w", err)
+			}
+			cfg.KeyValueDatabaseFactory = kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
+		}
 	}
 
 	oracle, err := llo.NewDelegate(cfg)
