@@ -246,7 +246,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 			}
 		}
 
-		return Result{Value: string(out.body)}, runInfo
+		return Result{Value: string(out.body), Timestamp: bridgeResponseTimestamp(out.body)}, runInfo
 	}
 
 	requestDataJSON, err := t.finalizeAndMarshalBridgeRequestData(lggr, vars, inputValues, &requestData, includeInputAtKey)
@@ -341,7 +341,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	// If a binary response is required we might consider adding an adapter
 	// flag such as  "BinaryMode: true" which passes through raw binary as the
 	// value instead.
-	result = Result{Value: string(responseBytes)}
+	result = Result{Value: string(responseBytes), Timestamp: bridgeResponseTimestamp(responseBytes)}
 
 	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
 	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
@@ -496,6 +496,25 @@ func (t *BridgeTask) getBridgeFromName(ctx context.Context, name StringParam) (b
 		return bridges.BridgeType{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}
 	return bt, nil
+}
+
+// bridgeResponseTimestamp extracts the source timestamp (unix milliseconds)
+// from a bridge response body: the provider-indicated timestamp when present,
+// otherwise the provider-data-received timestamp. Returns 0 (unknown) when
+// neither is present or neither parses. Best-effort: never fails the task.
+func bridgeResponseTimestamp(body []byte) uint64 {
+	for _, key := range []string{"providerIndicatedTimeUnixMs", "providerDataReceivedUnixMs"} {
+		val, dataType, _, err := jsonparser.Get(body, "timestamps", key)
+		if err != nil || (dataType != jsonparser.Number && dataType != jsonparser.String) {
+			continue
+		}
+		ms, err := strconv.ParseInt(strings.TrimSpace(string(val)), 10, 64)
+		if err != nil || ms <= 0 {
+			continue
+		}
+		return uint64(ms) //nolint:gosec // G115: unix milliseconds fit comfortably in uint64
+	}
+	return 0
 }
 
 func withRunInfo(request MapParam, meta MapParam) MapParam {
