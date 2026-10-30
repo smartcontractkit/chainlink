@@ -26,6 +26,7 @@ const (
 )
 
 func Test_Simple_EVMEncoder(t *testing.T) {
+	t.Parallel()
 	nSigners := 4
 	signers := make([]ocr2key.KeyBundle, 0, nSigners)
 	for range nSigners {

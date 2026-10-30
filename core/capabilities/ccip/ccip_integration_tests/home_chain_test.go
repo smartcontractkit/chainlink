@@ -20,6 +20,7 @@ import (
 )
 
 func TestHomeChainReader_ChainConfigs(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)
 	uni := integrationhelpers.NewTestUniverse(ctx, t, lggr)

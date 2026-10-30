@@ -11,9 +11,11 @@ import (
 )
 
 func Test_decodeExtraData(t *testing.T) {
+	t.Parallel()
 	extraDataDecoder := &ExtraDataDecoder{}
 
 	t.Run("decode extra args into map evm v1", func(t *testing.T) {
+		t.Parallel()
 		encodedGasLimit := uint256.MustFromDecimal("500000")
 
 		encoded := hexutil.MustDecode("0x97a657c920a1070000000000000000000000000000000000000000000000000000000000")
@@ -27,6 +29,7 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map evm v2", func(t *testing.T) {
+		t.Parallel()
 		encodedGasLimit := uint256.MustFromDecimal("500000")
 		encodedAllowOOO := true
 
@@ -47,6 +50,7 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map svm", func(t *testing.T) {
+		t.Parallel()
 		encodedComputeUnits := uint32(100000)
 		encodedBitmap := uint64(255)
 		encodedOOO := true
@@ -80,6 +84,7 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map svm with multiple accounts", func(t *testing.T) {
+		t.Parallel()
 		encodedComputeUnits := uint32(100000)
 		encodedBitmap := uint64(255)
 		encodedOOO := true
@@ -115,6 +120,7 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("decode dest exec data into map", func(t *testing.T) {
+		t.Parallel()
 		destGasAmount := uint32(10000)
 		encoded, err := bcs.SerializeU32(destGasAmount)
 		require.NoError(t, err)
@@ -129,6 +135,7 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("error on short extra args", func(t *testing.T) {
+		t.Parallel()
 		shortData := evmExtraArgsV1Tag[:2] // Less than 4 bytes
 		_, err := extraDataDecoder.DecodeExtraArgsToMap(shortData)
 		require.Error(t, err)
@@ -136,6 +143,7 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("error on unknown tag", func(t *testing.T) {
+		t.Parallel()
 		dummyData, err := bcs.SerializeU256(*big.NewInt(1))
 		require.NoError(t, err)
 		dataWithUnknownTag := make([]byte, 0, 4+len(dummyData))
@@ -147,6 +155,7 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("error on malformed evm v1 data", func(t *testing.T) {
+		t.Parallel()
 		malformedData, err := bcs.SerializeU256(*big.NewInt(1))
 		require.NoError(t, err)
 		encoded := append([]byte{}, evmExtraArgsV1Tag...)
@@ -157,6 +166,7 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("error on malformed dest exec data", func(t *testing.T) {
+		t.Parallel()
 		malformedData := []byte{0x01, 0x02, 0x03} // Too short for uint32 (expects 4 bytes)
 		_, err := extraDataDecoder.DecodeDestExecDataToMap(malformedData)
 		require.Error(t, err)
@@ -164,6 +174,7 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("error on dest exec data exceeding uint32 max", func(t *testing.T) {
+		t.Parallel()
 		tooLargeValue := new(big.Int).Lsh(big.NewInt(1), 32)
 		encodedTooLarge, err := bcs.SerializeU256(*tooLargeValue) // Pack as uint256
 		require.NoError(t, err)

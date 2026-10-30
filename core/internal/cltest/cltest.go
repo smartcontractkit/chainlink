@@ -1323,6 +1323,9 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clie
 	// Start
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("SubscribeToHeads", mock.Anything).Return(make(<-chan *evmtypes.Head), sub, nil).Maybe()
+	// The head listener reads Err and calls Unsubscribe if it subscribes before the app closes.
+	sub.On("Err").Return(nil).Maybe()
+	sub.On("Unsubscribe").Return().Maybe()
 	ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, app.GetConfig().EVMConfigs()), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()

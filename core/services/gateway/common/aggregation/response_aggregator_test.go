@@ -10,7 +10,9 @@ import (
 )
 
 func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
+	t.Parallel()
 	t.Run("single node response below threshold", func(t *testing.T) {
+		t.Parallel()
 		agg, err := NewIdenticalNodeResponseAggregator(2)
 		require.NoError(t, err)
 
@@ -26,6 +28,7 @@ func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
 	})
 
 	t.Run("threshold reached with identical responses", func(t *testing.T) {
+		t.Parallel()
 		agg, err := NewIdenticalNodeResponseAggregator(2)
 		require.NoError(t, err)
 
@@ -49,6 +52,7 @@ func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
 	})
 
 	t.Run("threshold reached with same node sending multiple times", func(t *testing.T) {
+		t.Parallel()
 		agg, err := NewIdenticalNodeResponseAggregator(2)
 		require.NoError(t, err)
 
@@ -73,6 +77,7 @@ func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
 	})
 
 	t.Run("different responses do not aggregate", func(t *testing.T) {
+		t.Parallel()
 		agg, err := NewIdenticalNodeResponseAggregator(2)
 		require.NoError(t, err)
 
@@ -99,6 +104,7 @@ func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
 	})
 
 	t.Run("threshold 1 immediately returns response", func(t *testing.T) {
+		t.Parallel()
 		agg, err := NewIdenticalNodeResponseAggregator(1)
 		require.NoError(t, err)
 
@@ -116,6 +122,7 @@ func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
 	})
 
 	t.Run("higher threshold requires more nodes", func(t *testing.T) {
+		t.Parallel()
 		agg, err := NewIdenticalNodeResponseAggregator(3)
 		require.NoError(t, err)
 
@@ -139,6 +146,7 @@ func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
 	})
 
 	t.Run("mixed responses with different digests", func(t *testing.T) {
+		t.Parallel()
 		agg, err := NewIdenticalNodeResponseAggregator(2)
 		require.NoError(t, err)
 
@@ -175,6 +183,7 @@ func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
 	})
 
 	t.Run("error responses are handled correctly", func(t *testing.T) {
+		t.Parallel()
 		agg, err := NewIdenticalNodeResponseAggregator(2)
 		require.NoError(t, err)
 
@@ -196,7 +205,9 @@ func TestIdenticalNodeResponseAggregator_CollectAndAggregate(t *testing.T) {
 }
 
 func TestIdenticalNodeResponseAggregator_EdgeCases(t *testing.T) {
+	t.Parallel()
 	t.Run("empty response", func(t *testing.T) {
+		t.Parallel()
 		agg, err := NewIdenticalNodeResponseAggregator(1)
 		require.NoError(t, err)
 
@@ -211,11 +222,13 @@ func TestIdenticalNodeResponseAggregator_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("invalid threshold", func(t *testing.T) {
+		t.Parallel()
 		_, err := NewIdenticalNodeResponseAggregator(0)
 		require.Error(t, err)
 	})
 
 	t.Run("nil response", func(t *testing.T) {
+		t.Parallel()
 		agg, err := NewIdenticalNodeResponseAggregator(1)
 		require.NoError(t, err)
 
@@ -224,6 +237,7 @@ func TestIdenticalNodeResponseAggregator_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("empty node address", func(t *testing.T) {
+		t.Parallel()
 		agg, err := NewIdenticalNodeResponseAggregator(1)
 		require.NoError(t, err)
 
@@ -240,6 +254,7 @@ func TestIdenticalNodeResponseAggregator_EdgeCases(t *testing.T) {
 }
 
 func TestIdenticalNodeResponseAggregator_NodeChangesResponse(t *testing.T) {
+	t.Parallel()
 	t.Run("node changes response and reaches threshold", func(t *testing.T) {
 		agg, err := NewIdenticalNodeResponseAggregator(2)
 		require.NoError(t, err)
