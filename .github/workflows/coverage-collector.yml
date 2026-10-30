@@ -1,8 +1,6 @@
 name: Coverage Collector
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
   workflow_run:
     workflows:
       - CI Core
@@ -18,28 +16,6 @@ on:
       - Legacy System Tests
       - Legacy Non Functional Tests
     types: [completed]
-  # TEMP: manual trigger for pre-merge validation. Remove before opening the PR.
-  workflow_dispatch:
-    inputs:
-      sha:
-        description: "Commit SHA to collect"
-        required: true
-        type: string
-      pr:
-        description: "Optional PR number"
-        required: false
-        type: string
-        default: ""
-      patch_base:
-        description: "Optional base SHA for patch coverage"
-        required: false
-        type: string
-        default: ""
-      patch_head:
-        description: "Optional head SHA for patch coverage"
-        required: false
-        type: string
-        default: ""
 
 permissions:
   actions: read
@@ -48,13 +24,13 @@ permissions:
   checks: write
 
 concurrency:
-  group: coverage-${{ github.event.workflow_run.head_sha || inputs.sha }}
+  group: coverage-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: true
 
 jobs:
   collect:
     name: Collect coverage
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion != 'skipped' }}
+    if: ${{ github.event.workflow_run.conclusion != 'skipped' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -68,24 +44,20 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Wait for PR test artifacts
-        if: ${{ github.event_name == 'pull_request' }}
-        run: sleep 120
-
       - name: Collect and publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TARGET_SHA: ${{ github.event.pull_request.head.sha || inputs.sha || github.event.workflow_run.head_sha }}
-          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr || (github.event.workflow_run.pull_requests[0].number || '') }}
-          PATCH_BASE: ${{ inputs.patch_base }}
-          PATCH_HEAD: ${{ inputs.patch_head }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || '' }}
+          PATCH_BASE: ""
+          PATCH_HEAD: ""
         run: ./tools/coverage/collect.sh
 
       - name: Upload merged report
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: coverage-report-${{ inputs.sha || github.event.workflow_run.head_sha }}-${{ github.run_id }}
+          name: coverage-report-${{ github.event.workflow_run.head_sha }}-${{ github.run_id }}
           path: coverage-report
           retention-days: 30
           if-no-files-found: warn
