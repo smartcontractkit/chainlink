@@ -38,8 +38,9 @@ if [[ "${WAIT_FOR_RUNS:-false}" == "true" ]]; then
   while (( SECONDS < deadline )); do
     runs_json="$(gh run list --repo "$REPO" --commit "$TARGET_SHA" -L 500 \
       --json workflowName,status 2>/dev/null || echo '[]')"
-    pending="$(printf '%s' "$runs_json" | jq -r \
-      '.[] | select((.status == "queued" or .status == "in_progress") and .workflowName != "Coverage Collector") | .workflowName' \
+    watched='["CI Core","Deployment Tests","Integration In-Memory Tests","Integration Tests","CI Tools","CRE System Tests","CRE Regression System Tests","CRE Mixed-Env Tests","CRE Local Environment Tests","CCIP System Tests","Legacy System Tests","Legacy Non Functional Tests"]'
+    pending="$(printf '%s' "$runs_json" | jq -r --argjson watched "$watched" \
+      '.[] | select(.workflowName as $n | $watched | index($n)) | select(.status == "queued" or .status == "in_progress") | .workflowName' \
       2>/dev/null | sort -u || true)"
     if [[ -z "$pending" ]]; then
       break
