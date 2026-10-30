@@ -159,8 +159,9 @@ func setupNode(
 	backend evmtypes.Backend,
 	csaKey csakey.KeyV2,
 	f func(*chainlink.Config),
+	deps ...any,
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
-	app, peerID, clientPubKey, ocr2kb, observedLogs, _ = setupRestartableNode(t, port, dbName, backend, csaKey, f)
+	app, peerID, clientPubKey, ocr2kb, observedLogs, _ = setupRestartableNode(t, port, dbName, backend, csaKey, f, deps...)
 	return app, peerID, clientPubKey, ocr2kb, observedLogs
 }
 
@@ -176,6 +177,7 @@ func setupRestartableNode(
 	backend evmtypes.Backend,
 	csaKey csakey.KeyV2,
 	f func(*chainlink.Config),
+	deps ...any,
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs, restart func(t *testing.T, whileDown func()) chainlink.Application) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
@@ -248,9 +250,9 @@ func setupRestartableNode(
 	newApp := func(t *testing.T) chainlink.Application {
 		var a chainlink.Application
 		if backend != nil {
-			a = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+			a = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, append([]any{p2pKey, ocr2kb, csaKey, lggr.Named(dbName)}, deps...)...)
 		} else {
-			a = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+			a = cltest.NewApplicationWithConfig(t, config, append([]any{p2pKey, ocr2kb, csaKey, lggr.Named(dbName)}, deps...)...)
 		}
 		require.NoError(t, a.Start(t.Context()))
 		return a
