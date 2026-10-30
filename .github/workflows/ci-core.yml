@@ -381,7 +381,6 @@ jobs:
             install-loopps: "false"
             build-cache-version: go_core_race_tests
             build-cache-write: always
-            coverage: "true"
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources

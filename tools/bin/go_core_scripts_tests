@@ -13,7 +13,7 @@ echo "Test execution results: ---------------------"
 echo ""
 
 if [[ "$COVERAGE" == "true" ]]; then
-  COVERAGE_DIR=${GOCOVERDIR:-$PWD/coverage}
+  COVERAGE_DIR=${GOCOVERDIR:-$PWD/.covdata}
   mkdir -p "$COVERAGE_DIR"
   EXTRA_FLAGS="-covermode=atomic -cover -coverpkg=${COVERPKG:-./...} -args -test.gocoverdir=$COVERAGE_DIR"
   echo "Coverage enabled: $COVERAGE_DIR"

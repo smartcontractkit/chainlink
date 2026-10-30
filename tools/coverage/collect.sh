@@ -9,16 +9,21 @@
 # Optional:
 #   PR_NUMBER          PR number; inferred from TARGET_SHA when empty
 #   OUTPUT_DIR         report output directory (default: coverage-report)
+#   ARTIFACTS_DIR      raw artifact download directory (default: $RUNNER_TEMP/coverage-artifacts)
+#   WAIT_FOR_RUNS      wait for other workflow runs for TARGET_SHA (true/false)
+#   WAIT_TIMEOUT       seconds to wait for runs (default: 2700)
 set -euo pipefail
 
 REPO="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
 TARGET_SHA="${TARGET_SHA:?TARGET_SHA is required}"
 OUT="${OUTPUT_DIR:-coverage-report}"
-ARTIFACTS="${OUT}/artifacts"
-mkdir -p "$ARTIFACTS"
+ARTIFACTS="${ARTIFACTS_DIR:-${RUNNER_TEMP:-/tmp}/coverage-artifacts}"
+rm -rf "$ARTIFACTS"
+mkdir -p "$OUT" "$ARTIFACTS"
 
 if [[ -z "${PR_NUMBER:-}" ]]; then
-  PR_NUMBER="$(gh api "repos/${REPO}/commits/${TARGET_SHA}/pulls" --jq '.[0].number // empty' 2>/dev/null || true)"
+  PR_NUMBER="$(gh api "repos/${REPO}/commits/${TARGET_SHA}/pulls" \
+    --jq '[.[] | select(.state == "open")][0].number // empty' 2>/dev/null || true)"
 fi
 BASE_SHA=""
 if [[ -n "${PR_NUMBER:-}" ]]; then
@@ -26,6 +31,25 @@ if [[ -n "${PR_NUMBER:-}" ]]; then
 fi
 PATCH_BASE="${PATCH_BASE:-}"
 PATCH_HEAD="${PATCH_HEAD:-$TARGET_SHA}"
+
+if [[ "${WAIT_FOR_RUNS:-false}" == "true" ]]; then
+  deadline=$((SECONDS + ${WAIT_TIMEOUT:-2700}))
+  sleep 30
+  while (( SECONDS < deadline )); do
+    runs_json="$(gh run list --repo "$REPO" --commit "$TARGET_SHA" -L 500 \
+      --json workflowName,status 2>/dev/null || echo '[]')"
+    pending="$(printf '%s' "$runs_json" | jq -r \
+      '.[] | select((.status == "queued" or .status == "in_progress") and .workflowName != "Coverage Collector") | .workflowName' \
+      2>/dev/null | sort -u || true)"
+    if [[ -z "$pending" ]]; then
+      break
+    fi
+    echo "Waiting for: ${pending//$'\n'/, }"
+    sleep 30
+  done
+fi
+
+echo "Collecting coverage for ${REPO}@${TARGET_SHA} (PR ${PR_NUMBER:-none}, base ${BASE_SHA:-none})"
 
 if [[ -n "$BASE_SHA" ]]; then
   git fetch --no-tags origin "$BASE_SHA" "$TARGET_SHA" >/dev/null 2>&1 || true
@@ -37,50 +61,53 @@ if [[ -z "$PATCH_BASE" && -n "$BASE_SHA" ]]; then
   PATCH_BASE="$(git merge-base "$BASE_SHA" "$TARGET_SHA" 2>/dev/null || echo "$BASE_SHA")"
 fi
 
-echo "Collecting coverage for ${REPO}@${TARGET_SHA} (PR ${PR_NUMBER:-none}, base ${BASE_SHA:-none})"
-
-runs="$(gh run list --repo "$REPO" --commit "$TARGET_SHA" -L 100 --json databaseId --jq '.[].databaseId')"
+runs="$(gh run list --repo "$REPO" --commit "$TARGET_SHA" -L 500 --json databaseId --jq '.[].databaseId' 2>/dev/null || true)"
 for run in $runs; do
-  names="$(gh api "repos/${REPO}/actions/runs/${run}/artifacts?per_page=100" --jq '.artifacts[].name' 2>/dev/null | grep -E '^(coverage-(core|deployment|inmemory|tools|e2e)-|test-results-)' || true)"
+  names="$(gh api "repos/${REPO}/actions/runs/${run}/artifacts?per_page=100" --jq '.artifacts[].name' 2>/dev/null \
+    | grep -E '^(coverage-(core|deployment|inmemory|tools|e2e)-|test-results-)' || true)"
   while IFS= read -r name; do
     [[ -z "$name" ]] && continue
     dest="${ARTIFACTS}/${run}/${name}"
     mkdir -p "$dest"
     echo "Downloading ${name} from run ${run}"
-    gh run download "$run" --repo "$REPO" -n "$name" -D "$dest" || true
+    gh run download "$run" --repo "$REPO" -n "$name" -D "$dest" || \
+      echo "::warning::Failed to download ${name} from ${run}"
   done <<< "$names"
 done
 
-all_dirs=""
 unit_dirs=""
 integration_dirs=""
 e2e_dirs=""
-
-while IFS= read -r meta; do
-  [[ -z "$meta" ]] && continue
-  dir="$(dirname "$meta")"
-  all_dirs="${all_dirs}${all_dirs:+,}${dir}"
-  case "$meta" in
-    */coverage-core-go_core_tests-*/*|*/coverage-core-go_core_race_tests-*/*|*/coverage-core-scripts-*/*|*/coverage-tools-*/*)
+while IFS= read -r dir; do
+  case "$dir" in
+    */coverage-core-go_core_tests-*|*/coverage-core-go_core_race_tests-*|*/coverage-core-scripts-*|*/coverage-tools-*)
       unit_dirs="${unit_dirs}${unit_dirs:+,}${dir}" ;;
-    */coverage-core-go_core_tests_integration-*/*|*/coverage-deployment-*/*|*/coverage-inmemory-*/*)
+    */coverage-core-go_core_tests_integration-*|*/coverage-deployment-*|*/coverage-inmemory-*)
       integration_dirs="${integration_dirs}${integration_dirs:+,}${dir}" ;;
-    */coverage-e2e-*/*)
+    */coverage-e2e-*)
       e2e_dirs="${e2e_dirs}${e2e_dirs:+,}${dir}" ;;
   esac
-done < <(find "$ARTIFACTS" -type f -name 'covmeta.*' 2>/dev/null | sort -u)
+done < <(find "$ARTIFACTS" -type f -name 'covmeta.*' -exec dirname {} \; 2>/dev/null | sort -u)
 
 merge_and_report() {
   local category="$1" dirs="$2"
   [[ -z "$dirs" ]] && return 0
-  echo "Merging ${category}: ${dirs}"
-  go run ./tools/coverage merge --covdata "$dirs" --out "${OUT}/${category}.txt"
+  echo "Merging ${category}"
+  if ! go run ./tools/coverage merge --covdata "$dirs" --out "${OUT}/${category}.txt"; then
+    echo "::warning::Failed to merge ${category} coverage"
+    return 0
+  fi
   local args=(--profile "${OUT}/${category}.txt" --category "$category"
     --json "${OUT}/${category}.json" --markdown "${OUT}/${category}.md")
   if [[ -n "$PATCH_BASE" && -n "$PATCH_HEAD" ]]; then
     args+=(--base "$PATCH_BASE" --head "$PATCH_HEAD")
   fi
-  go run ./tools/coverage report "${args[@]}"
+  if ! go run ./tools/coverage report "${args[@]}"; then
+    echo "::warning::Failed to compute ${category} patch coverage; retrying without patch"
+    args=(--profile "${OUT}/${category}.txt" --category "$category"
+      --json "${OUT}/${category}.json" --markdown "${OUT}/${category}.md")
+    go run ./tools/coverage report "${args[@]}" || echo "::warning::Failed to report ${category} coverage"
+  fi
 }
 
 merge_and_report unit "$unit_dirs"
@@ -94,18 +121,26 @@ for category in unit integration e2e; do
   fi
 done
 if [[ -n "$profile_list" ]]; then
-  go run ./tools/coverage merge-profiles --profile "$profile_list" --out "${OUT}/any.txt"
-  args=(--profile "${OUT}/any.txt" --category any
-    --json "${OUT}/any.json" --markdown "${OUT}/any.md")
-  if [[ -n "$PATCH_BASE" && -n "$PATCH_HEAD" ]]; then
-    args+=(--base "$PATCH_BASE" --head "$PATCH_HEAD")
+  if go run ./tools/coverage merge-profiles --profile "$profile_list" --out "${OUT}/any.txt"; then
+    args=(--profile "${OUT}/any.txt" --category any
+      --json "${OUT}/any.json" --markdown "${OUT}/any.md")
+    if [[ -n "$PATCH_BASE" && -n "$PATCH_HEAD" ]]; then
+      args+=(--base "$PATCH_BASE" --head "$PATCH_HEAD")
+    fi
+    if ! go run ./tools/coverage report "${args[@]}"; then
+      echo "::warning::Failed to compute any patch coverage; retrying without patch"
+      args=(--profile "${OUT}/any.txt" --category any
+        --json "${OUT}/any.json" --markdown "${OUT}/any.md")
+      go run ./tools/coverage report "${args[@]}" || echo "::warning::Failed to report any coverage"
+    fi
+  else
+    echo "::warning::Failed to merge any coverage"
   fi
-  go run ./tools/coverage report "${args[@]}"
 fi
 
 test_xmls="$(find "$ARTIFACTS" -type f -name '*.xml' -path '*test-results-*' 2>/dev/null | sort -u)"
 if [[ -n "$test_xmls" ]]; then
-  python3 - "$OUT/test-results.json" $test_xmls <<'PY'
+  python3 - "$OUT/test-results.json" $test_xmls <<'PY' || echo "::warning::Failed to parse test results"
 import json, sys, xml.etree.ElementTree as ET
 files = sys.argv[2:]
 totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0, "files": len(files)}
@@ -124,6 +159,11 @@ for path in files:
 with open(sys.argv[1], "w", encoding="utf-8") as f:
     json.dump(totals, f)
 PY
+fi
+
+if ! compgen -G "${OUT}/*.md" >/dev/null; then
+  echo "No coverage profiles were produced for ${TARGET_SHA}"
+  exit 0
 fi
 
 {
@@ -158,12 +198,14 @@ cat "${OUT}/summary.md"
 if [[ -n "${PR_NUMBER:-}" ]]; then
   marker="<!-- coverage-report -->"
   comment_id="$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" 2>/dev/null \
-    | jq -r --arg marker "$marker" '.[] | select(.body | contains($marker)) | .id' 2>/dev/null \
+    | jq -r --arg marker "$marker" '.[] | select(.user.login == "github-actions[bot]") | select(.body | contains($marker)) | .id' 2>/dev/null \
     | head -1 || true)"
   if [[ -n "$comment_id" ]]; then
-    gh api -X PATCH "repos/${REPO}/issues/comments/${comment_id}" -F body="@${OUT}/summary.md"
+    gh api -X PATCH "repos/${REPO}/issues/comments/${comment_id}" -F body="@${OUT}/summary.md" || \
+      echo "::warning::Failed to update coverage comment"
   else
-    gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file "${OUT}/summary.md"
+    gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file "${OUT}/summary.md" || \
+      echo "::warning::Failed to create coverage comment"
   fi
 fi
 

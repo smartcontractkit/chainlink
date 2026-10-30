@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/coverage"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -18,18 +19,24 @@ func init() {
 	if dir == "" {
 		return
 	}
+	var mu sync.Mutex
+	flush := func() {
+		mu.Lock()
+		defer mu.Unlock()
+		_ = coverage.WriteCountersDir(dir)
+	}
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGUSR1)
 	go func() {
 		for range ch {
-			_ = coverage.WriteCountersDir(dir)
+			flush()
 		}
 	}()
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
-			_ = coverage.WriteCountersDir(dir)
+			flush()
 		}
 	}()
 }
