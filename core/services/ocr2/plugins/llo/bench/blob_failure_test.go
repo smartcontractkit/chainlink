@@ -74,9 +74,7 @@ func driveRounds(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInf
 		seqNr := startSeq + uint64(i)
 		before := pump.Broadcasts()
 		reports, _ := v31Round(tb, p, db, bbf, seqNr, blobFailureN)
-		if seqNr > 1 {
-			waitForPump(tb, pump, before)
-		}
+		waitForPump(tb, pump, before)
 		if len(reports) >= channels {
 			return seqNr
 		}
