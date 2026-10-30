@@ -1683,44 +1683,6 @@ ReceiverBufferSize = 10000 # Default
 ```
 ReceiverBufferSize is the size of the buffer for incoming messages.
 
-## Capabilities.Dispatcher.RateLimit
-```toml
-[Capabilities.Dispatcher.RateLimit]
-GlobalRPS = 800 # Default
-GlobalBurst = 1000 # Default
-PerSenderRPS = 10 # Default
-PerSenderBurst = 50 # Default
-```
-
-
-### GlobalRPS
-```toml
-GlobalRPS = 800 # Default
-```
-GlobalRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
-cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
-
-### GlobalBurst
-```toml
-GlobalBurst = 1000 # Default
-```
-GlobalBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
-cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
-
-### PerSenderRPS
-```toml
-PerSenderRPS = 10 # Default
-```
-PerSenderRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
-cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
-
-### PerSenderBurst
-```toml
-PerSenderBurst = 50 # Default
-```
-PerSenderBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
-cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
-
 ## Capabilities.GatewayConnector
 ```toml
 [Capabilities.GatewayConnector]

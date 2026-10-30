@@ -612,20 +612,6 @@ ContractVersion = '1.0.0' # Default
 # ReceiverBufferSize is the size of the buffer for incoming messages.
 ReceiverBufferSize = 10000 # Default
 
-[Capabilities.Dispatcher.RateLimit]
-# GlobalRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
-# cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
-GlobalRPS = 800 # Default
-# GlobalBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
-# cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
-GlobalBurst = 1000 # Default
-# PerSenderRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
-# cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
-PerSenderRPS = 10 # Default
-# PerSenderBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
-# cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
-PerSenderBurst = 50 # Default
-
 [Capabilities.GatewayConnector]
 # ChainIDForNodeKey is the ChainID of the network associated with a private key to be used for authentication with Gateway nodes
 ChainIDForNodeKey = '11155111' # Example
