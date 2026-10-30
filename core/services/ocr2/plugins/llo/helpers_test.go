@@ -185,6 +185,12 @@ func setupRestartableNode(
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		// Each test starts five apps and a dozen tests run in parallel. The
+		// default 20 connections per app is more than 1,000 backends, almost
+		// all idle. Five covers an app in these tests.
+		c.Database.MaxOpenConns = new(int64(5))
+		c.Database.MaxIdleConns = new(int64(5))
+
 		// [JobPipeline]
 		c.JobPipeline.MaxSuccessfulRuns = new(uint64(0))
 		c.JobPipeline.VerboseLogging = new(true)
