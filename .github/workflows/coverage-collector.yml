@@ -1,6 +1,8 @@
 name: Coverage Collector
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
   workflow_run:
     workflows:
       - CI Core
@@ -23,13 +25,13 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: coverage-${{ github.event.workflow_run.head_sha }}
+  group: coverage-${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
   cancel-in-progress: true
 
 jobs:
   collect:
     name: Collect coverage
-    if: ${{ github.event.workflow_run.conclusion != 'skipped' }}
+    if: ${{ github.event_name == 'pull_request' || github.event.workflow_run.conclusion != 'skipped' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -43,11 +45,15 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Wait for PR workflows to start
+        if: ${{ github.event_name == 'pull_request' }}
+        run: sleep 60
+
       - name: Collect and publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || '' }}
+          TARGET_SHA: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number || (github.event.workflow_run.pull_requests[0].number || '') }}
           PATCH_BASE: ""
           PATCH_HEAD: ""
           WAIT_FOR_RUNS: "true"
@@ -58,7 +64,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: coverage-report-${{ github.event.workflow_run.head_sha }}-${{ github.run_id }}
+          name: coverage-report-${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}-${{ github.run_id }}
           path: coverage-report
           retention-days: 30
           if-no-files-found: warn
