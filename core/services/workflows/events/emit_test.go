@@ -230,3 +230,36 @@ func TestEmitter_WithDurableEmit(t *testing.T) {
 	e = events.NewEmitter(rec, events.WithDurableEmit(nil))
 	require.NoError(t, e.EmitUserMetric(t.Context(), map[string]string{}, &eventsv2.WorkflowUserMetric{}))
 }
+
+func TestEmit_CreInfoShardAndWorkflowDon(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		labels       map[string]string
+		wantDonID    int32
+		wantWorkflow int32
+		wantShardIdx uint32
+	}{
+		{"both set", map[string]string{platform.KeyDonID: "7", platform.KeyWorkflowDonID: "7", platform.KeyShardIndex: "2"}, 7, 7, 2},
+		{"missing labels default to zero", map[string]string{platform.KeyDonID: "7"}, 7, 0, 0},
+		{"invalid values ignored", map[string]string{platform.KeyWorkflowDonID: "x", platform.KeyShardIndex: "-1"}, 0, 0, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rec := beholdertest.NewRecorder()
+			e := events.NewEmitter(rec, events.WithNoDurableEmit())
+			require.NoError(t, e.EmitCapabilityStartedEvent(t.Context(), tt.labels, "exec", "cap", "step", "method"))
+
+			msgs := rec.Messages(t, "beholder_entity", "workflows.v2.CapabilityExecutionStarted")
+			require.Len(t, msgs, 1)
+			var got eventsv2.CapabilityExecutionStarted
+			require.NoError(t, proto.Unmarshal(msgs[0].Body, &got))
+			assert.Equal(t, tt.wantDonID, got.CreInfo.DonID)
+			assert.Equal(t, tt.wantWorkflow, got.CreInfo.WorkflowDonID)
+			assert.Equal(t, tt.wantShardIdx, got.CreInfo.ShardIndex)
+		})
+	}
+}

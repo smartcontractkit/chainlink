@@ -241,6 +241,14 @@ func safeExternalRegistryChainID(cfg GeneralConfig) string {
 	return cfg.Capabilities().ExternalRegistry().ChainID()
 }
 
+// localShardIndex returns this node's shard index, or 0 when sharding is disabled.
+func localShardIndex(s config.Sharding) uint32 {
+	if s == nil || !s.ShardingEnabled() {
+		return 0
+	}
+	return uint32(s.ShardIndex())
+}
+
 // NewApplication initializes a new store if one is not already
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
@@ -760,6 +768,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		safeDefaultBootstrappers(cfg),
 		safeExternalRegistryAddress(cfg),
 		safeExternalRegistryChainID(cfg),
+		localShardIndex(cfg.Sharding()),
 	)
 	delegates[job.StandardCapabilities] = stdcapDelegate
 	if creServices.SetDelegatesDeps != nil {
