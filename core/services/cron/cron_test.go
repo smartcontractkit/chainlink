@@ -20,6 +20,7 @@ import (
 )
 
 func TestCronV2Pipeline(t *testing.T) {
+	t.Parallel()
 	runner := pipelinemocks.NewRunner(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)

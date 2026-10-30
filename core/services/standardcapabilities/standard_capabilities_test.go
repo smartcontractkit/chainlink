@@ -233,6 +233,7 @@ func TestStandardCapabilities_CloseUnregistersLOOP(t *testing.T) {
 }
 
 func TestStandardCapabilityStart(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}

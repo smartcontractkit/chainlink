@@ -12,6 +12,7 @@ import (
 )
 
 func TestFactory_NewFactory(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	arbiter := &mockArbiter{}
@@ -46,6 +47,7 @@ func TestFactory_NewFactory(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			f, err := NewFactory(store, tt.arbiter, lggr, tt.config)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -59,6 +61,7 @@ func TestFactory_NewFactory(t *testing.T) {
 }
 
 func TestFactory_NewReportingPlugin(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	f, err := NewFactory(store, &mockArbiter{}, lggr, nil)
@@ -74,6 +77,7 @@ func TestFactory_NewReportingPlugin(t *testing.T) {
 }
 
 func TestFactory_Lifecycle(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	f, err := NewFactory(store, &mockArbiter{}, lggr, nil)

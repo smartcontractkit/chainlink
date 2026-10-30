@@ -59,6 +59,7 @@ const (
 )
 
 func TestContractReaderEventsInitValidation(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name                 string
 		chainContractReaders map[string]config.ChainContractReader
@@ -216,6 +217,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			_, err := read.NewChainReaderService(t.Context(), logger.Nop(), nil, nil, nil, config.ChainReaderConfig{Contracts: tt.chainContractReaders})
 			require.Error(t, err)
 			if err != nil {
@@ -226,6 +228,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 }
 
 func TestChainReader_HealthReport(t *testing.T) {
+	t.Parallel()
 	lp := lpmocks.NewLogPoller(t)
 	lp.EXPECT().HealthReport().Return(map[string]error{"lp_name": clcommontypes.ErrFinalityViolated}).Once()
 	ht := headstest.NewTracker[*clevmtypes.Head, common.Hash](t)

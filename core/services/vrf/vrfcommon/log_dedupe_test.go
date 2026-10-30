@@ -9,6 +9,7 @@ import (
 )
 
 func TestLogDeduper(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		logs    []types.Log
@@ -172,6 +173,7 @@ func TestLogDeduper(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			deduper := NewLogDeduper(100)
 
 			for i := range test.logs {
