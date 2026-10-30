@@ -185,29 +185,21 @@ func TestBlobFetchFailure(t *testing.T) {
 	require.NotZero(t, seq, "reporting should resume once blobs can be fetched again")
 }
 
-// TestBlobRoundBounds covers the blob round knobs the factory validates: a blob
-// lifetime that does not outlive the snapshots referencing it is rejected, as
-// is one past the cap, while the tightest valid pairing still reports.
+// TestBlobRoundBounds checks the factory applies the blob lifetime bounds: a
+// lifetime below the fetch margin, or one past the cap, is rejected, while the
+// tightest valid lifetime still reports.
 func TestBlobRoundBounds(t *testing.T) {
 	t.Parallel()
 
-	// The tightest valid pairing: a snapshot gathered for one sequence number
-	// is consumed by a later one, so the blob must stay fetchable for
-	// BlobFetchMarginRounds past MaxSnapshotRounds.
-	const tightSnapshotRounds = 2
-	const tightLifetimeRounds = tightSnapshotRounds + llov31.BlobFetchMarginRounds - 1
-
 	tcs := []struct {
-		name              string
-		maxSnapshotRounds uint64
-		blobLifetime      uint64
-		wantErr           string
+		name         string
+		blobLifetime uint64
+		wantErr      string
 	}{
 		{
-			name:              "lifetime leaving no fetch margin is rejected",
-			maxSnapshotRounds: 4,
-			blobLifetime:      4,
-			wantErr:           "leaves less than",
+			name:         "lifetime below the fetch margin is rejected",
+			blobLifetime: llov31.MinBlobLifetimeRounds - 1,
+			wantErr:      "is below MinBlobLifetimeRounds",
 		},
 		{
 			name:         "lifetime past the cap is rejected",
@@ -215,9 +207,8 @@ func TestBlobRoundBounds(t *testing.T) {
 			wantErr:      "exceeds MaxBlobLifetimeRounds",
 		},
 		{
-			name:              "tightest valid pairing reports",
-			maxSnapshotRounds: tightSnapshotRounds,
-			blobLifetime:      tightLifetimeRounds,
+			name:         "tightest valid lifetime reports",
+			blobLifetime: llov31.MinBlobLifetimeRounds,
 		},
 	}
 
@@ -226,7 +217,6 @@ func TestBlobRoundBounds(t *testing.T) {
 			t.Parallel()
 			defs, _ := blobFailureWorkload.channelDefinitions()
 			opt := func(params *llov31.PluginFactoryParams) {
-				params.MaxSnapshotRounds = tc.maxSnapshotRounds
 				params.BlobLifetimeRounds = tc.blobLifetime
 			}
 			bbf := llotest.NewBlobBroadcastFetcher()
