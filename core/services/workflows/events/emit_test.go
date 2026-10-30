@@ -40,10 +40,10 @@ func TestEmit(t *testing.T) {
 		msgs := rec.Messages(t, "beholder_entity", "workflows.v2."+events.WorkflowExecutionStarted)
 		require.Len(t, msgs, 1)
 
-		var expected eventsv2.WorkflowExecutionStarted
+		var got eventsv2.WorkflowExecutionStarted
 
-		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
-		assert.Equal(t, executionID, expected.WorkflowExecutionID)
+		require.NoError(t, proto.Unmarshal(msgs[0].Body, &got))
+		assert.Equal(t, executionID, got.WorkflowExecutionID)
 	})
 
 	t.Run(events.WorkflowExecutionFinished, func(t *testing.T) {
@@ -57,10 +57,10 @@ func TestEmit(t *testing.T) {
 		msgs := rec.Messages(t, "beholder_entity", "workflows.v2."+events.WorkflowExecutionFinished)
 		require.Len(t, msgs, 1)
 
-		var expected eventsv2.WorkflowExecutionFinished
+		var got eventsv2.WorkflowExecutionFinished
 
-		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
-		assert.Equal(t, executionID, expected.WorkflowExecutionID)
+		require.NoError(t, proto.Unmarshal(msgs[0].Body, &got))
+		assert.Equal(t, executionID, got.WorkflowExecutionID)
 	})
 
 	t.Run(events.WorkflowExecutionFinished+"_with_error", func(t *testing.T) {
@@ -93,10 +93,10 @@ func TestEmit(t *testing.T) {
 		msgs := rec.Messages(t, "beholder_entity", "workflows.v2."+events.CapabilityExecutionStarted)
 		require.Len(t, msgs, 1)
 
-		var expected eventsv2.CapabilityExecutionStarted
+		var got eventsv2.CapabilityExecutionStarted
 
-		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
-		assert.Equal(t, executionID, expected.WorkflowExecutionID)
+		require.NoError(t, proto.Unmarshal(msgs[0].Body, &got))
+		assert.Equal(t, executionID, got.WorkflowExecutionID)
 	})
 
 	t.Run(events.CapabilityExecutionFinished, func(t *testing.T) {
@@ -110,10 +110,10 @@ func TestEmit(t *testing.T) {
 		msgs := rec.Messages(t, "beholder_entity", "workflows.v2."+events.CapabilityExecutionFinished)
 		require.Len(t, msgs, 1)
 
-		var expected eventsv2.CapabilityExecutionFinished
+		var got eventsv2.CapabilityExecutionFinished
 
-		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
-		assert.Equal(t, executionID, expected.WorkflowExecutionID)
+		require.NoError(t, proto.Unmarshal(msgs[0].Body, &got))
+		assert.Equal(t, executionID, got.WorkflowExecutionID)
 	})
 
 	t.Run(events.WorkflowUserLog, func(t *testing.T) {
