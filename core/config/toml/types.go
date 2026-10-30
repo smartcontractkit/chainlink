@@ -2849,7 +2849,7 @@ type LocalCapabilities struct {
 	// launched from the capabilities registry instead of via job specs.
 	// Examples (regex patterns):
 	//   - "^cron@1\.0\.0$" matches exactly "cron@1.0.0"
-	//   - "^http-action@.*$" matches any version of http-action
+	//   - "^http-actions@.*$" matches any version of http-actions
 	//   - ".*" matches all capabilities
 	RegistryBasedLaunchAllowlist []string `toml:",omitempty"`
 	// UseOffchainRegistry gates the offchain capabilities registry cutover. Default false: the
@@ -2888,7 +2888,7 @@ func ValidateCapabilityID(capID string) error {
 		return configutils.InvalidError{
 			Name:  "CapabilityID",
 			Value: capID,
-			Msg:   "must be in format 'name@version' (e.g., 'http-action@1.0.0')",
+			Msg:   "must be in format 'name@version' (e.g., 'http-actions@1.0.0')",
 		}
 	}
 	return nil
