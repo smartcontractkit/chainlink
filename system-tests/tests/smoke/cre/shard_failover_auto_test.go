@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	vaultsecretcron_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecretcron/config"
@@ -57,7 +57,7 @@ const (
 
 // shardUserLogRecord is one user-log platform event, attributed to the DON
 // whose node emitted it. emittedAt is the node's own clock at emission
-// (LogLine node_timestamp); boundary logic uses it rather than the receive
+// (WorkflowUserLog timestamp); boundary logic uses it rather than the receive
 // time, because a node with a warming chip connection (e.g. right after a
 // container restart) can deliver its user logs tens of seconds late.
 type shardUserLogRecord struct {
@@ -80,7 +80,7 @@ func startShardUserLogCollector(t *testing.T, testEnv *ttypes.TestEnvironment) *
 	t.Helper()
 	testLogger := framework.L
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -96,34 +96,20 @@ func startShardUserLogCollector(t *testing.T, testEnv *ttypes.TestEnvironment) *
 	c := &shardUserLogCollector{}
 	go func() {
 		for userLogs := range userLogsCh {
-			if userLogs.M == nil {
+			if userLogs.GetCreInfo() == nil || !strings.Contains(userLogs.Msg, sharedVaultUserLogPrefix) {
 				continue
 			}
-			emittedAt := time.Time{}
-			hasUserLog := false
-			for _, line := range userLogs.LogLines {
-				if !strings.Contains(line.Message, sharedVaultUserLogPrefix) {
-					continue
-				}
-				hasUserLog = true
-				if ts, err := time.Parse(time.RFC3339Nano, line.NodeTimestamp); err == nil {
-					emittedAt = ts
-					break
-				}
-			}
-			if !hasUserLog {
-				continue
-			}
-			if emittedAt.IsZero() {
+			emittedAt, err := time.Parse(time.RFC3339Nano, userLogs.Timestamp)
+			if err != nil {
 				emittedAt = time.Now()
 			}
 			c.mu.Lock()
 			c.records = append(c.records, shardUserLogRecord{
 				emittedAt:   emittedAt,
-				workflowID:  userLogs.M.WorkflowID,
-				executionID: userLogs.M.WorkflowExecutionID,
-				donID:       userLogs.M.DonID,
-				p2pID:       strings.TrimPrefix(userLogs.M.P2PID, "p2p_"),
+				workflowID:  userLogs.GetWorkflow().GetWorkflowID(),
+				executionID: userLogs.WorkflowExecutionID,
+				donID:       userLogs.GetCreInfo().GetDonID(),
+				p2pID:       strings.TrimPrefix(userLogs.GetCreInfo().GetP2PID(), "p2p_"),
 			})
 			c.mu.Unlock()
 		}

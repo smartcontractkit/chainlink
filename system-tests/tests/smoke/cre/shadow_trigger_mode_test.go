@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -41,7 +41,7 @@ func Test_CRE_V2_ShadowTriggerMode(t *testing.T) {
 	coordinated := t_helpers.Global(`CoordinatedEngineEnabled = 'true'`)
 	settings := t_helpers.ApplyCRESettings(t, testEnv, coordinated)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -125,7 +125,7 @@ func waitForStableCount(t *testing.T, count func() int, interval, timeout time.D
 }
 
 // discardPending empties both chip sink channels, so the next watch only sees messages that arrive after it.
-func discardPending(userLogsCh <-chan *workflowevents.UserLogs, baseMessageCh <-chan *commonevents.BaseMessage) {
+func discardPending(userLogsCh <-chan *workfloweventsv2.WorkflowUserLog, baseMessageCh <-chan *commonevents.BaseMessage) {
 	for {
 		select {
 		case <-userLogsCh:

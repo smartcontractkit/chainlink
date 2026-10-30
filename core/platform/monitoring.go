@@ -21,6 +21,8 @@ const (
 	KeyStepID              = "stepID"
 	KeyStepRef             = "stepRef"
 	KeyDonID               = "DonID"
+	KeyWorkflowDonID       = "workflowDonID"
+	KeyShardIndex          = "shardIndex"
 	KeyDonF                = "F"
 	KeyDonN                = "N"
 	KeyDonQ                = "Q"
