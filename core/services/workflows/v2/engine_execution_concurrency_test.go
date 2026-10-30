@@ -3,6 +3,7 @@ package v2_test
 import (
 	"context"
 	"fmt"
+	"math"
 	"runtime"
 	"slices"
 	"sync"
@@ -896,6 +897,48 @@ func TestEngine_CapacityReportParity(t *testing.T) {
 	legacy.waitExecutionFinished()
 	coordinated.waitExecutionFinished()
 	requireReport(report(0, 0), "every slot is given back once the executions finish")
+}
+
+// TestEngine_CapacityReport_WorkflowWithNoOrg checks the capacity report for a workflow whose
+// owner has no org. The org pool has no tenant to count against, so the org scope is unlimited.
+func TestEngine_CapacityReport_WorkflowWithNoOrg(t *testing.T) {
+	t.Parallel()
+
+	limiters := newSharedLimiters(t, `{"global":{
+		"WorkflowExecutionConcurrencyLimit":"10",
+		"PerOwner":{"WorkflowExecutionConcurrencyLimit":"6"},
+		"PerWorkflow":{"ExecutionConcurrencyLimit":"4"}}}`)
+	h := newEngineLifecycleHarness(t, lifecycleCoordinated, withLimiters(limiters))
+	h.start()
+	tenant := h.engine.Tenant()
+	require.Empty(t, tenant.Org, "the workflow has no org")
+
+	report := func(held int) triggers.Capacity {
+		return triggers.Capacity{
+			Global:      10 - held,
+			PerOrg:      map[string]int{"": math.MaxInt},
+			PerOwner:    map[string]int{tenant.Owner: 6 - held},
+			PerWorkflow: map[string]int{tenant.Workflow: 4 - held},
+		}
+	}
+	requireReport := func(want triggers.Capacity, msg string) {
+		t.Helper()
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			got, err := h.coordinator.AvailableCapacity(t.Context())
+			if assert.NoError(c, err) {
+				assert.Equal(c, want, got)
+			}
+		}, testutils.WaitTimeout(t), 5*time.Millisecond, msg)
+	}
+
+	requireReport(report(0), "no execution holds a slot")
+
+	h.startExecution()
+	requireReport(report(1), "a running execution holds a slot at every scope but org")
+
+	h.blocker.release()
+	h.waitExecutionFinished()
+	requireReport(report(0), "the slot is given back once the execution finishes")
 }
 
 // scopeCapacity is one tenant's free execution-concurrency capacity at every scope.

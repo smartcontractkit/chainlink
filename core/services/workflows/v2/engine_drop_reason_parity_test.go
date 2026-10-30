@@ -108,9 +108,7 @@ func testDropGlobalPoolSaturated(t *testing.T, mode lifecycleEngineMode, meter *
 	const overflow = 3
 	limiters := newSharedLimiters(t,
 		`{"global":{"WorkflowExecutionConcurrencyLimit":"1","PerWorkflow":{"TriggerEventQueueLimit":"1"}}}`)
-	// An org, because the capacity report reads the org scope, which panics for a workflow
-	// with no org: its pool is limits.unlimitedResourcePool, whose available() panics in maxVal.
-	h := newEngineLifecycleHarness(t, mode, withLimiters(limiters), withMeter(meter.meter), withOrg("org-1"))
+	h := newEngineLifecycleHarness(t, mode, withLimiters(limiters), withMeter(meter.meter))
 	h.start()
 
 	// The first event holds the only global slot. The second leaves the queue and waits for
