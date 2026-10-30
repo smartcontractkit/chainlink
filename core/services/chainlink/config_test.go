@@ -469,12 +469,6 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 		Dispatcher: toml.Dispatcher{
 			ReceiverBufferSize: new(10000),
-			RateLimit: toml.DispatcherRateLimit{
-				GlobalRPS:      new(800.0),
-				GlobalBurst:    new(1000),
-				PerSenderRPS:   new(10.0),
-				PerSenderBurst: new(50),
-			},
 		},
 		GatewayConnector: toml.GatewayConnector{
 			ChainIDForNodeKey:         new("11155111"),

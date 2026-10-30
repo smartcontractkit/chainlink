@@ -73,10 +73,6 @@ func (d *dispatcher) ReceiverBufferSize() int {
 	return *d.d.ReceiverBufferSize
 }
 
-func (d *dispatcher) RateLimit() config.DispatcherRateLimit {
-	return &dispatcherRateLimit{r: d.d.RateLimit}
-}
-
 type sharedPeering struct {
 	s toml.SharedPeering
 }
@@ -126,26 +122,6 @@ func (c *streamConfig) BytesRateLimiterRate() float64 {
 
 func (c *streamConfig) BytesRateLimiterCapacity() uint32 {
 	return *c.c.BytesRateLimiterCapacity
-}
-
-type dispatcherRateLimit struct {
-	r toml.DispatcherRateLimit
-}
-
-func (r *dispatcherRateLimit) GlobalRPS() float64 {
-	return *r.r.GlobalRPS
-}
-
-func (r *dispatcherRateLimit) GlobalBurst() int {
-	return *r.r.GlobalBurst
-}
-
-func (r *dispatcherRateLimit) PerSenderRPS() float64 {
-	return *r.r.PerSenderRPS
-}
-
-func (r *dispatcherRateLimit) PerSenderBurst() int {
-	return *r.r.PerSenderBurst
 }
 
 func (c *capabilitiesConfig) GatewayConnector() config.GatewayConnector {
