@@ -3,6 +3,7 @@ package v2_test
 import (
 	"context"
 	"fmt"
+	"math"
 	"runtime"
 	"slices"
 	"sync"
@@ -29,6 +30,7 @@ import (
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
@@ -720,7 +722,8 @@ func requireSharedLimit(t *testing.T, limit int32, flight *flightTracker, hs ...
 
 // TestEngine_ConcurrencySlotsReturnToBaseline asserts that an execution that fails or is
 // cancelled gives back its execution-concurrency slot at every scope: workflow, owner, org and
-// global. A slot leaked at the owner or org scope would not show at the workflow scope.
+// global. A slot leaked at the owner or org scope would not show at the workflow scope. On the
+// coordinated path, the coordinator's capacity report must give the same numbers as the pools.
 func TestEngine_ConcurrencySlotsReturnToBaseline(t *testing.T) {
 	t.Parallel()
 
@@ -761,7 +764,6 @@ func TestEngine_ConcurrencySlotsReturnToBaseline(t *testing.T) {
 		},
 	}
 
-	scopes := []string{"workflow", "owner", "org", "global"} // the order of EngineLimiters.ExecutionConcurrency
 	for _, mode := range []lifecycleEngineMode{lifecycleLegacy, lifecycleCoordinated} {
 		t.Run(string(mode), func(t *testing.T) {
 			t.Parallel()
@@ -776,32 +778,115 @@ func TestEngine_ConcurrencySlotsReturnToBaseline(t *testing.T) {
 					h := newEngineLifecycleHarness(t, mode, opts...)
 					h.start()
 
-					pools, ok := limiters.ExecutionConcurrency.(limits.MultiResourcePoolLimiter[int])
-					require.True(t, ok, "ExecutionConcurrency is %T", limiters.ExecutionConcurrency)
-					require.Len(t, pools, len(scopes))
-					ctx := contexts.WithCRE(t.Context(), h.engine.Tenant())
-					available := func() []int {
-						out := make([]int, len(pools))
-						for i, p := range pools {
-							n, err := p.Available(ctx)
-							require.NoError(t, err, "%s scope", scopes[i])
-							out[i] = n
-						}
-						return out
+					tenant := h.engine.Tenant()
+					baseline, err := readScopeCapacity(t.Context(), limiters, tenant)
+					require.NoError(t, err)
+					if h.coordinator != nil {
+						requireCapacityReport(t, h.coordinator, tenant, baseline, "the coordinator's report before the scenario")
 					}
-					baseline := available()
 
 					slots := s.run(t, h)
 
 					require.Eventually(t, func() bool {
 						return h.slots.acquired.Load() == slots && h.slots.released.Load() == slots
 					}, testutils.WaitTimeout(t), 5*time.Millisecond, "every slot taken is given back")
-					got := available()
-					for i := range scopes {
-						assert.Equal(t, baseline[i], got[i], "%s scope", scopes[i])
+					// The pools free their scopes one after another, so wait for the last one.
+					require.EventuallyWithT(t, func(c *assert.CollectT) {
+						got, err := readScopeCapacity(t.Context(), limiters, tenant)
+						if assert.NoError(c, err) {
+							assert.Equal(c, baseline, got)
+						}
+					}, testutils.WaitTimeout(t), 5*time.Millisecond, "every scope back to its baseline")
+					if h.coordinator != nil {
+						requireCapacityReport(t, h.coordinator, tenant, baseline, "the coordinator's report after the scenario")
 					}
 				})
 			}
 		})
 	}
+}
+
+// TestEngine_CapacityReport_WorkflowWithNoOrg checks the capacity report for a workflow whose
+// owner has no org. The org pool has no tenant to count against, so the org scope is unlimited.
+func TestEngine_CapacityReport_WorkflowWithNoOrg(t *testing.T) {
+	t.Parallel()
+
+	limiters := newSharedLimiters(t, `{"global":{
+		"WorkflowExecutionConcurrencyLimit":"10",
+		"PerOwner":{"WorkflowExecutionConcurrencyLimit":"6"},
+		"PerWorkflow":{"ExecutionConcurrencyLimit":"4"}}}`)
+	h := newEngineLifecycleHarness(t, lifecycleCoordinated, withLimiters(limiters))
+	h.start()
+	tenant := h.engine.Tenant()
+	require.Empty(t, tenant.Org, "the workflow has no org")
+
+	report := func(held int) triggers.Capacity {
+		return triggers.Capacity{
+			Global:      10 - held,
+			PerOrg:      map[string]int{"": math.MaxInt},
+			PerOwner:    map[string]int{tenant.Owner: 6 - held},
+			PerWorkflow: map[string]int{tenant.Workflow: 4 - held},
+		}
+	}
+	requireReport := func(want triggers.Capacity, msg string) {
+		t.Helper()
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			got, err := h.coordinator.AvailableCapacity(t.Context())
+			if assert.NoError(c, err) {
+				assert.Equal(c, want, got)
+			}
+		}, testutils.WaitTimeout(t), 5*time.Millisecond, msg)
+	}
+
+	requireReport(report(0), "no execution holds a slot")
+
+	h.startExecution()
+	requireReport(report(1), "a running execution holds a slot at every scope but org")
+
+	h.blocker.release()
+	h.waitExecutionFinished()
+	requireReport(report(0), "the slot is given back once the execution finishes")
+}
+
+// scopeCapacity is one tenant's free execution-concurrency capacity at every scope.
+type scopeCapacity struct {
+	Workflow, Owner, Org, Global int
+}
+
+// readScopeCapacity reads tenant's free capacity straight from the pools of limiters, in the
+// order NewLimiters builds them: workflow, owner, org, global.
+func readScopeCapacity(ctx context.Context, limiters *v2.EngineLimiters, tenant contexts.CRE) (scopeCapacity, error) {
+	pools, ok := limiters.ExecutionConcurrency.(limits.MultiResourcePoolLimiter[int])
+	if !ok || len(pools) != 4 {
+		return scopeCapacity{}, fmt.Errorf("ExecutionConcurrency is %T, not the 4 scope pools", limiters.ExecutionConcurrency)
+	}
+	ctx = contexts.WithCRE(ctx, tenant)
+	var out [4]int
+	for i, scope := range []string{"workflow", "owner", "org", "global"} {
+		n, err := pools[i].Available(ctx)
+		if err != nil {
+			return scopeCapacity{}, fmt.Errorf("%s scope: %w", scope, err)
+		}
+		out[i] = n
+	}
+	return scopeCapacity{Workflow: out[0], Owner: out[1], Org: out[2], Global: out[3]}, nil
+}
+
+// requireCapacityReport waits until the coordinator's capacity report gives want for tenant's
+// workflow, owner and org, and for the global scope.
+func requireCapacityReport(t *testing.T, c triggers.Coordinator, tenant contexts.CRE, want scopeCapacity, msg string) {
+	t.Helper()
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		report, err := c.AvailableCapacity(t.Context())
+		if !assert.NoError(ct, err) {
+			return
+		}
+		got := scopeCapacity{Global: report.Global}
+		var ok [3]bool
+		got.Workflow, ok[0] = report.PerWorkflow[tenant.Workflow]
+		got.Owner, ok[1] = report.PerOwner[tenant.Owner]
+		got.Org, ok[2] = report.PerOrg[tenant.Org]
+		assert.Equal(ct, [3]bool{true, true, true}, ok, "the report covers the workflow, owner and org")
+		assert.Equal(ct, want, got)
+	}, testutils.WaitTimeout(t), 5*time.Millisecond, msg)
 }
