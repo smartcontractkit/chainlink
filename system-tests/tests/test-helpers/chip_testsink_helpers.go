@@ -509,24 +509,12 @@ func GetLoggingPublishFn(
 
 			switch event.Type {
 			// workflows.v1 events
-			case "workflows.v1.CapabilityExecutionFinished":
-				msgToSave = &workflowevents.CapabilityExecutionFinished{}
-			case "workflows.v1.CapabilityExecutionStarted":
-				msgToSave = &workflowevents.CapabilityExecutionStarted{}
 			case "workflows.v1.MeteringReport":
 				msgToSave = &workflowevents.MeteringReport{}
 			case "workflows.v1.TransmissionsScheduledEvent":
 				msgToSave = &workflowevents.TransmissionsScheduledEvent{}
 			case "workflows.v1.TransmitScheduleEvent":
 				msgToSave = &workflowevents.TransmitScheduleEvent{}
-			case "workflows.v1.WorkflowExecutionFinished":
-				msgToSave = &workflowevents.WorkflowExecutionFinished{}
-			case "workflows.v1.WorkflowExecutionStarted":
-				msgToSave = &workflowevents.WorkflowExecutionStarted{}
-			case "workflows.v1.WorkflowStatusChanged":
-				msgToSave = &workflowevents.WorkflowStatusChanged{}
-			case "workflows.v1.UserLogs":
-				msgToSave = &workflowevents.UserLogs{}
 
 			// workflows.v2 events
 			case "workflows.v2.CapabilityExecutionFinished":
