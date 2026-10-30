@@ -123,6 +123,19 @@ func TestStandardCapabilities_InitialiseDependenciesRoundTrip(t *testing.T) {
 	require.Equal(t, want.Config, got.Config, "config should be re-delivered to LOOP Initialise dependencies")
 }
 
+func TestStandardCapabilities_ShardIndexDeliveredToLOOP(t *testing.T) {
+	t.Parallel()
+	std := NewStandardCapabilities(
+		logger.TestLogger(t),
+		"not/found/path/to/binary",
+		"{}",
+		&capturingRegistrar{},
+		core.StandardCapabilitiesDependencies{ShardIndex: 3},
+	)
+
+	require.Equal(t, uint32(3), std.initialiseDependencies().ShardIndex)
+}
+
 // TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP asserts that the
 // host-resolved capability DON ID is carried on the dependencies delivered to
 // the capability LOOP at Initialise. Without this, a trigger producer silently

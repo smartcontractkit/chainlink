@@ -15,7 +15,7 @@ import (
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	keystonechangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -255,7 +255,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 	chainsToTest := make(map[string]blockchains.Blockchain)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
@@ -295,7 +295,7 @@ func executeEVMLogTriggerTestForChain(
 	testEnv *ttypes.TestEnvironment,
 	chainID string,
 	bcOutput blockchains.Blockchain,
-	userLogsCh chan *workflowevents.UserLogs,
+	userLogsCh chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh chan *commonevents.BaseMessage,
 	workflowFileLocation string,
 ) {

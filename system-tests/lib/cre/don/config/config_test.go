@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -162,6 +163,24 @@ func TestAddWorkerNodeConfig_MeteringDisabled(t *testing.T) {
 	assert.Nil(t, config.Metering.MeterRecordsEnabled, "Metering should not be set when disabled")
 	require.NotNil(t, config.Telemetry.ChipIngressEndpoint)
 	assert.Equal(t, routerURL, *config.Telemetry.ChipIngressEndpoint)
+}
+
+func TestAddWorkerNodeConfig_HTTPRegistryLaunch(t *testing.T) {
+	t.Parallel()
+	don := capabilitiesDonMetadata()
+	don.Flags = append(don.Flags, cre.HTTPActionCapability, cre.HTTPTriggerCapability)
+	don.RegistryBasedLaunchAllowlist = []string{"cron-trigger@1.0.0"}
+	config, err := addWorkerNodeConfig(corechainlink.Config{}, nil, testPeeringData(), capabilitiesCommonInputs("chip-router:50051"), don, &cre.NodeMetadata{Index: 0, Roles: []string{cre.WorkerNode}})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"cron-trigger@1.0.0", "http-actions@1.0.0-alpha", "http-trigger@1.0.0-alpha"}, config.Capabilities.Local.RegistryBasedLaunchAllowlist)
+	encoded, err := toml.Marshal(config)
+	require.NoError(t, err)
+	assert.NotContains(t, string(encoded), "[Capabilities.HTTPAction")
+	assert.NotContains(t, string(encoded), "[Capabilities.HTTPTrigger")
+	// Reapplying configuration must not duplicate registry launch entries.
+	config, err = addWorkerNodeConfig(config, nil, testPeeringData(), capabilitiesCommonInputs("chip-router:50051"), don, &cre.NodeMetadata{Index: 0, Roles: []string{cre.WorkerNode}})
+	require.NoError(t, err)
+	assert.Len(t, config.Capabilities.Local.RegistryBasedLaunchAllowlist, 3)
 }
 
 func capabilitiesDonMetadata() *cre.DonMetadata {

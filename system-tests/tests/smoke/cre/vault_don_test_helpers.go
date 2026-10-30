@@ -40,7 +40,7 @@ import (
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ctfblockchain "github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -1452,7 +1452,7 @@ func triggerAndAwaitVaultVerifierLog(
 	handle *vaultVerifierHandle,
 	input vaultsecret_config.TriggerInput,
 	expectedUserLog string,
-	userLogsCh chan *workflowevents.UserLogs,
+	userLogsCh chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh chan *commonevents.BaseMessage,
 ) {
 	t.Helper()
@@ -1502,7 +1502,7 @@ func triggerAndAwaitVaultWorkflowPhase(
 	t *testing.T,
 	handle *vaultVerifierHandle,
 	phase vaultWorkflowPhase,
-	userLogsCh chan *workflowevents.UserLogs,
+	userLogsCh chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh chan *commonevents.BaseMessage,
 ) {
 	t.Helper()
@@ -1548,7 +1548,7 @@ func executeVaultBinaryEncodedSharesSmokeTest(
 	t *testing.T,
 	handle *vaultVerifierHandle,
 	secretID, namespace, expectedPlaintext string,
-	userLogsCh chan *workflowevents.UserLogs,
+	userLogsCh chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh chan *commonevents.BaseMessage,
 ) {
 	t.Helper()
