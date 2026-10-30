@@ -17,8 +17,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -33,6 +35,7 @@ import (
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -451,6 +454,9 @@ type engineLifecycleHarness struct {
 	// it: the engine acknowledging directly (legacy), or the coordinator (coordinated).
 	ackCalls atomic.Int32
 
+	// rec records the engine's beholder messages, including its workflow execution events.
+	rec *beholdertest.Recorder
+
 	// slots counts requests for an execution-concurrency slot, made by whichever component
 	// admits events: the legacy engine or the coordinator.
 	slots *slotCounter
@@ -568,6 +574,7 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 		initDoneCh:   make(chan error, 1),
 		subscribedCh: make(chan []string, 1),
 		finishedCh:   make(chan string, o.signalBuffer),
+		rec:          beholdertest.NewRecorder(),
 	}
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -602,6 +609,8 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 		cfg.BillingClient = o.billing
 	}
 	cfg.Meter = o.meter
+	cfg.EventEmitter = workflowEvents.NewEmitter(h.rec, workflowEvents.WithNoDurableEmit())
+	cfg.BeholderEmitter = custmsg.NewLabelerWithEmitter(h.rec)
 	if o.clock != nil {
 		cfg.Clock = o.clock
 	}

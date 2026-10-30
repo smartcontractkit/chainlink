@@ -2,6 +2,7 @@ package v2_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -43,7 +44,6 @@ func TestEngine_DropReasonParity(t *testing.T) {
 		{"QueueTimeoutUnreadable", testDropQueueTimeoutUnreadable},
 		{"Expired", testDropExpired},
 		{"GlobalPoolSaturated_QueueFull", testDropGlobalPoolSaturated},
-		{"ShardDenied", testDropShardDenied},
 	}
 	for _, mode := range []lifecycleEngineMode{lifecycleLegacy, lifecycleCoordinated} {
 		t.Run(string(mode), func(t *testing.T) {
@@ -136,19 +136,74 @@ func testDropGlobalPoolSaturated(t *testing.T, mode lifecycleEngineMode, meter *
 	meter.requireDrops(t, map[string]int64{monitoring.TriggerDropReasonEnqueueQueueFull: overflow})
 }
 
-// testDropShardDenied: an event the shard ownership check denies is ACKed, dropped as
-// shard_denied_not_owner and counted on the shard-denial counter.
-func testDropShardDenied(t *testing.T, mode lifecycleEngineMode, meter *dropMeter) {
-	h := newEngineLifecycleHarness(t, mode, withMeter(meter.meter),
-		withAdmission(func(context.Context, triggers.CoordinatedEvent) error { return v2.ErrShardDeniedNotOwner }))
-	h.start()
+// TestEngine_AdmissionDenialParity asserts that the legacy and the coordinated engine handle an
+// event the admission check denies the same way: it is ACKed, never executes, emits no execution
+// events and is dropped by its denial reason. A shard denial also counts on its shard-denial
+// counter. On the legacy path the engine handles the denial, on the coordinated path the trigger
+// coordinator does.
+func TestEngine_AdmissionDenialParity(t *testing.T) {
+	t.Parallel()
 
-	h.deliver(testutils.WaitTimeout(t))
+	const (
+		shardNotOwnerTotal = "platform_engine_shard_execution_denied_not_owner"
+		shardOrchErrTotal  = "platform_engine_shard_execution_denied_orchestrator_error"
+		// A denial is handled as soon as the event is read, so a failure shows within seconds
+		// instead of waiting out the test deadline.
+		denialWait = 5 * time.Second
+	)
 
-	meter.requireDrops(t, map[string]int64{monitoring.TriggerDropReasonShardDeniedNotOwner: 1})
-	assert.Equal(t, int64(1), meter.total(t, "platform_engine_shard_execution_denied_not_owner"))
-	assert.Equal(t, int32(1), h.ackCalls.Load(), "a denied event is ACKed")
-	assert.Zero(t, h.moduleExecutions.Load(), "a denied event never reaches the module")
+	tests := []struct {
+		name           string
+		admissionErr   error
+		wantDropReason string
+		wantNotOwner   int64
+		wantOrchErr    int64
+	}{
+		{
+			name:           "shard denial not owner",
+			admissionErr:   v2.ErrShardDeniedNotOwner,
+			wantDropReason: monitoring.TriggerDropReasonShardDeniedNotOwner,
+			wantNotOwner:   1,
+		},
+		{
+			name:           "shard denial orchestrator error",
+			admissionErr:   v2.ErrShardDeniedOrchestrator,
+			wantDropReason: monitoring.TriggerDropReasonShardDeniedOrchestrator,
+			wantOrchErr:    1,
+		},
+		{
+			name:           "other denial",
+			admissionErr:   fmt.Errorf("not owned by this node: %w", triggers.ErrAdmissionDenied),
+			wantDropReason: monitoring.TriggerDropReasonAdmissionDenied,
+		},
+	}
+	for _, mode := range []lifecycleEngineMode{lifecycleLegacy, lifecycleCoordinated} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Parallel()
+			for _, tc := range tests {
+				t.Run(tc.name, func(t *testing.T) {
+					t.Parallel()
+					meter := newDropMeter(t)
+					h := newEngineLifecycleHarness(t, mode, withMeter(meter.meter),
+						withAdmission(func(context.Context, triggers.CoordinatedEvent) error { return tc.admissionErr }))
+					h.start()
+
+					h.deliver(denialWait)
+
+					require.EventuallyWithT(t, func(c *assert.CollectT) {
+						assert.Equal(c, map[string]int64{tc.wantDropReason: 1}, meter.drops(t), "drops by reason")
+						assert.Equal(c, int32(1), h.ackCalls.Load(), "a denied event is ACKed")
+					}, denialWait, 5*time.Millisecond)
+					// Both paths count the shard denial before the drop, so it is final by now.
+					assert.Equal(t, tc.wantNotOwner, meter.total(t, shardNotOwnerTotal), shardNotOwnerTotal)
+					assert.Equal(t, tc.wantOrchErr, meter.total(t, shardOrchErrTotal), shardOrchErrTotal)
+					assert.Zero(t, h.moduleExecutions.Load(), "a denied event never reaches the module")
+					assert.Empty(t, h.rec.Messages(t, "beholder_entity", v2ExecutionStartedEntity), "execution started events")
+					assert.Empty(t, h.rec.Messages(t, "beholder_entity", v2ExecutionFinishedEntity), "execution finished events")
+				})
+			}
+		})
+	}
 }
 
 // dropMeter is a test meter that the engine and the coordinator both record on.
