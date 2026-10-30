@@ -24,7 +24,7 @@ BASE_SHA=""
 if [[ -n "${PR_NUMBER:-}" ]]; then
   BASE_SHA="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.base.sha' 2>/dev/null || true)"
 fi
-PATCH_BASE="${PATCH_BASE:-$BASE_SHA}"
+PATCH_BASE="${PATCH_BASE:-}"
 PATCH_HEAD="${PATCH_HEAD:-$TARGET_SHA}"
 
 if [[ -n "$BASE_SHA" ]]; then
@@ -32,6 +32,9 @@ if [[ -n "$BASE_SHA" ]]; then
 fi
 if [[ -n "$PATCH_BASE" && -n "$PATCH_HEAD" ]]; then
   git fetch --no-tags origin "$PATCH_BASE" "$PATCH_HEAD" >/dev/null 2>&1 || true
+fi
+if [[ -z "$PATCH_BASE" && -n "$BASE_SHA" ]]; then
+  PATCH_BASE="$(git merge-base "$BASE_SHA" "$TARGET_SHA" 2>/dev/null || echo "$BASE_SHA")"
 fi
 
 echo "Collecting coverage for ${REPO}@${TARGET_SHA} (PR ${PR_NUMBER:-none}, base ${BASE_SHA:-none})"
