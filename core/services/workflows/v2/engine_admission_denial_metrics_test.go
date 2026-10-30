@@ -62,16 +62,16 @@ func TestEngine_AdmissionDenial_ShardDenialCounters(t *testing.T) {
 			meter, reader := newTestMeter(t)
 
 			// No module.Execute expectation: a denied event must never reach WASM.
-			harness := newDropPathHarness(t, metmocks.NewBillingClient(t), func(cfg *v2.EngineConfig) {
+			harness := newDropPathHarness(t, dropPathLegacy, metmocks.NewBillingClient(t), func(cfg *v2.EngineConfig) {
 				cfg.Meter = meter
 				cfg.Hooks.OnTriggerAdmission = func(context.Context, triggers.CoordinatedEvent) error {
 					return tc.admissionErr
 				}
 			})
 
-			harness.eventCh <- capabilities.TriggerResponse{
+			harness.deliver(capabilities.TriggerResponse{
 				Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_admission_" + tc.name},
-			}
+			})
 
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
 				dropped, dropReasons := collectCounterByAttr(t, reader, droppedTotal, "dropReason")
