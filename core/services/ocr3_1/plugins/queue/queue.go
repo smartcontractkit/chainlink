@@ -4,9 +4,11 @@ import (
 	"container/heap"
 	"context"
 	"fmt"
+	"math"
 	"slices"
 	"sync"
 
+	"golang.org/x/exp/constraints"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
@@ -25,18 +27,19 @@ import (
 var _ ocr3_1types.ReportingPluginFactory[[]byte] = &consensusQueuePluginFactory{}
 
 type consensusQueuePluginFactory struct {
-	lggr logger.Logger
-	cfg  *PluginConfig
+	lggr               logger.Logger
+	cfg                *PluginConfig
+	triggerCoordinator triggers.Coordinator
 }
 
-func NewConsensusQueuePluginFactory(lggr logger.Logger, cfg *PluginConfig, limitsFactory limits.Factory) (ocr3_1types.ReportingPluginFactory[[]byte], error) {
-	// TODO pass CentralTriggerQueue, CapacityReporter, EngineRegistry
+func NewConsensusQueuePluginFactory(lggr logger.Logger, cfg *PluginConfig, limitsFactory limits.Factory, triggerCoordinator triggers.Coordinator) (ocr3_1types.ReportingPluginFactory[[]byte], error) {
+	// TODO inject CapacityReporter
 	// TODO construct limiters
-	return &consensusQueuePluginFactory{lggr: lggr, cfg: cfg}, nil
+	return &consensusQueuePluginFactory{lggr: lggr, cfg: cfg, triggerCoordinator: triggerCoordinator}, nil
 }
 
 func (c *consensusQueuePluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
-	plugin := newConsensusQueuePlugin(c.lggr, config)
+	plugin := newConsensusQueuePlugin(c.lggr, config, c.triggerCoordinator)
 	pluginInfo := ocr3_1types.ReportingPluginInfo1{
 		Name:   "ConsensusQueueReportingPlugin",
 		Limits: c.cfg.Limits,
@@ -48,13 +51,18 @@ var _ ocr3_1types.ReportingPlugin[[]byte] = &consensusQueuePlugin{}
 
 type consensusQueuePlugin struct {
 	services.Service
-	eng        *services.Engine
-	lggr       logger.Logger
-	onchainCfg ocr3types.ReportingPluginConfig
+	eng                *services.Engine
+	lggr               logger.Logger
+	onchainCfg         ocr3types.ReportingPluginConfig
+	triggerCoordinator triggers.Coordinator
 }
 
-func newConsensusQueuePlugin(lggr logger.Logger, onchainCfg ocr3types.ReportingPluginConfig) *consensusQueuePlugin {
-	c := &consensusQueuePlugin{lggr: logger.Named(lggr, "ConsensusQueuePlugin"), onchainCfg: onchainCfg}
+func newConsensusQueuePlugin(lggr logger.Logger, onchainCfg ocr3types.ReportingPluginConfig, triggerCoordinator triggers.Coordinator) *consensusQueuePlugin {
+	c := &consensusQueuePlugin{
+		lggr:               logger.Named(lggr, "ConsensusQueuePlugin"),
+		onchainCfg:         onchainCfg,
+		triggerCoordinator: triggerCoordinator,
+	}
 	c.Service, c.eng = services.Config{
 		Name:  "ConsensusQueueReportingPlugin",
 		Close: c.Close,
@@ -74,30 +82,40 @@ func (c *consensusQueuePlugin) Observation(
 	// tryStartExecutions is idempotent.
 	c.tryStartExecutions(kvState)
 
-	// TODO Fetch limits from node
+	capacity, err := c.triggerCoordinator.AvailableCapacity(ctx)
+	if err != nil {
+		//TODO or just log and make a best effort to observe events regardless?
+		return nil, fmt.Errorf("failed to get available capacity: %w", err)
+	}
 
 	// Build Observation
 	var events []triggers.CoordinatedEvent
 	// TODO observe queue via c.CentralTriggerQueue.TakeForObservation()... one at at time?
 	obs := &pb.ConsensusQueueObservation{
 		Events:             make([]*pb.CoordinatedEvent, 0, len(events)),
-		Capacity:           0,   //TODO set
-		WorkflowCapacities: nil, //TODO for everything proposed and queued in the KV store?
+		Capacity:           uint32(min(capacity.Global, math.MaxUint32)),
+		WorkflowCapacities: make(map[string]uint32),
+	}
+	for wf, c := range capacity.PerWorkflow {
+		//TODO only for events proposed and queued in the KV store?
+		obs.WorkflowCapacities[wf] = uint32(min(c, math.MaxUint32))
 	}
 
 	const maxObservationSize = 0 //TODO
 	protoOpts := proto.MarshalOptions{Deterministic: true}
 	for _, e := range events {
 		m := e.ToProto()
+		// Try adding to batch
 		obs.Events = append(obs.Events, m)
 		id := e.Event.Event.ID
 		var addedCap bool
-		if _, ok := obs.WorkflowCapacities[id]; !ok {
+		if _, ok := obs.WorkflowCapacities[e.WorkflowID]; !ok {
 			addedCap = true
-			//TODO set it
+			obs.WorkflowCapacities[e.WorkflowID] = uint32(min(capacity.PerWorkflow[e.WorkflowID], math.MaxUint32))
 		}
-		if protoOpts.Size(obs) > maxObservationSize { // too large, end of batch
-			// remove this one
+		// Check size
+		if protoOpts.Size(obs) > maxObservationSize {
+			// too large, remove this one
 			obs.Events = obs.Events[:len(obs.Events)-1]
 			if addedCap {
 				delete(obs.WorkflowCapacities, id)
@@ -112,7 +130,11 @@ func (c *consensusQueuePlugin) ValidateObservation(
 	ctx context.Context, seqNr uint64, _ ocrtypes.AttributedQuery, ao ocrtypes.AttributedObservation,
 	_ ocr3_1types.KeyValueStateReader, _ ocr3_1types.BlobFetcher,
 ) error {
-	//TODO validate
+	var obs pb.ConsensusQueueObservation
+	err := proto.Unmarshal(ao.Observation, &obs)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal observation: %w", err)
+	}
 	return nil
 }
 
@@ -129,18 +151,36 @@ func (c *consensusQueuePlugin) StateTransition(
 ) (ocr3_1types.ReportsPlusPrecursor, error) {
 	var wg sync.WaitGroup
 
-	// TODO In parallel:
-	var capacity int
-	var wfCapacity map[string]int
-	var observedProposals map[string][]uint8           // trigger event ID -> observer node IDs
+	//TODO is median only logical option for capacity? what if honest nodes have less, don't we ideally want execute min(honest)?
+	var medianCap uint32
+	var medianCapPerWF map[string]uint32               // wf ID -> capacity
+	var observedProposals map[string][]uint8           // trigger event ID -> observer OracleIDs
 	var observedEvents map[string]*pb.CoordinatedEvent // trigger event ID -> event
 	go func() {
 		defer wg.Done()
 
-		// - Aggregate each node’s view of how many trigger events we can pop from the KV store queue (i.e. how many executions we can start)
-		// - Aggregate the per workflow free capacity
-		// - Achieve quorum on observations -> any item with F+1 observations goes into the queue
-		// - Medianize the logical clock value in the observations to order events
+		capacities := make([]uint32, 0, len(aos))
+		wfCapacities := make(map[string][]uint32)
+		for _, ao := range aos {
+			var obs pb.ConsensusQueueObservation
+			err := proto.Unmarshal(ao.Observation, &obs)
+			if err != nil {
+				c.lggr.Errorw("Failed to unmarshal observation", "err", err)
+				continue
+			}
+			capacities = append(capacities, obs.Capacity)
+			for wf, c := range obs.WorkflowCapacities {
+				wfCapacities[wf] = append(wfCapacities[wf], c)
+			}
+			for _, event := range obs.Events {
+				observedProposals[event.Event.Event.Id] = append(observedProposals[event.Event.Event.Id], uint8(ao.Observer))
+				observedEvents[event.Event.Event.Id] = event //TODO last value is not sufficient - must handle disagreement
+			}
+		}
+		medianCap = median(capacities)
+		for wf, c := range wfCapacities {
+			medianCapPerWF[wf] = median(c)
+		}
 	}()
 
 	// Deserialize the KV store into memory
@@ -157,7 +197,7 @@ func (c *consensusQueuePlugin) StateTransition(
 
 	//TODO prune expired events from proposed and priorityQueue
 
-	wg.Wait()
+	wg.Wait() // TODO also wait if we return early for error
 
 	// Collect observed proposals and promote to priority queue on f+1
 	for id, nodes := range observedProposals {
@@ -191,7 +231,7 @@ func (c *consensusQueuePlugin) StateTransition(
 	// Select items from queue based on priority and capacity
 	var consensusEvents []*pb.CoordinatedEvent
 	var workflowLimited []*pb.CoordinatedEvent // omitted due to workflow limit
-	for len(consensusEvents) < capacity {
+	for len(consensusEvents) < int(medianCap) {
 		if len(priorityQueue) == 0 {
 			break
 		}
@@ -199,11 +239,11 @@ func (c *consensusQueuePlugin) StateTransition(
 		if !ok {
 			return nil, fmt.Errorf("failed to cast *pb.CoordinatedEvent: got type %T", next)
 		}
-		if wfCapacity[next.WorkflowID] == 0 {
+		if medianCapPerWF[next.WorkflowID] == 0 {
 			workflowLimited = append(workflowLimited, next)
 			continue
 		}
-		wfCapacity[next.WorkflowID]--
+		medianCapPerWF[next.WorkflowID]--
 		consensusEvents = append(consensusEvents, next)
 	}
 	// restore omitted for next time
@@ -240,27 +280,26 @@ func (c *consensusQueuePlugin) tryStartExecutions(reader ocr3_1types.KeyValueSta
 	state := stateReader{reader}
 	pbs, err := state.readConsensusEvents()
 	if err != nil {
-		//TODO log?
+		c.lggr.Errorw("Failed to read consensus events", "err", err)
 		return
 	}
-	errs := make([]error, len(pbs.Events))
+
 	var wg sync.WaitGroup
-	for i, pbEvent := range pbs.Events {
+	for _, pbEvent := range pbs.Events {
 		var event triggers.CoordinatedEvent
-		if err := event.FromProto(pbEvent); err != nil {
-			errs[i] = fmt.Errorf("failed to unmarshal event: %s: %w", pbEvent, err)
-			continue
-		}
 		wg.Add(1)
 		c.eng.Go(func(ctx context.Context) {
 			defer wg.Done()
-			// TODO fetch workflow engine instance
+
+			if err := event.FromProto(pbEvent); err != nil {
+				c.lggr.Errorw("Failed to unmarshal CoordinatedEvent", "pb", pbEvent.String(), "err", err)
+			}
+
 			// TODO execute StartExecution
-			errs[i] = nil
+			// c.triggerCoordinator.tryStartExecution(ctx, event)
 		})
 	}
-	wg.Wait()
-	//TODO process errors? or just log as we go?
+	wg.Wait() //TODO do we need to wait?
 }
 
 func (c *consensusQueuePlugin) Reports(ctx context.Context, seqNr uint64, reportsPlusPrecursor ocr3_1types.ReportsPlusPrecursor) ([]ocr3types.ReportPlus[[]byte], error) {
@@ -268,9 +307,14 @@ func (c *consensusQueuePlugin) Reports(ctx context.Context, seqNr uint64, report
 }
 
 func (c *consensusQueuePlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, reportWithInfo ocr3types.ReportWithInfo[[]byte]) (bool, error) {
-	return true, nil
+	return false, nil
 }
 
 func (c *consensusQueuePlugin) ShouldTransmitAcceptedReport(ctx context.Context, seqNr uint64, reportWithInfo ocr3types.ReportWithInfo[[]byte]) (bool, error) {
-	return true, nil
+	return false, nil
+}
+
+func median[N constraints.Integer, S []N](s S) N {
+	slices.Sort(s)
+	return (s[len(s)/2-1] + s[len(s)/2]) / 2
 }
