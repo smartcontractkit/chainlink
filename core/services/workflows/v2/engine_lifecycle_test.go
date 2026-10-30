@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,10 +13,14 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonmetrics "github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -30,6 +35,7 @@ import (
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -444,6 +450,13 @@ type engineLifecycleHarness struct {
 	moduleInFlight   atomic.Int32 // executions currently held in the module
 	moduleMaxFlight  atomic.Int32 // the most executions ever held in the module at once
 
+	// ackCalls counts calls to the trigger capability's AckEvent, however the event reached
+	// it: the engine acknowledging directly (legacy), or the coordinator (coordinated).
+	ackCalls atomic.Int32
+
+	// rec records the engine's beholder messages, including its workflow execution events.
+	rec *beholdertest.Recorder
+
 	// slots counts requests for an execution-concurrency slot, made by whichever component
 	// admits events: the legacy engine or the coordinator.
 	slots *slotCounter
@@ -471,6 +484,9 @@ type harnessOptions struct {
 	orgID         string
 	billing       *metmocks.BillingClient
 	sharedFlight  *flightTracker
+	meter         metric.Meter
+	clock         clockwork.Clock
+	admission     func(context.Context, triggers.CoordinatedEvent) error
 }
 
 // harnessOption configures newEngineLifecycleHarness.
@@ -518,6 +534,25 @@ func withSharedFlight(f *flightTracker) harnessOption {
 	return func(o *harnessOptions) { o.sharedFlight = f }
 }
 
+// withMeter records the metrics of the engine and the coordinator on meter.
+func withMeter(m metric.Meter) harnessOption {
+	return func(o *harnessOptions) { o.meter = m }
+}
+
+// withClock gives the engine and the coordinator the same clock. The trigger reader stamps
+// each event's ObservedAt with it, and the queue checks the event's deadline against it.
+func withClock(c clockwork.Clock) harnessOption {
+	return func(o *harnessOptions) { o.clock = c }
+}
+
+// withAdmission runs check on every trigger event before it executes, as the shard failover
+// manager does on a sharded node. The legacy engine calls it as its OnTriggerAdmission hook.
+// The coordinator gets the engine wrapped, so check runs in ExecuteTrigger, after the
+// coordinator has taken an execution slot.
+func withAdmission(check func(context.Context, triggers.CoordinatedEvent) error) harnessOption {
+	return func(o *harnessOptions) { o.admission = check }
+}
+
 // newEngineLifecycleHarness builds the engine for mode without starting it. Whatever the test
 // leaves running is canceled and closed at cleanup.
 func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...harnessOption) *engineLifecycleHarness {
@@ -532,13 +567,14 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	h := &engineLifecycleHarness{
 		t:            t,
 		mode:         mode,
-		engines:      &lifecycleEngineRegistry{},
+		engines:      &lifecycleEngineRegistry{admission: o.admission},
 		eventCh:      make(chan capabilities.TriggerResponse, o.eventBuffer),
 		blocker:      newExecutionBlocker(t, log, o.signalBuffer),
 		log:          log,
 		initDoneCh:   make(chan error, 1),
 		subscribedCh: make(chan []string, 1),
 		finishedCh:   make(chan string, o.signalBuffer),
+		rec:          beholdertest.NewRecorder(),
 	}
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -547,7 +583,8 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	capreg.EXPECT().GetTrigger(matches.AnyContext, lifecycleTriggerCapID).Return(trigger, nil).Maybe()
 	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(h.eventCh, nil).Maybe()
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Maybe()
-	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).
+		Run(func(context.Context, string, string, string) { h.ackCalls.Add(1) }).Return(nil).Maybe()
 
 	cfg := defaultTestConfig(t, o.settings)
 	if o.limiters != nil {
@@ -563,15 +600,22 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 		cfg.OrgResolver = &mockOrgResolver{orgID: o.orgID}
 	}
 	h.sharedFlight = o.sharedFlight
-	h.slots = &slotCounter{ResourcePoolLimiter: cfg.LocalLimiters.ExecutionConcurrency}
-	cfg.LocalLimiters.ExecutionConcurrency = h.slots
+	h.slots = &slotCounter{}
+	cfg.LocalLimiters.ExecutionConcurrency = h.slots.wrap(cfg.LocalLimiters.ExecutionConcurrency)
 	cfg.CapRegistry = capreg
 	cfg.Module = h.newModule()
 	cfg.BillingClient = newLifecycleBillingClient(t)
 	if o.billing != nil {
 		cfg.BillingClient = o.billing
 	}
+	cfg.Meter = o.meter
+	cfg.EventEmitter = workflowEvents.NewEmitter(h.rec, workflowEvents.WithNoDurableEmit())
+	cfg.BeholderEmitter = custmsg.NewLabelerWithEmitter(h.rec)
+	if o.clock != nil {
+		cfg.Clock = o.clock
+	}
 	cfg.Hooks = v2.LifecycleHooks{
+		OnTriggerAdmission:     o.admission,
 		OnInitialized:          func(err error) { nonBlockingSend(h.initDoneCh, err) },
 		OnSubscribedToTriggers: func(ids []string) { nonBlockingSend(h.subscribedCh, ids) },
 		OnExecutionFinished: func(_, status string) {
@@ -645,8 +689,16 @@ func (h *engineLifecycleHarness) newCoordinator(capreg *regmocks.CapabilitiesReg
 	require.NoError(h.t, err)
 	h.t.Cleanup(func() { require.NoError(h.t, workflowLimits.Close()) })
 
-	em, err := monitoring.InitMonitoringResources()
+	meter := h.cfg.Meter
+	if meter == nil {
+		meter = beholder.GetMeter()
+	}
+	em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 	require.NoError(h.t, err)
+	clock := h.cfg.Clock
+	if clock == nil {
+		clock = clockwork.NewFakeClock()
+	}
 	coordinator := triggers.NewCoordinator(
 		triggers.RegisterDeps{
 			CapRegistry:  capreg,
@@ -659,7 +711,7 @@ func (h *engineLifecycleHarness) newCoordinator(capreg *regmocks.CapabilitiesReg
 		h.cfg.LocalLimiters.Admission(),
 		h.engines,
 		workflowLimits,
-		clockwork.NewFakeClock(),
+		clock,
 	)
 	servicetest.Run(h.t, coordinator)
 	return coordinator
@@ -878,8 +930,9 @@ func (l *lifecycleLog) events() []lifecycleEvent {
 // lifecycleEngineRegistry is a triggers.EngineRegistry holding the one engine under test. It is
 // safe for concurrent use.
 type lifecycleEngineRegistry struct {
-	mu     sync.Mutex
-	engine v2.WorkflowEngine
+	mu        sync.Mutex
+	engine    v2.WorkflowEngine
+	admission func(context.Context, triggers.CoordinatedEvent) error // see withAdmission
 }
 
 // Get returns the engine under test if wid is its workflow.
@@ -889,7 +942,24 @@ func (r *lifecycleEngineRegistry) Get(wid types.WorkflowID) (triggers.Registered
 	if r.engine == nil || wid.Hex() != r.engine.Tenant().Workflow {
 		return nil, false
 	}
+	if r.admission != nil {
+		return admittingEngine{RegisteredEngine: r.engine, admission: r.admission}, true
+	}
 	return r.engine, true
+}
+
+// admittingEngine runs an admission check before delivering to the engine, as the shard
+// failover manager does for a coordinated engine.
+type admittingEngine struct {
+	triggers.RegisteredEngine
+	admission func(context.Context, triggers.CoordinatedEvent) error
+}
+
+func (e admittingEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	if err := e.admission(ctx, event); err != nil {
+		return err
+	}
+	return e.RegisteredEngine.ExecuteTrigger(ctx, event)
 }
 
 // set makes e the engine under test.
@@ -983,26 +1053,59 @@ func (b *executionBlocker) contextErrAtRelease() error {
 	return b.errAtRelease
 }
 
-// slotCounter counts Wait calls on the execution-concurrency limiter, so a scenario can tell when
-// an event is waiting for a slot.
+// slotCounter counts requests for an execution-concurrency slot, so a scenario can tell when an
+// event is waiting for one, and how many slots were granted and given back.
 type slotCounter struct {
-	limits.ResourcePoolLimiter[int]
 	waits    atomic.Int32 // Wait calls
-	acquired atomic.Int32 // slots granted
-	released atomic.Int32 // slots given back
+	acquired atomic.Int32 // slots granted at every scope
+	released atomic.Int32 // granted slots given back
 }
 
-func (s *slotCounter) Wait(ctx context.Context, amount int) (func(), error) {
-	s.waits.Add(1)
-	free, err := s.ResourcePoolLimiter.Wait(ctx, amount)
+// wrap returns pool with its slots counted in s. A MultiResourcePoolLimiter stays one, so the
+// coordinator's AvailableCapacity can still read it by scope. Only its first and last scopes are
+// wrapped. Wait takes the scopes in order and frees them in reverse. So a Wait on the first scope
+// is a request, and a grant from the last scope means every scope granted. The last scope is
+// freed first, so the other scopes can hold the slot briefly after released counts it.
+func (s *slotCounter) wrap(pool limits.ResourcePoolLimiter[int]) limits.ResourcePoolLimiter[int] {
+	multi, ok := pool.(limits.MultiResourcePoolLimiter[int])
+	if !ok || len(multi) == 0 {
+		return &countingScope{ResourcePoolLimiter: pool, request: &s.waits, grant: &s.acquired, release: &s.released}
+	}
+	wrapped := slices.Clone(multi)
+	first := &countingScope{ResourcePoolLimiter: multi[0], request: &s.waits}
+	last := first
+	if n := len(multi) - 1; n > 0 {
+		last = &countingScope{ResourcePoolLimiter: multi[n]}
+		wrapped[n] = last
+	}
+	last.grant, last.release = &s.acquired, &s.released
+	wrapped[0] = first
+	return wrapped
+}
+
+// countingScope counts Wait calls, grants and frees on one pool. A nil counter is not counted.
+type countingScope struct {
+	limits.ResourcePoolLimiter[int]
+	request, grant, release *atomic.Int32
+}
+
+func (c *countingScope) Wait(ctx context.Context, amount int) (func(), error) {
+	addOne(c.request)
+	free, err := c.ResourcePoolLimiter.Wait(ctx, amount)
 	if err != nil {
 		return free, err
 	}
-	s.acquired.Add(1)
+	addOne(c.grant)
 	return func() {
 		free()
-		s.released.Add(1)
+		addOne(c.release)
 	}, nil
+}
+
+func addOne(n *atomic.Int32) {
+	if n != nil {
+		n.Add(1)
+	}
 }
 
 // flightTracker counts executions running at once across several harnesses, and the most seen.
