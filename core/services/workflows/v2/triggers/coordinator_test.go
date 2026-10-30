@@ -335,7 +335,9 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 
 		require.Eventually(t, func() bool { return !f.registered() && f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
 		assert.Equal(t, 1, f.limits.freeCount())
-		assert.True(t, queues.get(t, 0).closed.Load(), "the registration's queue is closed")
+		// The queue is closed after the registration is removed, so wait for it.
+		require.Eventually(t, func() bool { return queues.get(t, 0).closed.Load() }, 5*time.Second, 10*time.Millisecond,
+			"the registration's queue is closed")
 		f.limits.mu.Lock()
 		assert.Equal(t, testTenant, f.limits.tenants[len(f.limits.tenants)-1], "the limit is freed under the workflow's tenant")
 		f.limits.mu.Unlock()
