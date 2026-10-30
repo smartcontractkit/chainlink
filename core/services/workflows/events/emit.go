@@ -2,7 +2,6 @@ package events
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -61,20 +60,6 @@ func DefaultEmitter() *Emitter {
 	return NewEmitter(nil)
 }
 
-func (e *Emitter) EmitWorkflowStatusChangedEvent(
-	ctx context.Context,
-	labels map[string]string,
-	status string,
-) error {
-	metadata := buildWorkflowMetadata(labels, "")
-	event := &events.WorkflowStatusChanged{
-		M:      metadata,
-		Status: status,
-	}
-
-	return e.emitProtoMessage(ctx, event)
-}
-
 func (e *Emitter) EmitWorkflowStatusChangedEventV2(
 	ctx context.Context,
 	labels map[string]string,
@@ -84,13 +69,6 @@ func (e *Emitter) EmitWorkflowStatusChangedEventV2(
 	configURL string,
 	eventErr error,
 ) error {
-	// Emit v1 event
-	var multiErr error
-	if err := e.EmitWorkflowStatusChangedEvent(ctx, labels, status); err != nil {
-		multiErr = errors.Join(multiErr, err)
-	}
-
-	// Prepare v2 event data
 	creInfo := buildCREMetadataV2(labels)
 	workflow := buildWorkflowV2(labels, binaryURL, configURL)
 	txInfo := &eventsv2.TransactionInfo{
@@ -133,12 +111,7 @@ func (e *Emitter) EmitWorkflowStatusChangedEventV2(
 		}
 	}
 
-	// Emit v2 event
-	if err := e.emitProtoMessage(ctx, v2Event); err != nil {
-		multiErr = errors.Join(multiErr, err)
-	}
-
-	return multiErr
+	return e.emitProtoMessage(ctx, v2Event)
 }
 
 func (e *Emitter) EmitWorkflowActivationAbandonedV2(
@@ -173,15 +146,6 @@ func (e *Emitter) EmitExecutionStartedEvent(
 	triggerEventID string,
 	executionID string,
 ) error {
-	metadata := buildWorkflowMetadata(labels, executionID)
-
-	event := &events.WorkflowExecutionStarted{
-		M:         metadata,
-		Timestamp: time.Now().Format(time.RFC3339Nano),
-		TriggerID: triggerEventID,
-	}
-
-	// Also emit v2 event
 	creInfo := buildCREMetadataV2(labels)
 	workflowKey := buildWorkflowKeyV2(labels)
 
@@ -193,15 +157,7 @@ func (e *Emitter) EmitExecutionStartedEvent(
 		TriggerID:           triggerEventID,
 	}
 
-	// Emit both v1 and v2 events
-	var multiErr error
-	if err := e.emitProtoMessage(ctx, event); err != nil {
-		multiErr = errors.Join(multiErr, err)
-	}
-	if err := e.emitProtoMessage(ctx, v2Event); err != nil {
-		multiErr = errors.Join(multiErr, err)
-	}
-	return multiErr
+	return e.emitProtoMessage(ctx, v2Event)
 }
 
 // ExecutionProfileStepInput describes timing for a single capability step invocation.
@@ -310,15 +266,6 @@ func classifiedExecutionStatus(status eventsv2.ExecutionStatus, errClass ErrorCl
 }
 
 func (e *Emitter) EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status, executionID string, execErr error, errClass ErrorClassification, lggr logger.Logger) error {
-	metadata := buildWorkflowMetadata(labels, executionID)
-
-	event := &events.WorkflowExecutionFinished{
-		M:         metadata,
-		Timestamp: time.Now().Format(time.RFC3339Nano),
-		Status:    status,
-	}
-
-	// Also emit v2 event
 	creInfo := buildCREMetadataV2(labels)
 	workflowKey := buildWorkflowKeyV2(labels)
 
@@ -348,34 +295,14 @@ func (e *Emitter) EmitExecutionFinishedEvent(ctx context.Context, labels map[str
 		ClassifiedStatus:    classifiedExecutionStatus(executionStatus, errClass),
 	}
 
-	// Emit both v1 and v2 events
-	var multiErr error
-	if err := e.emitProtoMessage(ctx, event); err != nil {
-		multiErr = errors.Join(multiErr, err)
-	}
-	if err := e.emitProtoMessage(ctx, v2Event); err != nil {
-		multiErr = errors.Join(multiErr, err)
-	}
-	return multiErr
+	return e.emitProtoMessage(ctx, v2Event)
 }
 
 func (e *Emitter) EmitCapabilityStartedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, method string) error {
-	metadata := buildWorkflowMetadata(labels, executionID)
-
-	event := &events.CapabilityExecutionStarted{
-		M:            metadata,
-		Timestamp:    time.Now().Format(time.RFC3339Nano),
-		CapabilityID: capabilityID,
-		StepRef:      stepRef,
-	}
-
-	// Also emit v2 event
 	creInfo := buildCREMetadataV2(labels)
 	workflowKey := buildWorkflowKeyV2(labels)
 
-	// Convert stepRef string to int32
-	// V1 engine has arbitrary string stepRefs, v2 engine has monotonically increasing integers
-	// We will support both v1 and v2 events for the short term, so need to handle both cases
+	// Convert stepRef string to int32; non-numeric refs map to -1
 	stepRefInt, err := strconv.ParseInt(stepRef, 10, 32)
 	if err != nil {
 		stepRefInt = -1
@@ -391,15 +318,7 @@ func (e *Emitter) EmitCapabilityStartedEvent(ctx context.Context, labels map[str
 		Method:              method,
 	}
 
-	// Emit both v1 and v2 events
-	var multiErr error
-	if err := e.emitProtoMessage(ctx, event); err != nil {
-		multiErr = errors.Join(multiErr, err)
-	}
-	if err := e.emitProtoMessage(ctx, v2Event); err != nil {
-		multiErr = errors.Join(multiErr, err)
-	}
-	return multiErr
+	return e.emitProtoMessage(ctx, v2Event)
 }
 
 func (e *Emitter) EmitTriggerExecutionStarted(ctx context.Context, labels map[string]string, triggerID, workflowExecutionID string) error {
@@ -419,23 +338,10 @@ func (e *Emitter) EmitTriggerExecutionStarted(ctx context.Context, labels map[st
 }
 
 func (e *Emitter) EmitCapabilityFinishedEvent(ctx context.Context, labels map[string]string, executionID, capabilityID, stepRef, status, method string, capErr error) error {
-	metadata := buildWorkflowMetadata(labels, executionID)
-
-	event := &events.CapabilityExecutionFinished{
-		M:            metadata,
-		Timestamp:    time.Now().Format(time.RFC3339Nano),
-		CapabilityID: capabilityID,
-		StepRef:      stepRef,
-		Status:       status,
-	}
-
-	// Also emit v2 event
 	creInfo := buildCREMetadataV2(labels)
 	workflowKey := buildWorkflowKeyV2(labels)
 
-	// Convert stepRef string to int32
-	// V1 engine has arbitrary string stepRefs, v2 engine has monotonically increasing integers
-	// We will support both v1 and v2 events for the short term, so need to handle both cases
+	// Convert stepRef string to int32; non-numeric refs map to -1
 	stepRefInt, err := strconv.ParseInt(stepRef, 10, 32)
 	if err != nil {
 		stepRefInt = -1
@@ -469,15 +375,7 @@ func (e *Emitter) EmitCapabilityFinishedEvent(ctx context.Context, labels map[st
 		Method:              method,
 	}
 
-	// Emit both v1 and v2 events
-	var multiErr error
-	if err := e.emitProtoMessage(ctx, event); err != nil {
-		multiErr = errors.Join(multiErr, err)
-	}
-	if err := e.emitProtoMessage(ctx, v2Event); err != nil {
-		multiErr = errors.Join(multiErr, err)
-	}
-	return multiErr
+	return e.emitProtoMessage(ctx, v2Event)
 }
 
 func (e *Emitter) EmitMeteringReport(ctx context.Context, labels map[string]string, rpt *events.MeteringReport) error {
@@ -487,23 +385,11 @@ func (e *Emitter) EmitMeteringReport(ctx context.Context, labels map[string]stri
 }
 
 func (e *Emitter) EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*events.LogLine, executionID string) error {
-	metadata := buildWorkflowMetadata(labels, executionID)
-	event := &events.UserLogs{
-		M:        metadata,
-		LogLines: logLines,
-	}
-
-	// Also emit v2 events - one per log line
 	creInfo := buildCREMetadataV2(labels)
 	workflowKey := buildWorkflowKeyV2(labels)
 
-	// Emit v1 event
+	// One event per log line
 	var multiErr error
-	if err := e.emitProtoMessage(ctx, event); err != nil {
-		multiErr = errors.Join(multiErr, err)
-	}
-
-	// Emit v2 events - one per log line
 	for _, logLine := range logLines {
 		v2Event := &eventsv2.WorkflowUserLog{
 			CreInfo:             creInfo,
@@ -530,25 +416,6 @@ func (e *Emitter) EmitUserMetric(ctx context.Context, labels map[string]string, 
 	return e.emitProtoMessage(ctx, metric)
 }
 
-// GenerateExecutionID generates a deterministic execution ID from workflowID and triggerEventID
-// hash of (workflowID, triggerEventID)
-//
-// Deprecated: Used only in V1 engine. For V2 use GenerateExecutionIDWithTriggerIndex from common/pkg/workflows/utils.go.
-func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
-	s := sha256.New()
-	_, err := s.Write([]byte(workflowID))
-	if err != nil {
-		return "", err
-	}
-
-	_, err = s.Write([]byte(triggerEventID))
-	if err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(s.Sum(nil)), nil
-}
-
 func (e *Emitter) emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	b, err := proto.Marshal(msg)
 	if err != nil {
@@ -559,28 +426,9 @@ func (e *Emitter) emitProtoMessage(ctx context.Context, msg proto.Message) error
 	// entity must be prefixed with the proto package name
 	var schema, entity string
 	switch msg.(type) {
-	case *events.WorkflowExecutionStarted:
-		schema = SchemaWorkflowStarted
-		entity = fmt.Sprintf("%s.%s", ProtoPkg, WorkflowExecutionStarted)
-	case *events.WorkflowExecutionFinished:
-		schema = SchemaWorkflowFinished
-		entity = fmt.Sprintf("%s.%s", ProtoPkg, WorkflowExecutionFinished)
-	case *events.CapabilityExecutionStarted:
-		schema = SchemaCapabilityStarted
-		entity = fmt.Sprintf("%s.%s", ProtoPkg, CapabilityExecutionStarted)
-	case *events.CapabilityExecutionFinished:
-		schema = SchemaCapabilityFinished
-		entity = fmt.Sprintf("%s.%s", ProtoPkg, CapabilityExecutionFinished)
 	case *events.MeteringReport:
 		schema = MeteringReportSchema
 		entity = fmt.Sprintf("%s.%s", ProtoPkg, MeteringReportEntity)
-	case *events.WorkflowStatusChanged:
-		schema = SchemaWorkflowStatusChanged
-		entity = fmt.Sprintf("%s.%s", ProtoPkg, WorkflowStatusChanged)
-	case *events.UserLogs:
-		schema = SchemaUserLogs
-		entity = fmt.Sprintf("%s.%s", ProtoPkg, UserLogs)
-	// V2 event types
 	case *eventsv2.WorkflowExecutionStarted:
 		schema = SchemaWorkflowStartedV2
 		entity = "workflows.v2." + WorkflowExecutionStarted

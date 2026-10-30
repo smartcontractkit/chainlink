@@ -3,7 +3,6 @@ package events_test
 import (
 	"context"
 	"errors"
-	"regexp"
 	"testing"
 	"time"
 
@@ -30,9 +29,6 @@ func TestEmit(t *testing.T) {
 		platform.KeyWorkflowOwner: "owner",
 	}
 
-	// basic regex for RFC3339Nano using ISO 8601 or tz offset format
-	timeMatcher := regexp.MustCompile(`[0-9\-]{10}T[0-9:]{8}\.[0-9Z\-:\+]+`)
-
 	t.Run(events.WorkflowExecutionStarted, func(t *testing.T) {
 		t.Parallel()
 
@@ -41,13 +37,13 @@ func TestEmit(t *testing.T) {
 		require.NoError(t, e.EmitExecutionStartedEvent(t.Context(), labels, triggerID, executionID))
 		require.Len(t, labels, 1)
 
-		msgs := rec.Messages(t, "beholder_entity", "workflows.v1."+events.WorkflowExecutionStarted)
+		msgs := rec.Messages(t, "beholder_entity", "workflows.v2."+events.WorkflowExecutionStarted)
 		require.Len(t, msgs, 1)
 
-		var expected pb.WorkflowExecutionStarted
+		var expected eventsv2.WorkflowExecutionStarted
 
 		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
-		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
+		assert.Equal(t, executionID, expected.WorkflowExecutionID)
 	})
 
 	t.Run(events.WorkflowExecutionFinished, func(t *testing.T) {
@@ -58,13 +54,13 @@ func TestEmit(t *testing.T) {
 		require.NoError(t, e.EmitExecutionFinishedEvent(t.Context(), labels, "status", executionID, nil, events.ErrorClassificationUnspecified, nil))
 		require.Len(t, labels, 1)
 
-		msgs := rec.Messages(t, "beholder_entity", "workflows.v1."+events.WorkflowExecutionFinished)
+		msgs := rec.Messages(t, "beholder_entity", "workflows.v2."+events.WorkflowExecutionFinished)
 		require.Len(t, msgs, 1)
 
-		var expected pb.WorkflowExecutionFinished
+		var expected eventsv2.WorkflowExecutionFinished
 
 		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
-		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
+		assert.Equal(t, executionID, expected.WorkflowExecutionID)
 	})
 
 	t.Run(events.WorkflowExecutionFinished+"_with_error", func(t *testing.T) {
@@ -94,13 +90,13 @@ func TestEmit(t *testing.T) {
 		require.NoError(t, e.EmitCapabilityStartedEvent(t.Context(), labels, executionID, capabilityID, stepRef, "test-method"))
 		require.Len(t, labels, 1)
 
-		msgs := rec.Messages(t, "beholder_entity", "workflows.v1."+events.CapabilityExecutionStarted)
+		msgs := rec.Messages(t, "beholder_entity", "workflows.v2."+events.CapabilityExecutionStarted)
 		require.Len(t, msgs, 1)
 
-		var expected pb.CapabilityExecutionStarted
+		var expected eventsv2.CapabilityExecutionStarted
 
 		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
-		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
+		assert.Equal(t, executionID, expected.WorkflowExecutionID)
 	})
 
 	t.Run(events.CapabilityExecutionFinished, func(t *testing.T) {
@@ -111,16 +107,16 @@ func TestEmit(t *testing.T) {
 		require.NoError(t, e.EmitCapabilityFinishedEvent(t.Context(), labels, executionID, capabilityID, stepRef, "status", "test-method", nil))
 		require.Len(t, labels, 1)
 
-		msgs := rec.Messages(t, "beholder_entity", "workflows.v1."+events.CapabilityExecutionFinished)
+		msgs := rec.Messages(t, "beholder_entity", "workflows.v2."+events.CapabilityExecutionFinished)
 		require.Len(t, msgs, 1)
 
-		var expected pb.CapabilityExecutionFinished
+		var expected eventsv2.CapabilityExecutionFinished
 
 		require.NoError(t, proto.Unmarshal(msgs[0].Body, &expected))
-		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
+		assert.Equal(t, executionID, expected.WorkflowExecutionID)
 	})
 
-	t.Run(events.UserLogs, func(t *testing.T) {
+	t.Run(events.WorkflowUserLog, func(t *testing.T) {
 		t.Parallel()
 
 		rec := beholdertest.NewRecorder()
@@ -138,16 +134,7 @@ func TestEmit(t *testing.T) {
 		require.NoError(t, e.EmitUserLogs(t.Context(), labels, logLines, executionID))
 		require.Len(t, labels, 1)
 
-		// Verify v1 event
-		v1Msgs := rec.Messages(t, "beholder_entity", "workflows.v1."+events.UserLogs)
-		require.Len(t, v1Msgs, 1)
-
-		var receivedV1 pb.UserLogs
-		require.NoError(t, proto.Unmarshal(v1Msgs[0].Body, &receivedV1))
-		assert.Equal(t, logLines[0].Message, receivedV1.LogLines[0].Message)
-		assert.Equal(t, logLines[1].Message, receivedV1.LogLines[1].Message)
-
-		// Verify v2 events are emitted (one per log line)
+		// One event per log line
 		v2Msgs := rec.Messages(t, "beholder_entity", "workflows.v2."+events.WorkflowUserLog)
 		require.Len(t, v2Msgs, 2)
 
