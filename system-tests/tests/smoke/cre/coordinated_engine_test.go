@@ -13,7 +13,7 @@ import (
 
 	workflow_registry_wrapper_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -43,7 +43,7 @@ func Test_CRE_V2_CoordinatedEngine(t *testing.T) {
 
 	t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(`CoordinatedEngineEnabled = 'true'`))
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -80,7 +80,7 @@ func Test_CRE_V2_CoordinatedEngine_MixedModeDeploy(t *testing.T) {
 	testLogger := framework.L
 	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -130,7 +130,7 @@ func Test_CRE_V2_CoordinatedEngine_MixedModeReRegister(t *testing.T) {
 	testLogger := framework.L
 	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -201,7 +201,7 @@ func Test_CRE_V2_CoordinatedEngine_RollbackToLegacy(t *testing.T) {
 	// Flag on: the workflow registers and runs through the trigger coordinator.
 	settings := t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(`CoordinatedEngineEnabled = 'true'`))
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {

@@ -28,7 +28,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.3.1-0.20260915153909-e434f8636b23"
+      gitRef: "v1.3.1-0.20261029182832-ae2ca5ac5292"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
@@ -38,7 +38,7 @@ plugins:
 
   stellar:
     - moduleURI: "github.com/smartcontractkit/chainlink-stellar/relayer"
-      gitRef: "498bbc882c92ecbe0acb86cfb6deaec104def12f"
+      gitRef: "b0c194ffac3f229af7da9195d0ff87f82fdaffb3"
       installPath: "./cmd/chainlink-stellar"
 
   streams:
@@ -99,7 +99,7 @@ plugins:
 
   capability-stellar:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/stellar"
-      gitRef: "1e2cce66de95fed63d5057139227d0e1c4a8ba0b"
+      gitRef: "26c8e99df572df10b8ff05ddc38dfa70f1afa5ef"
       installPath: "."
 
   confidential-http:

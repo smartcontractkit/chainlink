@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/dev/generated/latest/shard_config"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -452,7 +452,7 @@ func validateShardingScaleScenario(
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 	logger.Info().Interface("nodeP2PIDToShardIndex", nodeP2PIDToShardIndex).Msg("P2P ID to shard index")
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(logger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -789,7 +789,7 @@ func waitForMappingVersionStable(t *testing.T, client ringpb.ShardOrchestratorSe
 	}, timeout, 2*time.Second, "Mapping content did not stabilize within %s (stableDuration=%s)", timeout, stableDuration)
 }
 
-func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, userLogsCh <-chan *workflowevents.UserLogs, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, expectedUserLog string, timeout time.Duration) map[string]struct{} {
+func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, userLogsCh <-chan *workfloweventsv2.WorkflowUserLog, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, expectedUserLog string, timeout time.Duration) map[string]struct{} {
 	t.Helper()
 
 	expectedWorkflows := make(map[string]struct{}, len(workflowIDs))
@@ -820,26 +820,16 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 			}
 			return executedWorkflows
 		case userLogs := <-userLogsCh:
-			if userLogs.M == nil {
-				continue
-			}
-			hasExpectedLog := false
-			for _, line := range userLogs.LogLines {
-				if strings.Contains(line.Message, expectedUserLog) {
-					hasExpectedLog = true
-					break
-				}
-			}
-			if !hasExpectedLog {
+			if userLogs.GetCreInfo() == nil || !strings.Contains(userLogs.Msg, expectedUserLog) {
 				continue
 			}
 
-			wfID := userLogs.M.WorkflowID
+			wfID := userLogs.GetWorkflow().GetWorkflowID()
 			if _, expected := expectedWorkflows[wfID]; expected {
 				if _, seen := executedWorkflows[wfID]; !seen {
-					normalizedP2PID := strings.TrimPrefix(userLogs.M.P2PID, "p2p_")
+					normalizedP2PID := strings.TrimPrefix(userLogs.GetCreInfo().GetP2PID(), "p2p_")
 					actualShardIndex, knownNode := nodeP2PIDToShardIndex[normalizedP2PID]
-					require.True(t, knownNode, "Workflow %s executed on unknown node %s", wfID, userLogs.M.P2PID)
+					require.True(t, knownNode, "Workflow %s executed on unknown node %s", wfID, userLogs.GetCreInfo().GetP2PID())
 					expectedShardIndex := workflowToShardIndex[wfID]
 
 					if actualShardIndex != expectedShardIndex {
@@ -859,7 +849,7 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 					seenShardIndices[actualShardIndex] = struct{}{}
 					logger.Info().
 						Str("workflowID", wfID).
-						Str("workflowName", userLogs.M.WorkflowName).
+						Str("workflowName", userLogs.GetWorkflow().GetWorkflowName()).
 						Str("p2pID", normalizedP2PID).
 						Uint32("shardIndex", actualShardIndex).
 						Int("progress", len(executedWorkflows)).

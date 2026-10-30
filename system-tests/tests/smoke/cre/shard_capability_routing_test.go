@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -474,7 +474,7 @@ func awaitShardedWorkflowExecution(t *testing.T, testEnv *ttypes.TestEnvironment
 	t.Helper()
 	testLogger := framework.L
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {

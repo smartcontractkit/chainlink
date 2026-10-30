@@ -18,7 +18,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -625,7 +625,7 @@ func (b *ChipIngressStack) consumeWithReconnect(
 			}
 
 			// Reset timeout if we received a UserLogs message
-			if _, isUserLogs := pm.(*workflowevents.UserLogs); isUserLogs {
+			if _, isUserLogs := pm.(*workfloweventsv2.WorkflowUserLog); isUserLogs {
 				// Go recommendation: don't reuse timers, create new ones to avoid race conditions
 				if !timeoutTimer.Stop() {
 					// Timer already fired, drain it to prevent blocking

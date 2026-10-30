@@ -45,7 +45,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/solkey"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -153,8 +153,8 @@ func StartChipIngressStack(t *testing.T, testLogger zerolog.Logger, testEnv *tty
 	// We are interested in UserLogs (successful execution)
 	// or BaseMessage with specific error message (engine initialization failure)
 	messageTypes := map[string]func() proto.Message{
-		"workflows.v1.UserLogs": func() proto.Message {
-			return &workflowevents.UserLogs{}
+		"workflows.v2.WorkflowUserLog": func() proto.Message {
+			return &workfloweventsv2.WorkflowUserLog{}
 		},
 		"BaseMessage": func() proto.Message {
 			return &commonevents.BaseMessage{}
@@ -205,30 +205,28 @@ func AssertChipIngressStackMessage(ctx context.Context, t *testing.T, expectedLo
 					if strings.Contains(typedMsg.Msg, WorkflowEngineInitErrorLog) {
 						foundErrorLog <- true
 					}
-				case *workflowevents.UserLogs:
+				case *workfloweventsv2.WorkflowUserLog:
 					testLogger.Info().Msg("➡️ Chip Ingress stack message received in test. Asserting...")
 					receivedUserLogs++
 
-					for _, logLine := range typedMsg.LogLines {
-						if strings.Contains(logLine.Message, expectedLog) {
-							testLogger.Info().
-								Str("expected_log", expectedLog).
-								Str("found_message", strings.TrimSpace(logLine.Message)).
-								Str("workflow_id", typedMsg.M.WorkflowExecutionID).
-								Msg("🎯 Found expected user log message!")
-
-							select {
-							case foundExpectedLog <- true:
-							default: // Channel might already have a value
-							}
-							return // Exit the processor goroutine
-						}
-
-						testLogger.Warn().
+					if strings.Contains(typedMsg.Msg, expectedLog) {
+						testLogger.Info().
 							Str("expected_log", expectedLog).
-							Str("found_message", strings.TrimSpace(logLine.Message)).
-							Msg("[soft assertion] Received UserLogs message, but it does not match expected log")
+							Str("found_message", strings.TrimSpace(typedMsg.Msg)).
+							Str("workflow_id", typedMsg.WorkflowExecutionID).
+							Msg("🎯 Found expected user log message!")
+
+						select {
+						case foundExpectedLog <- true:
+						default: // Channel might already have a value
+						}
+						return // Exit the processor goroutine
 					}
+
+					testLogger.Warn().
+						Str("expected_log", expectedLog).
+						Str("found_message", strings.TrimSpace(typedMsg.Msg)).
+						Msg("[soft assertion] Received UserLogs message, but it does not match expected log")
 				default:
 					// ignore other message types
 				}
@@ -1065,9 +1063,9 @@ func MustDeployStellarReadFixture(t *testing.T, stellarChain *stellchain.Blockch
 // StartChipTestSinkWithLogging starts a Chip test sink that both writes every event to
 // logFilePath (the ./logs dir is uploaded as a GH artifact) AND returns the user-log /
 // base-message channels for the caller to consume via WatchWorkflowLogs / WaitForUserLog.
-func StartChipTestSinkWithLogging(t *testing.T, logFilePath string) (<-chan *workflowevents.UserLogs, <-chan *commonevents.BaseMessage) {
+func StartChipTestSinkWithLogging(t *testing.T, logFilePath string) (<-chan *workfloweventsv2.WorkflowUserLog, <-chan *commonevents.BaseMessage) {
 	t.Helper()
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 
 	server := StartChipTestSink(t, GetLoggingPublishFn(framework.L, userLogsCh, baseMessageCh, logFilePath))
