@@ -28,6 +28,7 @@ var benchWorkloads = []workload{
 	{numChannels: 100, streamsPerChannel: 10},
 	{numChannels: 1000, streamsPerChannel: 1},
 	{numChannels: 1000, streamsPerChannel: 10},
+	{numChannels: 2000, streamsPerChannel: 1},
 }
 
 // ---------------------------------------------------------------------------
@@ -79,8 +80,11 @@ func TestParity(t *testing.T) {
 // Observation → (Outcome | StateTransition) → Reports. Besides ns/op and the
 // -benchmem allocation metrics, it reports per-round size characteristics:
 //   - v30: outcome_B (the re-serialized state blob), obs_B, report_B, reports
-//   - v31: precursor_B, obs_B, report_B, reports, and KeyValueState I/O volume
-//     (kvread_B, kvwrite_B, kvkeys) — the incremental state cost v30 lacks.
+//   - v31: precursor_B, obs_B, report_B, reports, blob_B, and KeyValueState I/O
+//     volume (kvread_B, kvwrite_B, kvkeys) — the incremental state cost v30 lacks.
+//   - both: wire_B, the modelled bytes a round moves across the DON (see
+//     wireBytesV30 / wireBytesV31). The bench runs one plugin in process, so
+//     this is derived from the sizes above, not measured.
 func BenchmarkFullRound(b *testing.B) {
 	for _, w := range benchWorkloads {
 		defs, _ := w.channelDefinitions()
@@ -103,6 +107,7 @@ func BenchmarkFullRound(b *testing.B) {
 			b.ReportMetric(float64(len(obs)), "obs_B/op")
 			b.ReportMetric(float64(reportBytes(reports)), "report_B/op")
 			b.ReportMetric(float64(len(reports)), "reports/op")
+			b.ReportMetric(float64(wireBytesV30(benchN, len(obs), len(outcome))), "wire_B/op")
 		})
 
 		b.Run(w.String()+"/v31", func(b *testing.B) {
@@ -137,8 +142,25 @@ func BenchmarkFullRound(b *testing.B) {
 			b.ReportMetric(float64(m.kvReadBytes), "kvread_B/op")
 			b.ReportMetric(float64(m.kvWriteBytes), "kvwrite_B/op")
 			b.ReportMetric(float64(m.kvKeys), "kvkeys/op")
+			b.ReportMetric(float64(wireBytesV31(benchN, m.obsBytes, m.precBytes, m.blobBytes)), "wire_B/op")
 		})
 	}
+}
+
+// wireBytesV30 models the bytes one v30 round moves across a DON of n oracles:
+// every oracle sends its observation to the leader, and the leader sends the
+// outcome to every oracle. Stream values travel inside each observation.
+func wireBytesV30(n, obsBytes, outcomeBytes int) int {
+	return n*obsBytes + n*outcomeBytes
+}
+
+// wireBytesV31 models the bytes one v31 round moves across a DON of n oracles:
+// the same observation and precursor traffic as v30, plus every oracle's blob
+// fetched once by each of its n-1 peers. Stream values travel once per peer
+// through the blob, off the round critical path, instead of inside every
+// observation. The blob term grows with n squared.
+func wireBytesV31(n, obsBytes, precursorBytes, blobBytes int) int {
+	return n*obsBytes + n*precursorBytes + n*(n-1)*blobBytes
 }
 
 // ---------------------------------------------------------------------------
@@ -314,11 +336,13 @@ func probeV31(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInfo],
 	cr := &countingReader{inner: rtx}
 	// v31 observations reference stream values by blob handle, so obs_B/op alone
 	// understates what a round puts on the wire; blobBytes captures the payload
-	// the blob broadcast for this round added.
-	blobBytesBefore := bbf.BroadcastBytes()
+	// the cycle this Observation kicks broadcasts, which lands on the pump
+	// goroutine after Observation returns.
+	broadcastsBefore, blobBytesBefore := bbf.Broadcasts(), bbf.BroadcastBytes()
 	obs, err := p.Observation(ctx, seqNr, ocrtypes.AttributedQuery{}, cr, bbf)
 	rtx.Discard()
 	require.NoError(tb, err)
+	waitForPump(tb, bbf, broadcastsBefore)
 
 	wtx, err := db.NewReadWriteTransaction()
 	require.NoError(tb, err)
