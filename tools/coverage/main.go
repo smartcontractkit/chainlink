@@ -87,6 +87,8 @@ func main() {
 		err = runReport(os.Args[2:])
 	case "merge":
 		err = runMerge(os.Args[2:])
+	case "merge-profiles":
+		err = runMergeProfiles(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -104,7 +106,8 @@ func usage() {
   coverage report --profile file[,file...] [--base SHA --head SHA] [--repo DIR]
                   [--category NAME] [--json FILE] [--markdown FILE]
                   [--min-global PCT] [--min-patch PCT]
-  coverage merge --covdata dir[,dir...] --out coverage.txt`)
+  coverage merge --covdata dir[,dir...] --out coverage.txt
+  coverage merge-profiles --profile file[,file...] --out coverage.txt`)
 }
 
 func runMerge(args []string) error {
@@ -140,6 +143,58 @@ func runMerge(args []string) error {
 	textfmt.Stderr = os.Stderr
 	if err := textfmt.Run(); err != nil {
 		return fmt.Errorf("covdata textfmt: %w", err)
+	}
+	return nil
+}
+
+func runMergeProfiles(args []string) error {
+	fs := flag.NewFlagSet("merge-profiles", flag.ExitOnError)
+	profiles := fs.String("profile", "", "comma-separated text coverage profiles")
+	out := fs.String("out", "coverage.txt", "text profile output path")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	paths := splitList(*profiles)
+	if len(paths) == 0 {
+		return errors.New("--profile is required")
+	}
+	blocks, err := loadProfiles(paths)
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(*out)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err := fmt.Fprintln(f, "mode: atomic"); err != nil {
+		return err
+	}
+	keys := make([]string, 0, len(blocks))
+	for key := range blocks {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		a, b := blocks[keys[i]], blocks[keys[j]]
+		if a.File != b.File {
+			return a.File < b.File
+		}
+		if a.StartLine != b.StartLine {
+			return a.StartLine < b.StartLine
+		}
+		if a.StartCol != b.StartCol {
+			return a.StartCol < b.StartCol
+		}
+		if a.EndLine != b.EndLine {
+			return a.EndLine < b.EndLine
+		}
+		return a.EndCol < b.EndCol
+	})
+	for _, key := range keys {
+		b := blocks[key]
+		if _, err := fmt.Fprintf(f, "%s:%d.%d,%d.%d %d %d\n", b.File, b.StartLine, b.StartCol, b.EndLine, b.EndCol, b.NumStmt, b.Count); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -28,6 +28,16 @@ on:
         required: false
         type: string
         default: ""
+      patch_base:
+        description: "Optional base SHA for patch coverage"
+        required: false
+        type: string
+        default: ""
+      patch_head:
+        description: "Optional head SHA for patch coverage"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   actions: read
@@ -61,6 +71,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_SHA: ${{ inputs.sha || github.event.workflow_run.head_sha }}
           PR_NUMBER: ${{ inputs.pr || (github.event.workflow_run.pull_requests[0].number || '') }}
+          PATCH_BASE: ${{ inputs.patch_base }}
+          PATCH_HEAD: ${{ inputs.patch_head }}
         run: ./tools/coverage/collect.sh
 
       - name: Upload merged report
