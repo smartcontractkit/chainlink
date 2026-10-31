@@ -25,6 +25,7 @@ import (
 )
 
 func TestPlugin_ThroughputAnalysis(t *testing.T) {
+	t.Parallel()
 	// --- Vault DON parameters ---
 	const (
 		donN           = 10
@@ -375,7 +376,9 @@ func TestPlugin_ThroughputAnalysis(t *testing.T) {
 	// (matches production Observation() after broadcastBlobPayloads).
 	// =========================================================================
 	t.Run("WithBlobBroadcast", func(t *testing.T) {
+		t.Parallel()
 		t.Run("GetSecrets_5secrets_7enckeys", func(t *testing.T) {
+			t.Parallel()
 			results := runBatchSweep(t,
 				func(id string) *vaultcommon.Observation {
 					return buildGetSecretsObsEntry(id, maxSecretsPerRequest, maxEncryptionKeysWC)
@@ -390,6 +393,7 @@ func TestPlugin_ThroughputAnalysis(t *testing.T) {
 		})
 
 		t.Run("CreateSecrets_5secrets_2000ByteCiphertext", func(t *testing.T) {
+			t.Parallel()
 			results := runBatchSweep(t,
 				func(id string) *vaultcommon.Observation { return buildCreateSecretsObsEntry(id, maxSecretsPerRequest) },
 				func(id string) *vaultcommon.Outcome { return buildCreateSecretsOutcomeEntry(id, maxSecretsPerRequest) },

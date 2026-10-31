@@ -34,6 +34,7 @@ type testCase struct {
 }
 
 func TestFeeder(t *testing.T) {
+	t.Parallel()
 	tests := []testCase{
 		{
 			name:                "single missing block",
@@ -182,7 +183,10 @@ func TestFeeder(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, test.testFeeder)
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			test.testFeeder(t)
+		})
 	}
 }
 
@@ -232,6 +236,7 @@ func (test testCase) testFeeder(t *testing.T) {
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {
+	t.Parallel()
 	coordinator := &blockhashstore.TestCoordinator{
 		RequestEvents: []blockhashstore.Event{{Block: 74, ID: "request"}},
 	}

@@ -9,11 +9,13 @@ import (
 )
 
 func Test_InitMonitoringResources(t *testing.T) {
+	t.Parallel()
 	_, err := newSyncerMetricLabeler()
 	require.NoError(t, err)
 }
 
 func Test_SyncerMetricsLabeler(t *testing.T) {
+	t.Parallel()
 	testSyncerMetricLabeler := syncerMetricLabeler{metrics.NewLabeler(), nil, nil}
 	testSyncerMetricLabeler2 := testSyncerMetricLabeler.with("foo", "baz")
 	require.Equal(t, "baz", testSyncerMetricLabeler2.Labels["foo"])

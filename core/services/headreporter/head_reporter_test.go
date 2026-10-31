@@ -21,7 +21,9 @@ func NewHead() evmtypes.Head {
 }
 
 func Test_HeadReporterService(t *testing.T) {
+	t.Parallel()
 	t.Run("report everything", func(t *testing.T) {
+		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
 
 		headReporter := NewMockHeadReporter(t)
@@ -44,6 +46,7 @@ func Test_HeadReporterService(t *testing.T) {
 	})
 
 	t.Run("has default report period", func(t *testing.T) {
+		t.Parallel()
 		service := NewHeadReporterService(pgtest.NewSqlxDB(t), logger.TestLogger(t), NewMockHeadReporter(t))
 		assert.Equal(t, 15*time.Second, service.reportPeriod)
 	})

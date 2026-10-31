@@ -20,6 +20,7 @@ import (
 )
 
 func TestTransmitter(t *testing.T) {
+	t.Parallel()
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clockwork.NewFakeClock(), time.Hour)

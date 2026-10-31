@@ -60,16 +60,23 @@ func setupDB(t *testing.T) *sqlx.DB {
 	return sqlx
 }
 
-func Test_DB_ReadWriteState(t *testing.T) {
-	sqlDB := setupDB(t)
-
-	configDigest := testhelpers.MakeConfigDigest(t)
-	ethKeyStore := cltest.NewKeyStore(t, sqlDB).Eth()
+func newOCR2TestDB(t *testing.T) (*sqlx.DB, job.OCR2OracleSpec) {
+	t.Helper()
+	db := setupDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-	spec := MustInsertOCROracleSpec(t, sqlDB, key.EIP55Address)
+	return db, MustInsertOCROracleSpec(t, db, key.EIP55Address)
+}
+
+func Test_DB_ReadWriteState(t *testing.T) {
+	t.Parallel()
+	configDigest := testhelpers.MakeConfigDigest(t)
 	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes state", func(t *testing.T) {
+		t.Parallel()
+		// Each subtest writes state for the same spec, so it needs its own database.
+		sqlDB, spec := newOCR2TestDB(t)
 		db := ocr2.NewDB(sqlDB, spec.ID, defaultPluginID, lggr)
 		state := ocrtypes.PersistentState{
 			Epoch:                1,
@@ -87,6 +94,8 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("updates state", func(t *testing.T) {
+		t.Parallel()
+		sqlDB, spec := newOCR2TestDB(t)
 		db := ocr2.NewDB(sqlDB, spec.ID, defaultPluginID, lggr)
 		newState := ocrtypes.PersistentState{
 			Epoch:                2,
@@ -104,6 +113,8 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
+		t.Parallel()
+		sqlDB, spec := newOCR2TestDB(t)
 		db := ocr2.NewDB(sqlDB, spec.ID, defaultPluginID, lggr)
 		state := ocrtypes.PersistentState{
 			Epoch:                3,
@@ -124,6 +135,8 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong config digest", func(t *testing.T) {
+		t.Parallel()
+		sqlDB, spec := newOCR2TestDB(t)
 		db := ocr2.NewDB(sqlDB, spec.ID, defaultPluginID, lggr)
 		state := ocrtypes.PersistentState{
 			Epoch:                4,
@@ -142,7 +155,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 }
 
 func Test_DB_ReadWriteConfig(t *testing.T) {
-	sqlDB := setupDB(t)
+	t.Parallel()
 
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:          testhelpers.MakeConfigDigest(t),
@@ -154,12 +167,12 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		OffchainConfigVersion: 111,
 		OffchainConfig:        []byte{0x03, 0x04},
 	}
-	ethKeyStore := cltest.NewKeyStore(t, sqlDB).Eth()
-	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-	spec := MustInsertOCROracleSpec(t, sqlDB, key.EIP55Address)
 	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes config", func(t *testing.T) {
+		t.Parallel()
+		// Each subtest writes config for the same spec, so it needs its own database.
+		sqlDB, spec := newOCR2TestDB(t)
 		db := ocr2.NewDB(sqlDB, spec.ID, defaultPluginID, lggr)
 
 		err := db.WriteConfig(t.Context(), config)
@@ -172,6 +185,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("updates config", func(t *testing.T) {
+		t.Parallel()
+		sqlDB, spec := newOCR2TestDB(t)
 		db := ocr2.NewDB(sqlDB, spec.ID, defaultPluginID, lggr)
 
 		newConfig := ocrtypes.ContractConfig{
@@ -190,6 +205,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
+		t.Parallel()
+		sqlDB, spec := newOCR2TestDB(t)
 		db := ocr2.NewDB(sqlDB, spec.ID, defaultPluginID, lggr)
 
 		err := db.WriteConfig(t.Context(), config)
@@ -204,6 +221,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("reads and writes config for multiple plugins", func(t *testing.T) {
+		t.Parallel()
+		sqlDB, spec := newOCR2TestDB(t)
 		otherPluginID := int32(2)
 		db1 := ocr2.NewDB(sqlDB, spec.ID, defaultPluginID, lggr)
 		db2 := ocr2.NewDB(sqlDB, spec.ID, otherPluginID, lggr)
@@ -237,7 +256,9 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 	require.Equal(t, pt1.AttributedSignatures, pt2.AttributedSignatures)
 }
 
+//nolint:paralleltest // subtests build on rows written by earlier subtests
 func Test_DB_PendingTransmissions(t *testing.T) {
+	t.Parallel()
 	sqlDB := setupDB(t)
 
 	ethKeyStore := cltest.NewKeyStore(t, sqlDB).Eth()
@@ -445,6 +466,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 }
 
 func Test_DB_ReadWriteProtocolState(t *testing.T) {
+	t.Parallel()
 	sqlDB := setupDB(t)
 
 	lggr := logger.TestLogger(t)
@@ -515,6 +537,7 @@ func Test_DB_ReadWriteProtocolState(t *testing.T) {
 }
 
 func Test_DB_ReadWriteBlock(t *testing.T) {
+	t.Parallel()
 	sqlDB := setupDB(t)
 
 	lggr := logger.TestLogger(t)
