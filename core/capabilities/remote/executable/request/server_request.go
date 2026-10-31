@@ -157,6 +157,8 @@ type ServerRequest struct {
 	// executionClaimed is set to true exactly once (via CAS) by the message that
 	// wins the right to execute the capability. All other messages skip execution.
 	executionClaimed atomic.Bool
+	// claimedCh is closed right after executionClaimed is set.
+	claimedCh chan struct{}
 
 	// executionCancel cancels the in-flight capability execution context.
 	// Set under stateMux when execution starts; called by Cancel to stop
@@ -197,6 +199,7 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method, capa
 		dispatcher:              dispatcher,
 		requesters:              map[p2ptypes.PeerID]bool{},
 		responseSentToRequester: map[p2ptypes.PeerID]bool{},
+		claimedCh:               make(chan struct{}),
 		callingDon:              callingDon,
 		requestMessageID:        requestID,
 		method:                  method,
@@ -274,6 +277,7 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 	// and either wait for the executor's fan-out or self-send if the response
 	// is already available.
 	if quorumReached && payloadReady && !hasResponse && e.executionClaimed.CompareAndSwap(false, true) {
+		close(e.claimedCh)
 		switch e.method {
 		case types.MethodExecute:
 			ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
@@ -315,6 +319,23 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 	}
 
 	return nil
+}
+
+// ExecutionClaimed reports whether a message has already claimed the right to execute the
+// capability. Once claimed, OnMessage never executes the capability, so it only performs
+// short bookkeeping and response fan-out.
+func (e *ServerRequest) ExecutionClaimed() bool {
+	return e.executionClaimed.Load()
+}
+
+// Claimed returns a channel that is closed once ExecutionClaimed becomes true.
+func (e *ServerRequest) Claimed() <-chan struct{} {
+	return e.claimedCh
+}
+
+// Deadline returns the time after which the request is considered expired.
+func (e *ServerRequest) Deadline() time.Time {
+	return e.createdTime.Add(e.requestTimeout)
 }
 
 func (e *ServerRequest) Expired() bool {
