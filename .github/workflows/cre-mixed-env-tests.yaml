@@ -373,6 +373,9 @@ jobs:
           aws-role-duration-seconds: "1800"
           set-git-config: "true"
 
+      - name: Start coverage flusher
+        uses: $/.github/actions/start-coverage-flusher
+
       - name: Run CRE Smoke system tests (mixed-env)
         id: run-tests
         if: ${{ steps.baseline.outputs.skip != 'true' }}
@@ -453,6 +456,31 @@ jobs:
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
           trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
           artifact-name: mixed-env-${{ matrix.tests.test_id }}_test_logs
+
+      - name: Collect coverage
+        if: ${{ always() }}
+        uses: $/.github/actions/collect-coverage
+        with:
+          destination: ${{ github.workspace }}/.covdata/e2e-${{ matrix.tests.test_id }}
+          image: ${{ env.CHAINLINK_IMAGE_FULL }}
+
+      - name: Upload coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-e2e-${{ matrix.tests.test_id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .covdata/e2e-${{ matrix.tests.test_id }}
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Store test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-e2e-${{ matrix.tests.test_id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/junit-report.xml
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Show Docker containers status
         if: failure() || cancelled()

@@ -3,10 +3,21 @@ set -ex
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 TIMEOUT="${TIMEOUT:-10s}"
 COUNT="${COUNT:-5}"
+COVERAGE=${COVERAGE:-false}
+
+COVERAGE_FLAGS=""
+COVERAGE_ARGS=""
+if [[ "$COVERAGE" == "true" ]]; then
+  COVERAGE_DIR=${GOCOVERDIR:-$PWD/.covdata}
+  mkdir -p "$COVERAGE_DIR"
+  COVERAGE_FLAGS="-covermode=atomic -cover -coverpkg=${COVERPKG:-./...}"
+  COVERAGE_ARGS="-args -test.gocoverdir=$COVERAGE_DIR"
+  echo "Coverage enabled: $COVERAGE_DIR"
+fi
 
 echo "Test execution results: ---------------------"
 echo ""
-GORACE="log_path=$PWD/race" go test -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | cat > $OUTPUT_FILE
+GORACE="log_path=$PWD/race" go test -race -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $COVERAGE_FLAGS "$1" $COVERAGE_ARGS | cat > $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
 
 

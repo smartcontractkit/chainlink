@@ -323,6 +323,7 @@ jobs:
             setup-sui: "false"
             install-loopps: "false"
             build-cache-write: always
+            coverage: "true"
 
           - cmd: go_core_tests_integration
             os:
@@ -341,6 +342,7 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             build-cache-write: always
+            coverage: "true"
 
           - cmd: go_core_fuzz
             os:
@@ -493,6 +495,8 @@ jobs:
         shell: bash
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
+          COVERAGE: ${{ matrix.type.coverage || 'false' }}
+          GOCOVERDIR: ${{ github.workspace }}/.covdata/${{ matrix.type.cmd }}
           OUTPUT_FILE: ./output.txt
           PRODUCE_JUNIT_XML: ${{ matrix.type.trunk-auto-quarantine }}
           TRUNK_AUTO_QUARANTINE: ${{ matrix.type.trunk-auto-quarantine }}
@@ -564,6 +568,26 @@ jobs:
             ./junit.xml
           retention-days: 7
 
+      - name: Store coverage artifacts
+        if:
+          ${{ always() && matrix.type.should-run == 'true' && matrix.type.coverage
+          == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-core-${{ matrix.type.cmd }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .covdata/${{ matrix.type.cmd }}
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Store test results
+        if: ${{ always() && matrix.type.should-run == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-core-${{ matrix.type.cmd }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: junit.xml
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Notify Slack on Race Test Failure
         if: |
           failure() &&
@@ -599,6 +623,8 @@ jobs:
       - name: Run Tests
         env:
           OUTPUT_FILE: ./output.txt
+          COVERAGE: "true"
+          GOCOVERDIR: ${{ github.workspace }}/.covdata/scripts
         run: ./tools/bin/go_core_scripts_tests ./...
 
       - name: Store test report artifacts
@@ -610,6 +636,15 @@ jobs:
             ./output.txt
             ./coverage.txt
           retention-days: 7
+
+      - name: Store coverage artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-core-scripts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .covdata/scripts
+          retention-days: 7
+          if-no-files-found: warn
 
   clean:
     name: Clean Go Tidy & Generate
