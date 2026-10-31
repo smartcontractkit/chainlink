@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"go.opentelemetry.io/otel/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 type SharedPeerMetrics struct {
@@ -20,21 +18,21 @@ type SharedPeerMetrics struct {
 	groupUpdateDurationMs     metric.Int64Histogram
 }
 
-func initSharedPeerMetrics() (m *SharedPeerMetrics, err error) {
+func initSharedPeerMetrics(meter metric.Meter) (m *SharedPeerMetrics, err error) {
 	m = &SharedPeerMetrics{}
-	m.discoveryGroups, err = beholder.GetMeter().Int64Gauge("platform_don2don_discovery_groups")
+	m.discoveryGroups, err = meter.Int64Gauge("platform_don2don_discovery_groups")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register platform_don2don_discovery_groups gauge: %w", err)
 	}
-	m.messagingGroups, err = beholder.GetMeter().Int64Gauge("platform_don2don_messaging_groups")
+	m.messagingGroups, err = meter.Int64Gauge("platform_don2don_messaging_groups")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register platform_don2don_messaging_groups gauge: %w", err)
 	}
-	m.groupUpdateFailureCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_group_update_failure_total")
+	m.groupUpdateFailureCounter, err = meter.Int64Counter("platform_don2don_group_update_failure_total")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register platform_don2don_group_update_failure_total counter: %w", err)
 	}
-	m.groupUpdateDurationMs, err = beholder.GetMeter().Int64Histogram(
+	m.groupUpdateDurationMs, err = meter.Int64Histogram(
 		"platform_don2don_group_update_duration_ms",
 		metric.WithUnit("ms"))
 	if err != nil {

@@ -12,7 +12,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
@@ -73,8 +72,8 @@ type requestLifecycleMetrics struct {
 	transmitNotInLocalQueue     metric.Int64Counter
 }
 
-func newRequestLifecycleMetrics() (*requestLifecycleMetrics, error) {
-	lat, err := beholder.GetMeter().Int64Histogram(
+func newRequestLifecycleMetrics(meter metric.Meter) (*requestLifecycleMetrics, error) {
+	lat, err := meter.Int64Histogram(
 		"platform_vault_request_lifecycle_stage_latency_ms",
 		metric.WithUnit("ms"),
 	)
@@ -82,7 +81,7 @@ func newRequestLifecycleMetrics() (*requestLifecycleMetrics, error) {
 		return nil, fmt.Errorf("request lifecycle stage latency histogram: %w", err)
 	}
 
-	rounds, err := beholder.GetMeter().Int64Histogram(
+	rounds, err := meter.Int64Histogram(
 		"platform_vault_request_lifecycle_stage_rounds_delta",
 		metric.WithDescription("OCR seqNr delta from the blob_broadcasting stage to subsequent lifecycle stages."),
 	)
@@ -90,27 +89,27 @@ func newRequestLifecycleMetrics() (*requestLifecycleMetrics, error) {
 		return nil, fmt.Errorf("request lifecycle rounds histogram: %w", err)
 	}
 
-	outcome, err := beholder.GetMeter().Int64Counter("platform_vault_capability_request_outcome_total")
+	outcome, err := meter.Int64Counter("platform_vault_capability_request_outcome_total")
 	if err != nil {
 		return nil, fmt.Errorf("vault capability request outcome counter: %w", err)
 	}
 
-	timeout, err := beholder.GetMeter().Int64Counter("platform_vault_request_lifecycle_timeout_total")
+	timeout, err := meter.Int64Counter("platform_vault_request_lifecycle_timeout_total")
 	if err != nil {
 		return nil, fmt.Errorf("vault request lifecycle timeout counter: %w", err)
 	}
 
-	missBase, err := beholder.GetMeter().Int64Counter("platform_vault_request_lifecycle_round_delta_skipped_total")
+	missBase, err := meter.Int64Counter("platform_vault_request_lifecycle_round_delta_skipped_total")
 	if err != nil {
 		return nil, fmt.Errorf("vault request lifecycle round delta skipped counter: %w", err)
 	}
 
-	respErr, err := beholder.GetMeter().Int64Counter("platform_vault_capability_request_response_error_total")
+	respErr, err := meter.Int64Counter("platform_vault_capability_request_response_error_total")
 	if err != nil {
 		return nil, fmt.Errorf("vault capability response error counter: %w", err)
 	}
 
-	received, err := beholder.GetMeter().Int64Counter(
+	received, err := meter.Int64Counter(
 		"platform_vault_capability_requests_received_total",
 		metric.WithDescription("Total Vault capability requests received by this node (for deriving request rate)."),
 	)
@@ -118,7 +117,7 @@ func newRequestLifecycleMetrics() (*requestLifecycleMetrics, error) {
 		return nil, fmt.Errorf("vault capability requests received counter: %w", err)
 	}
 
-	pqNoLocal, err := beholder.GetMeter().Int64Counter(
+	pqNoLocal, err := meter.Int64Counter(
 		"platform_vault_request_lifecycle_pending_queue_not_in_local_queue_total",
 		metric.WithDescription("Pending-queue write observed for a request ID that was not present in this node's local Queue (request appeared in the OCR round but was not received locally first)."),
 	)
@@ -126,7 +125,7 @@ func newRequestLifecycleMetrics() (*requestLifecycleMetrics, error) {
 		return nil, fmt.Errorf("vault pending queue not in local Queue counter: %w", err)
 	}
 
-	txNoLocal, err := beholder.GetMeter().Int64Counter(
+	txNoLocal, err := meter.Int64Counter(
 		"platform_vault_request_lifecycle_transmit_not_in_local_queue_total",
 		metric.WithDescription("OCR transmit for a request ID not present in this node's local Queue (DON responded but this node had not recorded the request locally)."),
 	)
@@ -157,9 +156,9 @@ type RequestLifecycleTracker struct {
 	digest  atomic.Value // string
 }
 
-// NewRequestLifecycleTracker builds a tracker with OTLP metrics registered via beholder.
-func NewRequestLifecycleTracker(lggr logger.Logger) (*RequestLifecycleTracker, error) {
-	m, err := newRequestLifecycleMetrics()
+// NewRequestLifecycleTracker builds a tracker with OTLP metrics registered on meter.
+func NewRequestLifecycleTracker(lggr logger.Logger, meter metric.Meter) (*RequestLifecycleTracker, error) {
+	m, err := newRequestLifecycleMetrics(meter)
 	if err != nil {
 		return nil, err
 	}

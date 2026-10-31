@@ -21,7 +21,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -144,11 +143,7 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 		return nil, nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	meter := cfg.Meter
-	if meter == nil {
-		meter = beholder.GetMeter()
-	}
-	em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
+	em, err := monitoring.InitMonitoringResourcesWithMeter(cfg.Meter)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not initialize monitoring resources: %w", err)
 	}

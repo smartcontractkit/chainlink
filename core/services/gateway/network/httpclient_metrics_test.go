@@ -6,16 +6,17 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 )
 
 func TestNewHTTPClientMetrics(t *testing.T) {
-	m, err := newHTTPClientMetrics()
+	m, err := newHTTPClientMetrics(noop.Meter{})
 	require.NoError(t, err)
 	require.NotNil(t, m)
 }
 
 func TestHTTPClientMetrics_RecordPhase(t *testing.T) {
-	m, err := newHTTPClientMetrics()
+	m, err := newHTTPClientMetrics(noop.Meter{})
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -33,7 +34,7 @@ func TestHTTPClientMetrics_RecordPhase(t *testing.T) {
 }
 
 func TestHTTPClientMetrics_RecordTotal(t *testing.T) {
-	m, err := newHTTPClientMetrics()
+	m, err := newHTTPClientMetrics(noop.Meter{})
 	require.NoError(t, err)
 
 	ctx := context.Background()

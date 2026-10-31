@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
@@ -29,6 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	connector_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 )
+
+var testMeter = noop.NewMeterProvider().Meter("test")
 
 func testMasterPublicKey(t *testing.T) (*tdh2easy.PublicKey, string) {
 	t.Helper()
@@ -676,6 +679,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				limits.Factory{Settings: cresettings.DefaultGetter},
 				vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
 				nil,
+				testMeter,
 			)
 			require.NoError(t, err)
 
@@ -767,6 +771,7 @@ func TestGatewayHandler_DeleteListWithoutPublicKeyFetch(t *testing.T) {
 				limits.Factory{Settings: cresettings.DefaultGetter},
 				vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
 				nil,
+				testMeter,
 			)
 			require.NoError(t, err)
 
@@ -803,6 +808,7 @@ func TestGatewayHandler_CreateUpdateReusesCachedPublicKey(t *testing.T) {
 		limits.Factory{Settings: cresettings.DefaultGetter},
 		vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
 		nil,
+		testMeter,
 	)
 	require.NoError(t, err)
 
@@ -853,6 +859,7 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 		limits.Factory{Settings: cresettings.DefaultGetter},
 		vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
 		nil,
+		testMeter,
 	)
 	require.NoError(t, err)
 
@@ -890,6 +897,7 @@ func TestGatewayHandler_Lifecycle_DefaultAuthorizer_NoJWTConfig(t *testing.T) {
 		limits.Factory{Settings: cresettings.DefaultGetter},
 		nil,
 		nil,
+		testMeter,
 	)
 	require.NoError(t, err)
 

@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -92,8 +94,8 @@ type NewServicesFn func(ctx context.Context, capID string, donID uint32, command
 
 // useOffchainRegistry is the cutover gate. When false (default), the offchain registry passed to
 // Reconcile is used for cross-validation telemetry only.
-func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabilities, newServicesFn NewServicesFn, useOffchainRegistry bool) (LocalCapabilityManager, error) {
-	metrics, err := newMetrics()
+func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabilities, newServicesFn NewServicesFn, useOffchainRegistry bool, meter metric.Meter) (LocalCapabilityManager, error) {
+	metrics, err := newMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local capability manager metrics: %w", err)
 	}

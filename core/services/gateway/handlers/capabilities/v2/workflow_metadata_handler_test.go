@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -50,7 +51,7 @@ func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, 
 	}
 
 	cfg := WithDefaults(ServiceConfig{})
-	testMetrics, err := metrics.NewMetrics(donConfig.Members)
+	testMetrics, err := metrics.NewMetrics(donConfig.Members, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	shards, nodeAddrToShard := singleShardEndpoints(t, donConfig, mockDon)
 	handler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
@@ -254,7 +255,7 @@ func createMultiShardMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, *m
 	require.NoError(t, err)
 	shards, nodeAddrToShard, err := dons.BuildShardEndpoints()
 	require.NoError(t, err)
-	testMetrics, err := metrics.NewMetrics(handlers.AllMembers(shards))
+	testMetrics, err := metrics.NewMetrics(handlers.AllMembers(shards), noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	cfg := WithDefaults(ServiceConfig{})
 	return NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics), mockDon0, mockDon1

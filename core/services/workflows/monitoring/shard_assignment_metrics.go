@@ -8,7 +8,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 )
 
@@ -63,37 +62,8 @@ type ShardAssignmentMetrics struct {
 	lastParseErrorHash uint32
 }
 
-var (
-	globalShardAssignmentMetricsMu     sync.Mutex
-	globalShardAssignmentMetrics       *ShardAssignmentMetrics
-	globalShardAssignmentMetricsClient *beholder.Client
-)
-
-// GlobalShardAssignmentMetrics binds the shard assignment instruments to the
-// meter of the current global beholder client. beholder starts out with a
-// noop client and only receives the real one via SetClient during boot, so a
-// binding made too early must not be cached for the life of the process
-// (every metric would be silently dropped). The binding is therefore retried
-// whenever the global client changes, mirroring how the rest of the codebase
-// reads beholder.GetMeter() at call time instead of caching it. Failures are
-// not cached either: a later call retries the registration.
-func GlobalShardAssignmentMetrics() (*ShardAssignmentMetrics, error) {
-	client := beholder.GetClient()
-	globalShardAssignmentMetricsMu.Lock()
-	defer globalShardAssignmentMetricsMu.Unlock()
-	if globalShardAssignmentMetrics != nil && globalShardAssignmentMetricsClient == client {
-		return globalShardAssignmentMetrics, nil
-	}
-	m, err := NewShardAssignmentMetricsWithMeter(client.Meter)
-	if err != nil {
-		return nil, err
-	}
-	globalShardAssignmentMetrics, globalShardAssignmentMetricsClient = m, client
-	return m, nil
-}
-
 // NewShardAssignmentMetricsWithMeter registers the shard assignment instruments
-// on the given meter instead of the global beholder meter; exposed for tests.
+// on meter.
 func NewShardAssignmentMetricsWithMeter(meter metric.Meter) (*ShardAssignmentMetrics, error) {
 	m := &ShardAssignmentMetrics{}
 	var err error

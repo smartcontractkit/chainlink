@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -40,11 +41,12 @@ type handlerFactory struct {
 	lf                     limits.Factory
 	httpClientFactory      network.HTTPClientFactory
 	orgResolver            orgresolver.OrgResolver // optional; nil if the node isn't configured to resolve orgs (e.g. no Linking Service)
+	meter                  metric.Meter
 }
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry registry.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory, orgResolver orgresolver.OrgResolver) HandlerFactory {
+func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry registry.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory, orgResolver orgresolver.OrgResolver, meter metric.Meter) HandlerFactory {
 	return &handlerFactory{
 		legacyChains,
 		ds,
@@ -55,6 +57,7 @@ func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.D
 		lf,
 		httpClientFactory,
 		orgResolver,
+		meter,
 	}
 }
 
@@ -73,18 +76,18 @@ func (hf *handlerFactory) NewHandler(
 	case DummyHandlerType:
 		return handlers.NewDummyHandler(dons, hf.lggr)
 	case WebAPICapabilitiesType:
-		return capabilities.NewHandler(handlerConfig, dons, hf.httpClient, hf.lggr)
+		return capabilities.NewHandler(handlerConfig, dons, hf.httpClient, hf.lggr, hf.meter)
 	case HTTPCapabilityType:
-		return v2.NewGatewayHandler(handlerConfig, dons, hf.httpClient, hf.lggr, hf.lf, hf.httpClientFactory, hf.orgResolver)
+		return v2.NewGatewayHandler(handlerConfig, dons, hf.httpClient, hf.lggr, hf.lf, hf.httpClientFactory, hf.orgResolver, hf.meter)
 	case VaultHandlerType:
-		return vault.NewHandler(handlerConfig, dons, hf.capabilitiesRegistry, hf.workflowRegistrySyncer, hf.lggr, clockwork.NewRealClock(), hf.lf)
+		return vault.NewHandler(handlerConfig, dons, hf.capabilitiesRegistry, hf.workflowRegistrySyncer, hf.lggr, clockwork.NewRealClock(), hf.lf, hf.meter)
 	case ConfidentialRelayHandlerType:
 		// For backward compatibility, convert sharded config to legacy DONConfig
 		// using the first DON's first shard. TODO(CRE-1640): migrate to full
 		// shardedDONs/shardsConnMgrs support.
 		donConfig := shardedDONsToLegacy(dons.DONs[0])
 		don := dons.ConnMgrs[0][0]
-		return confidentialrelay.NewHandler(handlerConfig, donConfig, don, hf.lggr, clockwork.NewRealClock(), hf.lf)
+		return confidentialrelay.NewHandler(handlerConfig, donConfig, don, hf.lggr, clockwork.NewRealClock(), hf.lf, hf.meter)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

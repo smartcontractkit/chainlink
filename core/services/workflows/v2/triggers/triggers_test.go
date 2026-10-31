@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
@@ -131,7 +132,14 @@ func TestParseWorkflowID(t *testing.T) {
 
 func newTestMetrics(t *testing.T) *monitoring.WorkflowsMetricLabeler {
 	t.Helper()
-	em, err := monitoring.InitMonitoringResources()
+	return newTestMetricsWithMeter(t, testMeter())
+}
+
+// newTestMetricsWithMeter returns labelers whose metrics register on meter, so a
+// test can read them back from the meter's reader.
+func newTestMetricsWithMeter(t *testing.T, meter metric.Meter) *monitoring.WorkflowsMetricLabeler {
+	t.Helper()
+	em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 	require.NoError(t, err)
 	return monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 }

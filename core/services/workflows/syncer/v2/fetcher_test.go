@@ -74,7 +74,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
-		fetcher := NewFetcherService(lggr, connWrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, connWrapper, storageService, testMeter(), gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -104,7 +104,7 @@ func TestNewFetcherService(t *testing.T) {
 		t.Parallel()
 		sharedConnector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
-		fetcher := NewFetcherService(lggr, sharedWrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, sharedWrapper, storageService, testMeter(), gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -128,7 +128,7 @@ func TestNewFetcherService(t *testing.T) {
 		t.Parallel()
 		sharedConnector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
-		fetcher := NewFetcherService(lggr, sharedWrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, sharedWrapper, storageService, testMeter(), gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -142,7 +142,7 @@ func TestNewFetcherService(t *testing.T) {
 		connWrapper := newConnectorWrapper(connector)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
-		fetcher := NewFetcherService(lggr, connWrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, connWrapper, storageService, testMeter(), gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -172,7 +172,7 @@ func TestNewFetcherService(t *testing.T) {
 		connWrapper := newConnectorWrapper(connector)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
-		fetcher := NewFetcherService(lggr, connWrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, connWrapper, storageService, testMeter(), gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -226,7 +226,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector := gcmocks.NewGatewayConnector(t)
 		connWrapper := newConnectorWrapper(connector)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
-		fetcher := NewFetcherService(lggr, connWrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, connWrapper, storageService, testMeter(), gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -256,7 +256,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
-		fetcher := NewFetcherService(lggr, connWrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, connWrapper, storageService, testMeter(), gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -290,7 +290,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
-		fetcher := NewFetcherService(lggr, connWrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, connWrapper, storageService, testMeter(), gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -319,7 +319,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
-		fetcher := NewFetcherService(lggr, connWrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, connWrapper, storageService, testMeter(), gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -349,14 +349,14 @@ func TestNewFetcherService(t *testing.T) {
 
 	t.Run("NOK-no-gateway-connector", func(t *testing.T) {
 		t.Parallel()
-		fetcher := NewFetcherService(lggr, nil, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, nil, storageService, testMeter(), gateway.WithFixedStart())
 		require.ErrorIs(t, fetcher.Start(ctx), ErrNoGatewayConnector)
 		defer fetcher.Close()
 	})
 
 	t.Run("NOK-no-storage-client", func(t *testing.T) {
 		t.Parallel()
-		fetcher := NewFetcherService(lggr, sharedWrapper, nil, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, sharedWrapper, nil, testMeter(), gateway.WithFixedStart())
 		require.ErrorIs(t, fetcher.Start(ctx), ErrNoStorageClient)
 		defer fetcher.Close()
 	})

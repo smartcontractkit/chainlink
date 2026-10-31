@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -376,7 +377,7 @@ func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector), serviceCo
 
 	mockFn(connector)
 
-	connectorHandler, err := NewOutgoingConnectorHandler(connector, serviceConfig, ghcapabilities.MethodWorkflowSyncer, log, gateway.WithFixedStart())
+	connectorHandler, err := NewOutgoingConnectorHandler(connector, serviceConfig, ghcapabilities.MethodWorkflowSyncer, log, noop.NewMeterProvider().Meter("test"), gateway.WithFixedStart())
 	require.NoError(t, err)
 	return connector, connectorHandler
 }

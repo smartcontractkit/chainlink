@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -446,7 +447,7 @@ func TestServerRequest_WriteReportSignatureAggregation(t *testing.T) {
 
 	capability := &recordingCapability{}
 	sr, err := request.NewServerRequest(capability, types.MethodExecute, evmFamily.capabilityID, 2, capabilityPeerID, fx.callingDon,
-		"requestMessageID", dispatcher, time.Minute, "WriteReport", limits.NewGateLimiter(false), fx.newAccumulator(t), logger.Test(t))
+		"requestMessageID", dispatcher, time.Minute, "WriteReport", limits.NewGateLimiter(false), fx.newAccumulator(t), logger.Test(t), noop.Meter{})
 	require.NoError(t, err)
 
 	send := func(sender p2ptypes.PeerID, payload []byte) {

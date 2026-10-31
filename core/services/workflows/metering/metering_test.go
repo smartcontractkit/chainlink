@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -2064,7 +2065,7 @@ func Test_MeterReports_Length(t *testing.T) {
 
 	billingClient := mocks.NewBillingClient(t)
 
-	em, err := monitoring.InitMonitoringResources()
+	em, err := monitoring.InitMonitoringResourcesWithMeter(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	metrics := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 	mrs := NewReports(billingClient, "", "", logger.Nop(), defaultLabels, metrics, dummyRegistryAddress, dummyChainSelector, workflowV2)
@@ -2330,7 +2331,7 @@ func newTestReport(t *testing.T, lggr logger.Logger, client *mocks.BillingClient
 }
 
 func defaultMetrics(t *testing.T) *monitoring.WorkflowsMetricLabeler {
-	em, err := monitoring.InitMonitoringResources()
+	em, err := monitoring.InitMonitoringResourcesWithMeter(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	return monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)

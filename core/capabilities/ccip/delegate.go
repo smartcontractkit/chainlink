@@ -17,6 +17,7 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -64,6 +65,9 @@ type Delegate struct {
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	capabilityConfig      config.Capabilities
 	evmConfigs            toml.EVMConfigs
+	// beholderClient supplies the meter for the registry syncer and, via ForName, the
+	// per-package client the CCIP observation metrics publisher registers on.
+	beholderClient *beholder.Client
 
 	isNewlyCreatedJob bool
 }
@@ -79,6 +83,7 @@ func NewDelegate(
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	capabilityConfig config.Capabilities,
 	evmConfigs toml.EVMConfigs,
+	beholderClient *beholder.Client,
 ) *Delegate {
 	return &Delegate{
 		lggr:                  lggr,
@@ -91,6 +96,7 @@ func NewDelegate(
 		monitoringEndpointGen: monitoringEndpointGen,
 		capabilityConfig:      capabilityConfig,
 		evmConfigs:            evmConfigs,
+		beholderClient:        beholderClient,
 	}
 }
 
@@ -133,6 +139,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		homeChainRelayer,
 		cfg.ExternalRegistry().Address(),
 		registrysyncer.NewORM(d.ds, d.lggr),
+		d.beholderClient.Meter,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not create registry syncer: %w", err)
@@ -240,6 +247,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			ccipocr3.ChainSelector(homeChainChainSelector),
 			pluginServices.AddrCodec,
 			p2pID,
+			d.beholderClient,
 		)
 	} else {
 		oracleCreator = oraclecreator.NewBootstrapOracleCreator(

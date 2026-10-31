@@ -12,6 +12,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
@@ -66,7 +67,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 
 		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -80,7 +81,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 
 		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -107,7 +108,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 
 		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -135,7 +136,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(TestErrorCapability{err: errors.New("an error")}, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 
 		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -176,7 +177,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPrivateUserError(errors.New("error details"), caperrors.ConsensusFailed)}, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 
 		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -217,7 +218,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPrivateSystemError(errors.New("error details"), caperrors.ConsensusFailed)}, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 
 		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -258,7 +259,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPublicSystemError(errors.New("error details"), caperrors.ConsensusFailed)}, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 
 		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -299,7 +300,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPublicUserError(errors.New("error details"), caperrors.InvalidArgument)}, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 
 		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -340,7 +341,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 
 		err = sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
@@ -410,7 +411,7 @@ func Test_ServerRequest_SingleExecutionNonBlocking(t *testing.T) {
 		// before this, all onMessage calls were sequential
 		dispatcher := &concurrentTestDispatcher{}
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 
 		errCh := make(chan error, 1)
@@ -467,7 +468,7 @@ func Test_ServerRequest_SingleExecutionNonBlocking(t *testing.T) {
 		// before this, all onMessage calls were sequential
 		dispatcher := &concurrentTestDispatcher{}
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 
 		errCh := make(chan error, 1)
@@ -534,7 +535,7 @@ func Test_ServerRequest_Evictable(t *testing.T) {
 
 	newRequest := func(requestTimeout time.Duration) *request.ServerRequest {
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", &testDispatcher{}, requestTimeout, "", limits.NewGateLimiter(false), nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", &testDispatcher{}, requestTimeout, "", limits.NewGateLimiter(false), nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 		return req
 	}

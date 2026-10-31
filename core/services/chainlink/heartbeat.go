@@ -33,6 +33,8 @@ type HeartbeatConfig struct {
 	P2P          string
 	AppID        string
 	CSAPublicKey string
+	// Beholder supplies the emitter, meter, and tracer. Nil means a no-op client.
+	Beholder *beholder.Client
 }
 
 func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
@@ -54,13 +56,17 @@ func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
 		P2P:          cfg.Config.P2P().PeerID().String(),
 		AppID:        cfg.Config.AppID().String(),
 		CSAPublicKey: csaKey,
+		Beholder:     cfg.Beholder,
 	}
 }
 
 // Update the constructor to accept optional emitter and meter
 func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
-	// setup default emitter and meter
-	cme := custmsg.NewLabeler()
+	client := cfg.Beholder
+	if client == nil {
+		client = beholder.NewNoopClient()
+	}
+	cme := custmsg.NewLabelerWithEmitter(client.Emitter)
 	labels := map[string]string{"system": "Application", "version": static.Version, "commit": static.Sha}
 	if cfg.P2P != "" {
 		labels["peer_id"] = cfg.P2P
@@ -76,8 +82,8 @@ func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
 		beat:    cfg.Beat,
 		opts:    cfg,
 		emitter: cme.WithMapLabels(labels),
-		meter:   beholder.GetMeter(),
-		tracer:  beholder.GetTracer(),
+		meter:   client.Meter,
+		tracer:  client.Tracer,
 	}
 
 	// Apply test options if any

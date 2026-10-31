@@ -6,8 +6,6 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 type pluginMetrics struct {
@@ -25,13 +23,13 @@ type pluginMetrics struct {
 	pendingQueueItemOversized       metric.Int64Counter
 }
 
-func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
-	queueOverflow, err := beholder.GetMeter().Int64Counter("platform_vault_plugin_queue_overflow")
+func newPluginMetrics(configDigest string, meter metric.Meter) (*pluginMetrics, error) {
+	queueOverflow, err := meter.Int64Counter("platform_vault_plugin_queue_overflow")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue overflow counter: %w", err)
 	}
 
-	kvOperationDuration, err := beholder.GetMeter().Int64Histogram(
+	kvOperationDuration, err := meter.Int64Histogram(
 		"platform_vault_plugin_kv_operation_duration_ms",
 		metric.WithUnit("ms"),
 	)
@@ -39,7 +37,7 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create kv operation duration histogram: %w", err)
 	}
 
-	localQueueSize, err := beholder.GetMeter().Int64Histogram(
+	localQueueSize, err := meter.Int64Histogram(
 		"platform_vault_plugin_local_queue_size",
 		metric.WithUnit("{request}"),
 		metric.WithDescription("Count of items in the Vault reporting plugin local request store at Observation time"),
@@ -48,7 +46,7 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create local queue size histogram: %w", err)
 	}
 
-	observationPendingPackedItems, err := beholder.GetMeter().Int64Histogram(
+	observationPendingPackedItems, err := meter.Int64Histogram(
 		"platform_vault_plugin_observation_pending_packed_items",
 		metric.WithUnit("{request}"),
 		metric.WithDescription("Count of local-queue requests packed into pending-queue blobs in one Observation (after dedupe against KV pending queue)."),
@@ -57,7 +55,7 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create observation pending packed items histogram: %w", err)
 	}
 
-	pendingQueueWrittenSize, err := beholder.GetMeter().Int64Histogram(
+	pendingQueueWrittenSize, err := meter.Int64Histogram(
 		"platform_vault_plugin_pending_queue_written_size",
 		metric.WithUnit("{request}"),
 		metric.WithDescription("Items written to the KV pending queue after F+1 consensus aggregation."),
@@ -66,7 +64,7 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create pending queue written size histogram: %w", err)
 	}
 
-	observationPrefixCoverage, err := beholder.GetMeter().Int64Histogram(
+	observationPrefixCoverage, err := meter.Int64Histogram(
 		"platform_vault_plugin_observation_prefix_coverage",
 		metric.WithUnit("{request}"),
 		metric.WithDescription("Per-observer count of pending-queue items an oracle contributed an Ok observation for. Low outliers indicate a node withholding or truncating its observation prefix."),
@@ -75,7 +73,7 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create observation prefix coverage histogram: %w", err)
 	}
 
-	observationPrefixCoverageSpread, err := beholder.GetMeter().Int64Histogram(
+	observationPrefixCoverageSpread, err := meter.Int64Histogram(
 		"platform_vault_plugin_observation_prefix_coverage_spread",
 		metric.WithUnit("{request}"),
 		metric.WithDescription("Max minus min per-observer Ok prefix coverage across oracles for one round. High spread indicates prefix divergence stalling head-of-queue quorum."),
@@ -84,7 +82,7 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create observation prefix coverage spread histogram: %w", err)
 	}
 
-	pendingQueueStallSignals, err := beholder.GetMeter().Int64Counter(
+	pendingQueueStallSignals, err := meter.Int64Counter(
 		"platform_vault_plugin_pending_queue_stall_signal",
 		metric.WithUnit("{observation}"),
 		metric.WithDescription("Count of Vault observations that signal a pending queue stall."),
@@ -93,7 +91,7 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create pending queue stall signal counter: %w", err)
 	}
 
-	pendingQueuePurges, err := beholder.GetMeter().Int64Counter(
+	pendingQueuePurges, err := meter.Int64Counter(
 		"platform_vault_plugin_pending_queue_purge",
 		metric.WithUnit("{purge}"),
 		metric.WithDescription("Count of replicated Vault pending queue purges committed after F+1 stall signals."),
@@ -102,7 +100,7 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create pending queue purge counter: %w", err)
 	}
 
-	pendingQueueItemOversized, err := beholder.GetMeter().Int64Counter(
+	pendingQueueItemOversized, err := meter.Int64Counter(
 		"platform_vault_plugin_pending_queue_item_oversized",
 		metric.WithUnit("{request}"),
 		metric.WithDescription("Count of local-queue requests skipped in Observation because their marshaled blob payload exceeds VaultMaxBlobPayloadSizeLimit. Nonzero means a request was admitted that can never enter the pending queue and will expire unanswered."),

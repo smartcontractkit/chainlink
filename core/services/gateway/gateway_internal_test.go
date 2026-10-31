@@ -6,8 +6,8 @@ import (
 
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -34,7 +34,7 @@ func TestSetupFromNewConfig_SharedDONAndLegacyMethodRouting(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
+	gMetrics, err := monitoring.NewGatewayMetrics(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	cfg := &config.GatewayConfig{
@@ -75,7 +75,7 @@ func TestSetupFromNewConfig_SharedDONAndLegacyMethodRouting(t *testing.T) {
 		},
 	}
 
-	connMgr, err := NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
+	connMgr, err := NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr}, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	workflowsHandler := handlermocks.NewHandler(t)

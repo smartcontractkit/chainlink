@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -57,6 +58,7 @@ type launcher struct {
 	don2donSharedPeer   p2ptypes.SharedPeer
 	p2pStreamConfig     p2ptypes.StreamConfig
 	metrics             *launcherMetrics
+	meter               metric.Meter
 	localCapMgr         localcapmgr.LocalCapabilityManager
 
 	// shardingEnabled and shardIndex carry this node's local shard identity,
@@ -125,6 +127,7 @@ func NewLauncher(
 	limitsFactory limits.Factory,
 	shardingEnabled bool,
 	shardIndex uint16,
+	meter metric.Meter,
 ) (*launcher, error) {
 	if don2donSharedPeer == nil {
 		return nil, errors.New("don2donSharedPeer is required")
@@ -143,7 +146,7 @@ func NewLauncher(
 			Capacity: streamConfig.BytesRateLimiterCapacity(),
 		}
 	}
-	metrics, err := newLauncherMetrics()
+	metrics, err := newLauncherMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create launcher metrics: %w", err)
 	}
@@ -174,6 +177,7 @@ func NewLauncher(
 		don2donSharedPeer:      don2donSharedPeer,
 		p2pStreamConfig:        p2pStreamConfig,
 		metrics:                metrics,
+		meter:                  meter,
 		workflowDONBindingGate: workflowDONBindingGate,
 		workflowTagHashFlag:    workflowTagHashFlag,
 		propagateOrgIDGate:     propagateOrgIDGate,
@@ -722,7 +726,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		if config.RemoteTriggerConfig != nil { // trigger
 			sub, alreadyExists := w.cachedShims.triggerSubscribers[key]
 			if !alreadyExists {
-				sub = remote.NewTriggerSubscriber(capID, method, w.dispatcher, w.propagateOrgIDGate, w.lggr)
+				sub = remote.NewTriggerSubscriber(capID, method, w.dispatcher, w.propagateOrgIDGate, w.lggr, w.meter)
 				cc.SetTriggerSubscriber(method, sub)
 				// add to cachedShims later, only after startNewShim succeeds
 			}
@@ -827,6 +831,7 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 					method,
 					w.dispatcher,
 					w.lggr,
+					w.meter,
 				)
 				// add to cachedShims later, only after startNewShim succeeds
 			}
@@ -859,6 +864,7 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 					w.dispatcher,
 					w.workflowDONBindingGate,
 					w.lggr,
+					w.meter,
 				)
 				// add to cachedShims later, only after startNewShim succeeds
 			}

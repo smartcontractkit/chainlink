@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
@@ -15,7 +16,7 @@ import (
 
 func TestNewMissingChainsMonitor_noMissingChains(t *testing.T) {
 	t.Parallel()
-	m, err := NewMissingChainsMonitor(logger.TestLogger(t), "job", nil, time.Second)
+	m, err := NewMissingChainsMonitor(logger.TestLogger(t), "job", nil, time.Second, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	require.Nil(t, m)
 }
@@ -25,7 +26,7 @@ func TestMissingChainsMonitor_reportsEachChainRepeatedly(t *testing.T) {
 	lggr, logs := logger.TestLoggerObserved(t, zapcore.DPanicLevel)
 	missing := []protocol.ChainSelector{111, 222}
 
-	m, err := NewMissingChainsMonitor(lggr, "CCVExecutor/exec-1", missing, 10*time.Millisecond)
+	m, err := NewMissingChainsMonitor(lggr, "CCVExecutor/exec-1", missing, 10*time.Millisecond, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	require.NotNil(t, m)
 

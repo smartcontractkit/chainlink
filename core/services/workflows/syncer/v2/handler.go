@@ -14,6 +14,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/protobuf/proto"
@@ -47,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -141,6 +143,14 @@ type eventHandler struct {
 	// tracer is the OTel tracer for this handler. It's a noop tracer when debug mode is disabled.
 	tracer trace.Tracer
 
+	// meter registers instruments created per engine (e.g. the failover
+	// auto-execution counter). Injected at construction; never the global meter.
+	meter metric.Meter
+
+	// shardFailoverMetrics holds the node-wide failover instruments shared by
+	// every failover manager and the syncer. Provided via WithShardFailoverMetrics.
+	shardFailoverMetrics *monitoring.ShardFailoverMetrics
+
 	shardOrchestratorClient shardorchestrator.ClientInterface
 	shardingEnabled         bool
 	myDonID                 uint32
@@ -168,6 +178,14 @@ func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 func WithEventEmitter(e *events.Emitter) func(*eventHandler) {
 	return func(eh *eventHandler) {
 		eh.eventEmitter = e
+	}
+}
+
+// WithShardFailoverMetrics supplies the node-wide failover instruments shared
+// with the registry syncer. Nil disables failover instrumentation.
+func WithShardFailoverMetrics(m *monitoring.ShardFailoverMetrics) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardFailoverMetrics = m
 	}
 }
 
@@ -382,6 +400,7 @@ func NewEventHandler(
 	workflowArtifacts WorkflowArtifactsStore,
 	workflowEncryptionKey workflowkey.Key,
 	workflowDonSubscriber capabilities.DonSubscriber,
+	meter metric.Meter,
 	opts ...func(*eventHandler),
 ) (*eventHandler, error) {
 	if workflowStore == nil {
@@ -413,10 +432,11 @@ func NewEventHandler(
 		workflowArtifactsStore: workflowArtifacts,
 		workflowEncryptionKey:  workflowEncryptionKey,
 		workflowDonSubscriber:  workflowDonSubscriber,
+		meter:                  meter,
 		// default, enable via WithDebugMode
 		tracer: noop.NewTracerProvider().Tracer(""),
 	}
-	metricsInst, metricsErr := newMetrics()
+	metricsInst, metricsErr := newMetrics(meter)
 	if metricsErr != nil {
 		return nil, fmt.Errorf("new metrics: %w", metricsErr)
 	}
@@ -427,7 +447,7 @@ func NewEventHandler(
 	}
 
 	if eh.eventEmitter == nil {
-		eh.eventEmitter = events.DefaultEmitter()
+		eh.eventEmitter = events.NewEmitter(nil)
 	}
 
 	eh.Service, eh.eng = services.Config{
@@ -995,7 +1015,7 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 	binaryHash := v2.ComputeBinaryHash(binary)
 	confLggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
 	confLggr = logger.With(confLggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
-	confidential, err := v2.NewConfidentialModule(h.capRegistry, h.executionHandlers, binaryURL, binaryHash, workflowID, owner, name.String(), tag, h.fetchOrganizationID, h.engineLimiters.ConfidentialWorkflowsEnabled, h.engineLimiters.Settings, confLggr)
+	confidential, err := v2.NewConfidentialModule(h.capRegistry, h.executionHandlers, binaryURL, binaryHash, workflowID, owner, name.String(), tag, h.fetchOrganizationID, h.engineLimiters.ConfidentialWorkflowsEnabled, h.engineLimiters.Settings, h.meter, confLggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create confidential module: %w", err)
 	}
@@ -1050,6 +1070,8 @@ func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, 
 			ShardResolver:           h.shardResolver,
 			ShardOrchestratorClient: h.shardOrchestratorClient,
 			ShardRoutingSteady:      h.shardRoutingSteady,
+			FailoverMetrics:         h.shardFailoverMetrics,
+			Meter:                   h.meter,
 			ShardDonLookup:          h.shardDonLookup,
 			DonSubscriber:           h.workflowDonSubscriber,
 			Failover: FailoverConfig{
@@ -1516,7 +1538,7 @@ func (h *eventHandler) overrideFetcherForOwner(owner string) v2.SecretsFetcher {
 	if len(overrides) == 0 {
 		return nil
 	}
-	return v2.NewLocalSecretsFetcher(owner, overrides)
+	return v2.NewLocalSecretsFetcher(h.meter, owner, overrides)
 }
 
 // newV2EngineConfig builds the common EngineConfig shared by both the normal
@@ -1548,6 +1570,7 @@ func (h *eventHandler) newV2EngineConfig(
 		FeatureFlags:        h.featureFlags,
 		GlobalWorkflowLimit: h.workflowLimits,
 
+		Meter: h.meter,
 		BeholderEmitter: func() custmsg.MessageEmitter {
 			h.emitterMu.RLock()
 			defer h.emitterMu.RUnlock()

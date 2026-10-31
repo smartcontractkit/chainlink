@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -39,6 +41,7 @@ type FetcherService struct {
 	wrapper       gatewayConnector
 	selectorOpts  []func(*gateway.RoundRobinSelector)
 	storageClient storage.WorkflowClient
+	meter         metric.Meter
 }
 
 type WorkflowClient interface {
@@ -50,11 +53,12 @@ type gatewayConnector interface {
 	GetGatewayConnector() connector.GatewayConnector
 }
 
-func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, storageClient storage.WorkflowClient, selectorOpts ...func(*gateway.RoundRobinSelector)) *FetcherService {
+func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, storageClient storage.WorkflowClient, meter metric.Meter, selectorOpts ...func(*gateway.RoundRobinSelector)) *FetcherService {
 	return &FetcherService{
 		lggr:          logger.Named(lggr, "FetcherService"),
 		wrapper:       wrapper,
 		storageClient: storageClient,
+		meter:         meter,
 		selectorOpts:  selectorOpts,
 	}
 }
@@ -89,7 +93,7 @@ func (s *FetcherService) Start(ctx context.Context) error {
 
 		och, err := webapi.NewOutgoingConnectorHandler(connector,
 			webAPIConfig,
-			ghcapabilities.MethodWorkflowSyncer, outgoingConnectorLggr, s.selectorOpts...)
+			ghcapabilities.MethodWorkflowSyncer, outgoingConnectorLggr, s.meter, s.selectorOpts...)
 		if err != nil {
 			return fmt.Errorf("could not create outgoing connector handler: %w", err)
 		}

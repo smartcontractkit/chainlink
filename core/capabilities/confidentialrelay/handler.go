@@ -19,7 +19,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
@@ -100,20 +99,20 @@ type handlerMetrics struct {
 	requestSuccess       metric.Int64Counter
 }
 
-func newMetrics() (*handlerMetrics, error) {
-	requestCount, err := beholder.GetMeter().Int64Counter("enclave_relay_request_count")
+func newMetrics(meter metric.Meter) (*handlerMetrics, error) {
+	requestCount, err := meter.Int64Counter("enclave_relay_request_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register request count counter: %w", err)
 	}
-	requestLatency, err := beholder.GetMeter().Int64Histogram("enclave_relay_request_latency_ms", metric.WithUnit("ms"))
+	requestLatency, err := meter.Int64Histogram("enclave_relay_request_latency_ms", metric.WithUnit("ms"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to register request latency histogram: %w", err)
 	}
-	requestInternalError, err := beholder.GetMeter().Int64Counter("enclave_relay_request_internal_error")
+	requestInternalError, err := meter.Int64Counter("enclave_relay_request_internal_error")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register internal error counter: %w", err)
 	}
-	requestSuccess, err := beholder.GetMeter().Int64Counter("enclave_relay_request_success")
+	requestSuccess, err := meter.Int64Counter("enclave_relay_request_success")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register success counter: %w", err)
 	}
@@ -199,11 +198,11 @@ type Handler struct {
 	pendingRequestsMu sync.Mutex
 }
 
-func NewHandler(capRegistry registry.CapabilitiesRegistry, executionHandlers *ExecutionHandlers, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, requireBFTQuorum bool) (*Handler, error) {
+func NewHandler(capRegistry registry.CapabilitiesRegistry, executionHandlers *ExecutionHandlers, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, requireBFTQuorum bool, meter metric.Meter) (*Handler, error) {
 	if responseSigner == nil {
 		return nil, errors.New("response signer is required")
 	}
-	m, err := newMetrics()
+	m, err := newMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}

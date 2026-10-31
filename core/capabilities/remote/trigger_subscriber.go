@@ -13,7 +13,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -54,6 +53,7 @@ type triggerSubscriber struct {
 	ackReplayCache     map[ackReplayKey]int64
 	propagateOrgIDGate limits.GateLimiter
 	metrics            triggerSubscriberMetrics
+	meter              metric.Meter
 	mu                 sync.RWMutex // protects registeredWorkflows, registrationBuckets, messageCache, and ackReplayCache
 	stopCh             services.StopChan
 	wg                 sync.WaitGroup
@@ -206,7 +206,7 @@ func (s *triggerSubscriber) ensureBucketsLocked(refresh time.Duration) {
 	s.registrationBuckets = newBuckets
 }
 
-func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher types.Dispatcher, propagateOrgIDGate limits.GateLimiter, lggr logger.Logger) *triggerSubscriber {
+func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher types.Dispatcher, propagateOrgIDGate limits.GateLimiter, lggr logger.Logger, meter metric.Meter) *triggerSubscriber {
 	return &triggerSubscriber{
 		capabilityID:        capabilityID,
 		capMethodName:       capMethodName,
@@ -217,6 +217,7 @@ func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher 
 		registeredWorkflows: make(map[string]map[string]*subRegState),
 		stopCh:              make(services.StopChan),
 		lggr:                logger.With(logger.Named(lggr, "TriggerSubscriber"), "capabilityID", capabilityID, "capMethodName", capMethodName),
+		meter:               meter,
 	}
 }
 
@@ -428,7 +429,7 @@ func (s *triggerSubscriber) sendDueBuckets(ctx context.Context, lastSentSec, now
 
 func (s *triggerSubscriber) initMetrics() error {
 	var err error
-	s.metrics.registrationOrgIDCounter, err = beholder.GetMeter().Int64Counter("platform_trigger_subscriber_registration_org_id_total")
+	s.metrics.registrationOrgIDCounter, err = s.meter.Int64Counter("platform_trigger_subscriber_registration_org_id_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_subscriber_registration_org_id_total: %w", err)
 	}

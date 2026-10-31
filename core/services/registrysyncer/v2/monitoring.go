@@ -18,13 +18,13 @@ type syncerMetricLabeler struct {
 	launcherFailureCounter           metric.Int64Counter
 }
 
-func newSyncerMetricLabeler() (*syncerMetricLabeler, error) {
-	remoteRegistrySyncFailureCounter, err := beholder.GetMeter().Int64Counter("platform_registrysyncer_sync_failures")
+func newSyncerMetricLabeler(meter metric.Meter) (*syncerMetricLabeler, error) {
+	remoteRegistrySyncFailureCounter, err := meter.Int64Counter("platform_registrysyncer_sync_failures")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register sync failure counter: %w", err)
 	}
 
-	launcherFailureCounter, err := beholder.GetMeter().Int64Counter("platform_registrysyncer_launch_failures")
+	launcherFailureCounter, err := meter.Int64Counter("platform_registrysyncer_launch_failures")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register launcher failure counter: %w", err)
 	}

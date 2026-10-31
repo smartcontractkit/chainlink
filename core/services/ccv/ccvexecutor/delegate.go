@@ -8,6 +8,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common"
+	"go.opentelemetry.io/otel/metric"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -31,17 +32,19 @@ type Delegate struct {
 	// TODO: EVM specific (!)
 	chainServices []commontypes.ChainService
 	ethKs         keystore.Eth
+	meter         metric.Meter
 
 	isNewlyCreatedJob bool
 }
 
-func NewDelegate(lggr logger.Logger, ccvConfig config.CCV, ethKs keystore.Eth, chainServices []commontypes.ChainService) *Delegate {
+func NewDelegate(lggr logger.Logger, ccvConfig config.CCV, ethKs keystore.Eth, chainServices []commontypes.ChainService, meter metric.Meter) *Delegate {
 	return &Delegate{
 		delegateLogger: logger.Named(lggr, "CCVExecutorDelegate"),
 		lggr:           lggr,
 		ccvConfig:      ccvConfig,
 		chainServices:  chainServices,
 		ethKs:          ethKs,
+		meter:          meter,
 	}
 }
 
@@ -139,6 +142,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		"CCVExecutor/"+decodedCfg.ExecutorID,
 		missingChains,
 		ccvcommon.DefaultMissingChainsReportInterval,
+		d.meter,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create missing chains monitor: %w", err)

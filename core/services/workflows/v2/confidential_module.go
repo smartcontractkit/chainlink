@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
@@ -95,14 +95,14 @@ func errorTypeFor(err error) string {
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry registry.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, creSettingsGetter settings.Getter, lggr logger.Logger) (*ConfidentialModule, error) {
+func NewConfidentialModule(capRegistry registry.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, creSettingsGetter settings.Getter, meter metric.Meter, lggr logger.Logger) (*ConfidentialModule, error) {
 	if enabledGate == nil {
 		return nil, errors.New("enabledGate must not be nil")
 	}
 	if resolveOrgID == nil {
 		return nil, errors.New("resolveOrgID must not be nil")
 	}
-	metrics, err := newConfidentialModuleMetrics(beholder.GetMeter(), workflowID, workflowOwner, workflowName)
+	metrics, err := newConfidentialModuleMetrics(meter, workflowID, workflowOwner, workflowName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create confidential module metrics: %w", err)
 	}

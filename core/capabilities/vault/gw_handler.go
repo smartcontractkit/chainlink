@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -37,13 +36,13 @@ type metrics struct {
 	requestSuccess       metric.Int64Counter
 }
 
-func newMetrics() (*metrics, error) {
-	requestInternalError, err := beholder.GetMeter().Int64Counter("vault_node_request_internal_error")
+func newMetrics(meter metric.Meter) (*metrics, error) {
+	requestInternalError, err := meter.Int64Counter("vault_node_request_internal_error")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register internal error counter: %w", err)
 	}
 
-	requestSuccess, err := beholder.GetMeter().Int64Counter("vault_node_request_success")
+	requestSuccess, err := meter.Int64Counter("vault_node_request_success")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register success counter: %w", err)
 	}
@@ -89,6 +88,7 @@ func NewGatewayHandler(
 	limitsFactory limits.Factory,
 	authorizer Authorizer,
 	auth0 *Auth0Config,
+	meter metric.Meter,
 ) (*GatewayHandler, error) {
 	var jwtAuthService services.Service
 	var jwtBasedAuth Authorizer
@@ -115,7 +115,7 @@ func NewGatewayHandler(
 		return nil, fmt.Errorf("failed to create request validator: %w", err)
 	}
 
-	metrics, err := newMetrics()
+	metrics, err := newMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}

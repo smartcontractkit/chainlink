@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 
+	"go.opentelemetry.io/otel/metric"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -33,6 +35,7 @@ type Service struct {
 	limitsFactory     limits.Factory
 	validator         AttestationValidator
 	requireBFTQuorum  bool
+	meter             metric.Meter
 
 	handler *Handler
 }
@@ -47,6 +50,7 @@ func NewService(
 	limitsFactory limits.Factory,
 	validator AttestationValidator,
 	requireBFTQuorum bool,
+	meter metric.Meter,
 ) *Service {
 	s := &Service{
 		wrapper:           wrapper,
@@ -58,6 +62,7 @@ func NewService(
 		limitsFactory:     limitsFactory,
 		validator:         validator,
 		requireBFTQuorum:  requireBFTQuorum,
+		meter:             meter,
 	}
 	s.Service, s.eng = services.Config{
 		Name:  "ConfidentialRelayService",
@@ -76,7 +81,7 @@ func (s *Service) start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get p2p key for confidential relay signing: %w", err)
 	}
-	h, err := NewHandler(s.capRegistry, s.executionHandlers, conn, newRelayResponseSigner(key), s.lggr, s.limitsFactory, s.validator, s.requireBFTQuorum)
+	h, err := NewHandler(s.capRegistry, s.executionHandlers, conn, newRelayResponseSigner(key), s.lggr, s.limitsFactory, s.validator, s.requireBFTQuorum, s.meter)
 	if err != nil {
 		return err
 	}

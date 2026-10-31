@@ -44,21 +44,17 @@ func WithNoDurableEmit() EmitterOption {
 	return WithDurableEmit(func(context.Context, []byte, ...any) error { return nil })
 }
 
-// NewEmitter returns an Emitter writing to e. Nil defaults to beholder.GlobalEmitter().
+// NewEmitter returns an Emitter writing to e. A nil e disables beholder
+// emission; callers that emit platform events must pass their client's emitter.
 func NewEmitter(e beholder.Emitter, opts ...EmitterOption) *Emitter {
 	if e == nil {
-		e = beholder.GlobalEmitter()
+		e = beholder.NewNoopClient().Emitter
 	}
 	em := &Emitter{beholder: e, durable: durableemitter.GlobalEmit}
 	for _, opt := range opts {
 		opt(em)
 	}
 	return em
-}
-
-// DefaultEmitter returns an Emitter configured with global sinks.
-func DefaultEmitter() *Emitter {
-	return NewEmitter(nil)
 }
 
 func (e *Emitter) EmitWorkflowStatusChangedEvent(

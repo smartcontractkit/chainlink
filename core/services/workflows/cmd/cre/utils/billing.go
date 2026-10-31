@@ -98,26 +98,12 @@ func (s *BillingService) close() error {
 	return nil
 }
 
-func SetupBeholder(lggr logger.Logger) error {
+// NewBeholderClient returns a beholder client that writes everything it collects
+// to lggr. The caller owns the client and must Close it; the CRE CLI passes its
+// Meter into the standalone engine instead of installing the process-global client.
+func NewBeholderClient(lggr logger.Logger) (*beholder.Client, error) {
 	writer := &lggrWriter{lggr: lggr}
-
-	client, err := beholder.NewWriterClient(writer)
-	if err != nil {
-		return err
-	}
-
-	beholder.SetClient(client)
-
-	return nil
-}
-
-func cleanupBeholder() error {
-	client := beholder.GetClient()
-	if client != nil {
-		return client.Close()
-	}
-
-	return nil
+	return beholder.NewWriterClient(writer)
 }
 
 type lggrWriter struct {

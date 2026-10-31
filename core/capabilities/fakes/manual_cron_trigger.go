@@ -66,7 +66,7 @@ func NewManualCronTriggerService(parentLggr logger.Logger) (*ManualCronTriggerSe
 		CapabilityInfo:   manualCronTriggerInfo,
 		config:           ManualCronConfig{FastestScheduleIntervalSeconds: 1},
 		lggr:             lggr,
-		eventEmitter:     events.DefaultEmitter(),
+		eventEmitter:     events.NewEmitter(nil),
 		callbackCh:       make(map[string]chan capabilities.TriggerAndId[*crontypedapi.Payload]),
 		legacyCallbackCh: make(chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]), //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 		workflowIDs:      make(map[string]string),

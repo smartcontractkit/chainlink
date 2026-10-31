@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -47,7 +48,7 @@ func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint3
 	if len(healthCheckers) > 0 {
 		healthChecker = healthCheckers[0]
 	}
-	server, err := network.NewHTTPServer(config, healthChecker, lggr, limits.Factory{Logger: lggr})
+	server, err := network.NewHTTPServer(config, healthChecker, lggr, limits.Factory{Logger: lggr}, noop.Meter{})
 	require.NoError(t, err)
 	server.SetHTTPRequestHandler(handler)
 	servicetest.Run(t, server)
@@ -120,7 +121,7 @@ func TestHTTPServer_RequiresHealthChecker(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	_, err := network.NewHTTPServer(&network.HTTPServerConfig{}, nil, lggr, limits.Factory{Logger: lggr})
+	_, err := network.NewHTTPServer(&network.HTTPServerConfig{}, nil, lggr, limits.Factory{Logger: lggr}, noop.Meter{})
 	require.EqualError(t, err, "health checker is required")
 }
 
@@ -129,7 +130,7 @@ func TestHTTPServer_RejectsHealthCheckRequestPath(t *testing.T) {
 
 	lggr := logger.Test(t)
 	checker := func(context.Context) error { return nil }
-	_, err := network.NewHTTPServer(&network.HTTPServerConfig{Path: network.HealthCheckPath}, checker, lggr, limits.Factory{Logger: lggr})
+	_, err := network.NewHTTPServer(&network.HTTPServerConfig{Path: network.HealthCheckPath}, checker, lggr, limits.Factory{Logger: lggr}, noop.Meter{})
 	require.EqualError(t, err, `HTTP request path "/health" conflicts with health check path`)
 }
 

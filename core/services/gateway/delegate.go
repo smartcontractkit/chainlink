@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -30,11 +31,12 @@ type Delegate struct {
 	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
 	lf                     limits.Factory
 	orgResolver            orgresolver.OrgResolver // optional; nil if the node isn't configured to resolve orgs (e.g. no Linking Service)
+	meter                  metric.Meter
 }
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, capabilitiesRegistry registry.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, orgResolver orgresolver.OrgResolver) *Delegate {
+func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, capabilitiesRegistry registry.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, orgResolver orgresolver.OrgResolver, meter metric.Meter) *Delegate {
 	return &Delegate{
 		legacyChains:           legacyChains,
 		ks:                     ks,
@@ -44,6 +46,7 @@ func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, d
 		workflowRegistrySyncer: workflowRegistrySyncer,
 		lf:                     lf,
 		orgResolver:            orgResolver,
+		meter:                  meter,
 	}
 }
 
@@ -67,12 +70,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "unmarshal gateway config")
 	}
-	httpClient, err := network.NewHTTPClient(gatewayConfig.HTTPClientConfig, d.lggr)
+	httpClient, err := network.NewHTTPClient(gatewayConfig.HTTPClientConfig, d.lggr, d.meter)
 	if err != nil {
 		return nil, err
 	}
-	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, httpClient, d.capabilitiesRegistry, d.workflowRegistrySyncer, d.lggr, d.lf, network.NewHTTPClientFactory(gatewayConfig.HTTPClientConfig, d.lggr), d.orgResolver)
-	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr, d.lf)
+	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, httpClient, d.capabilitiesRegistry, d.workflowRegistrySyncer, d.lggr, d.lf, network.NewHTTPClientFactory(gatewayConfig.HTTPClientConfig, d.lggr, d.meter), d.orgResolver, d.meter)
+	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr, d.lf, d.meter)
 	if err != nil {
 		return nil, err
 	}

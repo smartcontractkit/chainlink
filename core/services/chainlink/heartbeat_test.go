@@ -11,7 +11,9 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/embedded"
 	"go.opentelemetry.io/otel/metric/noop"
+	tracenoop "go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -32,6 +34,7 @@ func TestNewHeartbeat_ConfiguresHeartbeatInterval(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			// Create test logger
 			lggr := logger.TestLogger(t)
 
@@ -101,6 +104,31 @@ func TestHeartbeat_MeterEvents(t *testing.T) {
 		}
 	}
 	assert.InDelta(t, expectedCalls, heartbeatMsgs, 2, "Expected ~%d heartbeat messages", expectedCalls)
+}
+
+func TestHeartbeat_UsesInjectedBeholderClient(t *testing.T) {
+	t.Parallel()
+
+	rec := beholdertest.NewRecorder()
+	var heartbeatCounter, heartbeatCountCounter int32
+	c := chainlink.HeartbeatConfig{
+		Beat:  10 * time.Millisecond,
+		Lggr:  logger.TestLogger(t),
+		AppID: "app-id",
+		Beholder: &beholder.Client{
+			Emitter: rec,
+			Meter:   newCountingMeter(t, &heartbeatCounter, &heartbeatCountCounter),
+			Tracer:  tracenoop.NewTracerProvider().Tracer("test"),
+		},
+	}
+	heartbeat := chainlink.NewHeartbeat(c)
+	require.NoError(t, heartbeat.Start(t.Context()))
+	t.Cleanup(func() { assert.NoError(t, heartbeat.Close()) })
+
+	require.Eventually(t, func() bool {
+		msgs, err := rec.BaseMessagesForLabels(t, map[string]string{"appID": "app-id"})
+		return err == nil && len(msgs) > 0 && atomic.LoadInt32(&heartbeatCounter) > 0
+	}, 5*time.Second, 10*time.Millisecond)
 }
 
 // mockMeter is a custom implementation of metric.Meter that counts gauge creation specifically for heartbeat metrics.

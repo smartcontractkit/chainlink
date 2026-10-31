@@ -5,6 +5,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gatewaymocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
@@ -138,7 +139,7 @@ func TestNewGatewayConnector_ConfigValidation(t *testing.T) {
 	t.Run("legacy config passes", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := NewGatewayConnector(validConnectorConfig(), signer, clock, lggr, "")
+		_, err := NewGatewayConnector(validConnectorConfig(), signer, clock, lggr, "", noop.Meter{})
 		require.NoError(t, err)
 	})
 
@@ -151,7 +152,7 @@ func TestNewGatewayConnector_ConfigValidation(t *testing.T) {
 			{ID: "gateway_eu_1", DonID: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
 		}
 
-		_, err := NewGatewayConnector(cfg, signer, clock, lggr, "")
+		_, err := NewGatewayConnector(cfg, signer, clock, lggr, "", noop.Meter{})
 		require.NoError(t, err)
 	})
 
@@ -164,7 +165,7 @@ func TestNewGatewayConnector_ConfigValidation(t *testing.T) {
 			{ID: "gateway_eu", URL: "ws://localhost:8081/eu"},
 		}
 
-		_, err := NewGatewayConnector(cfg, signer, clock, lggr, "")
+		_, err := NewGatewayConnector(cfg, signer, clock, lggr, "", noop.Meter{})
 		require.EqualError(t, err, "all gateways must set DonID when multi-DON mode is enabled")
 	})
 }

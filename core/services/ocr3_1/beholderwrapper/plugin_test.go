@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -13,7 +14,7 @@ import (
 )
 
 func Test_ReportingPlugin_WrapsAllMethods(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics("test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	plugin := newReportingPlugin(
@@ -69,7 +70,7 @@ func Test_ReportingPlugin_WrapsAllMethods(t *testing.T) {
 }
 
 func Test_ReportingPlugin_PropagatesErrors(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics("test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	expectedErr := errors.New("test error")
@@ -110,7 +111,7 @@ func Test_ReportingPlugin_PropagatesErrors(t *testing.T) {
 }
 
 func Test_InstrumentedBlobBroadcastFetcher(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics("test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	inner := &fakeBlobBroadcastFetcher{
@@ -140,7 +141,7 @@ func Test_InstrumentedBlobBroadcastFetcher(t *testing.T) {
 }
 
 func Test_InstrumentedBlobBroadcastFetcher_PropagatesErrors(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics("test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	expectedErr := errors.New("blob error")
@@ -162,7 +163,7 @@ func Test_InstrumentedBlobBroadcastFetcher_PropagatesErrors(t *testing.T) {
 }
 
 func Test_InstrumentedBlobFetcher(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics("test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	inner := &fakeBlobFetcher{fetchPayload: []byte("fetched-data")}
@@ -175,7 +176,7 @@ func Test_InstrumentedBlobFetcher(t *testing.T) {
 }
 
 func Test_InstrumentedBlobFetcher_PropagatesErrors(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics("test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	expectedErr := errors.New("fetch error")
@@ -187,7 +188,7 @@ func Test_InstrumentedBlobFetcher_PropagatesErrors(t *testing.T) {
 }
 
 func Test_ReportingPlugin_WrapsBlobs(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics("test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	innerBlob := &fakeBlobBroadcastFetcher{
@@ -228,7 +229,7 @@ func Test_ReportingPlugin_WrapsBlobs(t *testing.T) {
 }
 
 func Test_InstrumentedKVStateReader(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics("test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	inner := &fakeKVStateReader{data: map[string][]byte{"key1": []byte("value1")}}
@@ -247,7 +248,7 @@ func Test_InstrumentedKVStateReader(t *testing.T) {
 }
 
 func Test_InstrumentedKVStateReader_PropagatesErrors(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics("test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	expectedErr := errors.New("read error")
@@ -259,7 +260,7 @@ func Test_InstrumentedKVStateReader_PropagatesErrors(t *testing.T) {
 }
 
 func Test_InstrumentedKVStateReadWriter(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics("test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	inner := &fakeKVStateReadWriter{fakeKVStateReader: fakeKVStateReader{data: map[string][]byte{}}}
@@ -290,7 +291,7 @@ func Test_InstrumentedKVStateReadWriter(t *testing.T) {
 }
 
 func Test_InstrumentedKVStateReadWriter_PropagatesErrors(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics("test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	expectedErr := errors.New("write error")
@@ -311,7 +312,7 @@ func Test_InstrumentedKVStateReadWriter_PropagatesErrors(t *testing.T) {
 }
 
 func Test_ReportingPlugin_WrapsKV(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics("test", "abc", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	innerReader := &fakeKVStateReader{data: map[string][]byte{}}

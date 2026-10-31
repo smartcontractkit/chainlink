@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -19,21 +20,21 @@ import (
 
 func newTestMetrics(t *testing.T) *pluginMetrics {
 	t.Helper()
-	m, err := newPluginMetrics("test")
+	m, err := newPluginMetrics("test", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	return m
 }
 
 func newTestWriteStore(t *testing.T, writer ocr3_1types.KeyValueStateReadWriter) *KVStore {
 	t.Helper()
-	m, err := newPluginMetrics("test")
+	m, err := newPluginMetrics("test", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	return NewWriteStore(writer, m)
 }
 
 func newTestReadStore(t *testing.T, reader ocr3_1types.KeyValueStateReader) *KVStore {
 	t.Helper()
-	m, err := newPluginMetrics("test")
+	m, err := newPluginMetrics("test", noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	return NewReadStore(reader, m)
 }

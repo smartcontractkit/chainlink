@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"google.golang.org/protobuf/proto"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -294,7 +295,7 @@ func TestReader_Integration(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	factory := newContractReaderFactory(t, simulatedBackend)
 	syncerORM := registrysyncer.NewORM(db, lggr)
-	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
+	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -512,6 +513,7 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 		factory,
 		regAddress.Hex(),
 		syncerORM,
+		noop.NewMeterProvider().Meter("test"),
 	)
 	require.NoError(t, err)
 	l := &launcher{}
@@ -841,7 +843,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	factory := newContractReaderFactory(t, simulatedBackend)
 	syncerORM := registrysyncer.NewORM(db, lggr)
-	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
+	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -1082,7 +1084,7 @@ func TestSync_V2_PreservesNodeCapabilitiesDONIds(t *testing.T) {
 
 	reader := &stubReader{nodes: []capabilities_registry_v2.INodeInfoProviderNodeInfo{node}}
 
-	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: reader}, "0x0", nil)
+	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: reader}, "0x0", nil, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	l := &launcher{}

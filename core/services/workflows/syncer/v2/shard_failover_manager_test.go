@@ -459,6 +459,8 @@ func newAdmissionTestManager(t *testing.T, engine v2.WorkflowEngine, cfg ShardFa
 	cfg.WorkflowID = "wf-1"
 	cfg.WorkflowOwner = "0xowner"
 	cfg.Logger = logger.Test(t)
+	cfg.FailoverMetrics = testFailoverMetrics
+	cfg.Meter = testMeter()
 	m := NewShardFailoverManager(cfg)
 	m.SetEngine(engine)
 	return m
@@ -735,6 +737,8 @@ func newTimeoutBasedFailoverManager(t *testing.T, eng *recordingEngine, gate *fa
 		WorkflowID:      "wf-1",
 		WorkflowOwner:   "0xowner",
 		ShardResolver:   resolver,
+		FailoverMetrics: testFailoverMetrics,
+		Meter:           testMeter(),
 		Failover: FailoverConfig{
 			ShardingFailoverGate:       &fakeGateLimiter{open: true},
 			TimeoutBasedFailoverGate:   autoGate,

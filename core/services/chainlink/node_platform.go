@@ -66,8 +66,7 @@ type NodePlatformBuildInfoConfig struct {
 	DockerTag    string
 	VersionTag   string
 	Version      string
-	// Emitter receives the build info payloads. Nil defaults to
-	// beholder.GlobalEmitter(), which resolves the global client at emit time.
+	// Emitter receives the build info payloads. Nil means a no-op emitter.
 	Emitter beholder.Emitter
 }
 
@@ -95,13 +94,22 @@ func NewNodePlatformBuildInfoConfig(opts ApplicationOpts) NodePlatformBuildInfoC
 		DockerTag:   dockerTag,
 		VersionTag:  versionTag,
 		Version:     version,
+		Emitter:     beholderEmitter(opts.Beholder),
 	}
+}
+
+// beholderEmitter returns c's emitter, or nil when c is nil.
+func beholderEmitter(c *beholder.Client) beholder.Emitter {
+	if c == nil {
+		return nil
+	}
+	return c.Emitter
 }
 
 func NewNodePlatformBuildInfoService(cfg NodePlatformBuildInfoConfig) NodePlatformBuildInfoService {
 	emitter := cfg.Emitter
 	if emitter == nil {
-		emitter = beholder.GlobalEmitter()
+		emitter = beholder.NewNoopClient().Emitter
 	}
 
 	s := NodePlatformBuildInfoService{
@@ -181,8 +189,7 @@ type NodePlatformJobInfoConfig struct {
 	JobReader          NodePlatformJobReader
 	SubmitterKeyReader NodePlatformSubmitterKeyReader
 	CSAPublicKey       string
-	// Emitter receives the job info payloads. Nil defaults to
-	// beholder.GlobalEmitter(), which resolves the global client at emit time.
+	// Emitter receives the job info payloads. Nil means a no-op emitter.
 	Emitter beholder.Emitter
 }
 
@@ -279,6 +286,7 @@ func NewNodePlatformJobInfoConfig(opts ApplicationOpts, jobReader NodePlatformJo
 		Lggr:        opts.Logger,
 		CSAKeyStore: opts.KeyStore.CSA(),
 		JobReader:   jobReader,
+		Emitter:     beholderEmitter(opts.Beholder),
 	}
 	if opts.KeyStore != nil && len(relayerReader) > 0 && relayerReader[0] != nil {
 		cfg.SubmitterKeyReader = nodePlatformSubmitterKeyReader{
@@ -294,7 +302,7 @@ func NewNodePlatformJobInfoConfig(opts ApplicationOpts, jobReader NodePlatformJo
 func NewNodePlatformJobInfoService(cfg NodePlatformJobInfoConfig) NodePlatformJobInfoService {
 	emitter := cfg.Emitter
 	if emitter == nil {
-		emitter = beholder.GlobalEmitter()
+		emitter = beholder.NewNoopClient().Emitter
 	}
 
 	s := NodePlatformJobInfoService{

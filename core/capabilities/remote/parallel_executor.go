@@ -9,7 +9,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
@@ -21,18 +20,20 @@ type ParallelExecutor struct {
 
 	taskSemaphore  chan struct{}
 	name           string
+	meter          metric.Meter
 	slotUsageGauge metric.Float64Gauge
 	slotUsageAttrs []attribute.KeyValue
 }
 
 // NewParallelExecutor creates an executor that allows at most maxParallelTasks in-flight tasks.
-func NewParallelExecutor(maxParallelTasks int, name string, attrs ...attribute.KeyValue) *ParallelExecutor {
+func NewParallelExecutor(meter metric.Meter, maxParallelTasks int, name string, attrs ...attribute.KeyValue) *ParallelExecutor {
 	attrs = append(attrs, attribute.String("parallel_executor_name", name))
 	e := &ParallelExecutor{
 		stopChan:       make(services.StopChan),
 		wg:             sync.WaitGroup{},
 		taskSemaphore:  make(chan struct{}, maxParallelTasks),
 		name:           name,
+		meter:          meter,
 		slotUsageAttrs: attrs,
 	}
 	return e
@@ -95,7 +96,7 @@ func (t *ParallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.
 // Start starts the executor.
 func (t *ParallelExecutor) Start(ctx context.Context) error {
 	var err error
-	t.slotUsageGauge, err = beholder.GetMeter().Float64Gauge("platform_parallel_executor_slot_usage")
+	t.slotUsageGauge, err = t.meter.Float64Gauge("platform_parallel_executor_slot_usage")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_parallel_executor_slot_usage: %w", err)
 	}

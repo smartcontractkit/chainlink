@@ -3635,6 +3635,7 @@ func createTestEngineForDonVersionTest(
 		FeatureFlags:                  featureFlags,
 		GlobalWorkflowLimit:           sLimiter,
 		BeholderEmitter:               emitter,
+		Meter:                         defaultTestConfig(t, nil).Meter,
 		WorkflowRegistryAddress:       "0xWorkflowRegistry",
 		WorkflowRegistryChainSelector: "11155111",
 	}

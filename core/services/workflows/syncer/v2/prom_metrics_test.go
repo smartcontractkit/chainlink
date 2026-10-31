@@ -23,7 +23,7 @@ func gaugeValue(t *testing.T, g prometheus.Gauge) float64 {
 }
 
 func TestCacheMetricsPrometheusExport(t *testing.T) { //nolint:paralleltest // package-global promauto metrics
-	cm, err := NewCacheMetrics()
+	cm, err := NewCacheMetrics(testMeter())
 	require.NoError(t, err)
 
 	reloadDiskBefore := counterValue(t, promModuleCacheReloadTotal.WithLabelValues("disk"))

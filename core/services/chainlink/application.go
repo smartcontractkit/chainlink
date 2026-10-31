@@ -212,6 +212,9 @@ type ApplicationOpts struct {
 	NewOracleFactoryFn     standardcapabilities.NewOracleFactoryFn
 	EVMFactoryConfigFn     func(*EVMFactoryConfig)
 	DonTimeStore           *dontime.Store
+	// Beholder is the node's telemetry client. Every service gets its meter,
+	// tracer, and emitter from here. Nil means a no-op client.
+	Beholder *beholder.Client
 }
 
 // safeDefaultBootstrappers returns the configured default bootstrappers from
@@ -257,6 +260,12 @@ func localShardIndex(s config.Sharding) uint32 {
 func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, error) {
 	var srvcs []services.ServiceCtx
 
+	if opts.Beholder == nil {
+		opts.Beholder = beholder.NewNoopClient()
+	}
+	beholderClient := opts.Beholder
+	meter := beholderClient.Meter
+
 	heartbeat := NewHeartbeat(NewHeartbeatConfig(opts))
 	nodePlatformBuildInfo := NewNodePlatformBuildInfoService(NewNodePlatformBuildInfoConfig(opts))
 	srvcs = append(srvcs, &heartbeat, &nodePlatformBuildInfo)
@@ -267,7 +276,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
-	meter := beholder.GetMeter()
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), globalLogger.Named("Mailbox"))
 
@@ -357,9 +365,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			FeatureConfig:  cfg.Feature(),
 			MailMon:        mailMon,
 			DS:             opts.DS,
-			// The global beholder client is initialized before this point
-			// (initGlobals, during BeforeNode), so chains get a real meter.
-			Meter: beholder.GetMeter(),
+			Meter:          meter,
 		},
 		EthKeystore:   keyStore.Eth(),
 		CSAKeystore:   csaKeystore,
@@ -505,6 +511,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			BillingClient:                opts.BillingClient,
 			LinkingClient:                opts.LinkingClient,
 			Meter:                        meter,
+			Emitter:                      beholderClient.Emitter,
 			DurableEmit:                  durableEmit,
 			StorageClient:                opts.StorageClient,
 			DonTimeStore:                 opts.DonTimeStore,
@@ -559,7 +566,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), csaKeystore, globalLogger)
+	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), csaKeystore, globalLogger, beholderClient.Chip)
 	srvcs = append(srvcs, telemetryManager)
 
 	backupCfg := cfg.Database().Backup()
@@ -658,7 +665,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	legacyEVMTelemReporter := headreporter.NewLegacyEVMTelemetryReporter(telemetryManager, globalLogger, evmChainIDs...)
 	loopTelemReporter := headreporter.NewTelemetryReporter(telemetryManager, globalLogger, relayChainInterops.GetIDToRelayerMap())
 	headReporters := []headreporter.HeadReporter{promReporter, legacyEVMTelemReporter, loopTelemReporter}
-	if headMetrics, metricsErr := headreporter.NewBeholderHeadMetrics(); metricsErr != nil {
+	if headMetrics, metricsErr := headreporter.NewBeholderHeadMetrics(meter); metricsErr != nil {
 		globalLogger.Errorw("Failed to initialize head reporter Beholder metrics; skipping head metrics reporters", "err", metricsErr)
 	} else {
 		headReporters = append(headReporters, headreporter.NewEVMMetricsReporter(headMetrics, globalLogger, evmChainIDs...))
@@ -718,6 +725,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			globalLogger,
 			limitsFactory,
 			creServices.OrgResolver,
+			meter,
 		),
 		job.Stream: streams.NewDelegate(
 			globalLogger,
@@ -731,12 +739,14 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			cfg.CCV(),
 			keyStore.OCR2(),
 			relayChainInterops.LegacyEVMChains().Slice(),
+			meter,
 		),
 		job.CCVExecutor: ccvexecutor.NewDelegate(
 			globalLogger,
 			cfg.CCV(),
 			keyStore.Eth(),
 			relayChainInterops.LegacyEVMChains().Slice(),
+			meter,
 		),
 	}
 
@@ -748,7 +758,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// surface a visible error in the UI rather than silently doing nothing.
 	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
-	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings, offchainCapRegistry)
+	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings, offchainCapRegistry, meter)
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	stdcapDelegate := standardcapabilities.NewDelegate(
 		globalLogger,
@@ -833,6 +843,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				CapRegistryAddress:             safeExternalRegistryAddress(cfg),
 				CapRegistryChainID:             safeExternalRegistryChainID(cfg),
 				LocalCfg:                       cfg.Capabilities().Local(),
+				Meter:                          meter,
 			},
 			ocr2DelegateConfig,
 		)
@@ -869,6 +880,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			telemetryManager,
 			cfg.Capabilities(),
 			cfg.EVMConfigs(),
+			beholderClient,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
@@ -879,7 +891,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		bridgeORM,
 		jobORM,
 		unrestrictedHTTPClient,
-		beholder.GetEmitter(),
+		beholderClient.Emitter,
 		globalLogger,
 	)
 	srvcs = append(srvcs, bridgeStatusReporter)
@@ -889,7 +901,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		Sha: static.Sha,
 	}
 	healthCfg = promhealth.ConfigureHooks(healthCfg)
-	healthCfg, err = beholderhealth.ConfigureHooks(healthCfg, opts.Logger, beholder.GetEmitter())
+	healthCfg, err = beholderhealth.ConfigureHooks(healthCfg, opts.Logger, beholderClient.Emitter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure health checker beholder hooks: %w", err)
 	}
@@ -941,7 +953,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		cfg.JobSpecReporter(),
 		jobSpawner,
 		feedsORM,
-		beholder.GlobalEmitter(),
+		beholderClient.Emitter,
 		csaPubKeyHex,
 		static.Version,
 		hostname,

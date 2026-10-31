@@ -8,7 +8,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -90,11 +89,7 @@ type Metrics struct {
 
 // NewMetrics creates a new instance of Metrics with all metrics initialized.
 // members is the union of node configs across all DON shards.
-func NewMetrics(members []config.NodeConfig) (*Metrics, error) {
-	return NewMetricsWithMeter(members, beholder.GetMeter())
-}
-
-func NewMetricsWithMeter(members []config.NodeConfig, meter metric.Meter) (*Metrics, error) {
+func NewMetrics(members []config.NodeConfig, meter metric.Meter) (*Metrics, error) {
 	common, err := newCommonMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create common metrics: %w", err)

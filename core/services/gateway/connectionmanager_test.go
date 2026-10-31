@@ -17,11 +17,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -115,9 +115,9 @@ Address = "0x68902D681c28119f9b2531473a417088bf008E59"
 [nodeServerConfig]
 Path = "/node"` + config
 			lggr := logger.Test(t)
-			gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
+			gMetrics, err := monitoring.NewGatewayMetrics(noop.NewMeterProvider().Meter("test"))
 			require.NoError(t, err)
-			_, err = gateway.NewConnectionManager(parseTOMLConfig(t, fullConfig), clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
+			_, err = gateway.NewConnectionManager(parseTOMLConfig(t, fullConfig), clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr}, noop.NewMeterProvider().Meter("test"))
 			require.Error(t, err)
 		})
 	}
@@ -376,9 +376,9 @@ Address = "0x0001020304050607080900010203040506070809"
 
 	cfg := parseTOMLConfig(t, tomlConfig)
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
+	gMetrics, err := monitoring.NewGatewayMetrics(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
-	_, err = gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
+	_, err = gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr}, noop.NewMeterProvider().Meter("test"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "duplicate node address")
 }
@@ -552,9 +552,9 @@ func TestConnectionManager_ReadyForTrafficLogsDisconnectedNodes(t *testing.T) {
 	cfg, nodes := newTestConfig(t, 4)
 	cfg.ShardedDONs[0].F = 1
 	lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
-	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
+	gMetrics, err := monitoring.NewGatewayMetrics(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
-	mgr, err := gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
+	mgr, err := gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr}, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	require.Error(t, mgr.ReadyForTraffic(t.Context()))
@@ -581,13 +581,13 @@ func TestConnectionManager_ReadyForTrafficFailsClosedAndSortsErrors(t *testing.T
 	t.Parallel()
 
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
+	gMetrics, err := monitoring.NewGatewayMetrics(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	lf := limits.Factory{Logger: lggr}
 
 	empty, err := gateway.NewConnectionManager(&config.GatewayConfig{
 		NodeServerConfig: network.WebSocketServerConfig{HTTPServerConfig: network.HTTPServerConfig{Path: "/node"}},
-	}, clockwork.NewFakeClock(), gMetrics, lggr, lf)
+	}, clockwork.NewFakeClock(), gMetrics, lggr, lf, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	require.EqualError(t, empty.ReadyForTraffic(t.Context()), "no DON shards configured")
 
@@ -599,7 +599,7 @@ func TestConnectionManager_ReadyForTrafficFailsClosedAndSortsErrors(t *testing.T
 			{DonName: "a-don", F: 0, Shards: []config.Shard{{Nodes: []config.NodeConfig{{Name: "a", Address: nodes[1].Address}}}}},
 		},
 	}
-	mgr, err := gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, lf)
+	mgr, err := gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, lf, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	err = mgr.ReadyForTraffic(t.Context())
 	require.Error(t, err)
@@ -722,9 +722,9 @@ func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
 
 func newConnectionManager(t *testing.T, gwConfig *config.GatewayConfig, clock clockwork.Clock) gateway.ConnectionManager {
 	lggr := logger.Test(t)
-	gMetrics, err := monitoring.NewGatewayMetrics(beholder.GetMeter())
+	gMetrics, err := monitoring.NewGatewayMetrics(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
-	mgr, err := gateway.NewConnectionManager(gwConfig, clock, gMetrics, lggr, limits.Factory{Logger: lggr})
+	mgr, err := gateway.NewConnectionManager(gwConfig, clock, gMetrics, lggr, limits.Factory{Logger: lggr}, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	return mgr
 }
@@ -779,7 +779,7 @@ func TestConnectionManager_PingRoundTripMetric(t *testing.T) { //nolint:parallel
 	lggr := logger.Test(t)
 	gMetrics, err := monitoring.NewGatewayMetrics(meter)
 	require.NoError(t, err)
-	mgr, err := gateway.NewConnectionManager(cfg, clock, gMetrics, lggr, limits.Factory{Logger: lggr})
+	mgr, err := gateway.NewConnectionManager(cfg, clock, gMetrics, lggr, limits.Factory{Logger: lggr}, meter)
 	require.NoError(t, err)
 	require.NoError(t, mgr.Start(t.Context()))
 	t.Cleanup(func() { require.NoError(t, mgr.Close()) })

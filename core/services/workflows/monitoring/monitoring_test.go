@@ -5,19 +5,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
-
-func Test_InitMonitoringResources(t *testing.T) {
-	t.Parallel()
-	em, err := monitoring.InitMonitoringResources()
-	require.NoError(t, err)
-	require.NotNil(t, em)
-}
 
 func Test_InitMonitoringResourcesWithMeter(t *testing.T) {
 	t.Parallel()
@@ -67,7 +61,7 @@ func Test_InitMonitoringResourcesWithMeter(t *testing.T) {
 
 func Test_WorkflowMetricsLabeler(t *testing.T) {
 	t.Parallel()
-	em, err := monitoring.InitMonitoringResources()
+	em, err := monitoring.InitMonitoringResourcesWithMeter(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	testWorkflowsMetricLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 	testWorkflowsMetricLabeler2 := testWorkflowsMetricLabeler.With("foo", "baz")

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
@@ -45,7 +46,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		lggr := logger.Test(t)
 
 		dons := shardedArgs(t, donConfig, mockDon)
-		handler, err := NewGatewayHandler(configBytes, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
+		handler, err := NewGatewayHandler(configBytes, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 		require.NotNil(t, handler)
 		require.NotNil(t, handler.responseCache)
@@ -61,7 +62,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		lggr := logger.Test(t)
 
 		dons := shardedArgs(t, donConfig, mockDon)
-		handler, err := NewGatewayHandler(invalidConfig, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
+		handler, err := NewGatewayHandler(invalidConfig, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil, noop.NewMeterProvider().Meter("test"))
 		require.Error(t, err)
 		require.Nil(t, handler)
 	})
@@ -79,7 +80,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		lggr := logger.Test(t)
 
 		dons := shardedArgs(t, donConfig, mockDon)
-		handler, err := NewGatewayHandler(configBytes, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
+		handler, err := NewGatewayHandler(configBytes, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, err)
 		require.NotNil(t, handler)
 		require.Equal(t, defaultCleanUpPeriodMs, handler.config.CleanUpPeriodMs) // Default value
@@ -447,7 +448,7 @@ func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
 	lggr := logger.Test(t)
 
 	dons := shardedArgs(t, donConfig, mockDon)
-	handler, err := NewGatewayHandler(configBytes, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
+	handler, err := NewGatewayHandler(configBytes, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 	mockCache := newMockResponseCache()
@@ -513,10 +514,10 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*gatewayHandl
 	lggr := logger.Test(t)
 
 	dons := shardedArgs(t, donConfig, mockDon)
-	handler, err := NewGatewayHandler(configBytes, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
+	handler, err := NewGatewayHandler(configBytes, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	meter, reader := newBeholderReader(t)
-	handler.metrics, err = metrics.NewMetricsWithMeter(handlers.AllMembers(handler.shards), meter)
+	handler.metrics, err = metrics.NewMetrics(handlers.AllMembers(handler.shards), meter)
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 
@@ -1274,7 +1275,7 @@ func TestGatewayHandler_Send_InvalidMtlsCertDoesNotConsumeGlobalTokens(t *testin
 	handler, _ := createTestHandler(t)
 	// Burst of exactly 1: only a single mtls request may pass the rate limiter.
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(1, 1)
-	handler.httpClientFactory = network.NewHTTPClientFactory(network.HTTPClientConfig{}, logger.Test(t))
+	handler.httpClientFactory = network.NewHTTPClientFactory(network.HTTPClientConfig{}, logger.Test(t), noop.NewMeterProvider().Meter("test"))
 
 	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
 	outboundReq := gateway_common.OutboundHTTPRequest{
@@ -1410,7 +1411,7 @@ func TestNewGatewayHandler_MultiShardCreatesRateLimitersForAllMembers(t *testing
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
 	lggr := logger.Test(t)
 
-	handler, err := NewGatewayHandler(configBytes, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
+	handler, err := NewGatewayHandler(configBytes, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 
@@ -1462,7 +1463,7 @@ func TestGatewayHandler_SendResponseToNode_MultiShardRouting(t *testing.T) {
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
 	lggr := logger.Test(t)
 
-	handler, err := NewGatewayHandler(configBytes, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil)
+	handler, err := NewGatewayHandler(configBytes, dons, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory, nil, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 

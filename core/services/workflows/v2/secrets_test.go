@@ -49,7 +49,8 @@ func RandomUTF8BytesWord() [32]byte {
 }
 
 func MetricsLabelerTest(t *testing.T) *monitoring.WorkflowsMetricLabeler {
-	m, err := monitoring.InitMonitoringResources()
+	meter, _ := newTestMeter(t)
+	m, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 	require.NoError(t, err)
 	l := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), m)
 	return l
@@ -1173,7 +1174,7 @@ func TestSecretsFetcher_VaultFirstThenLocalOverridesForVaultFailures(t *testing.
 	err = reg.Add(t.Context(), mc)
 	require.NoError(t, err)
 
-	local := NewLocalSecretsFetcher(owner, map[string]string{"local-only": "local-value"})
+	local := NewLocalSecretsFetcher(testMeter(t), owner, map[string]string{"local-only": "local-value"})
 	sf := NewSecretsFetcher(
 		MetricsLabelerTest(t),
 		reg,
@@ -1253,7 +1254,7 @@ func TestSecretsFetcher_LocalOverridesWhenVaultExecuteFails(t *testing.T) {
 	owner := "1234567890abcdef1234567890abcdef12345678"
 	normalizedLocalOwner, err := normalizeOwner(owner)
 	require.NoError(t, err)
-	local := NewLocalSecretsFetcher(owner, map[string]string{
+	local := NewLocalSecretsFetcher(testMeter(t), owner, map[string]string{
 		"secret-a": "value-a",
 		"secret-b": "value-b",
 	})

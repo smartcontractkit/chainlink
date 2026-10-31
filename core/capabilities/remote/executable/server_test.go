@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -317,7 +318,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 	for i := range numCapabilityPeers {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, limits.NewGateLimiter(false), lggr)
+		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		require.NoError(t, capabilityNode.SetConfig(config, underlying, capInfo, capDonInfo, workflowDONs, messageHasher, nil))
 		require.NoError(t, capabilityNode.Start(ctx))
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
@@ -431,7 +432,7 @@ func Test_Server_SetConfig(t *testing.T) {
 	t.Run("valid config should succeed", func(t *testing.T) {
 		t.Parallel()
 
-		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		config := &commoncap.RemoteExecutableConfig{
 			RequestTimeout:            requestTimeout,
 			ServerMaxParallelRequests: maxParallelRequests,
@@ -444,7 +445,7 @@ func Test_Server_SetConfig(t *testing.T) {
 	t.Run("mismatched capability ID should return error", func(t *testing.T) {
 		t.Parallel()
 
-		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		invalidCapInfo := commoncap.CapabilityInfo{
 			ID:             "different-capability-id",
 			CapabilityType: commoncap.CapabilityTypeTarget,
@@ -458,7 +459,7 @@ func Test_Server_SetConfig(t *testing.T) {
 	t.Run("nil underlying capability should return error", func(t *testing.T) {
 		t.Parallel()
 
-		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, nil, capInfo,
 			localDonInfo, workflowDONs, messageHasher, nil)
 		require.Error(t, err)
@@ -468,7 +469,7 @@ func Test_Server_SetConfig(t *testing.T) {
 	t.Run("empty local DON members should fail", func(t *testing.T) {
 		t.Parallel()
 
-		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		emptyLocalDon := commoncap.DON{
 			ID:      1,
 			Members: []p2ptypes.PeerID{},
@@ -486,7 +487,7 @@ func Test_Server_SetConfig(t *testing.T) {
 	t.Run("nil message hasher should fail", func(t *testing.T) {
 		t.Parallel()
 
-		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		config := &commoncap.RemoteExecutableConfig{
 			RequestTimeout:            10 * time.Second,
 			ServerMaxParallelRequests: 5,
@@ -499,7 +500,7 @@ func Test_Server_SetConfig(t *testing.T) {
 	t.Run("zero timeout should fail", func(t *testing.T) {
 		t.Parallel()
 
-		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		config := &commoncap.RemoteExecutableConfig{
 			RequestTimeout:            0,
 			ServerMaxParallelRequests: 5,
@@ -512,7 +513,7 @@ func Test_Server_SetConfig(t *testing.T) {
 	t.Run("zero max parallel requests should fail", func(t *testing.T) {
 		t.Parallel()
 
-		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		config := &commoncap.RemoteExecutableConfig{
 			RequestTimeout:            10 * time.Second,
 			ServerMaxParallelRequests: 0,
@@ -525,7 +526,7 @@ func Test_Server_SetConfig(t *testing.T) {
 	t.Run("empty workflow DONs should fail", func(t *testing.T) {
 		t.Parallel()
 
-		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		emptyWorkflowDONs := map[uint32]commoncap.DON{}
 		config := &commoncap.RemoteExecutableConfig{
 			RequestTimeout:            10 * time.Second,
@@ -544,7 +545,7 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 	peerID := NewP2PPeerID(t)
 	broker := newTestAsyncMessageBroker(t, 100)
 	dispatcher := broker.NewDispatcherForNode(peerID)
-	server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+	server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 
 	capInfo := commoncap.CapabilityInfo{
 		ID:             "test-capability-id",
@@ -601,7 +602,7 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 		peerID := NewP2PPeerID(t)
 		broker := newTestAsyncMessageBroker(t, 100)
 		dispatcher := broker.NewDispatcherForNode(peerID)
-		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 
 		err := server.Start(ctx)
 		require.Error(t, err)
@@ -615,7 +616,7 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 		peerID := NewP2PPeerID(t)
 		broker := newTestAsyncMessageBroker(t, 100)
 		dispatcher := broker.NewDispatcherForNode(peerID)
-		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 
 		// Set valid config
 		capInfo := commoncap.CapabilityInfo{
@@ -659,7 +660,7 @@ func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
 		peerID := NewP2PPeerID(t)
 		broker := newTestAsyncMessageBroker(t, 100)
 		dispatcher := broker.NewDispatcherForNode(peerID)
-		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 
 		capInfo := commoncap.CapabilityInfo{
 			ID:             "test-capability-id",
@@ -744,7 +745,7 @@ func Test_Server_SetConfig_ShutdownRaces(t *testing.T) {
 	peerID := NewP2PPeerID(t)
 	broker := newTestAsyncMessageBroker(t, 100)
 	dispatcher := broker.NewDispatcherForNode(peerID)
-	server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+	server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 
 	capInfo := commoncap.CapabilityInfo{
 		ID:             "test-capability-id",
@@ -849,7 +850,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 
 	// Create and set up server
 	dispatcher := broker.NewDispatcherForNode(peerID)
-	server := executable.NewServer(capInfo.ID, "", peerID, dispatcher, limits.NewGateLimiter(false), lggr)
+	server := executable.NewServer(capInfo.ID, "", peerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 
 	underlying := &TestSlowExecutionCapability{
 		workflowIDToPause: map[string]time.Duration{
@@ -965,7 +966,7 @@ func Test_Server_DuplicateRequestRemainsDedupedPastRequestTimeout(t *testing.T) 
 	senderPeerID := NewP2PPeerID(t)
 
 	dispatcher := &noopDispatcher{}
-	server := executable.NewServer("cap_id@1.0.0", "", serverPeerID, dispatcher, limits.NewGateLimiter(false), lggr)
+	server := executable.NewServer("cap_id@1.0.0", "", serverPeerID, dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 
 	cfg := &commoncap.RemoteExecutableConfig{
 		RequestTimeout:            20 * time.Millisecond,

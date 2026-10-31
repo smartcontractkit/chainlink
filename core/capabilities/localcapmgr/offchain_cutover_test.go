@@ -108,7 +108,7 @@ func (c cutoverManager) reconcile(ctx context.Context, dons []registry.DON) erro
 func newCutoverManager(t *testing.T, localCfg *testLocalCapabilities, gc *globalconfig.GlobalConfig, gate bool) (cutoverManager, *launchRecorder) {
 	t.Helper()
 	rec := &launchRecorder{}
-	m, err := NewLocalCapabilityManager(testLogger(t), localCfg, rec.newServices, gate)
+	m, err := NewLocalCapabilityManager(testLogger(t), localCfg, rec.newServices, gate, testMeter)
 	require.NoError(t, err)
 	return cutoverManager{localCapabilityManager: m.(*localCapabilityManager), gc: gc}, rec
 }

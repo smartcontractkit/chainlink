@@ -9,6 +9,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -123,7 +124,7 @@ func generateWrapper(t *testing.T, privateKey, keystoreKey *ecdsa.PrivateKey) (*
 
 	ethKeystore := &keystest.FakeChainStore{Addresses: keystest.Addresses{keystoreKeyV2.Address}}
 	gc := config.Capabilities().GatewayConnector()
-	wrapper := gatewayconnector.NewGatewayConnectorServiceWrapper(gc, ethKeystore, nil, big.NewInt(1), clockwork.NewFakeClock(), lggr, nil)
+	wrapper := gatewayconnector.NewGatewayConnectorServiceWrapper(gc, ethKeystore, nil, big.NewInt(1), clockwork.NewFakeClock(), lggr, nil, noop.NewMeterProvider().Meter("test"))
 	return wrapper, nil
 }
 
@@ -174,6 +175,7 @@ func setupAutoDiscoverTest(
 		clockwork.NewFakeClock(),
 		lggr,
 		nil,
+		noop.NewMeterProvider().Meter("test"),
 	), nil
 }
 

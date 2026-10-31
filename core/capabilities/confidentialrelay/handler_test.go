@@ -16,6 +16,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -182,7 +183,7 @@ func newTestHandler(t *testing.T, registry registry.CapabilitiesRegistry, gwConn
 	require.NoError(t, err)
 	validator, err := passthrough.New()
 	require.NoError(t, err)
-	h, err := NewHandler(registry, &ExecutionHandlers{}, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr}, validator, true)
+	h, err := NewHandler(registry, &ExecutionHandlers{}, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr}, validator, true, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	// Keep the not-yet-registered wait short so the "handler not found" cases do
 	// not stall the suite for the production default.

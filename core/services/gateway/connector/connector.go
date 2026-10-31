@@ -12,8 +12,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/jonboulle/clockwork"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -104,8 +104,8 @@ func (gs *gatewayState) awaitConn(ctx context.Context) error {
 	}
 }
 
-func NewGatewayConnector(config *Config, signer Signer, clock clockwork.Clock, lggr logger.Logger, csaKey string) (*gatewayConnector, error) {
-	if config == nil || signer == nil || clock == nil || lggr == nil {
+func NewGatewayConnector(config *Config, signer Signer, clock clockwork.Clock, lggr logger.Logger, csaKey string, meter metric.Meter) (*gatewayConnector, error) {
+	if config == nil || signer == nil || clock == nil || lggr == nil || meter == nil {
 		return nil, errors.New("nil dependency")
 	}
 	if err := validateConnectorConfig(config); err != nil {
@@ -115,11 +115,11 @@ func NewGatewayConnector(config *Config, signer Signer, clock clockwork.Clock, l
 	if err != nil {
 		return nil, err
 	}
-	metrics, err := newConnectorMetrics()
+	metrics, err := newConnectorMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gateway connector metrics: %w", err)
 	}
-	wsMetrics, err := network.NewWSConnectionMetrics(beholder.GetMeter())
+	wsMetrics, err := network.NewWSConnectionMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create websocket connection metrics: %w", err)
 	}

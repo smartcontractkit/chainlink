@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -51,7 +52,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
 	}
-	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
 	require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
 	require.NoError(t, subscriber.Start(t.Context()))
@@ -133,7 +134,7 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := remoteMocks.NewDispatcher(t)
-		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
+		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		config := &commoncap.RemoteTriggerConfig{}
 		mismatchedCapInfo := commoncap.CapabilityInfo{ID: "different_id", CapabilityType: commoncap.CapabilityTypeTrigger}
 		err := subscriber.SetConfig(config, mismatchedCapInfo, workflowDon.ID, capDon, agg)
@@ -147,7 +148,7 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := remoteMocks.NewDispatcher(t)
-		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
+		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		config := &commoncap.RemoteTriggerConfig{}
 		err := subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, nil)
 		require.Error(t, err)
@@ -158,7 +159,7 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := remoteMocks.NewDispatcher(t)
-		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
+		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		// Set initial config
 		initialConfig := &commoncap.RemoteTriggerConfig{
 			RegistrationRefresh:     100 * time.Millisecond,
@@ -185,7 +186,7 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := remoteMocks.NewDispatcher(t)
-		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
+		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		// Set initial config as nil
 		err := subscriber.SetConfig(nil, capInfo, workflowDon.ID, capDon, agg)
 		require.NoError(t, err)
@@ -209,7 +210,7 @@ func TestTriggerSubscriber_MultipleTriggersSameWorkflow(t *testing.T) {
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
 	}
-	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
 	require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
 	require.NoError(t, subscriber.Start(t.Context()))
@@ -281,7 +282,7 @@ func TestTriggerSubscriber_LegacyMessageWithoutTriggerID(t *testing.T) {
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
 	}
-	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
 	require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
 	require.NoError(t, subscriber.Start(t.Context()))
@@ -332,7 +333,7 @@ func TestTriggerSubscriber_AckReplayOnDuplicateReceive(t *testing.T) {
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
 	}
-	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
 	require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
 	require.NoError(t, subscriber.Start(t.Context()))
@@ -384,7 +385,7 @@ func TestTriggerSubscriber_UnregisterOneTriggerKeepsOther(t *testing.T) {
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
 	}
-	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
 	require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
 	require.NoError(t, subscriber.Start(t.Context()))
@@ -489,7 +490,7 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 			MessageExpiry:           time.Minute,
 		}
 
-		sub := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
+		sub := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 		agg := aggregation.NewDefaultModeAggregator(1)
 
 		require.NoError(t, sub.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
@@ -713,7 +714,7 @@ func newTriggerSubscriberForTest(
 	dispatcher := remoteMocks.NewDispatcher(t)
 	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
 
-	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr)
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 	agg := aggregation.NewDefaultModeAggregator(cfg.MinResponsesToAggregate)
 	require.NoError(t, subscriber.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
 	require.NoError(t, subscriber.Start(t.Context()))
@@ -848,7 +849,7 @@ func TestTriggerSubscriber_PropagateOrgIDEvaluatedEachTick(t *testing.T) {
 		MessageExpiry:           100 * time.Second,
 	}
 	gate := &toggleGate{GateLimiter: limits.NewGateLimiter(false)}
-	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, gate, lggr)
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, gate, lggr, noop.Meter{})
 	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
 	require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
 	servicetest.Run(t, subscriber)

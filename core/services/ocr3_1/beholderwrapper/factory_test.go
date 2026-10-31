@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -19,11 +20,13 @@ func Test_WrapperFactory(t *testing.T) {
 		&fakeFactory[uint]{},
 		logger.TestLogger(t),
 		"plugin",
+		noop.NewMeterProvider().Meter("test"),
 	)
 	failingFactory := NewReportingPluginFactory(
 		&fakeFactory[uint]{err: errors.New("error")},
 		logger.TestLogger(t),
 		"plugin",
+		noop.NewMeterProvider().Meter("test"),
 	)
 
 	plugin, _, err := validFactory.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{}, nil)

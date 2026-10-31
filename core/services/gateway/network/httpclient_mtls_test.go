@@ -20,6 +20,7 @@ import (
 
 	"github.com/doyensec/safeurl"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -104,7 +105,7 @@ func TestNewHTTPClientWithOptions_MtlsRejectsInvalidPEM(t *testing.T) {
 			Certificate: []byte("not a pem certificate"),
 			PrivateKey:  []byte("not a pem key"),
 		},
-	}, lggr)
+	}, lggr, noop.Meter{})
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to parse MtlsAuth into KeyPair")
@@ -122,7 +123,7 @@ func TestNewHTTPClientWithOptions_MtlsRejectsMismatchedKeyPair(t *testing.T) {
 			Certificate: certPEM,
 			PrivateKey:  keyPEMOther,
 		},
-	}, lggr)
+	}, lggr, noop.Meter{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to parse MtlsAuth into KeyPair")
 }
@@ -136,7 +137,7 @@ func TestNewHTTPClientWithOptions_MtlsValidKeyPair(t *testing.T) {
 	client, err := NewHTTPClient(HTTPClientConfig{
 		Mtls:               &gateway.MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
 		ConcurrencyLimiter: testMtlsLimiter(),
-	}, lggr)
+	}, lggr, noop.Meter{})
 	require.NoError(t, err)
 	require.NotNil(t, client)
 }
@@ -145,7 +146,7 @@ func TestNewHTTPClientFactory_MtlsFlow(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 
-	factory := NewHTTPClientFactory(HTTPClientConfig{}, lggr)
+	factory := NewHTTPClientFactory(HTTPClientConfig{}, lggr, noop.Meter{})
 
 	t.Run("nil config returns a working non-mtls client", func(t *testing.T) {
 		client, err := factory(HTTPClientConfig{})
@@ -229,6 +230,7 @@ func TestHTTPClient_MtlsPresentsCertificateToServer(t *testing.T) {
 			ConcurrencyLimiter: testMtlsLimiter(),
 		},
 		lggr,
+		noop.Meter{},
 	)
 	require.NoError(t, err)
 
@@ -288,6 +290,7 @@ func TestHTTPClient_NoMtls_RejectedByMtlsServer(t *testing.T) {
 			AllowedPorts: []int{port},
 		}, // no Mtls
 		lggr,
+		noop.Meter{},
 	)
 	require.NoError(t, err)
 
@@ -322,7 +325,7 @@ func TestHTTPClient_MtlsDisablesKeepAlives(t *testing.T) {
 	client, err := NewHTTPClient(HTTPClientConfig{
 		Mtls:               &gateway.MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
 		ConcurrencyLimiter: testMtlsLimiter(),
-	}, lggr)
+	}, lggr, noop.Meter{})
 	require.NoError(t, err)
 
 	hc, ok := client.(*httpClient)
@@ -345,7 +348,7 @@ func TestNewHTTPClient_MtlsRequiresConcurrencyLimiter(t *testing.T) {
 
 	_, err := NewHTTPClient(HTTPClientConfig{
 		Mtls: &gateway.MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
-	}, logger.Test(t))
+	}, logger.Test(t), noop.Meter{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "mtls requires a ConcurrencyLimiter")
 }
@@ -415,7 +418,7 @@ func TestHTTPClient_MtlsConcurrencyLimit_RespectsRequestTimeout(t *testing.T) {
 	client, err := NewHTTPClient(HTTPClientConfig{
 		Mtls:               &gateway.MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
 		ConcurrencyLimiter: limits.GlobalResourcePoolLimiter[int](0),
-	}, lggr)
+	}, lggr, noop.Meter{})
 	require.NoError(t, err)
 
 	start := time.Now()

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -19,7 +20,7 @@ import (
 
 func testAggregator(t *testing.T, mcr *mockCapabilitiesRegistry) *baseAggregator {
 	t.Helper()
-	m, err := newMetrics()
+	m, err := newMetrics(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	return &baseAggregator{
 		capabilitiesRegistry: mcr,

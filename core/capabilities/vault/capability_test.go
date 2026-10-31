@@ -12,6 +12,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -32,7 +33,7 @@ import (
 
 func newTestRequestLifecycleTracker(t *testing.T) *RequestLifecycleTracker {
 	t.Helper()
-	tr, err := NewRequestLifecycleTracker(logger.TestLogger(t))
+	tr, err := NewRequestLifecycleTracker(logger.TestLogger(t), noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	return tr
 }

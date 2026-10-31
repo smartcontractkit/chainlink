@@ -98,15 +98,8 @@ type EngineMetrics struct {
 	activeExecutionsGauge metric.Int64Gauge
 }
 
-// InitMonitoringResources returns engine metrics registered on the global
-// beholder meter. Prefer InitMonitoringResourcesWithMeter with an explicitly
-// injected meter; this reads the global meter at call time, as before.
-func InitMonitoringResources() (*EngineMetrics, error) {
-	return InitMonitoringResourcesWithMeter(beholder.GetMeter())
-}
-
 // InitMonitoringResourcesWithMeter registers all engine metrics on meter.
-// A nil meter is not supported; pass beholder.GetMeter() explicitly instead.
+// The meter comes from the caller's beholder client; there is no global fallback.
 func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, err error) {
 	em = &EngineMetrics{}
 

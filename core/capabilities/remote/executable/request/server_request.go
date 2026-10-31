@@ -13,7 +13,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -78,28 +77,28 @@ func (s *srMetrics) countExecutionResponse(ctx context.Context, status string, d
 	)
 }
 
-func newSrMetrics(capabilityID string, callingDonID uint32) (*srMetrics, error) {
-	h, err := beholder.GetMeter().Int64Histogram("platform_executable_capability_server_execute_duration_ms")
+func newSrMetrics(meter metric.Meter, capabilityID string, callingDonID uint32) (*srMetrics, error) {
+	h, err := meter.Int64Histogram("platform_executable_capability_server_execute_duration_ms")
 	if err != nil {
 		return nil, err
 	}
 
-	ec, err := beholder.GetMeter().Int64Counter("platform_executable_capability_server_execute_count")
+	ec, err := meter.Int64Counter("platform_executable_capability_server_execute_count")
 	if err != nil {
 		return nil, err
 	}
 
-	erc, err := beholder.GetMeter().Int64Counter("platform_executable_capability_server_execute_request_count")
+	erc, err := meter.Int64Counter("platform_executable_capability_server_execute_request_count")
 	if err != nil {
 		return nil, err
 	}
 
-	erspc, err := beholder.GetMeter().Int64Counter("platform_executable_capability_server_execute_response_count")
+	erspc, err := meter.Int64Counter("platform_executable_capability_server_execute_response_count")
 	if err != nil {
 		return nil, err
 	}
 
-	eoc, err := beholder.GetMeter().Int64Counter("platform_executable_capability_server_execute_org_id_count")
+	eoc, err := meter.Int64Counter("platform_executable_capability_server_execute_org_id_count")
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +171,7 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method, capa
 	capabilityPeerID p2ptypes.PeerID,
 	callingDon capabilities.DON, requestID string,
 	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string,
-	workflowDONBindingGate limits.GateLimiter, accumulator types.RequestAccumulator, lggr logger.Logger,
+	workflowDONBindingGate limits.GateLimiter, accumulator types.RequestAccumulator, lggr logger.Logger, meter metric.Meter,
 ) (*ServerRequest, error) {
 	lggr = logger.With(logger.Named(lggr, "ServerRequest"), "requestID", requestID) // cap ID and method name included in the parent logger
 
@@ -183,7 +182,7 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method, capa
 		accumulator = NewLatestPayloadAccumulator()
 	}
 
-	m, err := newSrMetrics(capabilityID, callingDon.ID)
+	m, err := newSrMetrics(meter, capabilityID, callingDon.ID)
 	if err != nil {
 		return nil, err
 	}

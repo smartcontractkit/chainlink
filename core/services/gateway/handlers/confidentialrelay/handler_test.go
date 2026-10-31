@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"golang.org/x/time/rate"
 
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
@@ -133,7 +134,7 @@ func setupHandlerWithConfig(t *testing.T, numNodes, f int, handlerConfig Config)
 
 	clock := clockwork.NewFakeClock()
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory)
+	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	// The default bundler is the real one; tests that need a failure inject a mock.
 	cb := common.NewCallback()
@@ -851,7 +852,7 @@ func TestConfidentialRelayHandler_QuorumGraceConfig(t *testing.T) {
 			donConfig := &config.DONConfig{DonID: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
 			limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
 
-			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory)
+			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory, noop.NewMeterProvider().Meter("test"))
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.wantGraceMs, h.quorumGrace.Milliseconds())
@@ -899,7 +900,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	}
 	clock := clockwork.NewFakeClock()
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory)
+	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	h.globalNodeRateLimiter = limits.GlobalRateLimiter(rate.Limit(100), 100)
 	h.perNodeRateLimiters[nodeOne.Address] = limits.GlobalRateLimiter(rate.Limit(0.001), 1)
@@ -1113,7 +1114,7 @@ func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 	require.NoError(t, err)
 
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clockwork.NewFakeClock(), limitsFactory)
+	h, err := NewHandler(methodConfig, donConfig, don, lggr, clockwork.NewFakeClock(), limitsFactory, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	cb := common.NewCallback()
@@ -1166,7 +1167,7 @@ func TestConfidentialRelayHandler_NodeSendTimeoutConfig(t *testing.T) {
 			donConfig := &config.DONConfig{DonID: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
 			limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
 
-			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory)
+			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory, noop.NewMeterProvider().Meter("test"))
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.wantSendMs, h.nodeSendTimeout.Milliseconds())
@@ -1197,7 +1198,7 @@ func TestConfidentialRelayHandler_BlockedNodeDoesNotStallFanOut(t *testing.T) {
 	methodConfig, err := json.Marshal(Config{RequestTimeoutSec: 30})
 	require.NoError(t, err)
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clockwork.NewFakeClock(), limitsFactory)
+	h, err := NewHandler(methodConfig, donConfig, don, lggr, clockwork.NewFakeClock(), limitsFactory, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	// Shortened so the test exercises the bound without waiting the production default.
 	h.nodeSendTimeout = 50 * time.Millisecond

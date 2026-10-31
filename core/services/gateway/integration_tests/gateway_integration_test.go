@@ -17,6 +17,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -186,10 +187,10 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	c, err := network.NewHTTPClient(network.HTTPClientConfig{
 		DefaultTimeout:   5 * time.Second,
 		MaxResponseBytes: 1000,
-	}, lggr)
+	}, lggr, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	lf := limits.Factory{Logger: lggr}
-	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, c, nil, nil, lggr, lf, nil, nil), lggr, lf)
+	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, c, nil, nil, lggr, lf, nil, nil, noop.NewMeterProvider().Meter("test")), lggr, lf, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 	servicetest.Run(t, gateway)
 	userPort, nodePort := gateway.GetUserPort(), gateway.GetNodePort()
@@ -201,7 +202,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	// Launch Connector
 	client := &client{privateKey: nodeKeys.PrivateKey}
 	// client acts as a signer here
-	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeURL), client, clockwork.NewRealClock(), lggr, "")
+	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeURL), client, clockwork.NewRealClock(), lggr, "", noop.Meter{})
 	require.NoError(t, err)
 	require.NoError(t, connector.AddHandler(t.Context(), []string{"test"}, client))
 	client.connector = connector

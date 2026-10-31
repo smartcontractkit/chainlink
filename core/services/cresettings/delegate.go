@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"sync"
 
+	"go.opentelemetry.io/otel/metric"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -24,13 +26,17 @@ const (
 	offchainConfigKey = "offchain_config"
 )
 
-func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings, capRegistry *globalconfig.GlobalConfig) *delegate {
+func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings, capRegistry *globalconfig.GlobalConfig, meter metric.Meter) *delegate {
+	capRegMetrics, err := globalconfig.NewMetrics(meter)
+	if err != nil {
+		lggr.Warnw("failed to register capabilities registry metrics; continuing without them", "err", err)
+	}
 	return &delegate{
 		lggr:                    lggr,
 		atomicSettings:          atomicSettings,
 		shardAssignmentSettings: shardAssignmentSettings,
 		capRegistry:             capRegistry,
-		capRegMetrics:           globalconfig.DefaultMetrics(),
+		capRegMetrics:           capRegMetrics,
 	}
 }
 

@@ -134,7 +134,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 			},
 			err: nil,
 		},
-		engineRegistry,
+		engineRegistry, testMeter(),
 		WithSyncTickInterval(50*time.Millisecond),
 	)
 	require.NoError(t, err)
@@ -219,7 +219,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 			},
 			err: nil,
 		},
-		NewEngineRegistry(),
+		NewEngineRegistry(), testMeter(),
 		WithSyncTickInterval(50*time.Millisecond),
 	)
 	require.NoError(t, err)
@@ -308,7 +308,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier, withTestOrgResolver())
+	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier, testMeter(), withTestOrgResolver())
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(
@@ -324,7 +324,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 		},
 		handler,
 		donNotifier,
-		er,
+		er, testMeter(),
 		WithSyncTickInterval(50*time.Millisecond),
 	)
 	require.NoError(t, err)
@@ -413,7 +413,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	require.NoError(t, err)
 
 	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, &confidentialrelay.ExecutionHandlers{}, er,
-		emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier, WithStaticEngine(&mockEngine{}), withTestOrgResolver())
+		emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier, testMeter(), WithStaticEngine(&mockEngine{}), withTestOrgResolver())
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(
@@ -429,7 +429,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 		},
 		handler,
 		donNotifier,
-		er,
+		er, testMeter(),
 		WithSyncTickInterval(50*time.Millisecond),
 	)
 	require.NoError(t, err)
@@ -515,7 +515,7 @@ func Test_StartReconciliation_InitialStateSyncV2(t *testing.T) {
 				},
 				err: nil,
 			},
-			engineRegistry,
+			engineRegistry, testMeter(),
 			WithRetryInterval(1*time.Second),
 			WithSyncTickInterval(50*time.Millisecond),
 		)
@@ -584,7 +584,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 		},
 		testEventHandler,
 		donNotifier,
-		engineRegistry,
+		engineRegistry, testMeter(),
 		WithRetryInterval(1*time.Second),
 		WithSyncTickInterval(50*time.Millisecond),
 	)
@@ -682,7 +682,7 @@ func Test_StartReconciliation_RetriesWithBackoffV2(t *testing.T) {
 			},
 			err: nil,
 		},
-		NewEngineRegistry(),
+		NewEngineRegistry(), testMeter(),
 		WithRetryInterval(100*time.Millisecond),
 		WithSyncTickInterval(50*time.Millisecond),
 	)

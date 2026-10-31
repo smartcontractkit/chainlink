@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -66,7 +67,7 @@ func Test_ServerRequest_WorkflowDONBinding(t *testing.T) {
 		t.Helper()
 		d := &testDispatcher{}
 		req, rerr := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", d, 10*time.Minute, "", gate, nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", d, 10*time.Minute, "", gate, nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.NoError(t, rerr)
 		payload := buildPayload(workflowDonID)
 		require.NoError(t, send(req, workflowPeers[0], payload))
@@ -97,7 +98,7 @@ func Test_ServerRequest_WorkflowDONBinding(t *testing.T) {
 	t.Run("nil gate is rejected at construction", func(t *testing.T) {
 		t.Parallel()
 		_, rerr := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
-			capabilityPeerID, callingDon, "requestMessageID", &testDispatcher{}, 10*time.Minute, "", nil, nil, lggr)
+			capabilityPeerID, callingDon, "requestMessageID", &testDispatcher{}, 10*time.Minute, "", nil, nil, lggr, noop.NewMeterProvider().Meter("test"))
 		require.ErrorContains(t, rerr, "workflowDONBindingGate must not be nil")
 	})
 }

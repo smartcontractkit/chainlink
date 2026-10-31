@@ -10,7 +10,6 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 )
 
@@ -38,17 +37,6 @@ func TestShardAssignmentConstants(t *testing.T) {
 	require.Equal(t, "parse_error", ShardAssignmentUpdateParseError)
 }
 
-func TestGlobalShardAssignmentMetricsSingleton(t *testing.T) {
-	t.Parallel()
-	m, err := GlobalShardAssignmentMetrics()
-	require.NoError(t, err)
-	require.NotNil(t, m)
-
-	m2, err := GlobalShardAssignmentMetrics()
-	require.NoError(t, err)
-	require.Same(t, m, m2)
-}
-
 func TestShardAssignmentMetricsNilReceiver(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
@@ -61,54 +49,6 @@ func TestShardAssignmentMetricsNilReceiver(t *testing.T) {
 	require.False(t, changed)
 	require.Nil(t, prev)
 	require.False(t, m.RecordSettingsParseError(ctx, 1))
-}
-
-// TestGlobalShardAssignmentMetricsRebindsWhenClientChanges proves the global
-// binding follows a beholder client installed after the first call: beholder
-// starts with a noop client, and one made too early must not be cached for
-// the life of the process.
-func TestGlobalShardAssignmentMetricsRebindsWhenClientChanges(t *testing.T) { //nolint:paralleltest // swaps the process-global beholder client
-	prevClient := beholder.GetClient()
-	t.Cleanup(func() { beholder.SetClient(prevClient) })
-
-	newClient := func(name string) (*beholder.Client, *sdkmetric.ManualReader) {
-		reader := sdkmetric.NewManualReader()
-		mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-		t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
-		return &beholder.Client{Meter: mp.Meter(name)}, reader
-	}
-
-	beholder.SetClient(beholder.NewNoopClient())
-	mNoop, err := GlobalShardAssignmentMetrics()
-	require.NoError(t, err)
-	require.NotNil(t, mNoop)
-
-	client1, reader1 := newClient("rebind-test-1")
-	beholder.SetClient(client1)
-	m1, err := GlobalShardAssignmentMetrics()
-	require.NoError(t, err)
-	require.NotNil(t, m1, "the binding must be retried after the global client changes")
-	require.NotSame(t, mNoop, m1)
-
-	client2, reader2 := newClient("rebind-test-2")
-	beholder.SetClient(client2)
-	m2, err := GlobalShardAssignmentMetrics()
-	require.NoError(t, err)
-	require.NotSame(t, m1, m2)
-
-	m2.RecordResolverRequest(t.Context(), ShardResolverManual, ShardResolverOutcomeFound, ShardResolverSourcePerOwner, time.Second)
-	require.Equal(t, int64(1), counterTotal(collect(t, reader2), "platform_shard_resolver_requests",
-		map[string]string{"resolver": ShardResolverManual, "outcome": ShardResolverOutcomeFound}),
-		"metrics recorded after the swap must land on the new client's meter")
-	require.Zero(t, counterTotal(collect(t, reader1), "platform_shard_resolver_requests", nil),
-		"the abandoned binding must not receive further recordings")
-}
-
-func collect(t *testing.T, reader *sdkmetric.ManualReader) metricdata.ResourceMetrics {
-	t.Helper()
-	var rm metricdata.ResourceMetrics
-	require.NoError(t, reader.Collect(t.Context(), &rm))
-	return rm
 }
 
 func TestShardAssignmentMetricsInstruments(t *testing.T) {
@@ -202,11 +142,11 @@ func TestShardAssignmentMetricsSettingsUpdateDedup(t *testing.T) {
 		"parse errors must not move the hash gauge: the last applied version stays")
 }
 
-// TestShardAssignmentMetricsAppliedDiffBaselineIsGlobal proves the diff
-// baseline follows the global dedup state rather than staying per-resolver:
+// TestShardAssignmentMetricsAppliedDiffBaselineIsShared proves the diff
+// baseline follows the instance's dedup state rather than staying per-resolver:
 // the second observer of a change sees the real previous config, not
 // "initial", even when it never observed the version before it.
-func TestShardAssignmentMetricsAppliedDiffBaselineIsGlobal(t *testing.T) {
+func TestShardAssignmentMetricsAppliedDiffBaselineIsShared(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	_, m := newTestShardAssignmentMetrics(t)

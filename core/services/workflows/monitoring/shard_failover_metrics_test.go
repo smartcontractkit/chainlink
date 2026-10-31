@@ -11,24 +11,17 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
-// newTestShardFailoverMetrics swaps the beholder client for a manual reader
-// and returns a fresh metrics instance bound to it, so each test asserts
-// absolute values free of the singleton's cross-test state.
+// newTestShardFailoverMetrics builds a fresh metrics instance on a private
+// manual-reader meter, so each test asserts absolute values free of
+// cross-test state.
 func newTestShardFailoverMetrics(t *testing.T) (*sdkmetric.ManualReader, *ShardFailoverMetrics) {
 	t.Helper()
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-	prev := beholder.GetClient()
-	t.Cleanup(func() { beholder.SetClient(prev) })
-	client := beholder.NoopClientConfig{}.New()
-	client.Meter = mp.Meter("test")
-	client.MeterProvider = mp
-	beholder.SetClient(client)
-	fm, err := newShardFailoverMetrics()
+	t.Cleanup(func() { require.NoError(t, mp.Shutdown(context.Background())) })
+	fm, err := NewShardFailoverMetrics(mp.Meter("test"))
 	require.NoError(t, err)
 	return reader, fm
 }
@@ -54,20 +47,9 @@ func cachedEventsValue(t *testing.T, reader *sdkmetric.ManualReader) int64 {
 	return 0
 }
 
-//nolint:paralleltest // swaps the global beholder client behind the metrics singleton
 func TestShardFailoverMetrics_Emissions(t *testing.T) {
-	reader := sdkmetric.NewManualReader()
-	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-	prev := beholder.GetClient()
-	t.Cleanup(func() { beholder.SetClient(prev) })
-	client := beholder.NoopClientConfig{}.New()
-	client.Meter = mp.Meter("test")
-	client.MeterProvider = mp
-	beholder.SetClient(client)
-
-	fm, err := GlobalShardFailoverMetrics()
-	require.NoError(t, err)
-	require.NotNil(t, fm)
+	t.Parallel()
+	reader, fm := newTestShardFailoverMetrics(t)
 
 	ctx := t.Context()
 	fm.SetFailoverEnabled(ctx, true)
@@ -142,9 +124,8 @@ func TestShardFailoverMetrics_Emissions(t *testing.T) {
 // cache and exit calls leave it at the SUM of both caches, not the last
 // writer's per-manager length, and the funnel invariant
 // cached = drained + replayed + expired + closed + still-cached holds.
-//
-//nolint:paralleltest // swaps the global beholder client
 func TestShardFailoverMetrics_CachedEventsAggregatesAcrossManagers(t *testing.T) {
+	t.Parallel()
 	reader, fm := newTestShardFailoverMetrics(t)
 	ctx := t.Context()
 
@@ -197,9 +178,8 @@ func TestShardFailoverMetrics_CachedEventsAggregatesAcrossManagers(t *testing.T)
 // from concurrent goroutines the way concurrent managers do: concurrent Add
 // calls on the up/down counter must sum to the exact node-wide total (run
 // with -race).
-//
-//nolint:paralleltest // swaps the global beholder client
 func TestShardFailoverMetrics_ConcurrentManagers(t *testing.T) {
+	t.Parallel()
 	reader, fm := newTestShardFailoverMetrics(t)
 	ctx := t.Context()
 
@@ -219,43 +199,6 @@ func TestShardFailoverMetrics_ConcurrentManagers(t *testing.T) {
 	wg.Wait()
 
 	assert.Equal(t, int64(200), cachedEventsValue(t, reader), "every manager caches 50 and exits 25: 8*(50-25)")
-}
-
-// TestGlobalShardFailoverMetricsRebindsWhenClientChanges proves the global
-// binding follows a beholder client installed after the first call: beholder
-// starts with a noop client, and a binding made before the real one arrives
-// must not be cached for the life of the process (every failover metric would
-// be silently dropped).
-//
-//nolint:paralleltest // swaps the process-global beholder client
-func TestGlobalShardFailoverMetricsRebindsWhenClientChanges(t *testing.T) {
-	prevClient := beholder.GetClient()
-	t.Cleanup(func() { beholder.SetClient(prevClient) })
-
-	newClient := func(name string) (*beholder.Client, *sdkmetric.ManualReader) {
-		reader := sdkmetric.NewManualReader()
-		mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-		t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
-		return &beholder.Client{Meter: mp.Meter(name)}, reader
-	}
-
-	client1, reader1 := newClient("rebind-test-1")
-	beholder.SetClient(client1)
-	m1, err := GlobalShardFailoverMetrics()
-	require.NoError(t, err)
-	require.NotNil(t, m1)
-	m1.RecordTriggerCached(t.Context())
-	require.Equal(t, int64(1), cachedEventsValue(t, reader1), "the first binding records on the first client's meter")
-
-	client2, reader2 := newClient("rebind-test-2")
-	beholder.SetClient(client2)
-	m2, err := GlobalShardFailoverMetrics()
-	require.NoError(t, err)
-	require.NotSame(t, m1, m2, "the binding must be re-created after the global client changes")
-
-	m2.RecordTriggerCached(t.Context())
-	require.Equal(t, int64(1), cachedEventsValue(t, reader2), "metrics recorded after the swap must land on the new client's meter")
-	require.Equal(t, int64(1), cachedEventsValue(t, reader1), "the abandoned binding must not receive further recordings")
 }
 
 func attrOutcome(attrs attribute.Set) string {

@@ -7,8 +7,6 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 const (
@@ -56,12 +54,8 @@ type (
 	}
 )
 
-// NewBeholderHeadMetrics registers the head-reporter gauge instruments once via
-// beholder.GetMeter(). It is safe to call unconditionally: GetMeter() returns a no-op meter
-// when Beholder telemetry is disabled.
-func NewBeholderHeadMetrics() (HeadMetrics, error) {
-	m := beholder.GetMeter()
-
+// NewBeholderHeadMetrics registers the head-reporter gauge instruments once on m.
+func NewBeholderHeadMetrics(m metric.Meter) (HeadMetrics, error) {
 	latestNumber, err := m.Int64Gauge(metricLatestBlockNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register %s gauge: %w", metricLatestBlockNumber, err)

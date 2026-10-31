@@ -4,12 +4,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 )
 
 func Test_InitMonitoringResources(t *testing.T) {
-	_, err := newSyncerMetricLabeler()
+	_, err := newSyncerMetricLabeler(noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 }
 

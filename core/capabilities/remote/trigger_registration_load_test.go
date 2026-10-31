@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -207,7 +208,7 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 				MessageExpiry:           time.Hour,
 			}
 
-			subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(false), lggr)
+			subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 			agg := aggregation.NewDefaultModeAggregator(cfg.MinResponsesToAggregate)
 			require.NoError(t, subscriber.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
 
@@ -287,7 +288,7 @@ func TestRegistrationLoopSpreadsSendsOverRefreshWindow(t *testing.T) {
 		MessageExpiry:           time.Hour,
 	}
 
-	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(false), lggr)
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 	agg := aggregation.NewDefaultModeAggregator(cfg.MinResponsesToAggregate)
 	require.NoError(t, subscriber.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
 
@@ -381,7 +382,7 @@ func TestRegistrationCheckTrafficVolume(t *testing.T) {
 				}
 
 				workflowDONs := map[uint32]commoncap.DON{workflowDon.ID: workflowDon}
-				publisher := remote.NewTriggerPublisher(capInfo.ID, "LogTrigger", dispatcher, lggr)
+				publisher := remote.NewTriggerPublisher(capInfo.ID, "LogTrigger", dispatcher, lggr, noop.Meter{})
 				require.NoError(t, publisher.SetConfig(cfg, underlying, capDon, workflowDONs))
 				require.NoError(t, publisher.Start(ctx))
 				t.Cleanup(func() { require.NoError(t, publisher.Close()) })
@@ -482,7 +483,7 @@ func BenchmarkRegistrationProcessing(b *testing.B) {
 		BatchCollectionPeriod:   time.Second,
 	}
 	workflowDONs := map[uint32]commoncap.DON{workflowDon.ID: workflowDon}
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "LogTrigger", dispatcher, lggr)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "LogTrigger", dispatcher, lggr, noop.Meter{})
 	if err := publisher.SetConfig(cfg, underlying, capDon, workflowDONs); err != nil {
 		b.Fatal(err)
 	}
@@ -555,7 +556,7 @@ func TestRegistrationLoopLockDuration(t *testing.T) {
 				MessageExpiry:           time.Hour,
 			}
 
-			subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(false), lggr)
+			subscriber := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", dispatcher, limits.NewGateLimiter(false), lggr, noop.Meter{})
 			agg := aggregation.NewDefaultModeAggregator(cfg.MinResponsesToAggregate)
 			require.NoError(t, subscriber.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
 
@@ -644,7 +645,7 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           time.Hour,
 	}
-	sub := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subRegDisp, limits.NewGateLimiter(false), lggr)
+	sub := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subRegDisp, limits.NewGateLimiter(false), lggr, noop.Meter{})
 	agg := aggregation.NewDefaultModeAggregator(subCfg.MinResponsesToAggregate)
 	require.NoError(t, sub.SetConfig(subCfg, capInfo, wfDon.ID, capDon, agg))
 	for i := range nRegistrations {
@@ -673,7 +674,7 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 
 	// --- Phase 2: subscriber — one engine round-trip: deliver event + AckEvent (ACK fan-out to cap DON) ---
 	subAckDisp := newCountingDispatcher()
-	sub2 := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subAckDisp, limits.NewGateLimiter(false), lggr)
+	sub2 := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subAckDisp, limits.NewGateLimiter(false), lggr, noop.Meter{})
 	require.NoError(t, sub2.SetConfig(subCfg, capInfo, wfDon.ID, capDon, agg))
 	require.NoError(t, sub2.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, sub2.Close()) })
@@ -709,7 +710,7 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 		BatchCollectionPeriod:   time.Second,
 	}
 	wfDONs := map[uint32]commoncap.DON{wfDon.ID: wfDon}
-	pub := remote.NewTriggerPublisher(capInfo.ID, "LogTrigger", pubDisp, lggr)
+	pub := remote.NewTriggerPublisher(capInfo.ID, "LogTrigger", pubDisp, lggr, noop.Meter{})
 	require.NoError(t, pub.SetConfig(pubCfg, underlyingNoop, capDon, wfDONs))
 	require.NoError(t, pub.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, pub.Close()) })
@@ -751,7 +752,7 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 	// --- Phase 4: publisher — one underlying trigger event + workflow ACK quorum ---
 	pubEvDisp := newCountingDispatcher()
 	underEv := newMultiTrigger(capInfo)
-	pub2 := remote.NewTriggerPublisher(capInfo.ID, "LogTrigger", pubEvDisp, lggr)
+	pub2 := remote.NewTriggerPublisher(capInfo.ID, "LogTrigger", pubEvDisp, lggr, noop.Meter{})
 	evCfg := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     time.Hour,
 		RegistrationExpiry:      2 * time.Hour,

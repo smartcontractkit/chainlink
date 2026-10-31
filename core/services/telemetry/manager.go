@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -46,12 +45,13 @@ type telemetryEndpoint struct {
 	chipIngressClient synchronization.ChipIngressService
 }
 
-// NewManager create a new telemetry manager that is responsible for configuring telemetry agents and generating the defined telemetry endpoints and monitoring endpoints
-func NewManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, lggr common.Logger) *Manager {
+// NewManager create a new telemetry manager that is responsible for configuring telemetry agents and generating the defined telemetry endpoints and monitoring endpoints.
+// chip is used only when cfg enables ChIP Ingress.
+func NewManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, lggr common.Logger, chip chipingress.Client) *Manager {
 	var chipIngressClient chipingress.Client
 	if cfg.ChipIngressEnabled() {
 		lggr.Info("ChIP Ingress is enabled for telemetry")
-		chipIngressClient = beholder.GetClient().Chip
+		chipIngressClient = chip
 	}
 
 	m := &Manager{
