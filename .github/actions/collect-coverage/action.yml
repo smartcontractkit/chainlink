@@ -1,0 +1,36 @@
+name: Collect container coverage
+description: Copy Go coverage data from running or stopped containers.
+
+inputs:
+  destination:
+    description: Host directory that receives per-container coverage directories.
+    required: true
+  image:
+    description: Optional container image filter, for example chainlink-cover:local.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Copy coverage data
+      shell: bash
+      env:
+        DESTINATION: ${{ inputs.destination }}
+        IMAGE_FILTER: ${{ inputs.image }}
+      run: |
+        set -euo pipefail
+        mkdir -p "${DESTINATION}"
+        for container in $(docker ps -aq); do
+          image="$(docker inspect -f '{{.Config.Image}}' "${container}" 2>/dev/null || true)"
+          if [[ -n "${IMAGE_FILTER}" && "${image}" != "${IMAGE_FILTER}"* ]]; then
+            continue
+          fi
+          if [[ "${image}" == *"-coverage"* ]]; then
+            docker kill --signal=SIGUSR1 "${container}" >/dev/null 2>&1 || true
+            sleep 0.2
+          fi
+          if docker cp "${container}:/var/tmp/go-coverage/." "${DESTINATION}/${container}" 2>/dev/null; then
+            echo "Copied coverage from ${container} (${image})"
+          fi
+        done

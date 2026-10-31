@@ -199,6 +199,8 @@ jobs:
         shell: bash
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
+          COVERAGE: "true"
+          GOCOVERDIR: ${{ github.workspace }}/.covdata/deployment-shard-${{ matrix.shard-id }}
           OUTPUT_FILE: ./output.txt
           PRODUCE_JUNIT_XML: "true"
           TRUNK_AUTO_QUARANTINE: "true"
@@ -237,6 +239,24 @@ jobs:
             ./deployment/output.txt
             ./deployment/output-short.txt
           retention-days: 7
+
+      - name: Store coverage artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-deployment-shard-${{ matrix.shard-id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .covdata/deployment-shard-${{ matrix.shard-id }}
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Store test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-deployment-shard-${{ matrix.shard-id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: junit.xml
+          retention-days: 7
+          if-no-files-found: ignore
 
   deployment-tests-result:
     # Do not modify this job name, it is used by branch protection rules

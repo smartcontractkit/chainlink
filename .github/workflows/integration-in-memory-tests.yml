@@ -233,7 +233,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p integration-tests/bin
-          (cd integration-tests && go test -c -ldflags="-s -w" -o ./bin/ccip-inmemory.test ./smoke/ccip)
+          (cd integration-tests && go test -c -cover -covermode=atomic \
+            -coverpkg=github.com/smartcontractkit/chainlink/v2/...,github.com/smartcontractkit/chainlink/deployment/... \
+            -ldflags="-s -w" -o ./bin/ccip-inmemory.test ./smoke/ccip)
           # Pre-build preparetest so matrix jobs skip ~1min of module downloads + compile each
           go build -o integration-tests/bin/preparetest ./core/store/cmd/preparetest
           GOBIN="$PWD/integration-tests/bin" go install gotest.tools/gotestsum@v1.13.0
@@ -344,12 +346,15 @@ jobs:
           TEST_RUN: ${{ matrix.tests.test }}
           TEST_TIMEOUT: ${{ matrix.tests.timeout }}
           PARALLEL: ${{ matrix.tests.parallel }}
+          GOCOVERDIR: ${{ github.workspace }}/.covdata/inmemory-${{ strategy.job-index }}
         run: |
+          mkdir -p "${GOCOVERDIR}"
           gotestsum --jsonfile=/tmp/gotest.log --junitfile=/tmp/junit.xml \
             --format=github-actions --raw-command -- \
             go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip \
               ../../bin/ccip-inmemory.test -test.v -test.run "${TEST_RUN}" \
-              -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL}"
+              -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL}" \
+              -test.gocoverdir="${GOCOVERDIR}"
 
       - name: Ensure Junit XML file exists
         if: always()
@@ -370,6 +375,24 @@ jobs:
           trunk-org-slug: chainlink
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
           artifact-name: ${{ matrix.tests.test_id }}_test_logs
+
+      - name: Store coverage artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-inmemory-${{ matrix.tests.test_id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .covdata/inmemory-${{ strategy.job-index }}
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Store test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-inmemory-${{ matrix.tests.test_id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/junit.xml
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Collect Diagnostic Logs on Failure
         if: ${{ steps.run-tests.outcome != 'success' || cancelled() }}

@@ -296,6 +296,9 @@ jobs:
             echo "Baseline image: ${image}:${version}"
           fi
 
+      - name: Start coverage flusher
+        uses: $/.github/actions/start-coverage-flusher
+
       - name: Run CCIP smoke tests
         id: run-tests
         shell: bash
@@ -363,6 +366,30 @@ jobs:
           trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
           # unique name per matrix job to avoid 409 conflict when multiple jobs upload in the same workflow run
           artifact-name: ${{ matrix.tests.test_id }}_test_logs
+
+      - name: Collect coverage
+        if: ${{ always() }}
+        uses: $/.github/actions/collect-coverage
+        with:
+          destination: ${{ github.workspace }}/.covdata/e2e-${{ matrix.tests.test_id }}
+
+      - name: Upload coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-e2e-${{ matrix.tests.test_id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .covdata/e2e-${{ matrix.tests.test_id }}
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Store test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-e2e-${{ matrix.tests.test_id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/junit.xml
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Show Docker containers status
         if: failure() || cancelled()
