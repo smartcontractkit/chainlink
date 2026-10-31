@@ -487,6 +487,15 @@ func Test_CRE_V2_ShardFailoverAutoOnPrimaryDeath(t *testing.T) {
 }
 
 //nolint:paralleltest // the test owns the sharded topology it runs on
+func Test_CRE_V2_ShardFailoverEVMLogTrigger(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-sharded-capabilities-failover-broken-cap.toml"),
+	)
+	ExecuteShardFailoverEVMLogTriggerTest(t, testEnv)
+}
+
+//nolint:paralleltest // the test owns the sharded topology it runs on
 func Test_CRE_V2_ShardFailoverPrimaryRecovery(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
