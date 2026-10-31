@@ -2700,38 +2700,11 @@ func (r *WorkflowRegistry) AdditionalSources() []coreconfig.AdditionalWorkflowSo
 
 type Dispatcher struct {
 	ReceiverBufferSize *int
-	// Deprecated: has no effect. Rate limiting is now configured via cresettings
-	// DispatcherGlobalRate/DispatcherPerSenderRate instead.
-	RateLimit DispatcherRateLimit
 }
 
 func (d *Dispatcher) setFrom(f *Dispatcher) {
-	d.RateLimit.setFrom(&f.RateLimit)
-
 	if f.ReceiverBufferSize != nil {
 		d.ReceiverBufferSize = f.ReceiverBufferSize
-	}
-}
-
-type DispatcherRateLimit struct {
-	GlobalRPS      *float64
-	GlobalBurst    *int
-	PerSenderRPS   *float64
-	PerSenderBurst *int
-}
-
-func (drl *DispatcherRateLimit) setFrom(f *DispatcherRateLimit) {
-	if f.GlobalRPS != nil {
-		drl.GlobalRPS = f.GlobalRPS
-	}
-	if f.GlobalBurst != nil {
-		drl.GlobalBurst = f.GlobalBurst
-	}
-	if f.PerSenderRPS != nil {
-		drl.PerSenderRPS = f.PerSenderRPS
-	}
-	if f.PerSenderBurst != nil {
-		drl.PerSenderBurst = f.PerSenderBurst
 	}
 }
 

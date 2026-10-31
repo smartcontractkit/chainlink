@@ -20,7 +20,6 @@ const (
 	MethodExecute                  = "Execute"
 	MethodTriggerEventAck          = "TriggerEventACK"
 	MethodExecutionStatusUpdate    = "ExecutionStatusUpdate"
-	MethodShardHeartbeat           = "ShardHeartbeat"
 )
 
 type Dispatcher interface {
@@ -43,13 +42,6 @@ type ReceiverService interface {
 
 type Aggregator interface {
 	Aggregate(eventID string, responses [][]byte) (commoncap.TriggerResponse, error)
-}
-
-// NOTE: this type will become part of the Registry (KS-108)
-type DON struct {
-	ID      string
-	Members []p2ptypes.PeerID
-	F       uint8
 }
 
 type MessageHasher interface {
