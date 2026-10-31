@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
@@ -189,4 +190,71 @@ func Test_OrphanedTransmissionReaper(t *testing.T) {
 	d, err = tr.reap(ctx, n, "orphaned")
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), d)
+}
+
+// Test_TransmissionReaper_SkipsRowsLockedByDelete verifies that the reaper does not wait on rows that a
+// concurrent Delete has locked. The reaper deletes by inserted_at while the ORM's Delete removes rows by
+// transmission_hash, so without FOR UPDATE SKIP LOCKED the two can deadlock (40P01).
+func Test_TransmissionReaper_SkipsRowsLockedByDelete(t *testing.T) {
+	t.Parallel()
+
+	t.Run("stale", func(t *testing.T) {
+		t.Parallel()
+		runReaperLockTest(t, "stale", 4, func(t *testing.T, ds sqlutil.DataSource) {
+			pgtest.MustExec(t, ds, `
+UPDATE llo_mercury_transmit_queue
+SET inserted_at = NOW() - INTERVAL '48 hours'
+WHERE seq_nr < 5`)
+		})
+	})
+
+	t.Run("orphaned", func(t *testing.T) {
+		t.Parallel()
+		runReaperLockTest(t, "orphaned", 9, func(t *testing.T, ds sqlutil.DataSource) {
+			// Leaving DON 1 out of ocr2_oracle_specs makes its transmissions orphaned.
+			pgtest.MustExec(t, ds, `
+	INSERT INTO ocr2_oracle_specs (contract_id, p2pv2_bootstrappers, contract_config_confirmations, created_at,
+			updated_at, relay, relay_config, plugin_config, plugin_type, onchain_signing_strategy, allow_no_bootstrappers
+		) VALUES ('0x','{}', 0, NOW(), NOW(), 'evm', '{"chainID": 421614, "lloDonID": 2}', '{"donID": 2}', 'llo', '{}', FALSE);`)
+		})
+	})
+}
+
+func runReaperLockTest(t *testing.T, reapType string, want int64, setup func(*testing.T, sqlutil.DataSource)) {
+	ctx := t.Context()
+	sessions := pgtest.NewIndependentSqlxSessions(t, 2)
+	lockDS, reapDS := sessions[0], sessions[1]
+
+	const n = 10
+	require.NoError(t, mercurytransmitter.NewORM(lockDS, 1).Insert(ctx, makeSampleTransmissions(n)))
+	setup(t, lockDS)
+
+	// Hold a lock on one stale row, exactly like an in-flight Delete would.
+	tx, err := lockDS.BeginTxx(ctx, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = tx.Rollback() })
+	require.NoError(t, tx.GetContext(ctx, new([]byte), `
+SELECT transmission_hash FROM llo_mercury_transmit_queue
+WHERE seq_nr = 0
+FOR UPDATE`))
+
+	tr := &transmissionReaper{ds: reapDS, lggr: logger.Test(t), maxAge: 24 * time.Hour}
+	done := make(chan struct{})
+	var (
+		deleted int64
+		reapErr error
+	)
+	go func() {
+		deleted, reapErr = tr.reap(ctx, n, reapType)
+		close(done)
+	}()
+	// If the reaper blocks, the session's lock_timeout fires and it returns an error, so this deadline is
+	// only a safety net.
+	select {
+	case <-done:
+	case <-time.After(60 * time.Second):
+		t.Fatal("reaper did not return; expected FOR UPDATE SKIP LOCKED to skip the locked row")
+	}
+	require.NoError(t, reapErr, "reaper blocked on a row locked by Delete; expected FOR UPDATE SKIP LOCKED")
+	assert.Equal(t, want, deleted)
 }
