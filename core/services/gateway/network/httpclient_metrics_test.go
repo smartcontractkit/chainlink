@@ -9,12 +9,14 @@ import (
 )
 
 func TestNewHTTPClientMetrics(t *testing.T) {
+	t.Parallel()
 	m, err := newHTTPClientMetrics()
 	require.NoError(t, err)
 	require.NotNil(t, m)
 }
 
 func TestHTTPClientMetrics_RecordPhase(t *testing.T) {
+	t.Parallel()
 	m, err := newHTTPClientMetrics()
 	require.NoError(t, err)
 
@@ -33,6 +35,7 @@ func TestHTTPClientMetrics_RecordPhase(t *testing.T) {
 }
 
 func TestHTTPClientMetrics_RecordTotal(t *testing.T) {
+	t.Parallel()
 	m, err := newHTTPClientMetrics()
 	require.NoError(t, err)
 
@@ -43,6 +46,7 @@ func TestHTTPClientMetrics_RecordTotal(t *testing.T) {
 }
 
 func TestHTTPClientMetricViews(t *testing.T) {
+	t.Parallel()
 	views := HTTPClientMetricViews()
 	require.Len(t, views, 1)
 }

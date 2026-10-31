@@ -11,7 +11,7 @@ import (
 )
 
 func Test_EVMTokenDataEncoder(t *testing.T) {
-	var empty usdcAttestationPayload
+	t.Parallel()
 	encoder := NewEVMTokenDataEncoder()
 
 	// https://testnet.snowtrace.io/tx/0xeeb0ad6b26bacd1570a9361724a36e338f4aacf1170dec64399220b7483b7eed/eventlog?chainid=43113
@@ -45,6 +45,8 @@ func Test_EVMTokenDataEncoder(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var empty usdcAttestationPayload
 			got, err := encoder.EncodeUSDC(t.Context(), tc.message, tc.attestation)
 			require.NoError(t, err)
 

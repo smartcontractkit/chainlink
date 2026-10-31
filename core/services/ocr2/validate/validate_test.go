@@ -20,6 +20,7 @@ import (
 )
 
 func TestValidateOracleSpec(t *testing.T) {
+	t.Parallel()
 	tt := []struct {
 		name      string
 		toml      string
@@ -595,6 +596,7 @@ UpdateInterval="1m"
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			c := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Insecure.OCRDevelopmentMode = new(false) // tests run with OCRDevelopmentMode by default.
 				if tc.overrides != nil {
@@ -612,6 +614,7 @@ type envelope struct {
 }
 
 func TestOCR2GenericPluginConfig_Unmarshal(t *testing.T) {
+	t.Parallel()
 	payload := `
 [pluginConfig]
 pluginName = "median"
@@ -651,6 +654,7 @@ type envelope2 struct {
 }
 
 func TestOCR2OnchainSigningStrategy_Unmarshal(t *testing.T) {
+	t.Parallel()
 	payload := `
 [onchainSigningStrategy]
 strategyName = "single-chain"

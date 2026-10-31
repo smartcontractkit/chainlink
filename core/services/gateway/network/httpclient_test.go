@@ -262,6 +262,7 @@ func TestHTTPClient_Send(t *testing.T) {
 	// Execute test cases
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			server := tt.setupServer()
 			defer server.Close()
 
@@ -473,6 +474,7 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 	// Execute test cases
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			testURL, err := url.Parse(tt.url)
 			require.NoError(t, err)
 
@@ -529,7 +531,7 @@ func TestHTTPClient_AllowedIPsCIDR(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
 
 	u, err := url.Parse(server.URL)
 	require.NoError(t, err)
@@ -560,6 +562,7 @@ func TestHTTPClient_AllowedIPsCIDR(t *testing.T) {
 	// Execute test cases
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			config := HTTPClientConfig{
 				MaxResponseBytes: 1024,
 				DefaultTimeout:   5 * time.Second,
@@ -592,6 +595,7 @@ func TestHTTPClient_AllowedIPsCIDR(t *testing.T) {
 func Test_ConfigApplyDefaults(t *testing.T) {
 	t.Parallel()
 	t.Run("successfully overrides defaults", func(t *testing.T) {
+		t.Parallel()
 		config := HTTPClientConfig{
 			MaxResponseBytes: 1024,
 			DefaultTimeout:   5 * time.Second,
@@ -602,6 +606,7 @@ func Test_ConfigApplyDefaults(t *testing.T) {
 	})
 
 	t.Run("successfully sets default values", func(t *testing.T) {
+		t.Parallel()
 		config := HTTPClientConfig{}
 		config.ApplyDefaults()
 		require.Equal(t, defaultMaxResponseBytes, config.MaxResponseBytes) // 30MB
@@ -618,6 +623,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	lggr := logger.Test(t)
 
 	t.Run("expands port ranges into AllowedPorts", func(t *testing.T) {
+		t.Parallel()
 		c, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"8000-8003"},
 		}, lggr)
@@ -626,6 +632,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	})
 
 	t.Run("merges port ranges with explicit AllowedPorts", func(t *testing.T) {
+		t.Parallel()
 		c, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPorts:      []int{443},
 			AllowedPortRanges: []string{"8080-8082"},
@@ -635,6 +642,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	})
 
 	t.Run("multiple port ranges", func(t *testing.T) {
+		t.Parallel()
 		c, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"80-80", "443-443", "8000-8002"},
 		}, lggr)
@@ -643,6 +651,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	})
 
 	t.Run("port range suppresses default ports", func(t *testing.T) {
+		t.Parallel()
 		c, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"9000-9001"},
 		}, lggr)
@@ -651,6 +660,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	})
 
 	t.Run("single port treated as range of one", func(t *testing.T) {
+		t.Parallel()
 		c, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"8080"},
 		}, lggr)
@@ -659,6 +669,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	})
 
 	t.Run("rejects invalid port range format", func(t *testing.T) {
+		t.Parallel()
 		_, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"not-a-range"},
 		}, lggr)
@@ -666,6 +677,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	})
 
 	t.Run("rejects reversed port range", func(t *testing.T) {
+		t.Parallel()
 		_, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"9000-8000"},
 		}, lggr)
@@ -673,6 +685,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	})
 
 	t.Run("rejects port 0", func(t *testing.T) {
+		t.Parallel()
 		_, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"0-100"},
 		}, lggr)
@@ -680,6 +693,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 	})
 
 	t.Run("rejects port above 65535", func(t *testing.T) {
+		t.Parallel()
 		_, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"80-70000"},
 		}, lggr)
@@ -725,6 +739,7 @@ func TestHTTPClient_ValidateMethod(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			config := HTTPClientConfig{
 				AllowedMethods: tt.allowedMethods,
 				AllowedIPs:     []string{"127.0.0.1"},
@@ -807,6 +822,7 @@ func TestHTTPClient_ValidateHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			config := HTTPClientConfig{
 				BlockedHeaders: tt.blockedHeaders,
 				AllowedIPs:     []string{"127.0.0.1"},
@@ -881,6 +897,7 @@ func TestHTTPClient_BlockedRequests_ReturnErrBlockedRequest(t *testing.T) {
 	// Execute test cases
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			// Use default config - this will apply all the default security restrictions
 			config := HTTPClientConfig{}
 			client, err := NewHTTPClient(config, lggr)
@@ -1017,6 +1034,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 	lggr := logger.Test(t)
 
 	t.Run("response with multiple Set-Cookie headers", func(t *testing.T) {
+		t.Parallel()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Set multiple Set-Cookie headers (cannot be comma-separated per RFC 6265)
 			w.Header().Add("Set-Cookie", "sessionid=abc123; Path=/; HttpOnly")
@@ -1073,6 +1091,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 	})
 
 	t.Run("response with multiple Via headers", func(t *testing.T) {
+		t.Parallel()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Set multiple Via headers (can be comma-separated, but we preserve all values)
 			w.Header().Add("Via", "1.0 proxy1")
@@ -1126,6 +1145,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 	})
 
 	t.Run("response with single header value", func(t *testing.T) {
+		t.Parallel()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
@@ -1174,6 +1194,7 @@ func TestHTTPClient_MultiHeaders(t *testing.T) {
 	})
 
 	t.Run("response with no headers", func(t *testing.T) {
+		t.Parallel()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 		}))

@@ -20,6 +20,7 @@ import (
 )
 
 func TestIntegration_Launcher(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)
 	uni := it.NewTestUniverse(ctx, t, lggr)

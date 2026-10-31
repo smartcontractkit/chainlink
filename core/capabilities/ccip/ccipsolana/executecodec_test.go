@@ -99,6 +99,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) ccipocr
 }
 
 func TestExecutePluginCodecV1(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name          string
 		report        func(report ccipocr3.ExecutePluginReport) ccipocr3.ExecutePluginReport
@@ -184,6 +185,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			report := tc.report(randomExecuteReport(t, tc.chainSelector))
 			bytes, err := cd.Encode(ctx, report)
 			if tc.expErr {
@@ -211,6 +213,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodingExecuteReport(t *testing.T) {
+	t.Parallel()
 	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
 	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
@@ -225,6 +228,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 	}
 
 	t.Run("decode on-chain execute report", func(t *testing.T) {
+		t.Parallel()
 		chainSel := ccipocr3.ChainSelector(rand.Uint64())
 
 		destGasAmount := uint32(10)
@@ -278,6 +282,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 	})
 
 	t.Run("decode Borsh encoded execute report", func(t *testing.T) {
+		t.Parallel()
 		ocrReport := randomExecuteReport(t, 124615329519749607)
 		edc := ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap)
 		cd := NewExecutePluginCodecV1(edc)
