@@ -10,6 +10,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -153,6 +154,11 @@ type coordinator struct {
 
 	drainTimeout time.Duration
 
+	// shadow is nil unless WithShadowMode is set.
+	shadow *shadowMode
+	// drainer is nil unless WithDrainer is set.
+	drainer services.Service
+
 	workflows *workflowRegistry
 
 	// Gauge backings for the coordinator's node-level load metrics. Readers and
@@ -200,6 +206,7 @@ func NewCoordinator(
 	engineRegistry EngineRegistry,
 	workflowLimits limits.ResourceLimiter[int],
 	clock clockwork.Clock,
+	opts ...CoordinatorOption,
 ) Coordinator {
 	c := &coordinator{
 		lggr:           logger.Named(deps.Logger, "TriggerCoordinator"),
@@ -211,13 +218,50 @@ func NewCoordinator(
 		drainTimeout:   defaultDrainTimeout,
 		workflows:      newWorkflowRegistry(),
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
 
 	c.Service, c.eng = services.Config{
 		Name:  "TriggerCoordinator",
 		Close: c.close,
+		NewSubServices: func(logger.Logger) []services.Service {
+			if c.drainer == nil {
+				return nil
+			}
+			return []services.Service{c.drainer}
+		},
 	}.NewServiceEngine(c.lggr)
 
 	return c
+}
+
+// CoordinatorOption configures optional coordinator behaviour.
+type CoordinatorOption func(*coordinator)
+
+// WithShadowMode copies each event observed inside activePeriod to queue before the event enters its
+// workflow's own queue. The copy is best-effort. A full queue never delays or drops the event.
+//
+// The window has one-second resolution. An event is inside when the second it was observed in is inside
+// activePeriod, so both ends are inclusive and an event observed just under a second past the end is still
+// copied.
+func WithShadowMode(queue Queue, activePeriod limits.RangeLimiter[commonconfig.Timestamp]) CoordinatorOption {
+	return func(c *coordinator) {
+		c.shadow = &shadowMode{queue: queue, activePeriod: activePeriod}
+	}
+}
+
+// shadowMode is the central queue an event is copied to, and the window in which it is copied.
+type shadowMode struct {
+	queue        Queue
+	activePeriod limits.RangeLimiter[commonconfig.Timestamp]
+}
+
+// WithDrainer makes drainer a sub-service of the coordinator. It starts before the coordinator, closes after
+// it, and is part of the coordinator's readiness and health report. It is for the temporary M1 drainer of the
+// central queue.
+func WithDrainer(drainer services.Service) CoordinatorOption {
+	return func(c *coordinator) { c.drainer = drainer }
 }
 
 func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) (triggerCapIDs []string, err error) {
@@ -478,6 +522,9 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 		}
 		event.Deadline = event.ObservedAt.Add(queueTimeout)
 
+		// Before the workflow queue, so the central queue also sees events the engine path later drops.
+		c.putShadow(ctx, cw, tm, event)
+
 		if err := cw.queue.Put(ctx, event); err != nil {
 			tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
 			if _, isFull := errors.AsType[limits.ErrorQueueFull](err); isFull {
@@ -493,6 +540,29 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 		}
 		tm.IncrementTriggerEventEnqueuedCounter(ctx)
 	}
+}
+
+// putShadow copies event to the central queue when shadow mode is on for it. The window is checked for every
+// event and never cached, so a settings change applies to the next event. A read error counts as off. A
+// failed put is logged only, because the event still runs on the engine path. An accepted put is counted on
+// tm, which carries the workflow labels.
+func (c *coordinator) putShadow(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) {
+	if c.shadow == nil {
+		return
+	}
+	if err := c.shadow.activePeriod.Check(ctx, commonconfig.NewTimestamp(event.ObservedAt)); err != nil {
+		if _, outside := errors.AsType[limits.ErrorRangeLimited[commonconfig.Timestamp]](err); !outside {
+			cw.lggr.Warnw("Failed to check shadow trigger mode, not copying the event to the central queue", "err", err)
+		}
+		return
+	}
+	// TODO(CRE-6181): stamp SequenceNumber before the put.
+	if err := c.shadow.queue.Put(ctx, event); err != nil {
+		cw.lggr.Debugw("Failed to copy trigger event to the central queue", "triggerID", event.TriggerCapID,
+			"eventID", event.Event.Event.ID, "err", err)
+		return
+	}
+	tm.IncrementTriggerEventShadowedCounter(ctx)
 }
 
 // admit is the registration's admitter. It takes events off the registration's
