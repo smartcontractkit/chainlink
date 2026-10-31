@@ -95,6 +95,14 @@ func errorTypeFor(err error) string {
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
+// executionTimestampGetter is implemented by execution helpers that carry the
+// DonTime-derived execution timestamp (see ExecutionHelper.ExecutionTimestamp).
+type executionTimestampGetter interface {
+	GetExecutionTimestamp() time.Time
+}
+
+var _ executionTimestampGetter = (*ExecutionHelper)(nil)
+
 func NewConfidentialModule(capRegistry registry.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, creSettingsGetter settings.Getter, lggr logger.Logger) (*ConfidentialModule, error) {
 	if enabledGate == nil {
 		return nil, errors.New("enabledGate must not be nil")
@@ -145,6 +153,10 @@ func (m *ConfidentialModule) Execute(
 	}
 
 	workflowExecutionID := helper.GetWorkflowExecutionID()
+	var executionTimestamp time.Time
+	if tsGetter, ok := helper.(executionTimestampGetter); ok {
+		executionTimestamp = tsGetter.GetExecutionTimestamp()
+	}
 	rawSecretsHelper, ok := helper.(host.ExecutionHelperWithRawSecrets)
 	if !ok {
 		return nil, fmt.Errorf("%T is not a host.executionHelperWithRawSecrets and is not safe to use for confidential compute", helper)
@@ -177,7 +189,7 @@ func (m *ConfidentialModule) Execute(
 	capOutput := &confworkflowtypes.ConfidentialWorkflowResponse{}
 	// Time the enclave round-trip (node-measured, trusted) and count failures.
 	start := time.Now()
-	err := doRequest(ctx, m, workflowExecutionID, "Execute", capInput, capOutput, orgID)
+	err := doRequest(ctx, m, workflowExecutionID, executionTimestamp, "Execute", capInput, capOutput, orgID)
 	completed := time.Now()
 	m.metrics.executionDuration.Record(ctx, completed.Sub(start).Milliseconds(), m.metrics.attrs)
 	if err != nil {
@@ -199,7 +211,7 @@ func (m *ConfidentialModule) SetRestrictions(executionID string, restrictions *s
 func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeAndRegions {
 	capOutput := &confworkflowtypes.ProvidedTeesResponse{}
 	// use an empty execution ID, it's not during an execution.
-	if err := doRequest(ctx, m, "", "ProvidedTees", &emptypb.Empty{}, capOutput, ""); err != nil {
+	if err := doRequest(ctx, m, "", time.Time{}, "ProvidedTees", &emptypb.Empty{}, capOutput, ""); err != nil {
 		m.lggr.Errorf("failed to get regions from confidential-workflows capability, assuming no supported regions: %v", err)
 		return []*sdkpb.TeeTypeAndRegions{}
 	}
@@ -228,6 +240,7 @@ func doRequest[I, O proto.Message](
 	ctx context.Context,
 	m *ConfidentialModule,
 	execID string,
+	executionTimestamp time.Time,
 	method string,
 	capInput I,
 	capOutput O,
@@ -251,6 +264,7 @@ func doRequest[I, O proto.Message](
 		WorkflowTag:         m.workflowTag,
 		WorkflowExecutionID: execID,
 		OrgID:               orgID,
+		ExecutionTimestamp:  executionTimestamp,
 	}
 	// When the WorkflowDonID binding gate is enabled, the remote executable
 	// capability server rejects requests whose RequestMetadata.WorkflowDonID
