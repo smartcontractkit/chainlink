@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -132,6 +133,9 @@ func JSONWithVarExprs(jsExpr string, vars Vars, allowErrors bool) GetterFunc {
 		jd.UseNumber()
 		if err := jd.Decode(&val); err != nil {
 			return nil, errors.Wrapf(ErrBadInput, "while unmarshalling JSON: %v; js: %s", err, string(replaced))
+		}
+		if err := jd.Decode(&struct{}{}); err != io.EOF {
+			return nil, errors.Wrapf(ErrBadInput, "while unmarshalling JSON: unexpected trailing data; js: %s", string(replaced))
 		}
 		reinterpreted, err := jsonserializable.ReinterpretJSONNumbers(val)
 		if err != nil {
