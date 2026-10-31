@@ -65,16 +65,17 @@ func (c *crFactory) NewContractReader(ctx context.Context, cfg []byte) (types.Co
 
 func newContractReaderFactory(t *testing.T, simulatedBackend *simulated.Backend) *crFactory {
 	lggr := logger.Test(t)
+	chainID := pgtest.UniqueChainID(t)
 	client := evmclient.NewSimulatedBackendClient(
 		t,
 		simulatedBackend,
-		testutils.SimulatedChainID,
+		chainID,
 	)
 	db := pgtest.NewSqlxDB(t)
 	const finalityDepth = 2
 	ht := headstest.NewSimulatedHeadTracker(client, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
-		logpoller.NewORM(testutils.SimulatedChainID, db, lggr),
+		logpoller.NewORM(chainID, db, lggr),
 		client,
 		lggr,
 		ht,
