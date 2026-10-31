@@ -13,8 +13,10 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -445,6 +447,10 @@ type engineLifecycleHarness struct {
 	moduleInFlight   atomic.Int32 // executions currently held in the module
 	moduleMaxFlight  atomic.Int32 // the most executions ever held in the module at once
 
+	// ackCalls counts calls to the trigger capability's AckEvent, however the event reached
+	// it: the engine acknowledging directly (legacy), or the coordinator (coordinated).
+	ackCalls atomic.Int32
+
 	// slots counts requests for an execution-concurrency slot, made by whichever component
 	// admits events: the legacy engine or the coordinator.
 	slots *slotCounter
@@ -472,6 +478,9 @@ type harnessOptions struct {
 	orgID         string
 	billing       *metmocks.BillingClient
 	sharedFlight  *flightTracker
+	meter         metric.Meter
+	clock         clockwork.Clock
+	admission     func(context.Context, triggers.CoordinatedEvent) error
 }
 
 // harnessOption configures newEngineLifecycleHarness.
@@ -519,6 +528,25 @@ func withSharedFlight(f *flightTracker) harnessOption {
 	return func(o *harnessOptions) { o.sharedFlight = f }
 }
 
+// withMeter records the metrics of the engine and the coordinator on meter.
+func withMeter(m metric.Meter) harnessOption {
+	return func(o *harnessOptions) { o.meter = m }
+}
+
+// withClock gives the engine and the coordinator the same clock. The trigger reader stamps
+// each event's ObservedAt with it, and the queue checks the event's deadline against it.
+func withClock(c clockwork.Clock) harnessOption {
+	return func(o *harnessOptions) { o.clock = c }
+}
+
+// withAdmission runs check on every trigger event before it executes, as the shard failover
+// manager does on a sharded node. The legacy engine calls it as its OnTriggerAdmission hook.
+// The coordinator gets the engine wrapped, so check runs in ExecuteTrigger, after the
+// coordinator has taken an execution slot.
+func withAdmission(check func(context.Context, triggers.CoordinatedEvent) error) harnessOption {
+	return func(o *harnessOptions) { o.admission = check }
+}
+
 // newEngineLifecycleHarness builds the engine for mode without starting it. Whatever the test
 // leaves running is canceled and closed at cleanup.
 func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...harnessOption) *engineLifecycleHarness {
@@ -533,7 +561,7 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	h := &engineLifecycleHarness{
 		t:            t,
 		mode:         mode,
-		engines:      &lifecycleEngineRegistry{},
+		engines:      &lifecycleEngineRegistry{admission: o.admission},
 		eventCh:      make(chan capabilities.TriggerResponse, o.eventBuffer),
 		blocker:      newExecutionBlocker(t, log, o.signalBuffer),
 		log:          log,
@@ -548,7 +576,8 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	capreg.EXPECT().GetTrigger(matches.AnyContext, lifecycleTriggerCapID).Return(trigger, nil).Maybe()
 	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(h.eventCh, nil).Maybe()
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Maybe()
-	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).
+		Run(func(context.Context, string, string, string) { h.ackCalls.Add(1) }).Return(nil).Maybe()
 
 	cfg := defaultTestConfig(t, o.settings)
 	if o.limiters != nil {
@@ -572,7 +601,12 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	if o.billing != nil {
 		cfg.BillingClient = o.billing
 	}
+	cfg.Meter = o.meter
+	if o.clock != nil {
+		cfg.Clock = o.clock
+	}
 	cfg.Hooks = v2.LifecycleHooks{
+		OnTriggerAdmission:     o.admission,
 		OnInitialized:          func(err error) { nonBlockingSend(h.initDoneCh, err) },
 		OnSubscribedToTriggers: func(ids []string) { nonBlockingSend(h.subscribedCh, ids) },
 		OnExecutionFinished: func(_, status string) {
@@ -646,8 +680,16 @@ func (h *engineLifecycleHarness) newCoordinator(capreg *regmocks.CapabilitiesReg
 	require.NoError(h.t, err)
 	h.t.Cleanup(func() { require.NoError(h.t, workflowLimits.Close()) })
 
-	em, err := monitoring.InitMonitoringResources()
+	meter := h.cfg.Meter
+	if meter == nil {
+		meter = beholder.GetMeter()
+	}
+	em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 	require.NoError(h.t, err)
+	clock := h.cfg.Clock
+	if clock == nil {
+		clock = clockwork.NewFakeClock()
+	}
 	coordinator := triggers.NewCoordinator(
 		triggers.RegisterDeps{
 			CapRegistry:  capreg,
@@ -660,7 +702,7 @@ func (h *engineLifecycleHarness) newCoordinator(capreg *regmocks.CapabilitiesReg
 		h.cfg.LocalLimiters.Admission(),
 		h.engines,
 		workflowLimits,
-		clockwork.NewFakeClock(),
+		clock,
 	)
 	servicetest.Run(h.t, coordinator)
 	return coordinator
@@ -879,8 +921,9 @@ func (l *lifecycleLog) events() []lifecycleEvent {
 // lifecycleEngineRegistry is a triggers.EngineRegistry holding the one engine under test. It is
 // safe for concurrent use.
 type lifecycleEngineRegistry struct {
-	mu     sync.Mutex
-	engine v2.WorkflowEngine
+	mu        sync.Mutex
+	engine    v2.WorkflowEngine
+	admission func(context.Context, triggers.CoordinatedEvent) error // see withAdmission
 }
 
 // Get returns the engine under test if wid is its workflow.
@@ -890,7 +933,24 @@ func (r *lifecycleEngineRegistry) Get(wid types.WorkflowID) (triggers.Registered
 	if r.engine == nil || wid.Hex() != r.engine.Tenant().Workflow {
 		return nil, false
 	}
+	if r.admission != nil {
+		return admittingEngine{RegisteredEngine: r.engine, admission: r.admission}, true
+	}
 	return r.engine, true
+}
+
+// admittingEngine runs an admission check before delivering to the engine, as the shard
+// failover manager does for a coordinated engine.
+type admittingEngine struct {
+	triggers.RegisteredEngine
+	admission func(context.Context, triggers.CoordinatedEvent) error
+}
+
+func (e admittingEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	if err := e.admission(ctx, event); err != nil {
+		return err
+	}
+	return e.RegisteredEngine.ExecuteTrigger(ctx, event)
 }
 
 // set makes e the engine under test.
