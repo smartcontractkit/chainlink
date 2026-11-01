@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -234,6 +236,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -354,6 +357,7 @@ func TestSecretsFetcher_DecryptsBinaryShares(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -416,6 +420,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -465,6 +470,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -526,6 +532,7 @@ func TestSecretsFetcher_VaultCapabilityRequestOmitsWorkflowIDMetadata(t *testing
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -540,6 +547,95 @@ func TestSecretsFetcher_VaultCapabilityRequestOmitsWorkflowIDMetadata(t *testing
 	})
 	require.NoError(t, err)
 	assert.Empty(t, capture.metadata.WorkflowID, "vault Execute must omit WorkflowID from RequestMetadata for mixed-version DON consensus")
+}
+
+type staticEncryptionKeys []string
+
+func (k staticEncryptionKeys) GetEncryptionKeys(context.Context) ([]string, error) { return k, nil }
+
+func TestSecretsFetcher_VaultRequestMetadataCarriesExecutionTimestamp(t *testing.T) {
+	t.Parallel()
+	const (
+		phaseID    = "workflowExecID"
+		callbackID = 7
+	)
+	executionTimestamp := time.Unix(1_767_225_600, 0).UTC()
+
+	tests := []struct {
+		name  string
+		fetch func(t *testing.T, sf RawSecretsFetcher, req *sdkpb.GetSecretsRequest)
+	}{
+		{
+			name: "GetSecrets",
+			fetch: func(t *testing.T, sf RawSecretsFetcher, req *sdkpb.GetSecretsRequest) {
+				_, err := sf.GetSecrets(t.Context(), req)
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "GetRawSecretsResponse",
+			fetch: func(t *testing.T, sf RawSecretsFetcher, req *sdkpb.GetSecretsRequest) {
+				_, err := sf.GetRawSecretsResponse(t.Context(), req, staticEncryptionKeys{"encryption-key"})
+				require.NoError(t, err)
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			lggr := logger.TestLogger(t)
+			reg := registry.NewRegistry(lggr)
+			peer := RandomUTF8BytesWord()
+
+			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+			_, vaultPublicKey, _, err := tdh2easy.GenerateKeys(2, 3)
+			require.NoError(t, err)
+			vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
+			require.NoError(t, err)
+			reg.SetRegistryMetadata(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+
+			owner := "1234567890abcdef1234567890abcdef12345678"
+			normalizedOwner, err := normalizeOwner(owner)
+			require.NoError(t, err)
+
+			capture := &metadataCapturingVault{
+				response: &vault.GetSecretsResponse{
+					Responses: []*vault.SecretResponse{
+						{
+							Id:     &vault.SecretIdentifier{Key: "Foo", Namespace: "Bar", Owner: normalizedOwner},
+							Result: &vault.SecretResponse_Error{Error: "not found"},
+						},
+					},
+				},
+			}
+			require.NoError(t, reg.Add(t.Context(), capture))
+
+			sf := NewSecretsFetcher(
+				MetricsLabelerTest(t),
+				reg,
+				lggr,
+				limits.WorkflowResourcePoolLimiter[int](5),
+				limits.NewUpperBoundLimiter[int](5),
+				nil,
+				"org-123",
+				owner,
+				"workflowName",
+				"workflowID",
+				phaseID,
+				executionTimestamp,
+				workflowEncryptionKey,
+				nil,
+			)
+
+			tc.fetch(t, sf, &sdkpb.GetSecretsRequest{
+				CallbackId: callbackID,
+				Requests:   []*sdkpb.SecretRequest{{Id: "Foo", Namespace: "Bar"}},
+			})
+			assert.Equal(t, executionTimestamp, capture.metadata.ExecutionTimestamp)
+			// The timestamp is extra metadata only; the vault request identity is unchanged.
+			assert.Equal(t, sha(phaseID, strconv.Itoa(callbackID)), capture.metadata.WorkflowExecutionID)
+		})
+	}
 }
 
 func TestSecretsFetcher_VaultBatchLeavesOrgAndWorkflowIdentityUnset(t *testing.T) {
@@ -592,6 +688,7 @@ func TestSecretsFetcher_VaultBatchLeavesOrgAndWorkflowIdentityUnset(t *testing.T
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -651,6 +748,7 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -727,6 +825,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -831,6 +930,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"workflowExecID",
+		time.Time{},
 		workflowEncryptionKey,
 		nil,
 	)
@@ -1001,6 +1101,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
 		"wf",
 		"wfID",
 		"phaseID",
+		time.Time{},
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		nil,
 	)
@@ -1054,6 +1155,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimitOnRawSecrets(t *testing.T) {
 			"wf",
 			"wfID",
 			"phaseID",
+			time.Time{},
 			workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 			nil,
 		)
@@ -1186,6 +1288,7 @@ func TestSecretsFetcher_VaultFirstThenLocalOverridesForVaultFailures(t *testing.
 		"workflowName",
 		"workflowID",
 		"phaseID",
+		time.Time{},
 		workflowEncryptionKey,
 		local,
 	)
@@ -1269,6 +1372,7 @@ func TestSecretsFetcher_LocalOverridesWhenVaultExecuteFails(t *testing.T) {
 		"workflowName",
 		"workflowID",
 		"phaseID",
+		time.Time{},
 		workflowEncryptionKey,
 		local,
 	)

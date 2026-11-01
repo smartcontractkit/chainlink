@@ -376,6 +376,10 @@ func (c *ExecutionHelper) GetWorkflowExecutionID() string {
 	return c.WorkflowExecutionID
 }
 
+func (c *ExecutionHelper) GetExecutionTimestamp() time.Time {
+	return c.ExecutionTimestamp
+}
+
 func (c *ExecutionHelper) EmitUserLog(msg string) error {
 	select {
 	case c.UserLogChan <- &protoevents.LogLine{
