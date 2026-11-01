@@ -1428,6 +1428,8 @@ MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
 MaxConcurrency = 12 # Default
 MaxActivationRetries = 100 # Default
+FetchMode = 'gateway' # Default
+FetchAllowedHosts = [] # Default
 ```
 
 
@@ -1485,6 +1487,20 @@ MaxConcurrency controls the maximum number of concurrent event handlers in the w
 MaxActivationRetries = 100 # Default
 ```
 MaxActivationRetries is the number of failed load/initialization attempts before the syncer stops retrying an active workflow. 0 disables the limit.
+
+### FetchMode
+```toml
+FetchMode = 'gateway' # Default
+```
+FetchMode selects how the node downloads workflow binaries and configs. 'gateway' fetches through the Gateway.
+'direct' fetches over HTTPS straight from the node, bypassing the Gateway.
+
+### FetchAllowedHosts
+```toml
+FetchAllowedHosts = [] # Default
+```
+FetchAllowedHosts restricts the hosts the node may fetch workflow artifacts from when FetchMode is 'direct'.
+Hosts are matched exactly and case-insensitively, and must include the host of signed storage URLs. Empty allows any host.
 
 ## Capabilities.WorkflowRegistry.WorkflowStorage
 ```toml
@@ -1681,25 +1697,29 @@ PerSenderBurst = 50 # Default
 ```toml
 GlobalRPS = 800 # Default
 ```
-GlobalRPS is the global rate limit for the dispatcher.
+GlobalRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ### GlobalBurst
 ```toml
 GlobalBurst = 1000 # Default
 ```
-GlobalBurst is the global burst limit for the dispatcher.
+GlobalBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ### PerSenderRPS
 ```toml
 PerSenderRPS = 10 # Default
 ```
-PerSenderRPS is the per-sender rate limit for the dispatcher.
+PerSenderRPS **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ### PerSenderBurst
 ```toml
 PerSenderBurst = 50 # Default
 ```
-PerSenderBurst is the per-sender burst limit for the dispatcher.
+PerSenderBurst **DEPRECATED**: has no effect. Rate limiting is now configured via
+cresettings DispatcherGlobalRate/DispatcherPerSenderRate.
 
 ## Capabilities.GatewayConnector
 ```toml
@@ -1872,7 +1892,7 @@ This allows staged rollout: capabilities not matching any pattern continue launc
 while matching capabilities transition to registry-based launching.
 Examples (using single-quoted TOML strings where backslashes are literal):
 - '^cron@1\.0\.0$' matches exactly "cron@1.0.0"
-- '^http-action@.*$' matches any version of http-action
+- '^http-actions@.*$' matches any version of http-actions
 - '.*' matches all capabilities
 
 ### UseOffchainRegistry
@@ -11675,7 +11695,7 @@ LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '40m0s'
+NoNewFinalizedHeadsThreshold = '4h0m0s'
 
 [Transactions]
 Enabled = true
@@ -14495,7 +14515,7 @@ ChainType = 'scroll'
 FinalityDepth = 10
 SafeDepth = 0
 FinalityTagEnabled = true
-SafeTagSupported = true
+SafeTagSupported = false
 LinkContractAddress = '0x548C6944cba02B9D1C0570102c89de64D258d3Ac'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'

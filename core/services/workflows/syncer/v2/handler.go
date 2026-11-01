@@ -86,6 +86,7 @@ type eventHandler struct {
 	engineRegistry       *EngineRegistry
 	emitter              custmsg.MessageEmitter
 	emitterMu            sync.RWMutex
+	eventEmitter         *events.Emitter
 	engineFactory        engineFactoryFn
 	engineLimiters       *v2.EngineLimiters
 	featureFlags         *v2.EngineFeatureFlags
@@ -107,6 +108,11 @@ type eventHandler struct {
 	// ResourceManager lifecycle, identity, snapshots). Nil when metering is
 	// disabled: its handler-facing methods are nil-receiver safe no-ops.
 	specMeter *SpecMeter
+
+	// meterRecordsEnabled gates the engines' compute usage records; meteringIdentity is the node's [Metering] dimensions.
+	meterRecordsEnabled bool
+	meteringIdentity    resourcemanager.DeploymentIdentity
+	usageEmitter        resourcemanager.Emitter
 
 	orgResolver    orgresolver.OrgResolver
 	secretsFetcher v2.SecretsFetcher
@@ -158,6 +164,13 @@ func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	}
 }
 
+// WithEventEmitter sets the workflow status emitter.
+func WithEventEmitter(e *events.Emitter) func(*eventHandler) {
+	return func(eh *eventHandler) {
+		eh.eventEmitter = e
+	}
+}
+
 // WithEngineFactoryFn allows for overriding the engine factory function.
 // if in doubt, close initDone channel immediately in tests to prevent deadlocks.
 func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
@@ -191,6 +204,16 @@ func WithTriggerCoordinator(tc triggers.Coordinator) func(*eventHandler) {
 func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.billingClient = client
+	}
+}
+
+// WithUsageMetering enables compute usage records on the engines, delivered
+// through emitter; dep is the node's [Metering] dimensions.
+func WithUsageMetering(dep resourcemanager.DeploymentIdentity, emitter resourcemanager.Emitter) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.meterRecordsEnabled = true
+		e.meteringIdentity = dep
+		e.usageEmitter = emitter
 	}
 }
 
@@ -403,6 +426,10 @@ func NewEventHandler(
 		o(eh)
 	}
 
+	if eh.eventEmitter == nil {
+		eh.eventEmitter = events.DefaultEmitter()
+	}
+
 	eh.Service, eh.eng = services.Config{
 		Name: "EventHandler",
 		// The workflow store, the spec meter and the trigger coordinator are
@@ -440,6 +467,10 @@ func (h *eventHandler) start(context.Context) error {
 func (h *eventHandler) SetWorkflowDon(don commoncap.DON) {
 	h.myDonID = don.ID
 	h.specMeter.SetWorkflowDon(don)
+}
+
+func (h *eventHandler) myDonIDLabel() string {
+	return strconv.FormatUint(uint64(h.myDonID), 10)
 }
 
 func (h *eventHandler) close() error {
@@ -509,12 +540,15 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
+			platform.KeyDonID, h.myDonIDLabel(),
+			platform.KeyWorkflowDonID, h.myDonIDLabel(),
+			platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
 		)
 		h.emitterMu.RUnlock()
 
 		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
+			if err2 := h.eventEmitter.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
@@ -552,12 +586,15 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
+			platform.KeyDonID, h.myDonIDLabel(),
+			platform.KeyWorkflowDonID, h.myDonIDLabel(),
+			platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
 		)
 		h.emitterMu.RUnlock()
 
 		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
+			if err2 := h.eventEmitter.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
@@ -609,12 +646,15 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
+			platform.KeyDonID, h.myDonIDLabel(),
+			platform.KeyWorkflowDonID, h.myDonIDLabel(),
+			platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
 		)
 		h.emitterMu.RUnlock()
 
 		var herr error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), "", "", herr); err2 != nil {
+			if err2 := h.eventEmitter.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), "", "", herr); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
@@ -895,13 +935,11 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 }
 
 // useCoordinatedEngine reads the CoordinatedEngine flag. A node without a
-// TriggerCoordinator always takes the legacy path, and so does a sharded node:
-// sharding and the coordinated engine are not yet compatible.
+// TriggerCoordinator always takes the legacy path. On a sharded node the
+// coordinated engine is wrapped in a ShardFailoverManager, which the
+// coordinator delivers through, so shard admission still applies.
 func (h *eventHandler) useCoordinatedEngine(ctx context.Context, workflowID string) bool {
 	if h.triggerCoordinator == nil || h.featureFlags == nil || h.featureFlags.CoordinatedEngine == nil {
-		return false
-	}
-	if h.shardingEnabled && h.dispatcher != nil {
 		return false
 	}
 	open, err := h.featureFlags.CoordinatedEngine.IsOpen(ctx)
@@ -1004,21 +1042,23 @@ func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, 
 	var manager *ShardFailoverManager
 	if h.shardingEnabled && h.dispatcher != nil {
 		manager = NewShardFailoverManager(ShardFailoverManagerConfig{
-			ShardingEnabled:            h.shardingEnabled,
-			MyDONID:                    h.myDonID,
-			MyShardIndex:               h.myShardIndex,
-			WorkflowID:                 workflowID,
-			WorkflowOwner:              owner,
-			ShardResolver:              h.shardResolver,
-			ShardOrchestratorClient:    h.shardOrchestratorClient,
-			ShardRoutingSteady:         h.shardRoutingSteady,
-			ShardingFailoverGate:       h.engineLimiters.ShardingFailoverEnabled,
-			TimeoutBasedFailoverGate:   h.engineLimiters.TimeoutBasedFailover,
-			TimeoutBasedFailoverWindow: h.engineLimiters.TimeoutBasedFailoverWindow,
-			Communicator:               h.getShardFailoverComm(),
-			ShardDonLookup:             h.shardDonLookup,
-			DonSubscriber:              h.workflowDonSubscriber,
-			Logger:                     h.lggr,
+			ShardingEnabled:         h.shardingEnabled,
+			MyDONID:                 h.myDonID,
+			MyShardIndex:            h.myShardIndex,
+			WorkflowID:              workflowID,
+			WorkflowOwner:           owner,
+			ShardResolver:           h.shardResolver,
+			ShardOrchestratorClient: h.shardOrchestratorClient,
+			ShardRoutingSteady:      h.shardRoutingSteady,
+			ShardDonLookup:          h.shardDonLookup,
+			DonSubscriber:           h.workflowDonSubscriber,
+			Failover: FailoverConfig{
+				ShardingFailoverGate:       h.engineLimiters.ShardingFailoverEnabled,
+				TimeoutBasedFailoverGate:   h.engineLimiters.TimeoutBasedFailover,
+				TimeoutBasedFailoverWindow: h.engineLimiters.TimeoutBasedFailoverWindow,
+				Communicator:               h.getShardFailoverComm(),
+			},
+			Logger: h.lggr,
 		})
 		manager.WireHooks(cfg)
 	}
@@ -1513,11 +1553,15 @@ func (h *eventHandler) newV2EngineConfig(
 			defer h.emitterMu.RUnlock()
 			return h.emitter
 		}(),
+		EventEmitter:  h.eventEmitter,
 		BillingClient: h.billingClient,
 
 		WorkflowRegistryAddress:           h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector:     h.workflowRegistryChainSelector,
 		OrgResolver:                       h.orgResolver,
+		MeterRecordsEnabled:               h.meterRecordsEnabled,
+		MeteringIdentity:                  h.meteringIdentity,
+		UsageEmitter:                      h.usageEmitter,
 		SecretsFetcher:                    h.secretsFetcher,
 		OverrideFetcher:                   h.overrideFetcherForOwner(owner),
 		DebugMode:                         h.debugMode,
@@ -1527,6 +1571,7 @@ func (h *eventHandler) newV2EngineConfig(
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
 		MyDonID:                 h.myDonID,
+		ShardIndex:              h.myShardIndex,
 		ShardRoutingSteady:      h.shardRoutingSteady,
 		ShardResolver:           h.shardResolver,
 	}
@@ -1635,10 +1680,13 @@ func (h *eventHandler) EmitActivationAbandoned(
 		platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 		platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 		platform.KeyWorkflowSource, payload.Source,
+		platform.KeyDonID, h.myDonIDLabel(),
+		platform.KeyWorkflowDonID, h.myDonIDLabel(),
+		platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
 	)
 	h.emitterMu.RUnlock()
 
-	return events.EmitWorkflowActivationAbandonedV2(
+	return h.eventEmitter.EmitWorkflowActivationAbandonedV2(
 		ctx,
 		cma.Labels(),
 		payload.BinaryURL,

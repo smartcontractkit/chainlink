@@ -28,7 +28,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.3.1-0.20260915153909-e434f8636b23"
+      gitRef: "v1.3.1-0.20261029182832-ae2ca5ac5292"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
@@ -38,7 +38,7 @@ plugins:
 
   stellar:
     - moduleURI: "github.com/smartcontractkit/chainlink-stellar/relayer"
-      gitRef: "a2df4fbafbfdeec7a0214805574bf99590560c4e"
+      gitRef: "b0c194ffac3f229af7da9195d0ff87f82fdaffb3"
       installPath: "./cmd/chainlink-stellar"
 
   streams:
@@ -58,12 +58,12 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20261015161422-ea52d84d2f7a"
+      gitRef: "v0.3.4-0.20261022195454-600e2b321c7a"
       installPath: "./pkg/cmd/chainlink-evm"
 
   capability-cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "e6f512fbf3bdc3adaa96bfdd1d497c4507eab05d"
+      gitRef: "3a157854911bf837f1a7305c66501ea5f7bc038e"
       installPath: "."
       flags: "-tags timetzdata"
 
@@ -79,17 +79,17 @@ plugins:
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "e6f512fbf3bdc3adaa96bfdd1d497c4507eab05d"
+      gitRef: "3a157854911bf837f1a7305c66501ea5f7bc038e"
       installPath: "."
 
   capability-evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "e6f512fbf3bdc3adaa96bfdd1d497c4507eab05d"
+      gitRef: "3a157854911bf837f1a7305c66501ea5f7bc038e"
       installPath: "."
 
   capability-solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "7ae963289733be8764d0b49e8e4c6233bd34680b"
+      gitRef: "2951f2cf06c3c0d52fe8b738764218cdb571635c"
       installPath: "."
 
   capability-aptos:
@@ -99,7 +99,7 @@ plugins:
 
   capability-stellar:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/stellar"
-      gitRef: "7ae963289733be8764d0b49e8e4c6233bd34680b"
+      gitRef: "26c8e99df572df10b8ff05ddc38dfa70f1afa5ef"
       installPath: "."
 
   confidential-http:

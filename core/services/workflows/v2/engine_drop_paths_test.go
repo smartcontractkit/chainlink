@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -36,7 +35,7 @@ import (
 const (
 	v2ExecutionStartedEntity  = "workflows.v2." + workflowEvents.WorkflowExecutionStarted
 	v2ExecutionFinishedEntity = "workflows.v2." + workflowEvents.WorkflowExecutionFinished
-	v1UserLogsEntity          = "workflows.v1." + workflowEvents.UserLogs
+	v2UserLogEntity           = "workflows.v2." + workflowEvents.WorkflowUserLog
 )
 
 // failingSettingsGetter stands in for a settings service that is down, so a real
@@ -113,9 +112,9 @@ func (f *alwaysErrCheckLimiter[N]) Close() error                     { return ni
 
 // latestV2FinishedEvent returns the most recently emitted v2 WorkflowExecutionFinished
 // event, or ok=false if none has been emitted yet.
-func latestV2FinishedEvent(t *testing.T, observer beholdertest.Observer) (evt *eventsv2.WorkflowExecutionFinished, ok bool) {
+func latestV2FinishedEvent(t *testing.T, rec *beholdertest.Recorder) (evt *eventsv2.WorkflowExecutionFinished, ok bool) {
 	t.Helper()
-	msgs := observer.Messages(t, "beholder_entity", v2ExecutionFinishedEntity)
+	msgs := rec.Messages(t, "beholder_entity", v2ExecutionFinishedEntity)
 	if len(msgs) == 0 {
 		return nil, false
 	}
@@ -124,18 +123,16 @@ func latestV2FinishedEvent(t *testing.T, observer beholdertest.Observer) (evt *e
 	return evt, true
 }
 
-// userLogLines returns every user log line emitted so far via the v1 UserLogs event.
-func userLogLines(t *testing.T, observer beholdertest.Observer) []string {
+// userLogLines returns every user log line emitted so far via WorkflowUserLog events.
+func userLogLines(t *testing.T, rec *beholdertest.Recorder) []string {
 	t.Helper()
 	var lines []string
-	for _, msg := range observer.Messages(t, "beholder_entity", v1UserLogsEntity) {
-		var payload pb.UserLogs
+	for _, msg := range rec.Messages(t, "beholder_entity", v2UserLogEntity) {
+		var payload eventsv2.WorkflowUserLog
 		if err := proto.Unmarshal(msg.Body, &payload); err != nil {
 			continue
 		}
-		for _, l := range payload.LogLines {
-			lines = append(lines, l.Message)
-		}
+		lines = append(lines, payload.Msg)
 	}
 	return lines
 }
@@ -149,7 +146,7 @@ type dropPathHarness struct {
 	module              *modulemocks.ModuleV2
 	eventCh             chan capabilities.TriggerResponse
 	executionFinishedCh chan string
-	beholderObserver    beholdertest.Observer
+	rec                 *beholdertest.Recorder
 }
 
 func newDropPathHarness(t *testing.T, billingClient *metmocks.BillingClient, configure func(cfg *v2.EngineConfig)) *dropPathHarness {
@@ -181,8 +178,9 @@ func newDropPathHarness(t *testing.T, billingClient *metmocks.BillingClient, con
 			executionFinishedCh <- executionID
 		},
 	}
-	beholderObserver := beholdertest.NewObserver(t)
-	cfg.BeholderEmitter = custmsg.NewLabeler()
+	rec := beholdertest.NewRecorder()
+	cfg.EventEmitter = workflowEvents.NewEmitter(rec, workflowEvents.WithNoDurableEmit())
+	cfg.BeholderEmitter = custmsg.NewLabelerWithEmitter(rec)
 
 	if configure != nil {
 		configure(cfg)
@@ -212,14 +210,16 @@ func newDropPathHarness(t *testing.T, billingClient *metmocks.BillingClient, con
 		module:              module,
 		eventCh:             eventCh,
 		executionFinishedCh: executionFinishedCh,
-		beholderObserver:    beholderObserver,
+		rec:                 rec,
 	}
 }
 
 // TestEngine_LimitReadFallback_ExecutesAnyway covers: an execution proceeds to
 // completion (instead of being silently dropped) when a limit read fails,
 // falling back to the setting's static default.
-func TestEngine_LimitReadFallback_ExecutesAnyway(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+func TestEngine_LimitReadFallback_ExecutesAnyway(t *testing.T) {
+	t.Parallel()
+
 	testCases := map[string]func(cfg *v2.EngineConfig){
 		"ExecutionTime": func(cfg *v2.EngineConfig) {
 			cfg.LocalLimiters.ExecutionTime = &alwaysFailTimeLimiter{err: errors.New("limit read boom")}
@@ -232,8 +232,10 @@ func TestEngine_LimitReadFallback_ExecutesAnyway(t *testing.T) { //nolint:parall
 		},
 	}
 
-	for name, breakLimiter := range testCases { //nolint:paralleltest // shares the package-level beholder singleton
+	for name, breakLimiter := range testCases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			billingClient := setupMockBillingClient(t)
 			harness := newDropPathHarness(t, billingClient, breakLimiter)
 
@@ -245,10 +247,10 @@ func TestEngine_LimitReadFallback_ExecutesAnyway(t *testing.T) { //nolint:parall
 			executionID := <-harness.executionFinishedCh
 			require.NotEmpty(t, executionID)
 
-			startedMsgs := harness.beholderObserver.Messages(t, "beholder_entity", v2ExecutionStartedEntity)
+			startedMsgs := harness.rec.Messages(t, "beholder_entity", v2ExecutionStartedEntity)
 			assert.NotEmpty(t, startedMsgs, "execution should still emit a Started event despite the limit read failure")
 
-			evt, ok := latestV2FinishedEvent(t, harness.beholderObserver)
+			evt, ok := latestV2FinishedEvent(t, harness.rec)
 			require.True(t, ok, "execution should still emit a Finished event despite the limit read failure")
 			assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_SUCCEEDED, evt.Status)
 		})
@@ -260,7 +262,9 @@ func TestEngine_LimitReadFallback_ExecutesAnyway(t *testing.T) { //nolint:parall
 // ErrMissingTenant, i.e. the CRE context was never populated — is a programming error rather
 // than a degraded settings service, so the engine must fail the execution loudly instead of
 // enforcing the zero value it got back.
-func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) {
+	t.Parallel()
+
 	missingTenant := limits.ErrMissingTenant{Scope: settings.ScopeWorkflow}
 	require.False(t, limits.IsErrRecoverable(missingTenant), "precondition")
 
@@ -276,8 +280,10 @@ func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) { //nolint:parallelt
 		},
 	}
 
-	for name, breakLimiter := range testCases { //nolint:paralleltest // shares the package-level beholder singleton
+	for name, breakLimiter := range testCases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// No module.Execute expectation: the execution must never reach WASM.
 			harness := newDropPathHarness(t, setupMockBillingClient(t), breakLimiter)
 
@@ -287,14 +293,14 @@ func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) { //nolint:parallelt
 
 			var evt *eventsv2.WorkflowExecutionFinished
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				got, ok := latestV2FinishedEvent(t, harness.beholderObserver)
+				got, ok := latestV2FinishedEvent(t, harness.rec)
 				if !assert.True(c, ok) {
 					return
 				}
 				evt = got
 			}, 5*time.Second, 50*time.Millisecond)
 
-			assert.NotEmpty(t, harness.beholderObserver.Messages(t, "beholder_entity", v2ExecutionStartedEntity),
+			assert.NotEmpty(t, harness.rec.Messages(t, "beholder_entity", v2ExecutionStartedEntity),
 				"the Started/Finished pair is what makes the drop visible; Finished alone is not enough")
 			assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED, evt.Status,
 				"a programming error must not be papered over with the zero value")
@@ -306,7 +312,9 @@ func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) { //nolint:parallelt
 
 // TestEngine_LimitReadFallback_UsesLimiterValue: on a read failure, the engine must use
 // whatever value the limiter returns, not substitute its own compiled default.
-func TestEngine_LimitReadFallback_UsesLimiterValue(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+func TestEngine_LimitReadFallback_UsesLimiterValue(t *testing.T) {
+	t.Parallel()
+
 	const resolvedValue = commonconfig.Size(12345)
 
 	// A real limiter whose own default differs from the engine-wide compiled default, so
@@ -340,7 +348,9 @@ func TestEngine_LimitReadFallback_UsesLimiterValue(t *testing.T) { //nolint:para
 // shard failover) denies the event on every node that does not own the workflow, so emitting
 // Started/Finished there (unlike the other drop paths) would publish a DON-wide failure for a
 // run that actually succeeded on the owner. This must stay silent.
-func TestEngine_AdmissionDenial_StaysSilent(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+func TestEngine_AdmissionDenial_StaysSilent(t *testing.T) {
+	t.Parallel()
+
 	billingClient := metmocks.NewBillingClient(t) // no billing calls expected: admission runs before metering
 
 	harness := newDropPathHarness(t, billingClient, func(cfg *v2.EngineConfig) {
@@ -353,9 +363,10 @@ func TestEngine_AdmissionDenial_StaysSilent(t *testing.T) { //nolint:paralleltes
 		Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_admission_denied"},
 	}
 
+	// Verify no events were emitted.
 	require.Never(t, func() bool {
-		started := harness.beholderObserver.Messages(t, "beholder_entity", v2ExecutionStartedEntity)
-		finished := harness.beholderObserver.Messages(t, "beholder_entity", v2ExecutionFinishedEntity)
+		started := harness.rec.Messages(t, "beholder_entity", v2ExecutionStartedEntity)
+		finished := harness.rec.Messages(t, "beholder_entity", v2ExecutionFinishedEntity)
 		return len(started) > 0 || len(finished) > 0
 	}, 500*time.Millisecond, 25*time.Millisecond)
 }
@@ -364,8 +375,12 @@ func TestEngine_AdmissionDenial_StaysSilent(t *testing.T) { //nolint:paralleltes
 // now enforced by the limiter (so it records usage/denied), truncation is driven by the
 // bound carried on the returned ErrorBoundLimited, and a settings read failure fails open
 // by emitting the line untruncated instead of falling back to a hardcoded default.
-func TestEngine_UserLog_LogLineCheck(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
-	t.Run("over-long message truncated to the bound", func(t *testing.T) { //nolint:paralleltest // shares the package-level beholder singleton
+func TestEngine_UserLog_LogLineCheck(t *testing.T) {
+	t.Parallel()
+
+	t.Run("over-long message truncated to the bound", func(t *testing.T) {
+		t.Parallel()
+
 		harness := newDropPathHarness(t, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
 			cfg.LocalLimiters.LogLine = limits.NewUpperBoundLimiter[commonconfig.Size](10)
 		})
@@ -380,11 +395,13 @@ func TestEngine_UserLog_LogLineCheck(t *testing.T) { //nolint:paralleltest // us
 		}
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			assert.Contains(c, userLogLines(t, harness.beholderObserver), "0123456789 ...(truncated)")
+			assert.Contains(c, userLogLines(t, harness.rec), "0123456789 ...(truncated)")
 		}, 5*time.Second, 50*time.Millisecond)
 	})
 
-	t.Run("settings read failure emits untruncated", func(t *testing.T) { //nolint:paralleltest // shares the package-level beholder singleton
+	t.Run("settings read failure emits untruncated", func(t *testing.T) {
+		t.Parallel()
+
 		harness := newDropPathHarness(t, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
 			cfg.LocalLimiters.LogLine = &alwaysErrCheckLimiter[commonconfig.Size]{err: errors.New("settings unavailable")}
 		})
@@ -400,7 +417,7 @@ func TestEngine_UserLog_LogLineCheck(t *testing.T) { //nolint:paralleltest // us
 		}
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			assert.Contains(c, userLogLines(t, harness.beholderObserver), message)
+			assert.Contains(c, userLogLines(t, harness.rec), message)
 		}, 5*time.Second, 50*time.Millisecond)
 	})
 }
@@ -409,7 +426,9 @@ func TestEngine_UserLog_LogLineCheck(t *testing.T) { //nolint:paralleltest // us
 // LogEvent.Check branch: a settings read failure (a plain error, not ErrorBoundLimited)
 // used to return false from processLogLine, which ended the emitUserLogs drain goroutine
 // and silently discarded every remaining user log for the execution. Both lines must land.
-func TestEngine_UserLog_LogEventCheckFailure_KeepsDraining(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+func TestEngine_UserLog_LogEventCheckFailure_KeepsDraining(t *testing.T) {
+	t.Parallel()
+
 	harness := newDropPathHarness(t, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
 		cfg.LocalLimiters.LogEvent = &alwaysErrCheckLimiter[int]{ok: 1000, err: errors.New("settings unavailable")}
 	})
@@ -425,8 +444,35 @@ func TestEngine_UserLog_LogEventCheckFailure_KeepsDraining(t *testing.T) { //nol
 	}
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		lines := userLogLines(t, harness.beholderObserver)
+		lines := userLogLines(t, harness.rec)
 		assert.Contains(c, lines, "first line")
 		assert.Contains(c, lines, "second line")
 	}, 5*time.Second, 50*time.Millisecond)
+}
+
+// TestAdmissionErrors_MatchTriggerSentinels asserts that the coordinator
+// recognises admission outcomes through the defined error sentinels.
+func TestAdmissionErrors_MatchTriggerSentinels(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		err        error
+		wantDenied bool
+		wantCached bool
+	}{
+		{name: "not owner is denied", err: v2.ErrShardDeniedNotOwner, wantDenied: true},
+		{name: "orchestrator error is denied", err: v2.ErrShardDeniedOrchestrator, wantDenied: true},
+		{name: "cache is cached", err: v2.ErrAdmissionCache, wantCached: true},
+		{name: "unrelated error is neither", err: v2.ErrEngineDraining},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.wantDenied, errors.Is(tc.err, triggers.ErrAdmissionDenied),
+				"errors.Is(%v, ErrAdmissionDenied)", tc.err)
+			assert.Equal(t, tc.wantCached, errors.Is(tc.err, triggers.ErrAdmissionCached),
+				"errors.Is(%v, ErrAdmissionCached)", tc.err)
+		})
+	}
 }

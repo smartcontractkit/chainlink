@@ -3,6 +3,7 @@ package triggers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,9 +11,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
@@ -152,26 +157,46 @@ func TestCoordinator_RegisterTriggers(t *testing.T) {
 	})
 }
 
-// TestCoordinator_NoDeliver covers dropped delivery: events must not reach an
-// engine that is gone from the registry or not coordinated.
-func TestCoordinator_NoDeliver(t *testing.T) {
-	t.Parallel()
+// TestCoordinator_MetricsIncludeSdkLabel makes sure the coordinator's metrics
+// carry the sdk label.
+//
+//nolint:paralleltest // reads metrics through useTestMeter, which swaps a global
+func TestCoordinator_MetricsIncludeSdkLabel(t *testing.T) {
+	reader := useTestMeter(t)
+	f := newCoordinatorFixture(t)
+	trigger, _ := f.expectTrigger(t)
+	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
 
+	_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+	require.NoError(t, err)
+	require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+
+	sdk := map[string]string{platform.KeySDK: testSdkName}
+	require.Eventually(t, func() bool {
+		return counterTotal(t, reader, "platform_engine_workflow_unregistered_count", sdk) == 1
+	}, 5*time.Second, 5*time.Millisecond)
+}
+
+// TestCoordinator_NoDeliver covers dropped delivery: events must not reach an
+// engine that is gone from the registry or not coordinated, and each case
+// must be countable the same way every other drop reason is.
+//
+//nolint:paralleltest // its cases read metrics through useTestMeter, which swaps a global
+func TestCoordinator_NoDeliver(t *testing.T) {
 	for _, tc := range []struct {
-		name   string
-		mutate func(f *coordinatorFixture)
+		name       string
+		mutate     func(f *coordinatorFixture)
+		dropReason string
 	}{
 		{"drops events once the engine is gone from the registry", func(f *coordinatorFixture) {
-			f.engines.mu.Lock()
-			delete(f.engines.engines, f.wid)
-			f.engines.mu.Unlock()
-		}},
+			f.engines.remove(f.wid)
+		}, monitoring.TriggerDropReasonEngineGone},
 		{"drops events for an engine that is not coordinated", func(f *coordinatorFixture) {
 			f.engine.coordinated = false
-		}},
+		}, monitoring.TriggerDropReasonEngineNotCoordinated},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+		t.Run(tc.name, func(t *testing.T) { //nolint:paralleltest // see above
+			reader := useTestMeter(t)
 			f := newCoordinatorFixture(t)
 			trigger, eventCh := f.expectTrigger(t)
 			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
@@ -185,6 +210,67 @@ func TestCoordinator_NoDeliver(t *testing.T) {
 			eventCh <- triggerEvent("evt-1")
 			eventCh <- triggerEvent("evt-2")
 			assert.Empty(t, f.engine.executed())
+
+			dropped := map[string]string{platform.KeyTriggerDropReason: tc.dropReason}
+			require.Eventually(t, func() bool {
+				return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", dropped) == 2
+			}, 5*time.Second, 5*time.Millisecond)
+		})
+	}
+}
+
+// TestCoordinator_DeliverAdmission covers what the coordinator does with an
+// admission error from the engine (e.g. the shard failover manager on a sharded
+// node). A denied event is ACKed and counted as an admission_denied drop, while a cached event
+// is left un-ACKed so the secondary can replay it.
+//
+//nolint:paralleltest // swaps the global beholder client
+func TestCoordinator_DeliverAdmission(t *testing.T) {
+	tests := []struct {
+		name        string
+		engineErr   error
+		wantAck     bool
+		wantDropped int64
+	}{
+		{
+			name:        "denied is ACKed and counted",
+			engineErr:   fmt.Errorf("shard ownership denied: not owner: %w", ErrAdmissionDenied),
+			wantAck:     true,
+			wantDropped: 1,
+		},
+		{name: "cached is left for replay", engineErr: ErrAdmissionCached},
+		{name: "other error is not ACKed", engineErr: errors.New("metering reserve failed")},
+		{name: "executed is not ACKed by the coordinator"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			reader := useTestMeter(t) // before the fixture, so its metrics are read back
+			f := newCoordinatorFixture(t)
+			f.engine.err = tc.engineErr
+			trigger, eventCh := f.expectTrigger(t)
+			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+			if tc.wantAck {
+				trigger.EXPECT().AckEvent(mock.Anything, RegistrationID(validWorkflowID, 0), "evt-1", testMethod).Return(nil).Once()
+			}
+
+			_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+			require.NoError(t, err)
+			eventCh <- triggerEvent("evt-1")
+			// Wait for the admitter to deliver the event: unregistering first
+			// would drop it from the queue.
+			require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 10*time.Millisecond)
+
+			// The registration is only released once its executions have
+			// returned, so the delivery, including any ACK and drop metric, is complete.
+			require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+			require.Eventually(t, func() bool { return !f.registered() }, 5*time.Second, 10*time.Millisecond)
+
+			if !tc.wantAck {
+				trigger.AssertNotCalled(t, "AckEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+			}
+			denied := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonAdmissionDenied}
+			assert.Equal(t, tc.wantDropped, counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", denied),
+				"admission_denied drops")
 		})
 	}
 }
@@ -646,5 +732,211 @@ func TestCoordinator_Admission(t *testing.T) {
 		release()
 		require.Eventually(t, func() bool { return len(f.engine.executed()) == 3 }, 5*time.Second, 5*time.Millisecond)
 		assert.Equal(t, []string{"evt-1", "evt-2", "evt-3"}, f.engine.executedIDs(), "evt-3 keeps the deadline stamped at dispatch")
+	})
+}
+
+// TestCoordinator_AvailableCapacity checks that AvailableCapacity reports how many
+// executions can still start at each scope: per workflow, per owner, per org, and globally.
+func TestCoordinator_AvailableCapacity(t *testing.T) {
+	t.Parallel()
+
+	t.Run("reports free capacity at every scope across registered workflows", func(t *testing.T) {
+		t.Parallel()
+		pools := limits.MultiResourcePoolLimiter[int]{
+			limits.GlobalResourcePoolLimiter(3), // workflow
+			limits.GlobalResourcePoolLimiter(5), // owner
+			limits.GlobalResourcePoolLimiter(7), // org
+			limits.GlobalResourcePoolLimiter(9), // global
+		}
+		admission := newTestAdmission()
+		admission.ExecutionConcurrency = pools
+		f := newCoordinatorFixtureWithAdmission(t, admission)
+		trigger, _ := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		got, err := f.c.AvailableCapacity(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, 9, got.Global, "global has no tenant key, so it is read without a per-workflow context")
+		assert.Equal(t, map[string]int{validWorkflowID: 3}, got.PerWorkflow)
+		assert.Equal(t, map[string]int{testOwner: 5}, got.PerOwner)
+		assert.Equal(t, map[string]int{testOrg: 7}, got.PerOrg)
+	})
+
+	t.Run("a running execution takes one slot at every scope until it finishes", func(t *testing.T) {
+		t.Parallel()
+		admission := newTestAdmission()
+		admission.ExecutionConcurrency = limits.MultiResourcePoolLimiter[int]{
+			limits.GlobalResourcePoolLimiter(3), // workflow
+			limits.GlobalResourcePoolLimiter(5), // owner
+			limits.GlobalResourcePoolLimiter(7), // org
+			limits.GlobalResourcePoolLimiter(9), // global
+		}
+		f := newCoordinatorFixtureWithAdmission(t, admission)
+		trigger, eventCh := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+		release := f.holdExecutions(t)
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+
+		capacity := func(wf, owner, org, global int) Capacity {
+			return Capacity{
+				Global:      global,
+				PerWorkflow: map[string]int{validWorkflowID: wf},
+				PerOwner:    map[string]int{testOwner: owner},
+				PerOrg:      map[string]int{testOrg: org},
+			}
+		}
+		requireCapacity := func(want Capacity, msg string) {
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				got, err := f.c.AvailableCapacity(t.Context())
+				if assert.NoError(c, err) {
+					assert.Equal(c, want, got)
+				}
+			}, 5*time.Second, 5*time.Millisecond, msg)
+		}
+
+		requireCapacity(capacity(3, 5, 7, 9), "registering takes no execution slot")
+
+		eventCh <- triggerEvent("evt-1")
+		require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+		requireCapacity(capacity(2, 4, 6, 8), "the running execution holds one slot at every scope")
+
+		release()
+		requireCapacity(capacity(3, 5, 7, 9), "the slot is given back at every scope when the execution finishes")
+	})
+
+	t.Run("reads each owner and org pool once, however many workflows share it", func(t *testing.T) {
+		t.Parallel()
+		wf, owner, org, global := newCountingPool(3), newCountingPool(5), newCountingPool(7), newCountingPool(9)
+		c := &coordinator{
+			admission: AdmissionLimiters{ExecutionConcurrency: limits.MultiResourcePoolLimiter[int]{wf, owner, org, global}},
+			workflows: newWorkflowRegistry(),
+		}
+		// Three workflows of one owner in one org.
+		for _, id := range []string{"wf-a", "wf-b", "wf-c"} {
+			c.workflows.set(id, &coordinatedWorkflow{cre: contexts.CRE{Org: testOrg, Owner: testOwner, Workflow: id}})
+		}
+
+		got, err := c.AvailableCapacity(t.Context())
+		require.NoError(t, err)
+		assert.Len(t, got.PerWorkflow, 3)
+		assert.Equal(t, int32(3), wf.availables.Load(), "one read per workflow")
+		assert.Equal(t, int32(1), owner.availables.Load(), "the shared owner is read once")
+		assert.Equal(t, int32(1), org.availables.Load(), "the shared org is read once")
+		assert.Equal(t, int32(1), global.availables.Load())
+	})
+
+	t.Run("returns an error when the shared limiter does not break down by scope", func(t *testing.T) {
+		t.Parallel()
+		// The default fixture uses one pool with no scopes, so there is nothing per scope
+		// to report. AvailableCapacity must return an error, not empty or wrong numbers.
+		f := newCoordinatorFixture(t)
+
+		_, err := f.c.AvailableCapacity(t.Context())
+		require.ErrorIs(t, err, ErrCapacityNotSupported)
+	})
+}
+
+// BenchmarkCoordinator_AvailableCapacity measures how long one AvailableCapacity
+// call takes on a node with 1,000 workflows, 100 owners and 10 orgs. The pools are
+// built like the production ones, so each read does a real settings lookup.
+//
+//	go test -run '^$' -bench AvailableCapacity -benchmem ./core/services/workflows/v2/triggers/
+func BenchmarkCoordinator_AvailableCapacity(b *testing.B) {
+	const workflows, owners, orgs = 1000, 100, 10
+
+	getter, err := settings.NewJSONGetter([]byte(`{}`))
+	require.NoError(b, err)
+	lf := limits.Factory{Logger: logger.Nop(), Settings: getter}
+	scopeLimits := []settings.Setting[int]{
+		cresettings.Default.PerWorkflow.ExecutionConcurrencyLimit,
+		cresettings.Default.PerOwner.WorkflowExecutionConcurrencyLimit,
+		cresettings.Default.PerOrg.WorkflowExecutionConcurrencyLimit,
+		cresettings.Default.WorkflowExecutionConcurrencyLimit,
+	}
+	pools := make(limits.MultiResourcePoolLimiter[int], 0, len(scopeLimits))
+	for _, setting := range scopeLimits {
+		pool, makeErr := limits.MakeResourcePoolLimiter(lf, setting)
+		require.NoError(b, makeErr)
+		b.Cleanup(func() { _ = pool.Close() })
+		pools = append(pools, pool)
+	}
+
+	c := &coordinator{admission: AdmissionLimiters{ExecutionConcurrency: pools}, workflows: newWorkflowRegistry()}
+	for i := range workflows {
+		id := fmt.Sprintf("%064x", i)
+		c.workflows.set(id, &coordinatedWorkflow{cre: contexts.CRE{
+			Org:      fmt.Sprintf("org-%d", i%orgs),
+			Owner:    fmt.Sprintf("%040x", i%owners),
+			Workflow: id,
+		}})
+	}
+
+	ctx := b.Context()
+	// The first read of each tenant creates its pool entry; measure steady state.
+	_, err = c.AvailableCapacity(ctx)
+	require.NoError(b, err)
+
+	for b.Loop() {
+		if _, err := c.AvailableCapacity(ctx); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// TestCoordinator_DropObservability covers drops that happen while resolving
+// the engine, and makes sure expected execution outcomes (duplicate,
+// draining, closed) are never logged as errors. The drop-counting side of
+// this is covered by TestCoordinator_NoDeliver.
+func TestCoordinator_DropObservability(t *testing.T) {
+	t.Parallel()
+
+	t.Run("expected execution outcomes are logged at info, not error", func(t *testing.T) {
+		t.Parallel()
+		for _, tc := range []struct {
+			name string
+			err  error
+		}{
+			{"duplicate execution", ErrDuplicateExecution},
+			{"engine draining", ErrEngineDraining},
+			{"engine closed", ErrEngineClosed},
+			{"admission cached", ErrAdmissionCached},
+			{"admission denied", fmt.Errorf("not owner: %w", ErrAdmissionDenied)},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+				lggr, errorLogs := logger.TestObserved(t, zapcore.ErrorLevel)
+				f := newCoordinatorFixtureWithLogger(t, lggr)
+				trigger, eventCh := f.expectTrigger(t)
+				trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+				trigger.EXPECT().AckEvent(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+				f.engine.err = tc.err
+				_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+				require.NoError(t, err)
+
+				eventCh <- triggerEvent("evt-1")
+				require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+
+				assert.Empty(t, errorLogs.All(), "an expected execution outcome must not log at error, the way legacy's engine.go does")
+			})
+		}
+
+		t.Run("an unexpected execution error still logs at error", func(t *testing.T) {
+			t.Parallel()
+			lggr, errorLogs := logger.TestObserved(t, zapcore.ErrorLevel)
+			f := newCoordinatorFixtureWithLogger(t, lggr)
+			trigger, eventCh := f.expectTrigger(t)
+			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+			f.engine.err = errors.New("boom")
+			_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+			require.NoError(t, err)
+
+			eventCh <- triggerEvent("evt-1")
+			require.Eventually(t, func() bool { return len(errorLogs.All()) == 1 }, 5*time.Second, 5*time.Millisecond,
+				"an unanticipated execution error must still be visible as an error")
+		})
 	})
 }

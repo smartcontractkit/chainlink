@@ -113,6 +113,10 @@ func (e *engine) Tenant() contexts.CRE {
 	return e.base.Tenant()
 }
 
+func (e *engine) SdkName() string {
+	return e.base.SdkName()
+}
+
 // IsCoordinated reports that this engine manages its own trigger registration and acknowledgement.
 func (e *engine) IsCoordinated() bool {
 	return false
@@ -303,7 +307,17 @@ func (e *engine) put(ctx context.Context, event triggers.CoordinatedEvent) error
 		if ackErr := e.base.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {
 			e.base.logger().Errorw("failed to ACK trigger after admission denial", "eventID", eventID, "err", ackErr)
 		}
-		e.base.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventDroppedTotal(ctx, "admission_denied")
+		tm := e.base.metrics.With(platform.KeyTriggerID, triggerID)
+		switch {
+		case errors.Is(err, ErrShardDeniedNotOwner):
+			tm.IncrementShardExecutionDeniedNotOwnerCounter(ctx)
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonShardDeniedNotOwner)
+		case errors.Is(err, ErrShardDeniedOrchestrator):
+			tm.IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx)
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonShardDeniedOrchestrator)
+		default:
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonAdmissionDenied)
+		}
 		return err
 	}
 

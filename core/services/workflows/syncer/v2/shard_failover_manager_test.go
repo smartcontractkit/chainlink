@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -16,11 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/sharding"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
@@ -126,6 +129,7 @@ func (s *fakeDonSubscriber) NotifyDonSet(don commoncap.DON) { s.don = don }
 func (s *fakeDonSubscriber) WaitForDon(_ context.Context) (commoncap.DON, error) {
 	return s.don, nil
 }
+
 func (s *fakeDonSubscriber) Subscribe(_ context.Context) (<-chan commoncap.DON, func(), error) {
 	ch := make(chan commoncap.DON, 1)
 	ch <- s.don
@@ -167,8 +171,6 @@ func shardDonLookup(dons map[uint32]commoncap.DON) func(ctx context.Context, sha
 		return nil
 	}
 }
-
-// --- the test that proves the fix ---
 
 // TestShardFailoverManager_MultipleWorkflowsSharedDispatcher proves that
 // multiple ShardFailoverManager instances (one per workflow) sharing the same
@@ -215,10 +217,12 @@ func TestShardFailoverManager_MultipleWorkflowsSharedDispatcher(t *testing.T) {
 			WorkflowID:      workflowID,
 			WorkflowOwner:   "0xowner",
 			ShardResolver:   resolver,
-			Communicator:    comm,
 			ShardDonLookup:  shardDonLookupFn,
 			DonSubscriber:   donSub,
-			Logger:          logger.Test(t),
+			Failover: FailoverConfig{
+				Communicator: comm,
+			},
+			Logger: logger.Test(t),
 		})
 	}
 
@@ -370,8 +374,6 @@ func TestShardFailoverManager_DelegatesIsCoordinated(t *testing.T) {
 		require.False(t, m.IsCoordinated())
 	})
 
-	// Unreachable while sharding and the coordinated engine are mutually
-	// exclusive, but asserted so the value stays delegated rather than assumed.
 	t.Run("wrapping a coordinated engine reports coordinated", func(t *testing.T) {
 		t.Parallel()
 		m := newTestShardFailoverManager(t, &fakeCoordinatedDrainableEngine{})
@@ -379,16 +381,251 @@ func TestShardFailoverManager_DelegatesIsCoordinated(t *testing.T) {
 	})
 }
 
-// TestShardFailoverManager_CoordinatorMethodsUnsupported covers the
-// coordinator-facing methods, which must fail rather than delegate until
-// sharding and the coordinated engine can work together.
-func TestShardFailoverManager_CoordinatorMethodsUnsupported(t *testing.T) {
-	t.Parallel()
-	m := newTestShardFailoverManager(t, &mockEngine{})
+const (
+	testMyDONID    = uint32(1)
+	testOtherDONID = uint32(2)
+)
 
-	_, err := m.Subscribe(t.Context())
-	require.ErrorIs(t, err, ErrCoordinatedShardingUnsupported)
-	require.ErrorIs(t, m.ExecuteTrigger(t.Context(), triggers.CoordinatedEvent{}), ErrCoordinatedShardingUnsupported)
+// recordingEngine is a coordinated v2.WorkflowEngine that records the events
+// delivered to ExecuteTrigger and the tenant on each call's context.
+type recordingEngine struct {
+	mockEngine
+	subs    []*sdkpb.TriggerSubscription
+	subErr  error
+	execErr error
+
+	mu       sync.Mutex
+	executed []string
+	tenants  []contexts.CRE
+}
+
+func (e *recordingEngine) IsCoordinated() bool { return true }
+
+func (e *recordingEngine) Subscribe(context.Context) ([]*sdkpb.TriggerSubscription, error) {
+	return e.subs, e.subErr
+}
+
+func (e *recordingEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.executed = append(e.executed, event.Event.Event.ID)
+	e.tenants = append(e.tenants, contexts.CREValue(ctx))
+	return e.execErr
+}
+
+// executedIDs returns the IDs of the events delivered so far, in order.
+func (e *recordingEngine) executedIDs() []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return append([]string(nil), e.executed...)
+}
+
+func (e *recordingEngine) executionTenants() []contexts.CRE {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return append([]contexts.CRE(nil), e.tenants...)
+}
+
+func (e *recordingEngine) Tenant() contexts.CRE {
+	return contexts.CRE{Org: "org-1", Owner: "0xowner", Workflow: "wf-1"}
+}
+
+// erroringShardResolver fails every lookup, as an unreachable orchestrator would.
+type erroringShardResolver struct{}
+
+func (erroringShardResolver) ResolveShard(context.Context, string, string) (uint32, bool, error) {
+	return 0, false, errors.New("orchestrator unavailable")
+}
+
+func (erroringShardResolver) ResolveShards(context.Context, []string, []string) (map[string]uint32, error) {
+	return nil, errors.New("orchestrator unavailable")
+}
+
+var _ shardownership.ShardResolver = erroringShardResolver{}
+
+var (
+	// ownerResolver makes this node (testMyDONID) the primary shard.
+	ownerResolver = &fakeShardResolver{shards: []uint32{testMyDONID, testOtherDONID}}
+
+	// secondaryResolver makes this node the secondary shard: listed, but not the owner.
+	secondaryResolver = &fakeShardResolver{shards: []uint32{testOtherDONID, testMyDONID}}
+)
+
+// newAdmissionTestManager wraps engine in a manager for testMyDONID that is
+// never started. cfg supplies the sharding and failover settings under test.
+func newAdmissionTestManager(t *testing.T, engine v2.WorkflowEngine, cfg ShardFailoverManagerConfig) *ShardFailoverManager {
+	t.Helper()
+	cfg.MyDONID = testMyDONID
+	cfg.WorkflowID = "wf-1"
+	cfg.WorkflowOwner = "0xowner"
+	cfg.Logger = logger.Test(t)
+	m := NewShardFailoverManager(cfg)
+	m.SetEngine(engine)
+	return m
+}
+
+func testCoordinatedEvent(id string) triggers.CoordinatedEvent {
+	return triggers.CoordinatedEvent{
+		WorkflowID:   "wf-1",
+		TriggerCapID: "cron-trigger@1.0.0",
+		Event:        commoncap.TriggerResponse{Event: commoncap.TriggerEvent{ID: id}},
+	}
+}
+
+// TestShardFailoverManager_Subscribe covers trigger registration on the
+// coordinated path. The coordinator subscribes through the manager, which must
+// hand back the wrapped engine's subscriptions.
+func TestShardFailoverManager_Subscribe(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns the engine's subscriptions", func(t *testing.T) {
+		t.Parallel()
+		want := []*sdkpb.TriggerSubscription{{Id: "cron-trigger@1.0.0", Method: "Trigger"}}
+		m := newTestShardFailoverManager(t, &recordingEngine{subs: want})
+
+		got, err := m.Subscribe(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("passes through the engine's error", func(t *testing.T) {
+		t.Parallel()
+		wantErr := errors.New("subscribe failed")
+		m := newTestShardFailoverManager(t, &recordingEngine{subErr: wantErr})
+
+		_, err := m.Subscribe(t.Context())
+		require.ErrorIs(t, err, wantErr)
+	})
+}
+
+// TestShardFailoverManager_ExecuteTrigger covers admission on the coordinated
+// path. The coordinated engine never calls OnTriggerAdmission, so the manager
+// must check shard ownership itself before delivering.
+func TestShardFailoverManager_ExecuteTrigger(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		cfg          ShardFailoverManagerConfig
+		execErr      error
+		wantErr      error
+		wantExecuted bool
+		wantCached   bool
+	}{
+		{
+			name:         "sharding disabled delivers",
+			cfg:          ShardFailoverManagerConfig{ShardingEnabled: false, ShardResolver: secondaryResolver},
+			wantExecuted: true,
+		},
+		{
+			name:         "owner delivers",
+			cfg:          ShardFailoverManagerConfig{ShardingEnabled: true, ShardResolver: ownerResolver},
+			wantExecuted: true,
+		},
+		{
+			name: "secondary with failover enabled caches",
+			cfg: ShardFailoverManagerConfig{
+				ShardingEnabled: true, ShardResolver: secondaryResolver, Failover: FailoverConfig{ShardingFailoverGate: limits.NewGateLimiter(true)},
+			},
+			wantErr:    triggers.ErrAdmissionCached,
+			wantCached: true,
+		},
+		{
+			name: "non-owner with failover disabled is denied",
+			cfg: ShardFailoverManagerConfig{
+				ShardingEnabled: true, ShardResolver: secondaryResolver, Failover: FailoverConfig{ShardingFailoverGate: limits.NewGateLimiter(false)},
+			},
+			wantErr: triggers.ErrAdmissionDenied,
+		},
+		{
+			name:    "non-owner without a failover gate is denied",
+			cfg:     ShardFailoverManagerConfig{ShardingEnabled: true, ShardResolver: secondaryResolver},
+			wantErr: triggers.ErrAdmissionDenied,
+		},
+		{
+			name:    "orchestrator error is denied",
+			cfg:     ShardFailoverManagerConfig{ShardingEnabled: true, ShardResolver: erroringShardResolver{}},
+			wantErr: triggers.ErrAdmissionDenied,
+		},
+		{
+			name:         "engine error passes through",
+			cfg:          ShardFailoverManagerConfig{ShardingEnabled: true, ShardResolver: ownerResolver},
+			execErr:      v2.ErrEngineDraining,
+			wantErr:      v2.ErrEngineDraining,
+			wantExecuted: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			engine := &recordingEngine{execErr: tc.execErr}
+			m := newAdmissionTestManager(t, engine, tc.cfg)
+
+			err := m.ExecuteTrigger(t.Context(), testCoordinatedEvent("evt-1"))
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+
+			var wantIDs []string
+			if tc.wantExecuted {
+				wantIDs = []string{"evt-1"}
+			}
+			assert.Equal(t, wantIDs, engine.executedIDs(), "events delivered to the engine")
+			_, gotCached := m.cache["evt-1"]
+			assert.Equal(t, tc.wantCached, gotCached, "event cached for failover")
+		})
+	}
+}
+
+// TestShardFailoverManager_CachedEventOnStatusUpdate covers failover on the
+// coordinated path. An event the secondary cached in ExecuteTrigger is dropped
+// when the primary reports an outcome, and replayed on a system error. Replay
+// goes straight to the wrapped engine.
+func TestShardFailoverManager_CachedEventOnStatusUpdate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		status       ringpb.ExecutionStatus
+		wantExecuted []string
+		wantCached   bool
+	}{
+		{name: "success drops the event", status: ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS},
+		{name: "user error drops the event", status: ringpb.ExecutionStatus_EXECUTION_STATUS_USER_ERROR},
+		{
+			name:         "system error replays the event",
+			status:       ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR,
+			wantExecuted: []string{"evt-1"},
+		},
+		{
+			name:       "unspecified keeps the event cached",
+			status:     ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED,
+			wantCached: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			engine := &recordingEngine{}
+			m := newAdmissionTestManager(t, engine, ShardFailoverManagerConfig{
+				ShardingEnabled: true, ShardResolver: secondaryResolver, Failover: FailoverConfig{ShardingFailoverGate: limits.NewGateLimiter(true)},
+			})
+			require.ErrorIs(t, m.ExecuteTrigger(t.Context(), testCoordinatedEvent("evt-1")), triggers.ErrAdmissionCached)
+
+			m.HandleExecutionStatusUpdate(&ringpb.ExecutionStatusUpdate{
+				WorkflowId:     "wf-1",
+				ExecutionId:    "exec-1",
+				TriggerEventId: "evt-1",
+				Status:         tc.status,
+			})
+
+			assert.Equal(t, tc.wantExecuted, engine.executedIDs(), "events delivered to the engine")
+			_, gotCached := m.cache["evt-1"]
+			assert.Equal(t, tc.wantCached, gotCached, "event cached for failover")
+		})
+	}
 }
 
 // --- automatic failover (CRE-SHARD-M5-3) test doubles ---
@@ -469,37 +706,6 @@ func (r *switchableShardResolver) setOwner(donID uint32) {
 	r.ownerDON = donID
 }
 
-type recordingEngine struct {
-	mockEngine
-	mu       sync.Mutex
-	executed []string
-	tenants  []contexts.CRE
-}
-
-func (e *recordingEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.executed = append(e.executed, event.Event.Event.ID)
-	e.tenants = append(e.tenants, contexts.CREValue(ctx))
-	return nil
-}
-
-func (e *recordingEngine) executedIDs() []string {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return append([]string(nil), e.executed...)
-}
-
-func (e *recordingEngine) executionTenants() []contexts.CRE {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return append([]contexts.CRE(nil), e.tenants...)
-}
-
-func (e *recordingEngine) Tenant() contexts.CRE {
-	return contexts.CRE{Org: "org-1", Owner: "0xowner", Workflow: "wf-1"}
-}
-
 func timeoutBasedFailoverTestEvent(id string) triggers.CoordinatedEvent {
 	return triggers.CoordinatedEvent{
 		WorkflowID:   "wf-1",
@@ -523,16 +729,18 @@ func newTimeoutBasedFailoverManager(t *testing.T, eng *recordingEngine, gate *fa
 	}
 
 	m := NewShardFailoverManager(ShardFailoverManagerConfig{
-		ShardingEnabled:            true,
-		MyDONID:                    2,
-		MyShardIndex:               1,
-		WorkflowID:                 "wf-1",
-		WorkflowOwner:              "0xowner",
-		ShardResolver:              resolver,
-		ShardingFailoverGate:       &fakeGateLimiter{open: true},
-		TimeoutBasedFailoverGate:   autoGate,
-		TimeoutBasedFailoverWindow: autoWindow,
-		Logger:                     logger.Test(t),
+		ShardingEnabled: true,
+		MyDONID:         2,
+		MyShardIndex:    1,
+		WorkflowID:      "wf-1",
+		WorkflowOwner:   "0xowner",
+		ShardResolver:   resolver,
+		Failover: FailoverConfig{
+			ShardingFailoverGate:       &fakeGateLimiter{open: true},
+			TimeoutBasedFailoverGate:   autoGate,
+			TimeoutBasedFailoverWindow: autoWindow,
+		},
+		Logger: logger.Test(t),
 	})
 	m.SetEngine(eng)
 	return m
@@ -555,13 +763,17 @@ func TestShardFailoverManager_TimeoutBasedFailover_ExecutesCachedEventAfterWindo
 
 	time.Sleep(60 * time.Millisecond)
 	m.executeDueTimeoutBasedFailovers(t.Context())
-	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "cached event was not auto-executed after the failover window elapsed")
 
-	tenants := eng.executionTenants()
-	require.Len(t, tenants, 1, "auto-execution did not go through the recording engine")
+	// The pass spawns the execution asynchronously, so wait for it to land.
 	wantTenant := contexts.CREValue(contexts.WithCRE(context.Background(), eng.Tenant()))
-	assert.Equal(t, wantTenant, tenants[0],
-		"auto-executed event ran without the workflow tenant on the context")
+	assert.Eventually(t, func() bool {
+		ids := eng.executedIDs()
+		if len(ids) != 1 || ids[0] != "evt-1" {
+			return false
+		}
+		tenants := eng.executionTenants()
+		return len(tenants) == 1 && tenants[0] == wantTenant
+	}, 5*time.Second, 10*time.Millisecond, "cached event was not auto-executed with the workflow tenant after the failover window elapsed")
 
 	m.executeDueTimeoutBasedFailovers(t.Context())
 	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "auto-executed event was executed twice")

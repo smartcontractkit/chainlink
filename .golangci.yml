@@ -243,6 +243,12 @@ linters:
           - gosec
         path: test
         text: "^G404:"
+      - linters:
+          - gomodguard_v2
+        path: ^system-tests/
+        text: chainlink-tron/relayer/gotron-sdk
+        # The gotron-sdk address helpers moved into the chainlink-tron/relayer module. System tests
+        # drive Tron through the deployments framework, which takes those address types.
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0

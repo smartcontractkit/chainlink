@@ -1084,3 +1084,34 @@ func TestMetering_ValidateConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkflowRegistry_ValidateFetchConfig(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		mode    *string
+		hosts   *[]string
+		wantErr string
+	}{
+		{name: "unset"},
+		{name: "gateway", mode: new("gateway")},
+		{name: "direct with hosts", mode: new("direct"), hosts: &[]string{"artifacts.example.com", "s3.example.com"}},
+		{name: "invalid mode", mode: new("proxy"), wantErr: "FetchMode"},
+		{name: "host with scheme", hosts: &[]string{"https://example.com"}, wantErr: "FetchAllowedHosts[0]"},
+		{name: "host with port", hosts: &[]string{"example.com:443"}, wantErr: "FetchAllowedHosts[0]"},
+		{name: "empty host", hosts: &[]string{" "}, wantErr: "FetchAllowedHosts[0]"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			r := WorkflowRegistry{FetchMode: tt.mode, FetchAllowedHosts: tt.hosts}
+			err := r.ValidateConfig()
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}

@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	ring_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
@@ -33,6 +33,43 @@ import (
 )
 
 func ExecuteManualShardAssignmentTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	runManualShardAssignment(t, testEnv, "manualshard")
+}
+
+// ExecuteManualShardAssignmentCoordinatedTest runs the manual shard assignment flow with
+// CoordinatedEngineEnabled on. Every workflow is assigned to shard 0, so shard 0 must run it
+// on the coordinated engine and register its triggers through the coordinator, while shard 1
+// must not register it at all: the syncer only builds engines for workflows its shard owns.
+func ExecuteManualShardAssignmentCoordinatedTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	// The flag is read once at engine creation, so it is applied before deploying.
+	t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(`CoordinatedEngineEnabled = 'true'`))
+
+	workflowIDs := runManualShardAssignment(t, testEnv, "manualshardcoord")
+
+	// Execution alone would also pass on the legacy engine; these prove it ran on the coordinated path.
+	shardZeroDON := getShardZeroDon(t, testEnv)
+	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, shardZeroDON.Name,
+		"Routing workflow to the coordinated engine", time.Minute, 5*time.Second)
+	for _, workflowID := range workflowIDs {
+		requireCoordinatorLogForWorkflow(t, testEnv, shardZeroDON.Name, workflowID)
+	}
+
+	for _, don := range testEnv.Dons.DonsWithFlag(cre.ShardDON) {
+		if don.ID == shardZeroDON.ID {
+			continue
+		}
+		for _, workflowID := range workflowIDs {
+			require.Empty(t, coordinatorLogLinesForWorkflow(t, testEnv, don.Name, workflowID),
+				"workflow %s is assigned to shard 0 and must not register triggers on %s", workflowID, don.Name)
+		}
+	}
+}
+
+// runManualShardAssignment assigns the test org to shard 0, deploys cron workflows named
+// workflowNamePrefix<i>, and requires each to execute on shard 0 only. It returns the
+// deployed workflow IDs.
+func runManualShardAssignment(t *testing.T, testEnv *ttypes.TestEnvironment, workflowNamePrefix string) []string {
+	t.Helper()
 	testLogger := framework.L
 
 	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
@@ -76,7 +113,7 @@ hashed_default_assignment = false
 	const numWorkflows = 5
 	workflowIDs := make([]string, 0, numWorkflows)
 	for i := range numWorkflows {
-		workflowName := fmt.Sprintf("manualshard%d", i)
+		workflowName := fmt.Sprintf("%s%d", workflowNamePrefix, i)
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 		workflowIDs = append(workflowIDs, workflowID)
 	}
@@ -92,7 +129,7 @@ hashed_default_assignment = false
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -111,6 +148,8 @@ hashed_default_assignment = false
 	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, testLogger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, execTimeout)
 	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed on correct shards")
 	testLogger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards (manual-only mode)")
+
+	return workflowIDs
 }
 
 func ExecuteManualShardAssignmentBothSpecs(t *testing.T, testEnv *ttypes.TestEnvironment) {
@@ -179,7 +218,7 @@ WorkflowExecutionConcurrencyLimit = '42'`))
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -292,7 +331,7 @@ hashed_default_assignment = false
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -539,7 +578,7 @@ hashed_default_assignment = true
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -574,8 +613,13 @@ func proposeAndApproveShardAssignmentJob(t *testing.T, testEnv *ttypes.TestEnvir
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: "shard-assignment"},
 	}
 
+	// Use a fresh bundle per proposal: the environment's bundle keeps every report, so re-proposing
+	// a previously used assignment would return the cached report without proposing anything.
+	// WithForceExecute is not enough, as it does not reach the nested ProposeJobSpec operation.
+	sharedBundle := testEnv.CreEnvironment.CldfEnvironment.OperationsBundle
+	bundle := operations.NewBundle(sharedBundle.GetContext, sharedBundle.Logger, operations.NewMemoryReporter())
 	report, err := operations.ExecuteOperation(
-		testEnv.CreEnvironment.CldfEnvironment.OperationsBundle,
+		bundle,
 		ring_ops.ProposeShardAssignmentJob,
 		ring_ops.ProposeShardAssignmentJobDeps{Env: *testEnv.CreEnvironment.CldfEnvironment},
 		jobInput,

@@ -222,6 +222,14 @@ func (c *capabilitiesWorkflowRegistry) MaxActivationRetries() int {
 	return *c.c.MaxActivationRetries
 }
 
+func (c *capabilitiesWorkflowRegistry) FetchMode() string {
+	return *c.c.FetchMode
+}
+
+func (c *capabilitiesWorkflowRegistry) FetchAllowedHosts() []string {
+	return *c.c.FetchAllowedHosts
+}
+
 func (c *capabilitiesWorkflowRegistry) WorkflowStorage() config.WorkflowStorage {
 	return &workflowStorage{
 		c: c.c.WorkflowStorage,

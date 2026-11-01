@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/dev/generated/latest/shard_config"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -60,7 +60,23 @@ func ExecuteShardingTestWithCronTrigger(t *testing.T, testEnv *ttypes.TestEnviro
 	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: "*/30 * * * * *",
 	}
-	const numWorkflows = 5
+	// TODO: 16 workflows is a statistical workaround, not a fix. Step 8 requires the mapping
+	// to span both shards, but placement is consistent hashing over workflow IDs
+	// (core/services/ring/utils.go), and the IDs embed the compiled WASM, so they re-roll
+	// with the Go toolchain and checkout path (system-tests/lib/cre/workflow/compile.go
+	// builds without -trimpath). With 5 workflows all-on-one-shard happens ~1 in 15 runs;
+	// with 16 it is ~1 in 15,000-40,000. The flake is rare, not gone, and the count adds
+	// deploy/registry/cleanup runtime to every run.
+	// Real fixes, in order of preference:
+	//  1. Expose healthy shard/ring membership on the shard orchestrator API and assert
+	//     shard 1 joined the ring after scale-up. That checks the actual regression
+	//     ("second shard never receives auto-sharded work") with zero hash-ring luck, and
+	//     would let step 8 drop the both-shards requirement entirely.
+	//  2. Add -trimpath -buildvcs=false to the workflow build so IDs stop depending on the
+	//     checkout path (toolchain re-rolls would still happen).
+	//  3. Cover the distribution property in ring unit tests (deterministic, in-package)
+	//     instead of sampling a hash ring through a Docker system test.
+	const numWorkflows = 16
 	workflowNames := make([]string, numWorkflows)
 	for i := range numWorkflows {
 		workflowNames[i] = fmt.Sprintf("shardtest-cron-%d", i)
@@ -436,7 +452,7 @@ func validateShardingScaleScenario(
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 	logger.Info().Interface("nodeP2PIDToShardIndex", nodeP2PIDToShardIndex).Msg("P2P ID to shard index")
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(logger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -456,6 +472,31 @@ func validateShardingScaleScenario(
 	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, logger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, execTimeout)
 	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed")
 	logger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards")
+
+	requireUserLogsV2ShardMetadata(t, testEnv, executedWorkflows)
+}
+
+// requireUserLogsV2ShardMetadata asserts that v2 user logs of executed workflows carry the
+// shardIndex and workflowDonID of the shard DON that hosts the emitting node.
+func requireUserLogsV2ShardMetadata(t *testing.T, testEnv *ttypes.TestEnvironment, executed map[string]*workfloweventsv2.WorkflowUserLog) {
+	t.Helper()
+	donByP2PID := make(map[string]*cre.Don)
+	for _, don := range testEnv.Dons.DonsWithFlag(cre.ShardDON) {
+		for _, node := range don.Nodes {
+			donByP2PID[strings.TrimPrefix(node.Keys.PeerID(), "p2p_")] = don
+		}
+	}
+
+	for wfID, ev := range executed {
+		info := ev.GetCreInfo()
+		don, ok := donByP2PID[strings.TrimPrefix(info.GetP2PID(), "p2p_")]
+		if !assert.True(t, ok, "v2 user log from unknown node %s", info.GetP2PID()) {
+			continue
+		}
+		assert.Equal(t, uint32(don.ShardIndex), info.GetShardIndex(), "shardIndex for workflow %s", wfID) //nolint:gosec // G115: overflow is unrealistic
+		assert.Equal(t, int32(don.ID), info.GetWorkflowDonID(), "workflowDonID for workflow %s", wfID)    //nolint:gosec // G115: overflow is unrealistic
+		assert.Equal(t, info.GetDonID(), info.GetWorkflowDonID(), "donID should equal workflowDonID for workflow-DON emitter, workflow %s", wfID)
+	}
 }
 
 func getShardZeroDon(t *testing.T, testEnv *ttypes.TestEnvironment) *cre.Don {
@@ -773,7 +814,7 @@ func waitForMappingVersionStable(t *testing.T, client ringpb.ShardOrchestratorSe
 	}, timeout, 2*time.Second, "Mapping content did not stabilize within %s (stableDuration=%s)", timeout, stableDuration)
 }
 
-func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, userLogsCh <-chan *workflowevents.UserLogs, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, expectedUserLog string, timeout time.Duration) map[string]struct{} {
+func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, userLogsCh <-chan *workfloweventsv2.WorkflowUserLog, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, expectedUserLog string, timeout time.Duration) map[string]*workfloweventsv2.WorkflowUserLog {
 	t.Helper()
 
 	expectedWorkflows := make(map[string]struct{}, len(workflowIDs))
@@ -781,7 +822,7 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 		expectedWorkflows[id] = struct{}{}
 	}
 
-	executedWorkflows := make(map[string]struct{})
+	executedWorkflows := make(map[string]*workfloweventsv2.WorkflowUserLog)
 	seenNodes := make(map[string]struct{})
 	seenShardIndices := make(map[uint32]struct{})
 	mismatchCounts := make(map[string]int)
@@ -804,26 +845,16 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 			}
 			return executedWorkflows
 		case userLogs := <-userLogsCh:
-			if userLogs.M == nil {
-				continue
-			}
-			hasExpectedLog := false
-			for _, line := range userLogs.LogLines {
-				if strings.Contains(line.Message, expectedUserLog) {
-					hasExpectedLog = true
-					break
-				}
-			}
-			if !hasExpectedLog {
+			if userLogs.GetCreInfo() == nil || !strings.Contains(userLogs.Msg, expectedUserLog) {
 				continue
 			}
 
-			wfID := userLogs.M.WorkflowID
+			wfID := userLogs.GetWorkflow().GetWorkflowID()
 			if _, expected := expectedWorkflows[wfID]; expected {
 				if _, seen := executedWorkflows[wfID]; !seen {
-					normalizedP2PID := strings.TrimPrefix(userLogs.M.P2PID, "p2p_")
+					normalizedP2PID := strings.TrimPrefix(userLogs.GetCreInfo().GetP2PID(), "p2p_")
 					actualShardIndex, knownNode := nodeP2PIDToShardIndex[normalizedP2PID]
-					require.True(t, knownNode, "Workflow %s executed on unknown node %s", wfID, userLogs.M.P2PID)
+					require.True(t, knownNode, "Workflow %s executed on unknown node %s", wfID, userLogs.GetCreInfo().GetP2PID())
 					expectedShardIndex := workflowToShardIndex[wfID]
 
 					if actualShardIndex != expectedShardIndex {
@@ -838,12 +869,12 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 						continue
 					}
 
-					executedWorkflows[wfID] = struct{}{}
+					executedWorkflows[wfID] = userLogs
 					seenNodes[normalizedP2PID] = struct{}{}
 					seenShardIndices[actualShardIndex] = struct{}{}
 					logger.Info().
 						Str("workflowID", wfID).
-						Str("workflowName", userLogs.M.WorkflowName).
+						Str("workflowName", userLogs.GetWorkflow().GetWorkflowName()).
 						Str("p2pID", normalizedP2PID).
 						Uint32("shardIndex", actualShardIndex).
 						Int("progress", len(executedWorkflows)).

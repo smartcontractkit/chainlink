@@ -33,15 +33,17 @@ const (
 	testOwner        = "abcdef" // already normalized: contexts.WithCRE strips a 0x prefix
 	testOrg          = "org-1"
 	testDonID        = uint32(7)
+	testSdkName      = "javascript"
 )
 
 var testTenant = contexts.CRE{Org: testOrg, Owner: testOwner, Workflow: validWorkflowID}
 
 type fakeSubscriber struct {
-	tenant contexts.CRE
-	subs   []*sdkpb.TriggerSubscription
-	err    error
-	calls  int
+	tenant  contexts.CRE
+	sdkName string
+	subs    []*sdkpb.TriggerSubscription
+	err     error
+	calls   int
 }
 
 func (s *fakeSubscriber) Subscribe(context.Context) ([]*sdkpb.TriggerSubscription, error) {
@@ -51,10 +53,14 @@ func (s *fakeSubscriber) Subscribe(context.Context) ([]*sdkpb.TriggerSubscriptio
 
 func (s *fakeSubscriber) Tenant() contexts.CRE { return s.tenant }
 
+func (s *fakeSubscriber) SdkName() string { return s.sdkName }
+
 type fakeEngine struct {
 	coordinated bool
 	// execute, if set, runs inside ExecuteTrigger on the execution's goroutine.
 	execute func(ctx context.Context, event CoordinatedEvent)
+	// err is returned from every ExecuteTrigger call.
+	err error
 
 	mu      sync.Mutex
 	events  []CoordinatedEvent
@@ -69,7 +75,7 @@ func (e *fakeEngine) ExecuteTrigger(ctx context.Context, event CoordinatedEvent)
 	if e.execute != nil {
 		e.execute(ctx, event)
 	}
-	return nil
+	return e.err
 }
 
 func (e *fakeEngine) IsCoordinated() bool { return e.coordinated }
@@ -110,6 +116,14 @@ func (r *fakeEngineRegistry) set(wid types.WorkflowID, e RegisteredEngine) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.engines[wid] = e
+}
+
+// remove simulates the workflow's engine disappearing from the registry, e.g.
+// because the workflow was unregistered while events were still queued.
+func (r *fakeEngineRegistry) remove(wid types.WorkflowID) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.engines, wid)
 }
 
 // fakeWorkflowLimits counts slots, recording the tenant each call was scoped to.
@@ -184,6 +198,32 @@ func newCoordinatorFixtureWithAdmission(t *testing.T, admission AdmissionLimiter
 	engines.set(wid, engine)
 
 	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), admission, engines, wfLimits, clock)
+	servicetest.Run(t, c)
+
+	return &coordinatorFixture{
+		c: c.(*coordinator), capReg: capReg, engines: engines, limits: wfLimits,
+		clock: clock, wid: wid, engine: engine,
+	}
+}
+
+// newCoordinatorFixtureWithLogger is newCoordinatorFixture, but with the given
+// logger instead of a plain test logger, for tests that assert on log output.
+func newCoordinatorFixtureWithLogger(t *testing.T, lggr logger.Logger) *coordinatorFixture {
+	t.Helper()
+	capReg := regmocks.NewCapabilitiesRegistry(t)
+	engines := newFakeEngineRegistry()
+	wfLimits := &fakeWorkflowLimits{}
+	clock := clockwork.NewFakeClock()
+
+	wid, err := types.WorkflowIDFromHex(validWorkflowID)
+	require.NoError(t, err)
+	engine := &fakeEngine{coordinated: true}
+	engines.set(wid, engine)
+
+	deps := newRegisterDeps(t, capReg, limits.NewGateLimiter(true))
+	deps.Logger = lggr
+
+	c := NewCoordinator(deps, newTestAdmission(), engines, wfLimits, clock)
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{
@@ -272,8 +312,9 @@ func newTrackedAdmission() (AdmissionLimiters, *queueTracker) {
 
 func newTestSubscriber() *fakeSubscriber {
 	return &fakeSubscriber{
-		tenant: testTenant,
-		subs:   []*sdkpb.TriggerSubscription{{Id: testTriggerCapID, Method: testMethod}},
+		tenant:  testTenant,
+		sdkName: testSdkName,
+		subs:    []*sdkpb.TriggerSubscription{{Id: testTriggerCapID, Method: testMethod}},
 	}
 }
 
@@ -316,16 +357,26 @@ func (f *coordinatorFixture) holdExecutions(t *testing.T) (release func()) {
 	return release
 }
 
-// countingPool counts Wait calls on a ResourcePoolLimiter, so a test can tell
-// when the admitter has taken an event off the queue and waits for a slot.
+// countingPool counts Wait and Available calls on a ResourcePoolLimiter, so a
+// test can tell when the admitter waits for a slot, or how often a pool is read.
 type countingPool struct {
 	limits.ResourcePoolLimiter[int]
-	waits atomic.Int32
+	waits      atomic.Int32
+	availables atomic.Int32
 }
 
 func (p *countingPool) Wait(ctx context.Context, amount int) (func(), error) {
 	p.waits.Add(1)
 	return p.ResourcePoolLimiter.Wait(ctx, amount)
+}
+
+func newCountingPool(limit int) *countingPool {
+	return &countingPool{ResourcePoolLimiter: limits.GlobalResourcePoolLimiter(limit)}
+}
+
+func (p *countingPool) Available(ctx context.Context) (int, error) {
+	p.availables.Add(1)
+	return p.ResourcePoolLimiter.Available(ctx)
 }
 
 // useTestMeter points the global beholder meter at a manual reader, so workflow

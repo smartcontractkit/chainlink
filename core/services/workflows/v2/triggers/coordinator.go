@@ -25,6 +25,12 @@ import (
 // a workflowID the coordinator never registered.
 var ErrWorkflowNotCoordinated = errors.New("workflow not registered with the trigger coordinator")
 
+// ErrCapacityNotSupported is returned by AvailableCapacity when the coordinator's
+// ExecutionConcurrency limiter is not the 4-element [workflow, owner, org, global]
+// limits.MultiResourcePoolLimiter[int] shape NewLimiters builds in production (for
+// example, a test fixture using a single unscoped pool).
+var ErrCapacityNotSupported = errors.New("execution concurrency limiter does not report per-scope capacity")
+
 const (
 	defaultDrainTimeout = 10 * time.Minute
 	shutdownTimeout     = 5 * time.Second
@@ -67,6 +73,15 @@ type Coordinator interface {
 	// Returns ErrWorkflowNotCoordinated if workflowID was never registered here.
 	// A failed capability unregistration is returned and retried on the next call.
 	UnregisterTriggers(ctx context.Context, workflowID string) error
+
+	// AvailableCapacity reports free execution-concurrency capacity at every
+	// scope. Each scope is read separately, with no lock across scopes, so an
+	// execution that starts or finishes during the call can make scopes
+	// disagree slightly. Treat the result as an approximate reading, not a
+	// reservation: capacity it reports as free can be taken before it is used.
+	// Returns ErrCapacityNotSupported if the shared ExecutionConcurrency
+	// limiter does not break down by scope.
+	AvailableCapacity(ctx context.Context) (Capacity, error)
 }
 
 // RegisteredEngine is what EngineRegistry.Get returns: a sink the coordinator
@@ -99,6 +114,19 @@ type AdmissionLimiters struct {
 	// instance.  Sharing it makes legacy and coordinated executions count
 	// against the same workflow, owner, org and global limits.
 	ExecutionConcurrency limits.ResourcePoolLimiter[int]
+}
+
+// Capacity is a snapshot of free execution-concurrency capacity, read from the
+// shared ExecutionConcurrency pool. PerOrg, PerOwner and PerWorkflow cover only
+// the tenants of workflows registered with this coordinator right now: neither
+// the pool nor the settings behind it expose a way to list every tenant ID that
+// has ever been seen or configured, so a tenant with no active registration
+// never appears here, even if it has a custom limit configured in settings.
+type Capacity struct {
+	Global      int
+	PerOrg      map[string]int
+	PerOwner    map[string]int
+	PerWorkflow map[string]int
 }
 
 // EngineRegistry is the coordinator's read-only view of running engines. It is
@@ -207,6 +235,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		platform.KeyWorkflowOwner, params.WorkflowOwner,
 		platform.KeyWorkflowName, params.WorkflowName.String(),
 		platform.KeyOrganizationID, cre.Org,
+		platform.KeySDK, subscriber.SdkName(),
 	)
 
 	// Registration IDs derive from the workflowID, so a leftover registration
@@ -337,6 +366,57 @@ func (c *coordinator) UnregisterTriggers(ctx context.Context, workflowID string)
 	return nil
 }
 
+func (c *coordinator) AvailableCapacity(ctx context.Context) (Capacity, error) {
+	pools, ok := c.admission.ExecutionConcurrency.(limits.MultiResourcePoolLimiter[int])
+	if !ok || len(pools) != 4 {
+		return Capacity{}, ErrCapacityNotSupported
+	}
+	// Order fixed by NewLimiters (config.go): workflow, owner, org, global.
+	wfPool, ownerPool, orgPool, globalPool := pools[0], pools[1], pools[2], pools[3]
+
+	// Global has no tenant key: it is one pool shared by everyone, so it needs no
+	// per-workflow context and is read even with zero workflows registered.
+	global, err := globalPool.Available(ctx)
+	if err != nil {
+		return Capacity{}, fmt.Errorf("global scope: %w", err)
+	}
+
+	capacity := Capacity{
+		Global:      global,
+		PerOrg:      map[string]int{},
+		PerOwner:    map[string]int{},
+		PerWorkflow: map[string]int{},
+	}
+	for _, cw := range c.workflows.all() {
+		tenantCtx := contexts.WithCRE(ctx, cw.cre)
+
+		wf, err := wfPool.Available(tenantCtx)
+		if err != nil {
+			return Capacity{}, fmt.Errorf("workflow scope (%s): %w", cw.cre.Workflow, err)
+		}
+		capacity.PerWorkflow[cw.cre.Workflow] = wf
+
+		// Many workflows share an owner or org; its pool gives the same answer for
+		// each of them, so its read once.
+		if _, seen := capacity.PerOwner[cw.cre.Owner]; !seen {
+			owner, err := ownerPool.Available(tenantCtx)
+			if err != nil {
+				return Capacity{}, fmt.Errorf("owner scope (%s): %w", cw.cre.Owner, err)
+			}
+			capacity.PerOwner[cw.cre.Owner] = owner
+		}
+
+		if _, seen := capacity.PerOrg[cw.cre.Org]; !seen {
+			org, err := orgPool.Available(tenantCtx)
+			if err != nil {
+				return Capacity{}, fmt.Errorf("org scope (%s): %w", cw.cre.Org, err)
+			}
+			capacity.PerOrg[cw.cre.Org] = org
+		}
+	}
+	return capacity, nil
+}
+
 func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
 	workflowID, err := ParseWorkflowID(triggerRegistrationID)
 	if err != nil {
@@ -381,7 +461,7 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 		// The deadline needs ObservedAt. Drop the event if it is missing.
 		if event.ObservedAt.IsZero() {
 			cw.lggr.Errorw("Trigger event missing ObservedAt, dropping", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
-			tm.IncrementTriggerEventDroppedTotal(ctx, "observed_at_missing")
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonObservedAtMissing)
 			return
 		}
 		queueTimeout, err := c.admission.TriggerEventQueueTimeout.Limit(ctx)
@@ -438,7 +518,7 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 			continue
 		}
 
-		engine, ok := c.coordinatedEngine(cw, event)
+		engine, ok := c.coordinatedEngine(ctx, cw, tm, event)
 		if !ok {
 			continue
 		}
@@ -461,9 +541,22 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 		c.eng.Go(func(context.Context) {
 			defer cw.executions.Done()
 			defer free()
-			// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
-			if err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event); err != nil {
-				cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
+			// WithoutCancel: unregistering stops ingress, it must not kill an execution already running,
+			// nor the ACK of an event that was denied.
+			execCtx := context.WithoutCancel(ctx)
+			err := engine.ExecuteTrigger(execCtx, event)
+			switch {
+			case err == nil:
+			case errors.Is(err, ErrAdmissionCached):
+				// Deliberately left un-ACKed so it can be replayed on failover.
+				cw.lggr.Infow("Trigger event cached for failover", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
+			case errors.Is(err, ErrAdmissionDenied):
+				cw.lggr.Infow("Trigger event denied admission, dropping", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+				c.dropDeniedEvent(execCtx, cw, event)
+			case errors.Is(err, ErrDuplicateExecution), errors.Is(err, ErrEngineDraining), errors.Is(err, ErrEngineClosed):
+				cw.lggr.Infow("Skipping trigger event execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+			default:
+				cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
 			}
 		})
 	}
@@ -471,19 +564,33 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 
 // coordinatedEngine looks up the workflow's engine fresh for every event
 // instead of caching it, since the engine for a workflow can change while the
-// registration is running. It reports false, after logging why, if there is no
-// engine to deliver to.
-func (c *coordinator) coordinatedEngine(cw *coordinatedWorkflow, event CoordinatedEvent) (RegisteredEngine, bool) {
+// registration is running. It reports false, after logging why and counting
+// the drop, if there is no engine to deliver to.
+func (c *coordinator) coordinatedEngine(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) (RegisteredEngine, bool) {
 	engine, found := c.engines.Get(cw.wid)
 	if !found {
 		cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineGone)
 		return nil, false
 	}
 	if !engine.IsCoordinated() {
 		cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineNotCoordinated)
 		return nil, false
 	}
 	return engine, true
+}
+
+// dropDeniedEvent handles an event the engine's admission check rejected. The event will never execute, so it is
+// ACKed and counted as dropped.
+func (c *coordinator) dropDeniedEvent(ctx context.Context, cw *coordinatedWorkflow, event CoordinatedEvent) {
+	eventID := event.Event.Event.ID
+	registrationID := RegistrationID(cw.wid.Hex(), event.TriggerIndex)
+	if err := Ack(ctx, cw.lggr, cw.metrics, event.TriggerCapID, registrationID, eventID, cw.handles[registrationID]); err != nil {
+		cw.lggr.Errorw("Failed to ACK trigger event after admission denial", "triggerID", event.TriggerCapID, "eventID", eventID, "err", err)
+	}
+	cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID).
+		IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonAdmissionDenied)
 }
 
 // releaseWhenDrained drops the registration's handles and closes its queue
@@ -635,4 +742,15 @@ func (r *workflowRegistry) pending() map[string]*coordinatedWorkflow {
 		}
 	}
 	return pending
+}
+
+// all returns every currently registered workflow, a snapshot taken under the lock.
+func (r *workflowRegistry) all() []*coordinatedWorkflow {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	all := make([]*coordinatedWorkflow, 0, len(r.workflows))
+	for _, cw := range r.workflows {
+		all = append(all, cw)
+	}
+	return all
 }
