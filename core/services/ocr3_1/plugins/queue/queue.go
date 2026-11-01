@@ -152,6 +152,7 @@ func (c *consensusQueuePlugin) StateTransition(
 	var wg sync.WaitGroup
 
 	//TODO is median only logical option for capacity? what if honest nodes have less, don't we ideally want execute min(honest)?
+	// consider some configurable x%
 	var medianCap uint32
 	var medianCapPerWF map[string]uint32               // wf ID -> capacity
 	var observedProposals map[string][]uint8           // trigger event ID -> observer OracleIDs
@@ -184,71 +185,32 @@ func (c *consensusQueuePlugin) StateTransition(
 	}()
 
 	// Deserialize the KV store into memory
+	//TODO package in a constructor for propsoedAndQueued?
 	state := newStateReadWriter(kvState)
 	proposedEvents, err := state.readProposedEvents()
 	if err != nil {
 		return nil, err
 	}
-	priorityQueue, err := state.readPriorityQueue()
+	queuedEvents, err := state.readPriorityQueue()
 	if err != nil {
 		return nil, err
 	}
-	heap.Init(&priorityQueue) //TODO or can we trust it?
+	heap.Init(&queuedEvents) //TODO or can we trust it?
 
 	//TODO prune expired events from proposed and priorityQueue
 
 	wg.Wait() // TODO also wait if we return early for error
 
 	// Collect observed proposals and promote to priority queue on f+1
-	for id, nodes := range observedProposals {
-		if obs, ok := proposedEvents.Observers[id]; !ok && len(nodes) >= c.onchainCfg.F+1 {
-			// new proposal straight to priority queue
-			heap.Push(&priorityQueue, proposedEvents.Events[id])
-			continue
-		} else if !ok {
-			// new proposal < f + 1
-			proposedEvents.Observers[id] = &pb.NodeIDList{Ids: nodes}
-			proposedEvents.Events[id] = observedEvents[id]
-			continue
-		} else if len(nodes) < c.onchainCfg.F+1 {
-			// update proposal
-			// TODO opt: build a map to avoid n^2? or nbd since n < f+1
-			for _, node := range nodes {
-				if !slices.Contains(obs.Ids, node) {
-					obs.Ids = append(obs.Ids, node)
-				}
-			}
-			if len(obs.Ids) < c.onchainCfg.F+1 {
-				continue
-			}
-		}
-		// f+1 - promote proposal to priority queue
-		delete(proposedEvents.Observers, id)
-		delete(proposedEvents.Events, id)
-		heap.Push(&priorityQueue, proposedEvents.Events[id])
-	}
+	proposedAndQueued{
+		proposedEvents: proposedEvents,
+		queuedEvents:   &queuedEvents,
+	}.processObserved(c.onchainCfg.F, observedProposals, observedEvents)
 
 	// Select items from queue based on priority and capacity
-	var consensusEvents []*pb.CoordinatedEvent
-	var workflowLimited []*pb.CoordinatedEvent // omitted due to workflow limit
-	for len(consensusEvents) < int(medianCap) {
-		if len(priorityQueue) == 0 {
-			break
-		}
-		next, ok := heap.Pop(&priorityQueue).(*pb.CoordinatedEvent)
-		if !ok {
-			return nil, fmt.Errorf("failed to cast *pb.CoordinatedEvent: got type %T", next)
-		}
-		if medianCapPerWF[next.WorkflowID] == 0 {
-			workflowLimited = append(workflowLimited, next)
-			continue
-		}
-		medianCapPerWF[next.WorkflowID]--
-		consensusEvents = append(consensusEvents, next)
-	}
-	// restore omitted for next time
-	for _, event := range workflowLimited {
-		heap.Push(&priorityQueue, event)
+	consensusEvents, err := queuedEvents.PopCap(medianCap, medianCapPerWF)
+	if err != nil {
+		return nil, err
 	}
 
 	// Updated KV Store
@@ -256,7 +218,7 @@ func (c *consensusQueuePlugin) StateTransition(
 	if err != nil {
 		return nil, err
 	}
-	err = state.writePriorityQueue(priorityQueue)
+	err = state.writePriorityQueue(queuedEvents)
 	if err != nil {
 		return nil, err
 	}

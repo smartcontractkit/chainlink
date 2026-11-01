@@ -3,6 +3,8 @@ package queue
 import (
 	"cmp"
 	"container/heap"
+	"fmt"
+	"slices"
 
 	"google.golang.org/protobuf/proto"
 
@@ -100,4 +102,65 @@ func (p *priorityQueue) Push(x any) {
 
 func (p *priorityQueue) Pop() any {
 	return (*p)[len(*p)-1]
+}
+
+// PopCap pops up to capacity events from the queue, each of which must have wf capacity. Mutates capPerWF.
+func (p *priorityQueue) PopCap(capacity uint32, capPerWF map[string]uint32) ([]*pb.CoordinatedEvent, error) {
+	var events []*pb.CoordinatedEvent
+	var wfLimited []*pb.CoordinatedEvent // omitted due to workflow limit
+	for len(events) < int(capacity) {
+		if len(*p) == 0 {
+			break
+		}
+		next, ok := heap.Pop(p).(*pb.CoordinatedEvent)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast *pb.CoordinatedEvent: got type %T", next)
+		}
+		if capPerWF[next.WorkflowID] == 0 {
+			wfLimited = append(wfLimited, next)
+			continue
+		}
+		capPerWF[next.WorkflowID]--
+		events = append(events, next)
+	}
+	// restore omitted for next time
+	for _, event := range wfLimited {
+		heap.Push(p, event)
+	}
+	return events, nil
+}
+
+type proposedAndQueued struct {
+	proposedEvents *pb.ConsensusQueueProposals
+	queuedEvents   *priorityQueue
+}
+
+func (s proposedAndQueued) processObserved(f int, observedProposals map[string][]uint8, observedEvents map[string]*pb.CoordinatedEvent) {
+	for id, nodes := range observedProposals {
+		if observers, ok := s.proposedEvents.Observers[id]; !ok && len(nodes) >= f+1 {
+			// new proposal straight to priority queue
+			heap.Push(s.queuedEvents, s.proposedEvents.Events[id])
+			continue
+		} else if !ok {
+			// new proposal < f + 1
+			s.proposedEvents.Observers[id] = &pb.NodeIDList{Ids: nodes}
+			s.proposedEvents.Events[id] = observedEvents[id]
+			continue
+		} else if len(nodes) < f+1 {
+			// update proposal
+			// TODO opt: build a map to avoid n^2? or nbd since n < f+1
+			for _, node := range nodes {
+				if !slices.Contains(observers.Ids, node) {
+					observers.Ids = append(observers.Ids, node)
+				}
+			}
+			if len(observers.Ids) < f+1 {
+				continue
+			}
+		}
+		// f+1 - promote proposal to priority queue
+		delete(s.proposedEvents.Observers, id)
+		delete(s.proposedEvents.Events, id)
+		heap.Push(s.queuedEvents, s.proposedEvents.Events[id])
+	}
 }
