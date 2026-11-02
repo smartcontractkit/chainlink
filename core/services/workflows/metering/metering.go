@@ -894,7 +894,7 @@ func (r *Report) switchToMeteringMode(err error) {
 
 	// only log a single metering mode switch error. this error should indicate the first metering related error
 	// encountered
-	r.lggr.Errorw("switching to metering mode", "err", err)
+	r.lggr.Debugw("switching to metering mode", "err", err)
 
 	r.meteringMode = true
 }
