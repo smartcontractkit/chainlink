@@ -1014,7 +1014,7 @@ func (w *launcher) pruneStaleShims(ctx context.Context, wanted wantedShimKeys) {
 		if cc := w.cachedShims.combinedClients[shimID{capID: key.capID, donID: key.donID}]; cc != nil {
 			cc.SetTriggerSubscriber(key.method, nil)
 		}
-		w.closeStaleShim(key, sub)
+		w.closeStaleShim(ctx, key, sub)
 		delete(w.cachedShims.triggerSubscribers, key)
 	}
 	for key, client := range w.cachedShims.executableClients {
@@ -1024,33 +1024,38 @@ func (w *launcher) pruneStaleShims(ctx context.Context, wanted wantedShimKeys) {
 		if cc := w.cachedShims.combinedClients[shimID{capID: key.capID, donID: key.donID}]; cc != nil {
 			cc.SetExecutableClient(key.method, nil)
 		}
-		w.closeStaleShim(key, client)
+		w.closeStaleShim(ctx, key, client)
 		delete(w.cachedShims.executableClients, key)
 	}
 	for key, pub := range w.cachedShims.triggerPublishers {
 		if _, ok := wanted.triggerPublishers[key]; ok {
 			continue
 		}
-		w.closeStaleShim(key, pub)
+		w.closeStaleShim(ctx, key, pub)
 		delete(w.cachedShims.triggerPublishers, key)
 	}
 	for key, server := range w.cachedShims.executableServers {
 		if _, ok := wanted.executableServers[key]; ok {
 			continue
 		}
-		w.closeStaleShim(key, server)
+		w.closeStaleShim(ctx, key, server)
 		delete(w.cachedShims.executableServers, key)
 	}
 }
 
 // closeStaleShim deregisters a pruned shim from the dispatcher and closes it, removing it from
 // w.subServices so the launcher's own Close() doesn't close it a second time.
-func (w *launcher) closeStaleShim(key shimID, shim any) {
+func (w *launcher) closeStaleShim(ctx context.Context, key shimID, shim any) {
 	w.dispatcher.RemoveReceiverForMethod(key.capID, key.donID, key.method)
-	if c, ok := shim.(interface{ Close() error }); ok {
-		if err := c.Close(); err != nil {
-			w.lggr.Errorw("failed to close stale shim", "capabilityID", key.capID, "donID", key.donID, "method", key.method, "error", err)
-		}
+	var err error
+	switch s := shim.(type) {
+	case remote.TriggerPublisher:
+		err = s.CloseAndUnregister(ctx)
+	case interface{ Close() error }:
+		err = s.Close()
+	}
+	if err != nil {
+		w.lggr.Errorw("failed to close stale shim", "capabilityID", key.capID, "donID", key.donID, "method", key.method, "error", err)
 	}
 
 	w.muSubServices.Lock()
