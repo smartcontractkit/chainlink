@@ -15,7 +15,7 @@ import (
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
-// shadowDrainedLogMessage is the debug line the M1 central queue drainer writes per workflow per drained batch.
+// shadowDrainedLogMessage is the debug line the central queue drainer writes per workflow per drained batch.
 const shadowDrainedLogMessage = "Drained shadow trigger events"
 
 // shadowWindowLayout matches the time range format of FeatureShadowTriggerModeActivePeriod in cresettings.

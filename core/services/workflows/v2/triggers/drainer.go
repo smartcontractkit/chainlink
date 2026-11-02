@@ -80,9 +80,8 @@ func NewDrainer(queue Queue, interval limits.BoundLimiter[time.Duration], hooks 
 	return d
 }
 
-// NewCentralQueueDrainer returns the M1 drainer of the central queue. Drained events are discarded after one
-// debug line per workflow per batch, which lets smoke tests see that shadow mode reached the queue. It is
-// removed at M2.
+// NewCentralQueueDrainer returns the temporary drainer of the central queue. Drained events are discarded after
+// one debug line per workflow per batch, which lets smoke tests see that shadow mode reached the queue.
 func NewCentralQueueDrainer(queue Queue, interval limits.BoundLimiter[time.Duration], metrics *monitoring.TriggerDrainerMetricLabeler, clock clockwork.Clock, lggr logger.Logger) *drainer {
 	hookLggr := logger.Named(lggr, "TriggerQueueDrainer")
 	hooks := drainerHooks{OnObservedEvents: func(_ context.Context, events []CoordinatedEvent) {

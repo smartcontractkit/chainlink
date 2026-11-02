@@ -384,7 +384,7 @@ func TestDrainer_IntervalReRead(t *testing.T) {
 	drainsAfter(200 * time.Millisecond)
 }
 
-// TestNewCentralQueueDrainer_LogsDrainedEvents asserts the M1 drainer logs one debug line per workflow in a
+// TestNewCentralQueueDrainer_LogsDrainedEvents asserts the central queue drainer logs one debug line per workflow in a
 // drained batch, with that workflow's event count.
 func TestNewCentralQueueDrainer_LogsDrainedEvents(t *testing.T) {
 	t.Parallel()

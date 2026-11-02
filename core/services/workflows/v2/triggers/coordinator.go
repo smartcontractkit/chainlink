@@ -258,7 +258,7 @@ type shadowMode struct {
 }
 
 // WithDrainer makes drainer a sub-service of the coordinator. It starts before the coordinator, closes after
-// it, and is part of the coordinator's readiness and health report. It is for the temporary M1 drainer of the
+// it, and is part of the coordinator's readiness and health report. It is for the temporary drainer of the
 // central queue.
 func WithDrainer(drainer services.Service) CoordinatorOption {
 	return func(c *coordinator) { c.drainer = drainer }
@@ -522,7 +522,8 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 		}
 		event.Deadline = event.ObservedAt.Add(queueTimeout)
 
-		// Before the workflow queue, so the central queue also sees events the engine path later drops.
+		// Events are copied to the central queue before being put to the workflow queue, so the central queue also
+		// sees events the engine path later drops.
 		c.putShadow(ctx, cw, tm, event)
 
 		if err := cw.queue.Put(ctx, event); err != nil {
