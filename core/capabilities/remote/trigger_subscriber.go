@@ -511,77 +511,28 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "sender", sender)
 				continue
 			}
-			s.mu.Lock()
 			var triggerID string
 			if idx < len(meta.TriggerIds) {
 				triggerID = meta.TriggerIds[idx]
 			}
-			var registration *subRegState
-			triggerMap, found := s.registeredWorkflows[workflowID]
-			if found {
-				if triggerID != "" {
-					// received a message from updated publisher, which provided a triggerID
-					registration = triggerMap[triggerID]
-				} else {
-					// legacy flow, expect there to be only a single trigger of each type per workflow
-					for tid, reg := range triggerMap {
-						registration = reg
-						triggerID = tid // canonical registration id for caches and AckEvent replay
-						break
-					}
-					if len(triggerMap) > 1 {
-						s.lggr.Errorw("received message without triggerID but workflow has multiple trigger - picking a random one", "workflowID", SanitizeLogString(workflowID), "sender", sender)
-					}
-				}
-			}
-			if registration == nil {
-				s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "triggerID", triggerID, "sender", sender)
-				continue // was unregistered in the meantime
-			}
-
-			key := triggerEventKey{
-				triggerEventID: meta.TriggerEventId,
-				workflowID:     workflowID,
-				triggerID:      triggerID,
-			}
-			rk := ackReplayKey{triggerID: triggerID, triggerEventID: meta.TriggerEventId}
-			if _, ok := s.ackReplayCache[rk]; ok {
+			res := s.aggregateTriggerEvent(cfg, meta.TriggerEventId, workflowID, triggerID, sender, msg.Payload)
+			switch {
+			case res.replayAck:
 				// Event has already been ACKd by engine, so we don't need to re-deliver
-				s.mu.Unlock()
 				ctx, cancel := s.stopCh.NewCtx()
-				err := s.AckEvent(ctx, triggerID, meta.TriggerEventId, s.capMethodName)
+				err := s.AckEvent(ctx, res.triggerID, meta.TriggerEventId, s.capMethodName)
 				cancel()
 				if err != nil {
-					s.lggr.Errorw("replay AckEvent failed", "triggerID", triggerID, "triggerEventID", meta.TriggerEventId, "err", err)
+					s.lggr.Errorw("replay AckEvent failed", "triggerID", res.triggerID, "triggerEventID", meta.TriggerEventId, "err", err)
 				} else {
 					s.lggr.Infow("replayed ACK fan-out for duplicate trigger event after prior engine ACK",
-						"triggerID", triggerID, "triggerEventID", meta.TriggerEventId, "sender", sender)
+						"triggerID", res.triggerID, "triggerEventID", meta.TriggerEventId, "sender", sender)
 				}
-				continue
-			}
-
-			nowMs := time.Now().UnixMilli()
-			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
-			ready, payloads := s.messageCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
-			if !ready {
-				s.mu.Unlock()
-				s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
-				continue
-			}
-
-			aggregatedResponse, err := cfg.aggregator.Aggregate(meta.TriggerEventId, payloads)
-			if err != nil {
-				s.mu.Unlock()
-				s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
-				s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "err", err)
-				continue
-			}
-			s.messageCache.MarkDelivered(key)
-			s.mu.Unlock()
-			s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
-			s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID)
-			if !registration.deliver(aggregatedResponse, s.stopCh) {
-				s.lggr.Warnw("dropped aggregated trigger event: trigger unregistered or subscriber stopping", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID)
+			case res.deliver:
+				s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", res.triggerID)
+				if !res.registration.deliver(res.response, s.stopCh) {
+					s.lggr.Warnw("dropped aggregated trigger event: trigger unregistered or subscriber stopping", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", res.triggerID)
+				}
 			}
 		}
 	case types.MethodTriggerRegistrationCheck:
@@ -621,6 +572,76 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 	default:
 		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender, "err", SanitizeLogString(msg.ErrorMsg))
 	}
+}
+
+// triggerEventResult is the outcome of processing one trigger event under s.mu.
+type triggerEventResult struct {
+	registration *subRegState
+	triggerID    string
+	response     commoncap.TriggerResponse
+	deliver      bool // response is aggregated and ready to be delivered to registration
+	replayAck    bool // engine already ACKed this event; replay the ACK instead of delivering
+}
+
+// aggregateTriggerEvent resolves the registration for one (workflow, trigger) pair and updates the
+// message cache. Everything that needs s.mu runs under a deferred unlock so no early exit can leak it.
+func (s *triggerSubscriber) aggregateTriggerEvent(cfg *dynamicConfig, triggerEventID, workflowID, triggerID string, sender p2ptypes.PeerID, payload []byte) triggerEventResult {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var registration *subRegState
+	triggerMap, found := s.registeredWorkflows[workflowID]
+	if found {
+		if triggerID != "" {
+			// received a message from updated publisher, which provided a triggerID
+			registration = triggerMap[triggerID]
+		} else {
+			// legacy flow, expect there to be only a single trigger of each type per workflow
+			for tid, reg := range triggerMap {
+				registration = reg
+				triggerID = tid // canonical registration id for caches and AckEvent replay
+				break
+			}
+			if len(triggerMap) > 1 {
+				s.lggr.Errorw("received message without triggerID but workflow has multiple trigger - picking a random one", "workflowID", SanitizeLogString(workflowID), "sender", sender)
+			}
+		}
+	}
+	if registration == nil {
+		// was unregistered in the meantime
+		s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "triggerID", triggerID, "sender", sender)
+		return triggerEventResult{}
+	}
+	res := triggerEventResult{registration: registration, triggerID: triggerID}
+
+	key := triggerEventKey{
+		triggerEventID: triggerEventID,
+		workflowID:     workflowID,
+		triggerID:      triggerID,
+	}
+	rk := ackReplayKey{triggerID: triggerID, triggerEventID: triggerEventID}
+	if _, ok := s.ackReplayCache[rk]; ok {
+		res.replayAck = true
+		return res
+	}
+
+	nowMs := time.Now().UnixMilli()
+	creationTs := s.messageCache.Insert(key, sender, nowMs, payload)
+	ready, payloads := s.messageCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
+	s.lggr.Debugw("trigger event received", "triggerEventId", triggerEventID, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
+	if !ready {
+		return res
+	}
+
+	aggregatedResponse, err := cfg.aggregator.Aggregate(triggerEventID, payloads)
+	if err != nil {
+		s.lggr.Errorw("failed to aggregate responses", "triggerEventID", triggerEventID, "workflowId", workflowID, "triggerID", triggerID, "err", err)
+		return res
+	}
+	s.messageCache.MarkDelivered(key)
+	res.response = aggregatedResponse
+	res.deliver = true
+	return res
 }
 
 func (s *triggerSubscriber) sendUnregister(workflowID, triggerID string) {
