@@ -12,7 +12,7 @@ import (
 
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -42,7 +42,7 @@ type vaultDirectReadEnv struct {
 	gwURL    string
 	sc       *seth.Client
 	wfReg    *workflow_registry_v2_wrapper.WorkflowRegistry
-	ulCh     chan *workflowevents.UserLogs
+	ulCh     chan *workfloweventsv2.WorkflowUserLog
 	bmCh     chan *commonevents.BaseMessage
 }
 
@@ -60,7 +60,7 @@ func newVaultDirectReadEnv(t *testing.T, fixture *vaultScenarioFixture, testEnv 
 	require.NoError(t, err)
 	requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), wfRegVersion)
 
-	ulCh := make(chan *workflowevents.UserLogs, 1000)
+	ulCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	bmCh := make(chan *commonevents.BaseMessage, 1000)
 	sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(framework.L, ulCh, bmCh))
 	t.Cleanup(func() {
