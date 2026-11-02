@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -36,7 +35,7 @@ import (
 const (
 	v2ExecutionStartedEntity  = "workflows.v2." + workflowEvents.WorkflowExecutionStarted
 	v2ExecutionFinishedEntity = "workflows.v2." + workflowEvents.WorkflowExecutionFinished
-	v1UserLogsEntity          = "workflows.v1." + workflowEvents.UserLogs
+	v2UserLogEntity           = "workflows.v2." + workflowEvents.WorkflowUserLog
 )
 
 // failingSettingsGetter stands in for a settings service that is down, so a real
@@ -124,18 +123,16 @@ func latestV2FinishedEvent(t *testing.T, rec *beholdertest.Recorder) (evt *event
 	return evt, true
 }
 
-// userLogLines returns every user log line emitted so far via the v1 UserLogs event.
+// userLogLines returns every user log line emitted so far via WorkflowUserLog events.
 func userLogLines(t *testing.T, rec *beholdertest.Recorder) []string {
 	t.Helper()
 	var lines []string
-	for _, msg := range rec.Messages(t, "beholder_entity", v1UserLogsEntity) {
-		var payload pb.UserLogs
+	for _, msg := range rec.Messages(t, "beholder_entity", v2UserLogEntity) {
+		var payload eventsv2.WorkflowUserLog
 		if err := proto.Unmarshal(msg.Body, &payload); err != nil {
 			continue
 		}
-		for _, l := range payload.LogLines {
-			lines = append(lines, l.Message)
-		}
+		lines = append(lines, payload.Msg)
 	}
 	return lines
 }
