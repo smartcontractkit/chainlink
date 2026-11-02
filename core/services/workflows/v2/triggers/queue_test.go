@@ -45,7 +45,7 @@ func (l *fakeLimit) set(limit int, err error) {
 	l.limit, l.err = limit, err
 }
 
-func newTestCentralQueue(t *testing.T, limit *fakeLimit) *centralQueue {
+func newTestCentralQueue(t *testing.T, limit *fakeLimit) *CentralQueue {
 	t.Helper()
 	qm, _ := testQueueMetrics(t)
 	return NewQueue(limit, qm, logger.Test(t))
@@ -81,7 +81,7 @@ func centralEvent(workflowID string, triggerIndex int, id string) CoordinatedEve
 	}
 }
 
-func putAll(t *testing.T, q *centralQueue, events ...CoordinatedEvent) {
+func putAll(t *testing.T, q *CentralQueue, events ...CoordinatedEvent) {
 	t.Helper()
 	for _, e := range events {
 		require.NoError(t, q.Put(t.Context(), e))
@@ -100,7 +100,7 @@ func eventIDs(events []CoordinatedEvent) []string {
 	return ids
 }
 
-func drainIDs(t *testing.T, q *centralQueue) []string {
+func drainIDs(t *testing.T, q *CentralQueue) []string {
 	t.Helper()
 	events, err := q.Drain(t.Context())
 	require.NoError(t, err)

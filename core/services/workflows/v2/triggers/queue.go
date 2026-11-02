@@ -47,9 +47,9 @@ type Stats struct {
 	DroppedByReason map[string]uint64
 }
 
-// centralQueue is the Queue implementation. It runs no goroutines. All state is guarded by mu, and gauges are
+// CentralQueue is the Queue implementation. It runs no goroutines. All state is guarded by mu, and gauges are
 // recorded under mu so they are never written out of order.
-type centralQueue struct {
+type CentralQueue struct {
 	limit   limits.BoundLimiter[int]
 	metrics *monitoring.CentralTriggerQueueMetricLabeler
 	lggr    logger.Logger
@@ -64,8 +64,8 @@ type centralQueue struct {
 // NewQueue returns the node's central trigger queue. limit is read on every Put. If it cannot be read, the
 // CentralTriggerEventQueueLimit default is used. Metrics are recorded as part of each Put and Drain. The queue
 // is safe for concurrent use.
-func NewQueue(limit limits.BoundLimiter[int], metrics *monitoring.CentralTriggerQueueMetricLabeler, lggr logger.Logger) *centralQueue {
-	return &centralQueue{
+func NewQueue(limit limits.BoundLimiter[int], metrics *monitoring.CentralTriggerQueueMetricLabeler, lggr logger.Logger) *CentralQueue {
+	return &CentralQueue{
 		limit:              limit,
 		metrics:            metrics,
 		lggr:               logger.Named(lggr, "CentralTriggerQueue"),
@@ -76,7 +76,7 @@ func NewQueue(limit limits.BoundLimiter[int], metrics *monitoring.CentralTrigger
 }
 
 // Put appends e, or returns ErrQueueFull and counts the drop when the queue is at capacity.
-func (q *centralQueue) Put(ctx context.Context, e CoordinatedEvent) error {
+func (q *CentralQueue) Put(ctx context.Context, e CoordinatedEvent) error {
 	capacity := q.capacity(ctx)
 
 	q.mu.Lock()
@@ -98,7 +98,7 @@ func (q *centralQueue) Put(ctx context.Context, e CoordinatedEvent) error {
 // Drain hands the buffered events to the caller and starts a new buffer, so later puts never write into the
 // returned slice. It also records capacity, because Drain runs on a fixed interval even when nothing is put, so
 // the gauge follows a changed limit on an idle queue.
-func (q *centralQueue) Drain(ctx context.Context) ([]CoordinatedEvent, error) {
+func (q *CentralQueue) Drain(ctx context.Context) ([]CoordinatedEvent, error) {
 	capacity := q.capacity(ctx)
 
 	q.mu.Lock()
@@ -114,7 +114,7 @@ func (q *centralQueue) Drain(ctx context.Context) ([]CoordinatedEvent, error) {
 }
 
 // Stats returns copies of the queue's maps, so callers may keep or change them.
-func (q *centralQueue) Stats(ctx context.Context) (Stats, error) {
+func (q *CentralQueue) Stats(ctx context.Context) (Stats, error) {
 	capacity := q.capacity(ctx)
 
 	q.mu.Lock()
@@ -129,7 +129,7 @@ func (q *centralQueue) Stats(ctx context.Context) (Stats, error) {
 }
 
 // capacity reads the limit, falling back to the default when the read fails.
-func (q *centralQueue) capacity(ctx context.Context) queueCapacity {
+func (q *CentralQueue) capacity(ctx context.Context) queueCapacity {
 	limit, err := q.limit.Limit(ctx)
 	if err != nil {
 		q.lggr.Warnw("Failed to read the central trigger queue limit, using the default", "err", err)
@@ -141,7 +141,7 @@ func (q *centralQueue) capacity(ctx context.Context) queueCapacity {
 // effectiveCapacity is the capacity to enforce and report. With the default in use it never reads below the
 // current length, so a node holding more than the default after a failed read reports full rather than
 // over capacity. q.mu must be held.
-func (q *centralQueue) effectiveCapacity(c queueCapacity) int {
+func (q *CentralQueue) effectiveCapacity(c queueCapacity) int {
 	limit := max(c.limit, 0)
 	if !c.ok {
 		limit = max(limit, len(q.events))
@@ -150,7 +150,7 @@ func (q *centralQueue) effectiveCapacity(c queueCapacity) int {
 }
 
 // drop counts one dropped event. q.mu must be held.
-func (q *centralQueue) drop(ctx context.Context, reason string) {
+func (q *CentralQueue) drop(ctx context.Context, reason string) {
 	q.metrics.IncrementDroppedEventsCounter(ctx, reason, 1)
 	q.droppedByReason[reason]++
 }
