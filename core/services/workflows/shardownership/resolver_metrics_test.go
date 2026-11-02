@@ -47,9 +47,9 @@ func newAssignmentMetricsFixture(t *testing.T) *assignmentMetricsFixture {
 }
 
 func (f *assignmentMetricsFixture) manualResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, lggr logger.Logger) *manualShardResolver {
-	r := NewManualShardResolver(settings, orgResolver, nil, lggr).(*manualShardResolver)
-	r.metrics = f.metrics
-	return r
+	// Built via newManualShardResolver so the settings-arrival subscription
+	// (established at construction) records into this fixture's metrics.
+	return newManualShardResolver(settings, orgResolver, nil, lggr, f.metrics)
 }
 
 func (f *assignmentMetricsFixture) collect(t *testing.T) metricdata.ResourceMetrics {

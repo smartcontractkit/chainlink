@@ -141,7 +141,26 @@ type manualShardResolver struct {
 }
 
 func NewManualShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, lggr logger.Logger) ShardResolver {
-	return &manualShardResolver{settings: settings, orgResolver: orgResolver, shardIndexMapper: shardIndexMapper, lggr: logger.Named(lggr, "ManualShardResolver"), metrics: globalShardAssignmentMetrics(lggr)}
+	return newManualShardResolver(settings, orgResolver, shardIndexMapper, logger.Named(lggr, "ManualShardResolver"), globalShardAssignmentMetrics(lggr))
+}
+
+// newManualShardResolver builds the manual resolver and wires the
+// settings-arrival subscription. The subscription must be established here,
+// at construction, before any Store can run concurrently: resolvers are built
+// during app construction while settings updates are only Stored later by the
+// job-spawned cresettings delegate, and AtomicSettings.Subscribe reads the
+// current value unsynchronized, so a lazily-created subscription would race
+// ongoing Stores.
+func newManualShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, lggr logger.Logger, metrics *wfmon.ShardAssignmentMetrics) *manualShardResolver {
+	m := &manualShardResolver{
+		settings:         settings,
+		orgResolver:      orgResolver,
+		shardIndexMapper: shardIndexMapper,
+		lggr:             lggr,
+		metrics:          metrics,
+	}
+	m.subscribeSettingsArrivals(metrics)
+	return m
 }
 
 func (m *manualShardResolver) ResolveShard(ctx context.Context, _ string, ownerHex string) (uint32, bool, error) {
@@ -250,6 +269,30 @@ func (m *manualShardResolver) toDonIDs(ctx context.Context, shardIndices []uint3
 	return donIDs
 }
 
+// subscribeSettingsArrivals records when settings updates land at this node
+// so the metrics can measure arrival→in-effect staleness when the update is
+// applied on a later resolve. The cresettings delegate cannot record arrivals
+// itself (import cycle: monitoring imports cresettings), so the resolver
+// subscribes; ring-only mode has no static config and never subscribes. The
+// subscription and its goroutine live for the resolver's lifetime (process
+// lifetime) and are intentionally never torn down; metrics are captured now
+// so the goroutine never races a later metrics rebind.
+func (m *manualShardResolver) subscribeSettingsArrivals(metrics *wfmon.ShardAssignmentMetrics) {
+	if m.settings == nil {
+		return
+	}
+	updates, err := m.settings.Subscribe(context.Background())
+	if err != nil {
+		m.lggr.Warnw("Failed to subscribe to settings updates; assignment config staleness will not be recorded", "err", err)
+		return
+	}
+	go func() {
+		for update := range updates {
+			metrics.RecordSettingsArrival(settingsStringHash(update.Settings), time.Now())
+		}
+	}()
+}
+
 // loadObservedConfig loads and parses the current shard assignment settings,
 // recording the settings hash and emitting one diff log per actual settings
 // change. Parse errors are propagated to the caller exactly as resolution
@@ -287,7 +330,7 @@ func (m *manualShardResolver) loadObservedConfig(ctx context.Context) (*cresetti
 		return nil, err
 	}
 	hash := shardAssignmentSettingsHash(cfg)
-	changed, prev := m.metrics.RecordSettingsApplied(ctx, hash, cfg)
+	changed, prev := m.metrics.RecordSettingsApplied(ctx, hash, settingsStringHash(raw), cfg)
 	if changed {
 		// The diff is O(owners) and each list is capped, so it is built and
 		// logged here rather than inside cfgMu.
@@ -460,7 +503,7 @@ func NewOverrideShardResolver(settings *loop.AtomicSettings, orgResolver OrgReso
 	// registration failure warns once and both see the same instruments.
 	metrics := globalShardAssignmentMetrics(lggr)
 	return &overrideShardResolver{
-		manual:      &manualShardResolver{settings: settings, orgResolver: orgResolver, shardIndexMapper: shardIndexMapper, lggr: logger.Named(lggr, "ManualShardResolver"), metrics: metrics},
+		manual:      newManualShardResolver(settings, orgResolver, shardIndexMapper, logger.Named(lggr, "ManualShardResolver"), metrics),
 		orgResolver: orgResolver,
 		ringOCR:     ringOCR,
 		lggr:        logger.Named(lggr, "OverrideShardResolver"),
