@@ -49,6 +49,7 @@ memo -> b;
 	assert.InDelta(t, float64(3*time.Millisecond), testutil.ToFloat64(PromPipelineTaskExecutionTime.WithLabelValues("987654321", "task-metrics", "memo", string(TaskTypeMemo))), 0)
 
 	// Handles are looked up once per task and status, then reused.
-	assert.Same(t, taskMetricsFor(spec, memo, "completed"), taskMetricsFor(spec, memo, "completed"))
+	first, second := taskMetricsFor(spec, memo, "completed"), taskMetricsFor(spec, memo, "completed")
+	assert.Same(t, first, second)
 	assert.NotSame(t, taskMetricsFor(spec, memo, "completed"), taskMetricsFor(spec, memo, "error"))
 }
