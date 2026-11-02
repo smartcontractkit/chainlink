@@ -543,6 +543,36 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			assert.Equal(t, chainConfigAfter2.FChain, otherChainConfig.FChain)
 			assert.Equal(t, chainConfigAfter2.Readers, otherChainConfig.Readers)
 			assert.Equal(t, chainConfigAfter2.Config, otherChainConfig.Config)
+
+			updatedReaders := otherChainConfig.Readers[1:]
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				commonchangeset.Configure(
+					cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
+					v1_6.UpdateChainConfigConfig{
+						HomeChainSelector:  tenv.HomeChainSel,
+						RemoteChainRemoves: []uint64{},
+						RemoteChainAdds: map[uint64]v1_6.ChainConfig{
+							otherChain: {
+								EncodableChainConfig: chainconfig.ChainConfig{
+									GasPriceDeviationPPB:    ccipocr3.BigInt{Int: big.NewInt(testhelpers.DefaultGasPriceDeviationPPB)},
+									DAGasPriceDeviationPPB:  ccipocr3.BigInt{Int: big.NewInt(testhelpers.DefaultDAGasPriceDeviationPPB)},
+									OptimisticConfirmations: globals.OptimisticConfirmations,
+								},
+								FChain:  otherChainConfig.FChain,
+								Readers: updatedReaders,
+							},
+						},
+						MCMS: mcmsConfig,
+					},
+				),
+			)
+			require.NoError(t, err)
+
+			chainConfigAfter3, err := ccipHome.GetChainConfig(nil, otherChain)
+			require.NoError(t, err)
+			assert.Equal(t, chainConfigAfter3.FChain, otherChainConfig.FChain)
+			assert.Equal(t, updatedReaders, chainConfigAfter3.Readers)
+			assert.Equal(t, chainConfigAfter3.Config, otherChainConfig.Config)
 		})
 	}
 }
