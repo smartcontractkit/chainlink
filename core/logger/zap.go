@@ -7,6 +7,8 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // UpdatableCore provides a thread-safe zap Core updatable setup.
@@ -53,7 +55,7 @@ func makeEncoderConfig(unixTS bool) zapcore.EncoderConfig {
 		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
 
-	encoderConfig.EncodeLevel = encodeLevel
+	encoderConfig.EncodeLevel = common.EncodeLevel
 
 	return encoderConfig
 }
