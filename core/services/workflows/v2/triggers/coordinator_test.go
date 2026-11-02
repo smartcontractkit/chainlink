@@ -221,22 +221,44 @@ func TestCoordinator_NoDeliver(t *testing.T) {
 
 // TestCoordinator_DeliverAdmission covers what the coordinator does with an
 // admission error from the engine (e.g. the shard failover manager on a sharded
-// node). A denied event is ACKed and counted as an admission_denied drop, while a cached event
-// is left un-ACKed so the secondary can replay it.
+// node). A denied event is ACKed and dropped: a shard denial gets its own drop reason and
+// shard-denial counter, any other denial is dropped as admission_denied. A cached event is left
+// un-ACKed so the secondary can replay it.
 //
 //nolint:paralleltest // swaps the global beholder client
 func TestCoordinator_DeliverAdmission(t *testing.T) {
+	const (
+		shardNotOwnerTotal = "platform_engine_shard_execution_denied_not_owner"
+		shardOrchErrTotal  = "platform_engine_shard_execution_denied_orchestrator_error"
+	)
+
 	tests := []struct {
-		name        string
-		engineErr   error
-		wantAck     bool
-		wantDropped int64
+		name         string
+		engineErr    error
+		wantAck      bool
+		wantDrops    map[string]int64
+		wantNotOwner int64
+		wantOrchErr  int64
 	}{
 		{
-			name:        "denied is ACKed and counted",
-			engineErr:   fmt.Errorf("shard ownership denied: not owner: %w", ErrAdmissionDenied),
+			name:         "shard denial not owner is ACKed and counted",
+			engineErr:    ErrShardDeniedNotOwner,
+			wantAck:      true,
+			wantDrops:    map[string]int64{monitoring.TriggerDropReasonShardDeniedNotOwner: 1},
+			wantNotOwner: 1,
+		},
+		{
+			name:        "shard denial orchestrator error is ACKed and counted",
+			engineErr:   ErrShardDeniedOrchestrator,
 			wantAck:     true,
-			wantDropped: 1,
+			wantDrops:   map[string]int64{monitoring.TriggerDropReasonShardDeniedOrchestrator: 1},
+			wantOrchErr: 1,
+		},
+		{
+			name:      "other denial is ACKed and counted as admission_denied",
+			engineErr: fmt.Errorf("not owned by this node: %w", ErrAdmissionDenied),
+			wantAck:   true,
+			wantDrops: map[string]int64{monitoring.TriggerDropReasonAdmissionDenied: 1},
 		},
 		{name: "cached is left for replay", engineErr: ErrAdmissionCached},
 		{name: "other error is not ACKed", engineErr: errors.New("metering reserve failed")},
@@ -268,9 +290,14 @@ func TestCoordinator_DeliverAdmission(t *testing.T) {
 			if !tc.wantAck {
 				trigger.AssertNotCalled(t, "AckEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 			}
-			denied := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonAdmissionDenied}
-			assert.Equal(t, tc.wantDropped, counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", denied),
-				"admission_denied drops")
+			wantDrops := tc.wantDrops
+			if wantDrops == nil {
+				wantDrops = map[string]int64{}
+			}
+			// Every reason is compared, so a drop counted under the wrong reason fails.
+			assert.Equal(t, wantDrops, dropsByReason(t, reader), "drops by reason")
+			assert.Equal(t, tc.wantNotOwner, counterTotal(t, reader, shardNotOwnerTotal, nil), shardNotOwnerTotal)
+			assert.Equal(t, tc.wantOrchErr, counterTotal(t, reader, shardOrchErrTotal, nil), shardOrchErrTotal)
 		})
 	}
 }
@@ -335,7 +362,9 @@ func TestCoordinator_UnregisterTriggers(t *testing.T) {
 
 		require.Eventually(t, func() bool { return !f.registered() && f.limits.inUse() == 0 }, 5*time.Second, 10*time.Millisecond)
 		assert.Equal(t, 1, f.limits.freeCount())
-		assert.True(t, queues.get(t, 0).closed.Load(), "the registration's queue is closed")
+		// The queue is closed after the registration is removed, so wait for it.
+		require.Eventually(t, func() bool { return queues.get(t, 0).closed.Load() }, 5*time.Second, 10*time.Millisecond,
+			"the registration's queue is closed")
 		f.limits.mu.Lock()
 		assert.Equal(t, testTenant, f.limits.tenants[len(f.limits.tenants)-1], "the limit is freed under the workflow's tenant")
 		f.limits.mu.Unlock()

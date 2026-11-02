@@ -24,6 +24,7 @@ import (
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -425,6 +426,28 @@ func counterTotal(t *testing.T, reader *sdkmetric.ManualReader, name string, att
 		}
 	}
 	return total
+}
+
+// dropsByReason returns platform_engine_trigger_event_dropped_total by drop reason.
+func dropsByReason(t *testing.T, reader *sdkmetric.ManualReader) map[string]int64 {
+	t.Helper()
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(t.Context(), &rm))
+	got := map[string]int64{}
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != "platform_engine_trigger_event_dropped_total" {
+				continue
+			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] for %s, got %T", m.Name, m.Data)
+			for _, dp := range sum.DataPoints {
+				reason, _ := dp.Attributes.Value(attribute.Key(platform.KeyTriggerDropReason))
+				got[reason.AsString()] += dp.Value
+			}
+		}
+	}
+	return got
 }
 
 // mutableTimeoutLimiter is a BoundLimiter[time.Duration] whose value a test can change while running.

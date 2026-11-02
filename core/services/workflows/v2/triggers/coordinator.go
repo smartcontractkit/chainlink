@@ -552,7 +552,7 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 				cw.lggr.Infow("Trigger event cached for failover", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
 			case errors.Is(err, ErrAdmissionDenied):
 				cw.lggr.Infow("Trigger event denied admission, dropping", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
-				c.dropDeniedEvent(execCtx, cw, event)
+				c.dropDeniedEvent(execCtx, cw, event, err)
 			case errors.Is(err, ErrDuplicateExecution), errors.Is(err, ErrEngineDraining), errors.Is(err, ErrEngineClosed):
 				cw.lggr.Infow("Skipping trigger event execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
 			default:
@@ -581,16 +581,15 @@ func (c *coordinator) coordinatedEngine(ctx context.Context, cw *coordinatedWork
 	return engine, true
 }
 
-// dropDeniedEvent handles an event the engine's admission check rejected. The event will never execute, so it is
-// ACKed and counted as dropped.
-func (c *coordinator) dropDeniedEvent(ctx context.Context, cw *coordinatedWorkflow, event CoordinatedEvent) {
+// dropDeniedEvent handles an event the engine's admission check rejected with err. The event will never execute, so
+// it is ACKed and counted as dropped.
+func (c *coordinator) dropDeniedEvent(ctx context.Context, cw *coordinatedWorkflow, event CoordinatedEvent, err error) {
 	eventID := event.Event.Event.ID
 	registrationID := RegistrationID(cw.wid.Hex(), event.TriggerIndex)
-	if err := Ack(ctx, cw.lggr, cw.metrics, event.TriggerCapID, registrationID, eventID, cw.handles[registrationID]); err != nil {
-		cw.lggr.Errorw("Failed to ACK trigger event after admission denial", "triggerID", event.TriggerCapID, "eventID", eventID, "err", err)
+	if ackErr := Ack(ctx, cw.lggr, cw.metrics, event.TriggerCapID, registrationID, eventID, cw.handles[registrationID]); ackErr != nil {
+		cw.lggr.Errorw("Failed to ACK trigger event after admission denial", "triggerID", event.TriggerCapID, "eventID", eventID, "err", ackErr)
 	}
-	cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID).
-		IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonAdmissionDenied)
+	CountAdmissionDenied(ctx, cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID), err)
 }
 
 // releaseWhenDrained drops the registration's handles and closes its queue
