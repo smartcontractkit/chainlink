@@ -46,15 +46,12 @@ func TestEngine_DropReasonParity(t *testing.T) {
 		{"GlobalPoolSaturated_QueueFull", testDropGlobalPoolSaturated},
 	}
 	for _, mode := range []lifecycleEngineMode{lifecycleLegacy, lifecycleCoordinated} {
-		t.Run(string(mode), func(t *testing.T) {
-			t.Parallel()
-			for _, s := range scenarios {
-				t.Run(s.name, func(t *testing.T) {
-					t.Parallel()
-					s.run(t, mode, newDropMeter(t))
-				})
-			}
-		})
+		for _, s := range scenarios {
+			t.Run(string(mode)+"/"+s.name, func(t *testing.T) {
+				t.Parallel()
+				s.run(t, mode, newDropMeter(t))
+			})
+		}
 	}
 }
 

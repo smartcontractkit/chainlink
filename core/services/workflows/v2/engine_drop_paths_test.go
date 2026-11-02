@@ -288,32 +288,29 @@ func TestEngine_LimitReadFallback_ExecutesAnyway(t *testing.T) {
 	}
 
 	for _, mode := range dropPathModes {
-		t.Run(string(mode), func(t *testing.T) {
-			t.Parallel()
-			for name, breakLimiter := range testCases {
-				t.Run(name, func(t *testing.T) {
-					t.Parallel()
+		for name, breakLimiter := range testCases {
+			t.Run(string(mode)+"/"+name, func(t *testing.T) {
+				t.Parallel()
 
-					billingClient := setupMockBillingClient(t)
-					harness := newDropPathHarness(t, mode, billingClient, breakLimiter)
+				billingClient := setupMockBillingClient(t)
+				harness := newDropPathHarness(t, mode, billingClient, breakLimiter)
 
-					harness.module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(nil, nil).Once()
-					harness.deliver(capabilities.TriggerResponse{
-						Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_" + name},
-					})
-
-					executionID := <-harness.executionFinishedCh
-					require.NotEmpty(t, executionID)
-
-					startedMsgs := harness.rec.Messages(t, "beholder_entity", v2ExecutionStartedEntity)
-					assert.NotEmpty(t, startedMsgs, "execution should still emit a Started event despite the limit read failure")
-
-					evt, ok := latestV2FinishedEvent(t, harness.rec)
-					require.True(t, ok, "execution should still emit a Finished event despite the limit read failure")
-					assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_SUCCEEDED, evt.Status)
+				harness.module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(nil, nil).Once()
+				harness.deliver(capabilities.TriggerResponse{
+					Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_" + name},
 				})
-			}
-		})
+
+				executionID := <-harness.executionFinishedCh
+				require.NotEmpty(t, executionID)
+
+				startedMsgs := harness.rec.Messages(t, "beholder_entity", v2ExecutionStartedEntity)
+				assert.NotEmpty(t, startedMsgs, "execution should still emit a Started event despite the limit read failure")
+
+				evt, ok := latestV2FinishedEvent(t, harness.rec)
+				require.True(t, ok, "execution should still emit a Finished event despite the limit read failure")
+				assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_SUCCEEDED, evt.Status)
+			})
+		}
 	}
 }
 
@@ -358,42 +355,39 @@ func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) {
 	}
 
 	for _, mode := range dropPathModes {
-		t.Run(string(mode), func(t *testing.T) {
-			t.Parallel()
-			for name, breakLimiter := range testCases(mode) {
-				t.Run(name, func(t *testing.T) {
-					t.Parallel()
+		for name, breakLimiter := range testCases(mode) {
+			t.Run(string(mode)+"/"+name, func(t *testing.T) {
+				t.Parallel()
 
-					// No module.Execute expectation: the execution must never reach WASM.
-					meter := newDropMeter(t)
-					harness := newDropPathHarness(t, mode, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
-						cfg.Meter = meter.meter
-						breakLimiter(cfg)
-					})
-
-					harness.deliver(capabilities.TriggerResponse{
-						Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_nonrecoverable_" + name},
-					})
-
-					var evt *eventsv2.WorkflowExecutionFinished
-					require.EventuallyWithT(t, func(c *assert.CollectT) {
-						got, ok := latestV2FinishedEvent(t, harness.rec)
-						if !assert.True(c, ok) {
-							return
-						}
-						evt = got
-					}, 5*time.Second, 50*time.Millisecond)
-
-					assert.NotEmpty(t, harness.rec.Messages(t, "beholder_entity", v2ExecutionStartedEntity),
-						"the Started/Finished pair is what makes the drop visible; Finished alone is not enough")
-					assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED, evt.Status,
-						"a programming error must not be papered over with the zero value")
-					assert.Equal(t, eventsv2.ClassifiedExecutionStatus_CLASSIFIED_EXECUTION_STATUS_SYSTEM_ERROR, evt.ClassifiedStatus,
-						"a missing tenant is our bug, not the user's")
-					meter.requireDrops(t, map[string]int64{wantDropReason[name]: 1})
+				// No module.Execute expectation: the execution must never reach WASM.
+				meter := newDropMeter(t)
+				harness := newDropPathHarness(t, mode, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
+					cfg.Meter = meter.meter
+					breakLimiter(cfg)
 				})
-			}
-		})
+
+				harness.deliver(capabilities.TriggerResponse{
+					Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_nonrecoverable_" + name},
+				})
+
+				var evt *eventsv2.WorkflowExecutionFinished
+				require.EventuallyWithT(t, func(c *assert.CollectT) {
+					got, ok := latestV2FinishedEvent(t, harness.rec)
+					if !assert.True(c, ok) {
+						return
+					}
+					evt = got
+				}, 5*time.Second, 50*time.Millisecond)
+
+				assert.NotEmpty(t, harness.rec.Messages(t, "beholder_entity", v2ExecutionStartedEntity),
+					"the Started/Finished pair is what makes the drop visible; Finished alone is not enough")
+				assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED, evt.Status,
+					"a programming error must not be papered over with the zero value")
+				assert.Equal(t, eventsv2.ClassifiedExecutionStatus_CLASSIFIED_EXECUTION_STATUS_SYSTEM_ERROR, evt.ClassifiedStatus,
+					"a missing tenant is our bug, not the user's")
+				meter.requireDrops(t, map[string]int64{wantDropReason[name]: 1})
+			})
+		}
 	}
 }
 
