@@ -1048,3 +1048,50 @@ func (r *CapabilitiesRegistryReader) GetHistoricalDONInfo(ctx context.Context, d
 	)
 	return &historicalDON, err
 }
+
+type stubReader struct {
+	types.UnimplementedContractReader
+	nodes []capabilities_registry_v2.INodeInfoProviderNodeInfo
+}
+
+func (r *stubReader) Bind(context.Context, []types.BoundContract) error { return nil }
+
+func (r *stubReader) GetLatestValue(_ context.Context, _ string, _ primitives.ConfidenceLevel, _, out any) error {
+	if nodes, ok := out.(*[]capabilities_registry_v2.INodeInfoProviderNodeInfo); ok {
+		*nodes = r.nodes
+	}
+	return nil
+}
+
+type stubReaderFactory struct {
+	reader types.ContractReader
+}
+
+func (f *stubReaderFactory) NewContractReader(context.Context, []byte) (types.ContractReader, error) {
+	return f.reader, nil
+}
+
+func TestSync_V2_PreservesNodeCapabilitiesDONIds(t *testing.T) {
+	t.Parallel()
+
+	donIDs := []*big.Int{big.NewInt(1), big.NewInt(7)}
+	node := capabilities_registry_v2.INodeInfoProviderNodeInfo{
+		P2pId:              [32]byte{1},
+		CapabilitiesDONIds: donIDs,
+	}
+
+	reader := &stubReader{nodes: []capabilities_registry_v2.INodeInfoProviderNodeInfo{node}}
+
+	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: reader}, "0x0", nil)
+	require.NoError(t, err)
+
+	l := &launcher{}
+	syncer.AddListener(l)
+	require.NoError(t, syncer.Sync(t.Context(), false))
+
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	require.NotNil(t, l.localRegistry)
+	got := l.localRegistry.IDsToNodes[p2ptypes.PeerID(node.P2pId)]
+	require.Equal(t, donIDs, got.CapabilitiesDONIds)
+}

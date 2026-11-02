@@ -19,6 +19,11 @@ import (
 	syncerv2mocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 )
 
+// allowlistTestOwner is the payload/entry owner shared across allowlist auth tests.
+// The owner-scoped lookup requires the request payload owner to match the owner on
+// the allowlisted entry, so both must use this address.
+var allowlistTestOwner = common.Address{1, 2, 3}
+
 func TestAllowListBasedAuth_CreateSecrets(t *testing.T) {
 	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
@@ -26,6 +31,7 @@ func TestAllowListBasedAuth_CreateSecrets(t *testing.T) {
 				Id: &vaultcommon.SecretIdentifier{
 					Key:       "a",
 					Namespace: "b",
+					Owner:     allowlistTestOwner.Hex(),
 				},
 				EncryptedValue: "encrypted-value",
 			},
@@ -43,6 +49,7 @@ func TestAllowListBasedAuth_CreateSecrets(t *testing.T) {
 				Id: &vaultcommon.SecretIdentifier{
 					Key:       "not allowed",
 					Namespace: "b",
+					Owner:     allowlistTestOwner.Hex(),
 				},
 				EncryptedValue: "encrypted-value",
 			},
@@ -66,6 +73,7 @@ func TestAllowListBasedAuth_UpdateSecrets(t *testing.T) {
 				Id: &vaultcommon.SecretIdentifier{
 					Key:       "a",
 					Namespace: "b",
+					Owner:     allowlistTestOwner.Hex(),
 				},
 				EncryptedValue: "encrypted-value",
 			},
@@ -83,6 +91,7 @@ func TestAllowListBasedAuth_UpdateSecrets(t *testing.T) {
 				Id: &vaultcommon.SecretIdentifier{
 					Key:       "not allowed",
 					Namespace: "b",
+					Owner:     allowlistTestOwner.Hex(),
 				},
 				EncryptedValue: "encrypted-value",
 			},
@@ -104,6 +113,7 @@ func TestAllowListBasedAuth_DeleteSecrets(t *testing.T) {
 			{
 				Key:       "a",
 				Namespace: "b",
+				Owner:     allowlistTestOwner.Hex(),
 			},
 		},
 	})
@@ -118,6 +128,7 @@ func TestAllowListBasedAuth_DeleteSecrets(t *testing.T) {
 			{
 				Key:       "not allowed",
 				Namespace: "b",
+				Owner:     allowlistTestOwner.Hex(),
 			},
 		},
 	})
@@ -134,6 +145,7 @@ func TestAllowListBasedAuth_DeleteSecrets(t *testing.T) {
 func TestAllowListBasedAuth_ListSecrets(t *testing.T) {
 	params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
 		Namespace: "b",
+		Owner:     allowlistTestOwner.Hex(),
 	})
 	allowListedReq := jsonrpc.Request[json.RawMessage]{
 		ID:     "123",
@@ -143,6 +155,7 @@ func TestAllowListBasedAuth_ListSecrets(t *testing.T) {
 	require.NoError(t, err)
 	notAllowedParams, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
 		Namespace: "not allowed",
+		Owner:     allowlistTestOwner.Hex(),
 	})
 	require.NoError(t, err)
 	notAllowListedReq := jsonrpc.Request[json.RawMessage]{
@@ -156,7 +169,7 @@ func TestAllowListBasedAuth_ListSecrets(t *testing.T) {
 
 func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest jsonrpc.Request[json.RawMessage]) {
 	lggr := logger.TestLogger(t)
-	owner := common.Address{1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	owner := allowlistTestOwner
 
 	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
 	auth := NewAllowListBasedAuth(lggr, mockSyncer)
@@ -209,8 +222,8 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 
 func TestAllowListBasedAuth_RetriesUntilRequestIsAllowlisted(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	owner := common.Address{1, 2, 3}
-	req := makeListSecretsRequest(t, "123", "b")
+	owner := allowlistTestOwner
+	req := makeListSecretsRequest(t, "123", "b", owner.Hex())
 
 	digest, err := req.Digest()
 	require.NoError(t, err)
@@ -242,7 +255,7 @@ func TestAllowListBasedAuth_RetriesUntilRequestIsAllowlisted(t *testing.T) {
 
 func TestAllowListBasedAuth_FailsAfterAllowlistReadRetries(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	req := makeListSecretsRequest(t, "123", "b")
+	req := makeListSecretsRequest(t, "123", "b", allowlistTestOwner.Hex())
 
 	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}).Times(3)
@@ -258,7 +271,7 @@ func TestAllowListBasedAuth_FailsAfterAllowlistReadRetries(t *testing.T) {
 
 func TestAllowListBasedAuth_StopsRetriesWhenContextCanceled(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	req := makeListSecretsRequest(t, "123", "b")
+	req := makeListSecretsRequest(t, "123", "b", allowlistTestOwner.Hex())
 
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -275,11 +288,60 @@ func TestAllowListBasedAuth_StopsRetriesWhenContextCanceled(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
-func makeListSecretsRequest(t *testing.T, id, namespace string) jsonrpc.Request[json.RawMessage] {
+func TestAllowListBasedAuth_OwnerScopedLookup(t *testing.T) {
+	t.Parallel()
+
+	victim := allowlistTestOwner        // the owner declared in the request payload
+	attacker := common.Address{9, 9, 9} // a different owner that registered the same digest
+
+	req := makeListSecretsRequest(t, "123", "b", victim.Hex())
+	digest, err := req.Digest()
+	require.NoError(t, err)
+	digestBytes, err := hex.DecodeString(digest)
+	require.NoError(t, err)
+	expiry := time.Now().UTC().Unix() + 100
+
+	newAuth := func(t *testing.T, entries []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest) *allowListBasedAuth {
+		mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
+		mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return(entries)
+		auth := NewAllowListBasedAuth(logger.TestLogger(t), mockSyncer)
+		auth.retryCount = 0
+		auth.retryInterval = time.Millisecond
+		return auth
+	}
+
+	t.Run("ignores an entry registered under a different owner", func(t *testing.T) {
+		t.Parallel()
+		// Only the attacker's entry exists for this digest; the victim's request
+		// must not be authorized under the attacker's owner.
+		auth := newAuth(t, []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
+			{RequestDigest: [32]byte(digestBytes), Owner: attacker, ExpiryTimestamp: uint32(expiry)}, //nolint:gosec // safe conversion
+		})
+		authResult, err := auth.AuthorizeRequest(t.Context(), req)
+		require.Nil(t, authResult)
+		require.ErrorContains(t, err, "not allowlisted")
+	})
+
+	t.Run("matches the victim's own entry even when a poison entry shares the digest and is listed first", func(t *testing.T) {
+		t.Parallel()
+		// The attacker's entry is intentionally first in the list; owner-scoped
+		// matching must still resolve to the victim's entry.
+		auth := newAuth(t, []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
+			{RequestDigest: [32]byte(digestBytes), Owner: attacker, ExpiryTimestamp: uint32(expiry)}, //nolint:gosec // safe conversion
+			{RequestDigest: [32]byte(digestBytes), Owner: victim, ExpiryTimestamp: uint32(expiry)},   //nolint:gosec // safe conversion
+		})
+		authResult, err := auth.AuthorizeRequest(t.Context(), req)
+		require.NoError(t, err)
+		require.Equal(t, victim.Hex(), authResult.AuthorizedOwner())
+	})
+}
+
+func makeListSecretsRequest(t *testing.T, id, namespace, owner string) jsonrpc.Request[json.RawMessage] {
 	t.Helper()
 
 	params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
 		Namespace: namespace,
+		Owner:     owner,
 	})
 	require.NoError(t, err)
 

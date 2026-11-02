@@ -33,7 +33,7 @@ func NewCoordinatedEngine(cfg *EngineConfig) (WorkflowEngine, error) {
 		return nil, errors.New("trigger acknowledger not set")
 	}
 
-	base, lggr, err := newBaseEngine(cfg)
+	base, lggr, err := newBaseEngine(cfg, valueEngineModeCoordinated)
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +85,10 @@ func (e *coordinatedEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubs
 
 func (e *coordinatedEngine) Tenant() contexts.CRE {
 	return e.base.Tenant()
+}
+
+func (e *coordinatedEngine) SdkName() string {
+	return e.base.SdkName()
 }
 
 // IsCoordinated reports that this engine makes no trigger admission decisions.

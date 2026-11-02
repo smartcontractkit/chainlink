@@ -103,6 +103,23 @@ go run . topology generate
 
 Then check the generated capability matrix before starting the environment.
 
+## HTTP Capability Configuration
+
+Local CRE registers HTTP trigger and HTTP action service settings in each DON's
+capability registry `spec_config`. The capability manager launches these services
+directly; Local CRE does not create HTTP capability job specs or add HTTP service
+settings to node TOML. Gateway connector settings remain in node TOML.
+
+Set service values in `capability_configs.http-action.values` or
+`capability_configs.http-trigger.values`, globally or through per-DON overrides.
+These include rate limits, proxy mode, HTTP client settings, and trigger metadata
+settings. HTTP action defaults to gateway mode. Both the topology's existing
+PascalCase setting names and native JSON field names are accepted.
+
+The existing `Capabilities.Local.UseOffchainRegistry` gate selects the source:
+offchain `spec_config` when enabled, onchain `SpecConfig` otherwise. The selected
+config is passed to the capability without node-local HTTP overrides.
+
 ## Adding or Modifying Topologies
 
 When introducing a new topology:

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/fbsobreira/gotron-sdk/pkg/address"
+	"github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk/pkg/address"
 
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"

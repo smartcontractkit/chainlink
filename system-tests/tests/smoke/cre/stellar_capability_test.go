@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
@@ -42,7 +42,7 @@ func executeStellarReadLatestLedgerTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	stellarChain *stellchain.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	t.Helper()
@@ -64,7 +64,7 @@ func executeStellarReadContractSmokeTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	stellarChain *stellchain.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	t.Helper()
@@ -149,7 +149,7 @@ func executeStellarWriteTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	stellarChain *stellchain.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
@@ -209,7 +209,7 @@ func executeStellarWriteTest(
 func setupStellarScenario(t *testing.T, tenv *configuration.TestEnvironment) (
 	*configuration.TestEnvironment,
 	*stellchain.Blockchain,
-	<-chan *workflowevents.UserLogs,
+	<-chan *workfloweventsv2.WorkflowUserLog,
 	<-chan *commonevents.BaseMessage,
 ) {
 	t.Helper()

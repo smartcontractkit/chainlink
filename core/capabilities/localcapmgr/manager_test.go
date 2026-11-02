@@ -73,7 +73,7 @@ func TestBuildDesiredState(t *testing.T) {
 		},
 	}
 
-	desired := mgr.buildDesiredState(dons)
+	desired := mgr.buildDesiredState(dons, nil)
 
 	assert.Len(t, desired, 3)
 	assert.Contains(t, desired, "cron@1.0.0:1")
@@ -98,7 +98,7 @@ func TestBuildDesiredState_NilLocalConfig(t *testing.T) {
 		},
 	}
 
-	desired := mgr.buildDesiredState(dons)
+	desired := mgr.buildDesiredState(dons, nil)
 	assert.Empty(t, desired, "nil config should not allow any capabilities")
 }
 
@@ -172,7 +172,7 @@ func TestReconcile_StartsNewCapabilities(t *testing.T) {
 		},
 	}
 
-	err = mgr.Reconcile(ctx, dons)
+	err = mgr.Reconcile(ctx, dons, nil)
 	require.NoError(t, err)
 
 	assert.Len(t, mgr.runningCapabilities, 1)
@@ -219,7 +219,7 @@ func TestReconcile_StopsRemovedCapabilities(t *testing.T) {
 		},
 	}
 
-	err = mgr.Reconcile(ctx, dons)
+	err = mgr.Reconcile(ctx, dons, nil)
 	require.NoError(t, err)
 
 	// removed-cap should be stopped and removed.
@@ -264,7 +264,7 @@ func TestReconcile_DetectsConfigChange(t *testing.T) {
 		},
 	}
 
-	err = mgr.Reconcile(ctx, dons)
+	err = mgr.Reconcile(ctx, dons, nil)
 	require.NoError(t, err)
 
 	// Old capability closed, new one started.
@@ -272,9 +272,9 @@ func TestReconcile_DetectsConfigChange(t *testing.T) {
 	assert.Len(t, mgr.runningCapabilities, 1)
 	assert.Contains(t, mgr.runningCapabilities, "test-cap@1.0.0:1")
 
-	// Verify new hash.
+	// Verify new hash: the effective hash covers the on-chain bytes and the merged config.
 	rc := mgr.runningCapabilities["test-cap@1.0.0:1"]
-	assert.Equal(t, configHash(newCfg), rc.configHash)
+	assert.Equal(t, effectiveConfigHash(newCfg, `{"version":"2"}`), rc.configHash)
 }
 
 func TestReconcile_ContinuesOnStartFailure(t *testing.T) {
@@ -304,7 +304,7 @@ func TestReconcile_ContinuesOnStartFailure(t *testing.T) {
 		},
 	}
 
-	err = mgr.Reconcile(ctx, dons)
+	err = mgr.Reconcile(ctx, dons, nil)
 	require.NoError(t, err) // Reconcile is best-effort, doesn't return errors for individual caps.
 
 	// Both failed since we use failingServiceBuilder.
@@ -349,9 +349,10 @@ func (m *mockService) Close() error                { m.closed = true; return nil
 // testLocalCapabilities implements config.LocalCapabilities for testing.
 type testLocalCapabilities struct {
 	allowlisted map[string]bool
+	useOffchain bool
 }
 
-func (t *testLocalCapabilities) UseOffchainRegistry() bool { return false }
+func (t *testLocalCapabilities) UseOffchainRegistry() bool { return t.useOffchain }
 
 func (t *testLocalCapabilities) RegistryBasedLaunchAllowlist() []string {
 	result := make([]string, 0, len(t.allowlisted))

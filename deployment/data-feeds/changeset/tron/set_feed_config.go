@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	fullnode "github.com/fbsobreira/gotron-sdk/pkg/http/fullnode"
+	fullnode "github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk/pkg/http/fullnode"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cache "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"

@@ -13,7 +13,7 @@ import (
 
 	workflow_registry_wrapper_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -43,7 +43,7 @@ func Test_CRE_V2_CoordinatedEngine(t *testing.T) {
 
 	t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(`CoordinatedEngineEnabled = 'true'`))
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -65,7 +65,7 @@ func Test_CRE_V2_CoordinatedEngine(t *testing.T) {
 	// Both log lines carry workflowID=<hex>, so the needles attribute them to this workflow.
 	t_helpers.RequireContainerLogsForNodesetEventually(t, testEnv, coordinatedEngineDON,
 		"Routing workflow to the coordinated engine", time.Minute, 5*time.Second)
-	requireCoordinatorLogForWorkflow(t, testEnv, workflowID)
+	requireCoordinatorLogForWorkflow(t, testEnv, coordinatedEngineDON, workflowID)
 }
 
 // Test_CRE_V2_CoordinatedEngine_MixedModeDeploy starts a workflow on the legacy
@@ -80,7 +80,7 @@ func Test_CRE_V2_CoordinatedEngine_MixedModeDeploy(t *testing.T) {
 	testLogger := framework.L
 	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -112,8 +112,8 @@ func Test_CRE_V2_CoordinatedEngine_MixedModeDeploy(t *testing.T) {
 		"Amazing workflow user log", 2*time.Minute, t_helpers.WithUserLogWorkflowID(legacyID))
 
 	// The coordinator registration log must be attributable to the second workflow only.
-	requireCoordinatorLogForWorkflow(t, testEnv, coordinatedID)
-	require.Empty(t, coordinatorLogLinesForWorkflow(t, testEnv, legacyID),
+	requireCoordinatorLogForWorkflow(t, testEnv, coordinatedEngineDON, coordinatedID)
+	require.Empty(t, coordinatorLogLinesForWorkflow(t, testEnv, coordinatedEngineDON, legacyID),
 		"legacy workflow must not have registered triggers via the coordinator")
 }
 
@@ -130,7 +130,7 @@ func Test_CRE_V2_CoordinatedEngine_MixedModeReRegister(t *testing.T) {
 	testLogger := framework.L
 	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -176,8 +176,8 @@ func Test_CRE_V2_CoordinatedEngine_MixedModeReRegister(t *testing.T) {
 
 	// The re-registered legacy workflow must have gone through the coordinator too:
 	// its registration log is distinct from the second workflow's earlier one.
-	requireCoordinatorLogForWorkflow(t, testEnv, legacyID)
-	requireCoordinatorLogForWorkflow(t, testEnv, coordinatedID)
+	requireCoordinatorLogForWorkflow(t, testEnv, coordinatedEngineDON, legacyID)
+	requireCoordinatorLogForWorkflow(t, testEnv, coordinatedEngineDON, coordinatedID)
 }
 
 // Test_CRE_V2_CoordinatedEngine_RollbackToLegacy starts a workflow with
@@ -201,7 +201,7 @@ func Test_CRE_V2_CoordinatedEngine_RollbackToLegacy(t *testing.T) {
 	// Flag on: the workflow registers and runs through the trigger coordinator.
 	settings := t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(`CoordinatedEngineEnabled = 'true'`))
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -218,8 +218,13 @@ func Test_CRE_V2_CoordinatedEngine_RollbackToLegacy(t *testing.T) {
 
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog,
 		"Amazing workflow user log", 2*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
-	requireCoordinatorLogForWorkflow(t, testEnv, workflowID)
-	registrationsBefore := countCoordinatorLogLinesForWorkflow(t, testEnv, workflowID)
+	// Execution only needs a quorum. Wait for every node to create its engine
+	// before pausing, or a slower node may first discover the workflow paused
+	// and never emit the teardown event that this test requires from all nodes.
+	require.Eventually(t, func() bool {
+		return t_helpers.CountNodesetContainersWithLog(t, testEnv, coordinatedEngineDON, coordinatorLogMessage, workflowID) == len(testEnv.Dons.MustWorkflowDON().Nodes)
+	}, time.Minute, 5*time.Second, "workflow %s was not registered through the coordinator on all workflow nodes", workflowID)
+	registrationsBefore := countCoordinatorLogLinesForWorkflow(t, testEnv, coordinatedEngineDON, workflowID)
 
 	// Flag off: engines created from now on are legacy. The baseline has the flag
 	// off, so resetting the override disables it — a second ApplyCRESettings call
@@ -241,7 +246,7 @@ func Test_CRE_V2_CoordinatedEngine_RollbackToLegacy(t *testing.T) {
 
 	// No new coordinator registration may appear for the re-created engine:
 	// the line count must be unchanged since before the pause.
-	require.Equal(t, registrationsBefore, countCoordinatorLogLinesForWorkflow(t, testEnv, workflowID),
+	require.Equal(t, registrationsBefore, countCoordinatorLogLinesForWorkflow(t, testEnv, coordinatedEngineDON, workflowID),
 		"the re-created engine must not register triggers via the coordinator")
 }
 
@@ -249,32 +254,46 @@ func Test_CRE_V2_CoordinatedEngine_RollbackToLegacy(t *testing.T) {
 // are registered through the coordinator.
 const coordinatorLogMessage = "Registered triggers via coordinator"
 
-// coordinatorLogLinesForWorkflow filters the coordinator registration lines down to one
-// workflow. The message and the workflow ID are matched in two passes, so fields injected
-// between them (e.g. the node logger's version field) do not break the match. workflowID
-// is lowercase hex with no 0x — the format CompileAndDeployWorkflow returns.
-func coordinatorLogLinesForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workflowID string) []string {
+// logLinesForWorkflow returns the log lines on nodeset that contain message and mention
+// workflowID. The message and the workflow ID are matched in two passes, so fields
+// injected between them (e.g. the node logger's version field) do not break the match.
+// workflowID is lowercase hex with no 0x — the format CompileAndDeployWorkflow returns.
+func logLinesForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, nodeset, message, workflowID string) []string {
 	t.Helper()
-	lines := t_helpers.ContainerLogLinesForNodeset(t, testEnv, coordinatedEngineDON, coordinatorLogMessage)
+	lines := t_helpers.ContainerLogLinesForNodeset(t, testEnv, nodeset, message)
 	return slices.DeleteFunc(lines, func(line string) bool { return !strings.Contains(line, workflowID) })
 }
 
-// requireCoordinatorLogForWorkflow waits for the coordinator registration log of
-// workflowID to appear on the workflow DON.
-func requireCoordinatorLogForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workflowID string) {
+// requireLogForWorkflow waits for a log line on nodeset that contains message and
+// mentions workflowID.
+func requireLogForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, nodeset, message, workflowID string) {
 	t.Helper()
 	require.Eventually(t, func() bool {
-		return len(coordinatorLogLinesForWorkflow(t, testEnv, workflowID)) > 0
-	}, time.Minute, 5*time.Second, "expected a %q line for workflow %s", coordinatorLogMessage, workflowID)
+		return len(logLinesForWorkflow(t, testEnv, nodeset, message, workflowID)) > 0
+	}, time.Minute, 5*time.Second, "expected a %q line for workflow %s on nodeset %s", message, workflowID, nodeset)
+}
+
+// coordinatorLogLinesForWorkflow returns the coordinator registration lines of workflowID
+// on nodeset.
+func coordinatorLogLinesForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, nodeset, workflowID string) []string {
+	t.Helper()
+	return logLinesForWorkflow(t, testEnv, nodeset, coordinatorLogMessage, workflowID)
+}
+
+// requireCoordinatorLogForWorkflow waits for the coordinator registration log of
+// workflowID to appear on nodeset.
+func requireCoordinatorLogForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, nodeset, workflowID string) {
+	t.Helper()
+	requireLogForWorkflow(t, testEnv, nodeset, coordinatorLogMessage, workflowID)
 }
 
 // countCoordinatorLogLinesForWorkflow counts the coordinator registration lines of
-// workflowID across the workflow DON: one per node per registration through the
+// workflowID across nodeset: one per node per registration through the
 // coordinator. Note the count is per-node — 4 nodes each log one line per
 // registration, so a single registration yields 4 lines.
-func countCoordinatorLogLinesForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, workflowID string) int {
+func countCoordinatorLogLinesForWorkflow(t *testing.T, testEnv *ttypes.TestEnvironment, nodeset, workflowID string) int {
 	t.Helper()
-	return len(coordinatorLogLinesForWorkflow(t, testEnv, workflowID))
+	return len(coordinatorLogLinesForWorkflow(t, testEnv, nodeset, workflowID))
 }
 
 // workflowRegistry binds the WorkflowRegistry contract for the test chain.
@@ -326,8 +345,6 @@ func waitForEngineTeardown(t *testing.T, testEnv *ttypes.TestEnvironment, workfl
 	t.Helper()
 
 	require.Eventually(t, func() bool {
-		lines := t_helpers.ContainerLogLinesForNodeset(t, testEnv, coordinatedEngineDON, "handled event (WorkflowPaused)")
-		lines = slices.DeleteFunc(lines, func(line string) bool { return !strings.Contains(line, workflowID) })
-		return len(lines) >= len(testEnv.Dons.MustWorkflowDON().Nodes) // one per workflow node
+		return t_helpers.CountNodesetContainersWithLog(t, testEnv, coordinatedEngineDON, "handled event (WorkflowPaused)", workflowID) == len(testEnv.Dons.MustWorkflowDON().Nodes)
 	}, 2*time.Minute, 5*time.Second, "workflow %s was not torn down on all workflow nodes", workflowID)
 }

@@ -316,6 +316,7 @@ func TestRegister(t *testing.T) {
 		workflowOwner = "wf-owner"
 		workflowDonID = uint32(7)
 		donConfigVer  = uint32(3)
+		orgID         = "org-123"
 	)
 
 	baseMeta := RegisterMetadata{
@@ -323,6 +324,7 @@ func TestRegister(t *testing.T) {
 		WorkflowOwner:            workflowOwner,
 		WorkflowDonID:            workflowDonID,
 		WorkflowDonConfigVersion: donConfigVer,
+		OrgID:                    orgID,
 	}
 
 	t.Run("registers all subscriptions and returns handles, capability IDs, and event channels in subscription order", func(t *testing.T) {
@@ -379,7 +381,7 @@ func TestRegister(t *testing.T) {
 		assert.Equal(t, workflowDonID, md0.WorkflowDonID)
 		assert.Equal(t, donConfigVer, md0.WorkflowDonConfigVersion)
 		assert.Equal(t, "trigger_0", md0.ReferenceID)
-		assert.Empty(t, md0.OrgID, "OrgID propagation is off by default")
+		assert.Equal(t, orgID, md0.OrgID)
 	})
 
 	t.Run("returns an error without registering when the chain gate is closed", func(t *testing.T) {
@@ -458,13 +460,14 @@ func TestUnregister(t *testing.T) {
 	const (
 		workflowID    = "wf-id"
 		workflowDonID = uint32(9)
+		orgID         = "org-123"
 	)
 
 	t.Run("unregisters every handle and returns zero failures on success", func(t *testing.T) {
 		t.Parallel()
 		trigger0 := capmocks.NewTriggerCapability(t)
 		trigger0.EXPECT().UnregisterTrigger(mock.Anything, mock.MatchedBy(func(req capabilities.TriggerRegistrationRequest) bool {
-			return req.TriggerID == "reg-0" && req.Metadata.WorkflowID == workflowID && req.Metadata.WorkflowDonID == workflowDonID
+			return req.TriggerID == "reg-0" && req.Metadata.WorkflowID == workflowID && req.Metadata.WorkflowDonID == workflowDonID && req.Metadata.OrgID == orgID
 		})).Return(nil).Once()
 		trigger1 := capmocks.NewTriggerCapability(t)
 		trigger1.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
@@ -474,7 +477,7 @@ func TestUnregister(t *testing.T) {
 			"reg-1": {TriggerCapability: trigger1, Method: "m1"},
 		}
 
-		failCount := Unregister(t.Context(), logger.Test(t), workflowID, workflowDonID, handles)
+		failCount := Unregister(t.Context(), logger.Test(t), workflowID, workflowDonID, orgID, handles)
 		assert.Equal(t, 0, failCount)
 	})
 
@@ -485,13 +488,13 @@ func TestUnregister(t *testing.T) {
 
 		handles := map[string]*Handle{"reg-0": {TriggerCapability: trigger0, Method: "m0"}}
 
-		failCount := Unregister(t.Context(), logger.Test(t), workflowID, workflowDonID, handles)
+		failCount := Unregister(t.Context(), logger.Test(t), workflowID, workflowDonID, orgID, handles)
 		assert.Equal(t, 1, failCount)
 	})
 
 	t.Run("returns zero for an empty handle map", func(t *testing.T) {
 		t.Parallel()
-		failCount := Unregister(t.Context(), logger.Test(t), workflowID, workflowDonID, map[string]*Handle{})
+		failCount := Unregister(t.Context(), logger.Test(t), workflowID, workflowDonID, orgID, map[string]*Handle{})
 		assert.Equal(t, 0, failCount)
 	})
 }

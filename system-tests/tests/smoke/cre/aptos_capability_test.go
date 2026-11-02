@@ -26,7 +26,7 @@ import (
 	aptosdatafeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"                 //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
 	aptosplatformsecondary "github.com/smartcontractkit/chainlink-aptos/bindings/platform_secondary" //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -76,7 +76,7 @@ type aptosScenario struct {
 		t *testing.T,
 		tenv *configuration.TestEnvironment,
 		aptosChain blockchains.Blockchain,
-		userLogsCh <-chan *workflowevents.UserLogs,
+		userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 		baseMessageCh <-chan *commonevents.BaseMessage,
 	)
 }
@@ -85,6 +85,7 @@ func aptosDefaultScenarios() []aptosScenario {
 	return []aptosScenario{
 		{name: "Aptos Write Read Roundtrip", requiresWrite: true, run: ExecuteAptosWriteReadRoundtripTest},
 		{name: "Aptos Write Expected Failure", requiresWrite: true, run: ExecuteAptosWriteExpectedFailureTest},
+		{name: "Aptos View User Error", requiresWrite: false, run: ExecuteAptosViewUserErrorTest},
 	}
 }
 
@@ -120,6 +121,11 @@ func resolveAptosScenarios(t *testing.T) []aptosScenario {
 			name:          "Aptos Write Expected Failure",
 			requiresWrite: true,
 			run:           ExecuteAptosWriteExpectedFailureTest,
+		},
+		"view-user-error": {
+			name:          "Aptos View User Error",
+			requiresWrite: false,
+			run:           ExecuteAptosViewUserErrorTest,
 		},
 	}
 
@@ -165,7 +171,7 @@ func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, sc
 			scenarioEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, tenv.TestConfig)
 			scenarioAptosChain := mustAptosChainInEnv(t, scenarioEnv)
 
-			userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+			userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 			baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 			server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
 			t.Cleanup(func() {
@@ -251,7 +257,7 @@ func ExecuteAptosReadTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	aptosChain blockchains.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
@@ -272,6 +278,35 @@ func ExecuteAptosReadTest(
 	expectedLog := "Aptos read consensus succeeded"
 	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, aptosWorkflowTimeout, t_helpers.WithUserLogWorkflowID(workflowID))
 	lggr.Info().Str("expected_log", expectedLog).Msg("Aptos read capability test passed")
+}
+
+// ExecuteAptosViewUserErrorTest deploys the read workflow in user-error mode: it calls View on a
+// module that doesn't exist, which the Aptos node rejects with HTTP 400, and asserts the workflow
+// receives it as a user-origin capability error rather than a system error.
+func ExecuteAptosViewUserErrorTest(
+	t *testing.T,
+	tenv *configuration.TestEnvironment,
+	aptosChain blockchains.Blockchain,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
+	baseMessageCh <-chan *commonevents.BaseMessage,
+) {
+	lggr := framework.L
+
+	ensureAptosLedgerVersionPositive(t, aptosChain)
+
+	workflowName := uniqueAptosWorkflowName("aptos-view-user-error-workflow")
+	workflowConfig := t_helpers.AptosReadWorkflowConfig{
+		ChainSelector:   aptosChain.ChainSelector(),
+		WorkflowName:    workflowName,
+		ExpectUserError: true,
+	}
+
+	const workflowFileLocation = "./aptos/aptosread/main.go"
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+
+	expectedLog := "Aptos view user error classified as expected"
+	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, aptosWorkflowTimeout, t_helpers.WithUserLogWorkflowID(workflowID))
+	lggr.Info().Str("expected_log", expectedLog).Msg("Aptos view user error classification test passed")
 }
 
 // The local Aptos devnet can legitimately remain at ledger version 0 until the
@@ -311,7 +346,7 @@ func ExecuteAptosWriteTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	aptosChain blockchains.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
@@ -345,7 +380,7 @@ func ExecuteAptosWriteReadRoundtripTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	aptosChain blockchains.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
@@ -386,7 +421,7 @@ func ExecuteAptosWriteExpectedFailureTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	aptosChain blockchains.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
@@ -543,7 +578,7 @@ var aptosTxHashInLogRe = regexp.MustCompile(`txHash=([^\s"]+)`)
 func waitForAptosWriteSuccessLogAndTxHash(
 	t *testing.T,
 	lggr zerolog.Logger,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	workflowID string,
 	timeout time.Duration,
@@ -555,7 +590,7 @@ func waitForAptosWriteSuccessLogAndTxHash(
 func waitForAptosWriteExpectedFailureLogAndTxHash(
 	t *testing.T,
 	lggr zerolog.Logger,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	workflowID string,
 	timeout time.Duration,
@@ -567,7 +602,7 @@ func waitForAptosWriteExpectedFailureLogAndTxHash(
 func waitForAptosLogAndTxHash(
 	t *testing.T,
 	lggr zerolog.Logger,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	workflowID string,
 	expectedLog string,
@@ -599,41 +634,39 @@ func waitForAptosLogAndTxHash(
 			if workflowID != "" && !aptosUserLogsHaveWorkflowID(logs, workflowID) {
 				continue
 			}
-			for _, line := range logs.LogLines {
-				if !strings.Contains(line.Message, expectedLog) {
-					mismatchCount++
-					if mismatchCount%20 == 0 {
-						lggr.Warn().
-							Str("expected_log", expectedLog).
-							Str("found_message", strings.TrimSpace(line.Message)).
-							Int("mismatch_count", mismatchCount).
-							Msg("[soft assertion] Received UserLogs messages, but none match expected log yet")
-					}
-					continue
+			if !strings.Contains(logs.Msg, expectedLog) {
+				mismatchCount++
+				if mismatchCount%20 == 0 {
+					lggr.Warn().
+						Str("expected_log", expectedLog).
+						Str("found_message", strings.TrimSpace(logs.Msg)).
+						Int("mismatch_count", mismatchCount).
+						Msg("[soft assertion] Received UserLogs messages, but none match expected log yet")
 				}
-
-				matches := aptosTxHashInLogRe.FindStringSubmatch(line.Message)
-				if len(matches) == 2 {
-					txHash := normalizeTxHash(matches[1])
-					if txHash != "" {
-						return txHash
-					}
-				}
-
-				lggr.Warn().
-					Str("message", strings.TrimSpace(line.Message)).
-					Str("expected_log", expectedLog).
-					Msg("[soft assertion] Matched Aptos log without non-empty tx hash; waiting for another match")
+				continue
 			}
+
+			matches := aptosTxHashInLogRe.FindStringSubmatch(logs.Msg)
+			if len(matches) == 2 {
+				txHash := normalizeTxHash(matches[1])
+				if txHash != "" {
+					return txHash
+				}
+			}
+
+			lggr.Warn().
+				Str("message", strings.TrimSpace(logs.Msg)).
+				Str("expected_log", expectedLog).
+				Msg("[soft assertion] Matched Aptos log without non-empty tx hash; waiting for another match")
 		}
 	}
 }
 
-func aptosUserLogsHaveWorkflowID(logs *workflowevents.UserLogs, workflowID string) bool {
-	if logs == nil || logs.M == nil || workflowID == "" {
+func aptosUserLogsHaveWorkflowID(logs *workfloweventsv2.WorkflowUserLog, workflowID string) bool {
+	if logs == nil || logs.GetWorkflow() == nil || workflowID == "" {
 		return false
 	}
-	return normalizeHexValue(logs.M.WorkflowID) == normalizeHexValue(workflowID)
+	return normalizeHexValue(logs.GetWorkflow().GetWorkflowID()) == normalizeHexValue(workflowID)
 }
 
 func assertAptosWriteFailureTxOnChain(t *testing.T, aptosChain blockchains.Blockchain, txHash string) {

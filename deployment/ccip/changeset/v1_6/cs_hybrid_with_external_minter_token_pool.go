@@ -3,6 +3,7 @@ package v1_6
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -28,6 +29,33 @@ const (
 	groupBurnAndMint    uint8 = 1
 )
 
+// HybridGroupUpdate is a configuration for updating the group of a remote chain in a hybrid
+// token pool. Group must be LOCK_AND_RELEASE or BURN_AND_MINT; numeric values are not supported.
+type HybridGroupUpdate struct {
+	RemoteChainSelector uint64   `json:"remoteChainSelector"`
+	RemoteChainSupply   *big.Int `json:"remoteChainSupply"`
+	Group               string   `json:"group"`
+}
+
+func (u HybridGroupUpdate) toContractUpdate() (hybrid_with_external_minter_token_pool.HybridTokenPoolAbstractGroupUpdate, error) {
+	var group uint8
+	switch u.Group {
+	case "LOCK_AND_RELEASE":
+		group = groupLockAndRelease
+	case "BURN_AND_MINT":
+		group = groupBurnAndMint
+	default:
+		return hybrid_with_external_minter_token_pool.HybridTokenPoolAbstractGroupUpdate{}, fmt.Errorf(
+			"invalid group %q for remote chain %d, must be LOCK_AND_RELEASE or BURN_AND_MINT", u.Group, u.RemoteChainSelector)
+	}
+
+	return hybrid_with_external_minter_token_pool.HybridTokenPoolAbstractGroupUpdate{
+		RemoteChainSelector: u.RemoteChainSelector,
+		RemoteChainSupply:   u.RemoteChainSupply,
+		Group:               group,
+	}, nil
+}
+
 type HybridGroupConfig struct {
 	// Type is the type of the token pool.
 	Type cldf.ContractType `json:"type"`
@@ -35,7 +63,7 @@ type HybridGroupConfig struct {
 	// Version is the version of the token pool.
 	Version semver.Version `json:"version"`
 
-	Updates []hybrid_with_external_minter_token_pool.HybridTokenPoolAbstractGroupUpdate
+	Updates []HybridGroupUpdate
 
 	// RemoteSupplies is keyed by remote chain selector and is required for every update
 	// carrying a non-zero RemoteChainSupply.
@@ -159,7 +187,11 @@ func (c HybridGroupConfig) Validate(
 
 	seen := make(map[uint64]struct{}, len(c.Updates))
 
-	for _, update := range c.Updates {
+	for _, configuredUpdate := range c.Updates {
+		update, err := configuredUpdate.toContractUpdate()
+		if err != nil {
+			return err
+		}
 		if err := cldf.IsValidChainSelector(update.RemoteChainSelector); err != nil {
 			return fmt.Errorf("invalid remote chain selector %d: %w", update.RemoteChainSelector, err)
 		}
@@ -170,11 +202,6 @@ func (c HybridGroupConfig) Validate(
 			return fmt.Errorf("remote chain %d appears more than once in the group updates", update.RemoteChainSelector)
 		}
 		seen[update.RemoteChainSelector] = struct{}{}
-
-		if update.Group != groupLockAndRelease && update.Group != groupBurnAndMint {
-			return fmt.Errorf("invalid group %d for remote chain %d, must be %d (LOCK_AND_RELEASE) or %d (BURN_AND_MINT)",
-				update.Group, update.RemoteChainSelector, groupLockAndRelease, groupBurnAndMint)
-		}
 
 		supported, err := pool.IsSupportedChain(opts, update.RemoteChainSelector)
 		if err != nil {
@@ -265,7 +292,15 @@ func UpdateGroupsOnHybridWithExternalMinterTokenPool(env cldf.Environment, c Con
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to resolve pool on %s: %w", chain, err)
 		}
 
-		if _, err := pool.UpdateGroups(opts, tokenPool.Updates); err != nil {
+		updates := make([]hybrid_with_external_minter_token_pool.HybridTokenPoolAbstractGroupUpdate, 0, len(tokenPool.Updates))
+		for _, update := range tokenPool.Updates {
+			contractUpdate, err := update.toContractUpdate()
+			if err != nil {
+				return cldf.ChangesetOutput{}, err
+			}
+			updates = append(updates, contractUpdate)
+		}
+		if _, err := pool.UpdateGroups(opts, updates); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to update groups on token pool with address %s on %s: %w", pool.Address().String(), chain, err)
 		}
 	}

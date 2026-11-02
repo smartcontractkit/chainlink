@@ -431,3 +431,24 @@ func createTestCapabilityInfo(id string, capType commoncap.CapabilityType) commo
 		IsLocal:        false,
 	}
 }
+
+func TestCombinedClient_RemoveAndRestoreMethods(t *testing.T) {
+	t.Parallel()
+	client := remote.NewCombinedClient(createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeAction))
+	trigger := &mocks.TriggerCapability{}
+	executable := &mocks.ExecutableCapability{}
+	client.SetTriggerSubscriber("Trigger", trigger)
+	client.SetExecutableClient("Write", executable)
+	client.SetExecutableClient("Keep", executable)
+	client.SetTriggerSubscriber("Trigger", nil)
+	client.SetExecutableClient("Write", nil)
+	_, err := client.RegisterTrigger(t.Context(), commoncap.TriggerRegistrationRequest{Method: "Trigger"})
+	require.ErrorContains(t, err, "method Trigger not defined")
+	_, err = client.Execute(t.Context(), commoncap.CapabilityRequest{Method: "Write"})
+	require.ErrorContains(t, err, "method Write not defined")
+	assert.Same(t, executable, client.GetExecutableClient("Keep"))
+	client.SetTriggerSubscriber("Trigger", trigger)
+	client.SetExecutableClient("Write", executable)
+	assert.Same(t, trigger, client.GetTriggerSubscriber("Trigger"))
+	assert.Same(t, executable, client.GetExecutableClient("Write"))
+}

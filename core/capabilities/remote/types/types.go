@@ -55,3 +55,16 @@ type DON struct {
 type MessageHasher interface {
 	Hash(ctx context.Context, msg *MessageBody) ([32]byte, error)
 }
+
+// RequestAccumulator collects the payloads of the requests for a single server request that
+// produced the same MessageHasher hash, and builds the payload the capability is executed with.
+type RequestAccumulator interface {
+	Add(sender p2ptypes.PeerID, payload []byte) error
+	// Payload returns the payload to execute the capability with. ready is false while no
+	// executable payload can be built yet. A non-nil error means the request can never be executed.
+	Payload() (payload []byte, ready bool, err error)
+}
+
+type RequestAccumulatorFactory interface {
+	NewAccumulator(ctx context.Context, capabilityID string, callingDon commoncap.DON) (RequestAccumulator, error)
+}

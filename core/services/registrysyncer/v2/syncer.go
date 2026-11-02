@@ -291,7 +291,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.R
 			Signer:              node.Signer,
 			P2pID:               node.P2pId,
 			EncryptionPublicKey: node.EncryptionPublicKey,
-			CapabilitiesDONIds:  make([]*big.Int, 0, len(node.CapabilitiesDONIds)),
+			CapabilitiesDONIds:  make([]*big.Int, len(node.CapabilitiesDONIds)),
 			HashedCapabilityIDs: make([][32]byte, 0, len(node.CapabilityIds)),
 			CsaKey:              node.CsaKey,
 			CapabilityIDs:       node.CapabilityIds,

@@ -1,3 +1,4 @@
+# Static shard assignment (manual-only) with shard failover and a single shared vault DON.
 
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"

@@ -474,13 +474,13 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 	}
 }
 
-func TestShardFailoverCommunicator_AggregatesMixedStatuses(t *testing.T) {
+func TestShardFailoverCommunicator_MixedStatusesCountedSeparately(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 
 	disp := newInMemDispatcher()
 	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22), makeTestPeerID(23))
-	// N=5, F=1, quorum = 2F+1 = 3 per status
+	// N=5, F=1, quorum = 2F+1 = 3. Different statuses have different payloads, so votes are counted separately.
 	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12), makeTestPeerID(13), makeTestPeerID(14))
 
 	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
@@ -544,4 +544,67 @@ func TestShardFailoverCommunicator_AggregatesMixedStatuses(t *testing.T) {
 	assert.Equal(t, ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR, receivedStatus,
 		"handler should receive SYSTEM_ERROR — it reached 2F+1 quorum")
 	receivedMu.Unlock()
+}
+
+// A faulty primary peer must not be able to change fields of the delivered
+// update (e.g. TriggerEventId) by casting the vote that completes quorum.
+// Every field of the update has to be part of what the 2F+1 peers agree on.
+func TestShardFailoverCommunicator_FaultyPeerCannotForgeTriggerEventID(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+
+	disp := newInMemDispatcher()
+	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22), makeTestPeerID(23))
+	// N=4, F=1, quorum = 2F+1 = 3
+	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12), makeTestPeerID(13))
+
+	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
+	require.NoError(t, comm.Start(ctx))
+	t.Cleanup(func() { _ = comm.Close() })
+
+	var received []*ringpb.ExecutionStatusUpdate
+	var receivedMu sync.Mutex
+	comm.RegisterHandler("wf-1", primaryDON, func(msg *ringpb.ExecutionStatusUpdate) {
+		receivedMu.Lock()
+		received = append(received, msg)
+		receivedMu.Unlock()
+	})
+
+	honest := makeStatusMsg("wf-1", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR, primaryDON.ID)
+	// Same workflow and execution ID, different trigger event ID.
+	forged := makeStatusMsg("wf-1", "evt-forged", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR, primaryDON.ID)
+
+	honestPayload, err := proto.Marshal(honest)
+	require.NoError(t, err)
+	forgedPayload, err := proto.Marshal(forged)
+	require.NoError(t, err)
+
+	makeBody := func(payload []byte, senderIdx int) *remotetypes.MessageBody {
+		return &remotetypes.MessageBody{
+			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
+			Method:           remotetypes.MethodExecutionStatusUpdate,
+			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
+			CapabilityDonId:  localDON.ID,
+			CallerDonId:      primaryDON.ID,
+			Payload:          payload,
+			Sender:           primaryDON.Members[senderIdx][:],
+		}
+	}
+
+	// Two honest votes, then the faulty peer casts the third vote.
+	comm.Receive(ctx, makeBody(honestPayload, 0))
+	comm.Receive(ctx, makeBody(honestPayload, 1))
+	comm.Receive(ctx, makeBody(forgedPayload, 3))
+
+	receivedMu.Lock()
+	assert.Empty(t, received, "forged vote must not complete quorum for the honest update")
+	receivedMu.Unlock()
+
+	// Third honest vote reaches quorum.
+	comm.Receive(ctx, makeBody(honestPayload, 2))
+
+	receivedMu.Lock()
+	defer receivedMu.Unlock()
+	require.Len(t, received, 1)
+	assert.Equal(t, "evt-1", received[0].TriggerEventId)
 }

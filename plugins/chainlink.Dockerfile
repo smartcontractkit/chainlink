@@ -8,7 +8,7 @@
 # Stage: deps-base — module downloads, no source tree.
 # Stages that don't need the full source (remote plugins, delve) branch from
 # here so that source-only changes never invalidate their layer cache.
-FROM golang:1.27.1-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195 AS deps-base
+FROM golang:1.27.3-bookworm@sha256:5c3e9b43cfd3bb95c7937462e29d87ada57b481a96fa23ad0eb61778d7a00110 AS deps-base
 # Build-only tooling; never shipped, so versions are intentionally unpinned.
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends jq && rm -rf /var/lib/apt/lists/*

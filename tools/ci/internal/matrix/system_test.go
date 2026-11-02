@@ -39,6 +39,61 @@ func helperFunction() {}
 	assert.Equal(t, []string{"Example_Something", "Test_Smoke_ComplexFlow", "Test_Smoke_HappyPath"}, names)
 }
 
+func TestDiscoverGoTestNames_IncludedPatterns(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "sample_test.go")
+	content := `package sample_test
+
+import "testing"
+
+func Test_CRE_V2_Basic(t *testing.T) {}
+func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {}
+func Example_CRE_Thing() {}
+`
+	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
+
+	names, err := matrix.DiscoverGoTestNames(tmpDir, matrix.DiscoverOptions{
+		IncludedPatterns: []string{`^Test_CRE_`},
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"Test_CRE_V2_Basic"}, names)
+}
+
+// The CRE smoke suite contains a handful of plain unit tests alongside the real
+// E2E tests. Only Test_CRE_* tests need a runner and a CRE environment, so the
+// matrix must exclude everything else.
+func TestBuildCRESmokeMatrix_OnlyCRETests(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "smoke_test.go")
+	content := `package smoke_test
+
+import "testing"
+
+func Test_CRE_V2_Basic(t *testing.T) {}
+func TestMain(m *testing.M) {}
+func Test_Upgrade_Suite(t *testing.T) {}
+func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {}
+func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {}
+func TestMultiGatewayTopology_LoadExpectedConfig(t *testing.T) {}
+func TestPendingQueueStallWedgeCiphertextSizing(t *testing.T) {}
+func Example_Something() {}
+`
+	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
+
+	res, err := matrix.BuildCRESmokeMatrix(context.Background(), matrix.CRESmokeOptions{
+		Dir:   tmpDir,
+		RunID: "123456",
+	})
+	require.NoError(t, err)
+	require.Len(t, res, 1)
+	assert.Equal(t, "Test_CRE_V2_Basic", res[0].TestName)
+}
+
 func TestBuildCRESmokeMatrix(t *testing.T) {
 	t.Parallel()
 
@@ -236,9 +291,13 @@ func TestBuildCRESmokeMatrix_AdditionalOverrides(t *testing.T) {
 import "testing"
 
 func Test_CRE_V2_FailoverManualSwap(t *testing.T) {}
+func Test_CRE_V2_FailoverManualSwapCoordinated(t *testing.T) {}
+func Test_CRE_V2_ShardManualAssignmentCoordinated(t *testing.T) {}
 func Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger(t *testing.T) {}
 func Test_CRE_V2_ShardManualAssignmentSharedVault(t *testing.T) {}
 func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {}
+func Test_CRE_V2_ShardManualAssignmentConfidentialWorkflows(t *testing.T) {}
+func Test_CRE_V2_ShardFailoverConfidentialWorkflows(t *testing.T) {}
 `
 	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
 
@@ -247,7 +306,7 @@ func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {}
 		RunID: "123456",
 	})
 	require.NoError(t, err)
-	require.Len(t, res, 4)
+	require.Len(t, res, 8)
 
 	byName := make(map[string]matrix.CRESmokeEntry, len(res))
 	for _, entry := range res {
@@ -257,6 +316,14 @@ func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {}
 	failoverManualSwap := byName["Test_CRE_V2_FailoverManualSwap"]
 	assert.Equal(t, "workflow-gateway-failover", failoverManualSwap.Topology)
 	assert.Equal(t, "configs/workflow-gateway-failover-don.toml", failoverManualSwap.Configs)
+
+	failoverManualSwapCoordinated := byName["Test_CRE_V2_FailoverManualSwapCoordinated"]
+	assert.Equal(t, "workflow-gateway-failover-coordinated", failoverManualSwapCoordinated.Topology)
+	assert.Equal(t, "configs/workflow-gateway-failover-coordinated-don.toml", failoverManualSwapCoordinated.Configs)
+
+	manualCoordinated := byName["Test_CRE_V2_ShardManualAssignmentCoordinated"]
+	assert.Equal(t, "workflow-gateway-sharded-manual", manualCoordinated.Topology)
+	assert.Equal(t, "configs/workflow-gateway-sharded-manual.toml", manualCoordinated.Configs)
 
 	shardedCapabilities := byName["Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger"]
 	assert.Equal(t, "workflow-sharded-capabilities", shardedCapabilities.Topology)
@@ -269,6 +336,15 @@ func Test_CRE_V2_ShardFailoverSharedVault(t *testing.T) {}
 	failoverSharedVault := byName["Test_CRE_V2_ShardFailoverSharedVault"]
 	assert.Equal(t, "workflow-gateway-sharded-shared-vault-failover", failoverSharedVault.Topology)
 	assert.Equal(t, "configs/workflow-gateway-sharded-shared-vault-failover.toml", failoverSharedVault.Configs)
+
+	// The sharded confidential-workflows tests get their own sharded confidential topologies.
+	manualConfidential := byName["Test_CRE_V2_ShardManualAssignmentConfidentialWorkflows"]
+	assert.Equal(t, "workflow-gateway-sharded-confidential-workflows-manual", manualConfidential.Topology)
+	assert.Equal(t, "configs/workflow-gateway-sharded-confidential-workflows-manual.toml", manualConfidential.Configs)
+
+	failoverConfidential := byName["Test_CRE_V2_ShardFailoverConfidentialWorkflows"]
+	assert.Equal(t, "workflow-gateway-sharded-confidential-workflows-failover", failoverConfidential.Topology)
+	assert.Equal(t, "configs/workflow-gateway-sharded-confidential-workflows-failover.toml", failoverConfidential.Configs)
 }
 
 func TestBuildCRERegressionMatrix_AdditionalOverrides(t *testing.T) {

@@ -88,7 +88,9 @@ func TestNewNodePlatformBuildInfoConfig_UsesThreeMinuteBeat(t *testing.T) {
 }
 
 func TestNodePlatformBuildInfo_EmitsNodeBuildInfo(t *testing.T) {
-	obs := beholdertest.NewObserver(t)
+	t.Parallel()
+
+	rec := beholdertest.NewRecorder()
 
 	servicetest.Run(t, chainlink.NewNodePlatformBuildInfoService(chainlink.NodePlatformBuildInfoConfig{
 		Beat:         10 * time.Millisecond,
@@ -98,13 +100,14 @@ func TestNodePlatformBuildInfo_EmitsNodeBuildInfo(t *testing.T) {
 		DockerTag:    "docker-tag",
 		VersionTag:   "version-tag",
 		Version:      "1.2.3",
+		Emitter:      rec,
 	}))
 
 	require.Eventually(t, func() bool {
-		return obs.Len(t, beholder.AttrKeyEntity, "common.v1.NodeBuildInfo") > 0
+		return rec.Len(t, beholder.AttrKeyEntity, "common.v1.NodeBuildInfo") > 0
 	}, time.Second, 10*time.Millisecond)
 
-	msgs := obs.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeBuildInfo")
+	msgs := rec.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeBuildInfo")
 	require.NotEmpty(t, msgs)
 
 	msg := msgs[0]
@@ -121,12 +124,15 @@ func TestNodePlatformBuildInfo_EmitsNodeBuildInfo(t *testing.T) {
 }
 
 func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) {
-	obs := beholdertest.NewObserver(t)
+	t.Parallel()
+
+	rec := beholdertest.NewRecorder()
 
 	servicetest.Run(t, chainlink.NewNodePlatformJobInfoService(chainlink.NodePlatformJobInfoConfig{
 		Beat:         10 * time.Millisecond,
 		Lggr:         logger.TestLogger(t),
 		CSAPublicKey: "csa-public-key",
+		Emitter:      rec,
 		JobReader: fakeNodePlatformJobReader{
 			jobs: []job.Job{
 				{
@@ -201,10 +207,10 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 	}))
 
 	require.Eventually(t, func() bool {
-		return obs.Len(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo") > 0
+		return rec.Len(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo") > 0
 	}, time.Second, 10*time.Millisecond)
 
-	msg := obs.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")[0]
+	msg := rec.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")[0]
 	require.Equal(t, "node-platform", msg.Attrs[beholder.AttrKeyDomain])
 	require.Equal(t, "/node-platform/common/v1", msg.Attrs[beholder.AttrKeyDataSchema])
 
@@ -276,12 +282,15 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 }
 
 func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCIPJobs(t *testing.T) {
-	obs := beholdertest.NewObserver(t)
+	t.Parallel()
+
+	rec := beholdertest.NewRecorder()
 
 	servicetest.Run(t, chainlink.NewNodePlatformJobInfoService(chainlink.NodePlatformJobInfoConfig{
 		Beat:         10 * time.Millisecond,
 		Lggr:         logger.TestLogger(t),
 		CSAPublicKey: "csa-public-key",
+		Emitter:      rec,
 		JobReader: fakeNodePlatformJobReader{
 			jobs: []job.Job{
 				{
@@ -304,10 +313,10 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCIPJobs(t *testing.T) {
 	}))
 
 	require.Eventually(t, func() bool {
-		return obs.Len(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo") > 0
+		return rec.Len(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo") > 0
 	}, time.Second, 10*time.Millisecond)
 
-	msg := obs.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")[0]
+	msg := rec.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")[0]
 	var payload commonv1.NodeJobInfo
 	require.NoError(t, proto.Unmarshal(msg.Body, &payload))
 	expected := &commonv1.NodeJobInfo{
@@ -331,12 +340,15 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCIPJobs(t *testing.T) {
 }
 
 func TestNodePlatformJobInfo_DoesNotEmitSubmitterAddressesForCCIPBootstrapJobs(t *testing.T) {
-	obs := beholdertest.NewObserver(t)
+	t.Parallel()
+
+	rec := beholdertest.NewRecorder()
 
 	servicetest.Run(t, chainlink.NewNodePlatformJobInfoService(chainlink.NodePlatformJobInfoConfig{
 		Beat:         10 * time.Millisecond,
 		Lggr:         logger.TestLogger(t),
 		CSAPublicKey: "csa-public-key",
+		Emitter:      rec,
 		JobReader: fakeNodePlatformJobReader{
 			jobs: []job.Job{
 				{
@@ -353,22 +365,25 @@ func TestNodePlatformJobInfo_DoesNotEmitSubmitterAddressesForCCIPBootstrapJobs(t
 	}))
 
 	require.Eventually(t, func() bool {
-		return obs.Len(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo") > 0
+		return rec.Len(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo") > 0
 	}, time.Second, 10*time.Millisecond)
 
-	msg := obs.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")[0]
+	msg := rec.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")[0]
 	var payload commonv1.NodeJobInfo
 	require.NoError(t, proto.Unmarshal(msg.Body, &payload))
 	require.Empty(t, payload.SubmitterAddresses)
 }
 
 func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCVExecutorJobs(t *testing.T) {
-	obs := beholdertest.NewObserver(t)
+	t.Parallel()
+
+	rec := beholdertest.NewRecorder()
 
 	servicetest.Run(t, chainlink.NewNodePlatformJobInfoService(chainlink.NodePlatformJobInfoConfig{
 		Beat:         10 * time.Millisecond,
 		Lggr:         logger.TestLogger(t),
 		CSAPublicKey: "csa-public-key",
+		Emitter:      rec,
 		JobReader: fakeNodePlatformJobReader{
 			jobs: []job.Job{
 				{
@@ -389,10 +404,10 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCVExecutorJobs(t *testin
 	}))
 
 	require.Eventually(t, func() bool {
-		return obs.Len(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo") > 0
+		return rec.Len(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo") > 0
 	}, time.Second, 10*time.Millisecond)
 
-	msg := obs.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")[0]
+	msg := rec.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")[0]
 	var payload commonv1.NodeJobInfo
 	require.NoError(t, proto.Unmarshal(msg.Body, &payload))
 	expected := &commonv1.NodeJobInfo{
@@ -414,7 +429,9 @@ func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
 		t.Skip("too slow for testing.Short")
 	}
 
-	obs := beholdertest.NewObserver(t)
+	t.Parallel()
+
+	rec := beholdertest.NewRecorder()
 
 	jobs := make([]job.Job, 1001)
 	jobs[1000] = job.Job{
@@ -433,13 +450,14 @@ func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
 		Beat:         100 * time.Millisecond,
 		Lggr:         logger.TestLogger(t),
 		CSAPublicKey: "csa-public-key",
+		Emitter:      rec,
 		JobReader: fakeNodePlatformJobReader{
 			jobs: jobs,
 		},
 	}))
 
 	require.Eventually(t, func() bool {
-		msgs := obs.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")
+		msgs := rec.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")
 		for _, msg := range msgs {
 			var payload commonv1.NodeJobInfo
 			if proto.Unmarshal(msg.Body, &payload) != nil {
@@ -461,7 +479,9 @@ func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
 }
 
 func TestNodePlatformBuildInfo_ResolvesCSAKeyOnStart(t *testing.T) {
-	obs := beholdertest.NewObserver(t)
+	t.Parallel()
+
+	rec := beholdertest.NewRecorder()
 	csaStore := &keystoremocks.CSA{}
 
 	csaStore.EXPECT().EnsureKey(mock.Anything).Return(nil).Once()
@@ -475,13 +495,14 @@ func TestNodePlatformBuildInfo_ResolvesCSAKeyOnStart(t *testing.T) {
 		DockerTag:   "docker-tag",
 		VersionTag:  "version-tag",
 		Version:     "1.2.3",
+		Emitter:     rec,
 	}))
 
 	require.Eventually(t, func() bool {
-		return obs.Len(t, beholder.AttrKeyEntity, "common.v1.NodeBuildInfo") > 0
+		return rec.Len(t, beholder.AttrKeyEntity, "common.v1.NodeBuildInfo") > 0
 	}, time.Second, 10*time.Millisecond)
 
-	msg := obs.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeBuildInfo")[0]
+	msg := rec.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeBuildInfo")[0]
 	var payload commonv1.NodeBuildInfo
 	require.NoError(t, proto.Unmarshal(msg.Body, &payload))
 	require.Equal(t, cltest.DefaultCSAKey.PublicKeyString(), payload.CsaPublicKey)

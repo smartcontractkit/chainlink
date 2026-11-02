@@ -33,6 +33,12 @@ type ProposeStandardCapabilityJobInput struct {
 	Environment string
 	DONName     string
 
+	// JDDONName overrides the DON name used to look up nodes on JD via the
+	// `don-<name>` label. Defaults to DONName when empty. Set this when a DON's
+	// nodes are labelled in JD under a different name than the one it is
+	// registered under in the capabilities registry.
+	JDDONName string
+
 	// Job is the standard capability job to propose.
 	// If GenerateOracleFactory is true, the OracleFactory field will be ignored and generated.
 	// If false, the OracleFactory field will be used as-is.
@@ -63,10 +69,15 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("invalid job: %w", err)
 		}
 
+		jdDONName := input.DONName
+		if input.JDDONName != "" {
+			jdDONName = input.JDDONName
+		}
+
 		filter := &node.ListNodesRequest_Filter{
 			Selectors: []*ptypes.Selector{
 				{
-					Key: "don-" + input.DONName,
+					Key: "don-" + jdDONName,
 					Op:  ptypes.SelectorOp_EXIST,
 				},
 				{
@@ -99,7 +110,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch nodes from JD: %w", err)
 		}
 		if len(nodes) == 0 {
-			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes found on JD for DON `%s` with filters %+v", input.DONName, filter)
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes found on JD for DON `%s` with filters %+v", jdDONName, filter)
 		}
 
 		nodeIDs := make([]string, len(nodes))
@@ -112,7 +123,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("failed to fetch node infos: %w", err)
 		}
 		if len(nodeInfos) == 0 {
-			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes info found for DON `%s` with filters %+v and node IDs %v", input.DONName, input.DONFilters, nodeIDs)
+			return ProposeStandardCapabilityJobOutput{}, fmt.Errorf("no nodes info found for DON `%s` with filters %+v and node IDs %v", jdDONName, input.DONFilters, nodeIDs)
 		}
 
 		setPerNodeCfg := len(input.NodeIDToConfig) > 0

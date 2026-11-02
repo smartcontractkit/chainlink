@@ -23,6 +23,7 @@ const (
 	ServiceNameConfidential = "confidential"
 
 	minimumRequestTimeoutSec = 5
+	heartbeatIntervalSec     = 20
 )
 
 // HandlerServiceName returns the service name for a given handler type.
@@ -45,9 +46,14 @@ type TargetDONMember struct {
 }
 
 type TargetDON struct {
-	ID       string
-	F        int
-	Members  []TargetDONMember
+	ID string
+	F  int
+	// Members is used in legacy (don-centric) format. In service-centric format it is
+	// only a fallback emitted as a single shard when Shards is empty.
+	Members []TargetDONMember
+	// Shards holds the members of each shard, ordered by shard index. Used only in
+	// service-centric format; a non-sharded DON has a single shard.
+	Shards   [][]TargetDONMember
 	Handlers []string // used only in legacy (don-centric) format
 }
 
@@ -70,6 +76,7 @@ type GatewayJob struct {
 
 	JobName             string
 	RequestTimeoutSec   int
+	PongTimeoutSec      int // 0 leaves the gateway pong deadline disabled
 	AllowedPorts        []int
 	AllowedSchemes      []string
 	AllowedIPsCIDR      []string
@@ -109,6 +116,11 @@ func (g GatewayJob) Validate() error {
 	// including Read/WriteTimeoutMillis, and handler-specific timeouts like the vault handler timeout.
 	if g.RequestTimeoutSec < minimumRequestTimeoutSec {
 		return errors.New("request timeout must be at least" + strconv.Itoa(minimumRequestTimeoutSec) + " seconds")
+	}
+
+	// The gateway rejects a non-zero pong timeout that is not above the heartbeat interval.
+	if g.PongTimeoutSec < 0 || (g.PongTimeoutSec != 0 && g.PongTimeoutSec <= heartbeatIntervalSec) {
+		return errors.New("pong timeout must be 0 or greater than the heartbeat interval of " + strconv.Itoa(heartbeatIntervalSec) + " seconds")
 	}
 
 	for _, port := range g.AllowedPorts {
@@ -162,7 +174,8 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 		AuthChallengeLen:          10,
 		AuthGatewayID:             g.authGatewayIDForNode(gatewayNodeIdx),
 		AuthTimestampToleranceSec: 5,
-		HeartbeatIntervalSec:      20,
+		HeartbeatIntervalSec:      heartbeatIntervalSec,
+		PongTimeoutSec:            g.PongTimeoutSec,
 	}
 	nodeCfg := nodeServerConfig{
 		HandshakeTimeoutMillis: 1_000,
@@ -280,14 +293,22 @@ func (g GatewayJob) buildLegacyDons() ([]legacyDON, error) {
 func (g GatewayJob) buildServicesAndShardedDONs() ([]shardedDON, []service, error) {
 	shardedDONs := make([]shardedDON, len(g.DONs))
 	for i, don := range g.DONs {
-		nodes := make([]member, len(don.Members))
-		for j, mem := range don.Members {
-			nodes[j] = member(mem)
+		shardMembers := don.Shards
+		if len(shardMembers) == 0 {
+			shardMembers = [][]TargetDONMember{don.Members}
+		}
+		shards := make([]shard, len(shardMembers))
+		for j, members := range shardMembers {
+			nodes := make([]member, len(members))
+			for k, mem := range members {
+				nodes[k] = member(mem)
+			}
+			shards[j] = shard{Nodes: nodes}
 		}
 		shardedDONs[i] = shardedDON{
 			DonName: don.ID,
 			F:       don.F,
-			Shards:  []shard{{Nodes: nodes}},
+			Shards:  shards,
 		}
 	}
 

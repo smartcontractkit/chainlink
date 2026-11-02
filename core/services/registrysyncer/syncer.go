@@ -401,10 +401,11 @@ func (s *registrySyncer) AddListener(listeners ...Listener) {
 func (s *registrySyncer) Close() error {
 	return s.StopOnce("RegistrySyncer", func() error {
 		close(s.stopCh)
+		// Wait before locking: syncLoop may be blocked in Sync on mu.RLock, which Lock would starve.
+		s.wg.Wait()
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		close(s.updateChan)
-		s.wg.Wait()
 		return nil
 	})
 }

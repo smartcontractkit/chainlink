@@ -174,11 +174,15 @@ func validateOverrideForwarder(got, expected, nodeID string) error {
 	return nil
 }
 
-func proposeAndReport(
+// proposeAndReportWithJDDON proposes a standard capability job and reports the
+// result, using an explicit DON name for JD node lookup. See
+// ProposeStandardCapabilityJobInput.JDDONName. When jdDONName is empty, donName
+// is used for the JD `don-<name>` label lookup.
+func proposeAndReportWithJDDON(
 	e cldf.Environment,
 	job pkg.StandardCapabilityJob,
 	nodeIDToConfig map[string]string,
-	domain, env, donName, zone string,
+	domain, env, donName, jdDONName, zone string,
 ) (cldf.ChangesetOutput, error) {
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
@@ -190,6 +194,7 @@ func proposeAndReport(
 			Domain:         domain,
 			Environment:    env,
 			DONName:        donName,
+			JDDONName:      jdDONName,
 
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: "zone", Value: zone},

@@ -98,15 +98,25 @@ func NewCombinedClient(info capabilities.CapabilityInfo) *combinedClient {
 	}
 }
 
+// SetTriggerSubscriber removes the method when subscriber is nil.
 func (c *combinedClient) SetTriggerSubscriber(method string, subscriber capabilities.TriggerCapability) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if subscriber == nil {
+		delete(c.triggerSubscribers, method)
+		return
+	}
 	c.triggerSubscribers[method] = subscriber
 }
 
+// SetExecutableClient removes the method when client is nil.
 func (c *combinedClient) SetExecutableClient(method string, client capabilities.ExecutableCapability) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if client == nil {
+		delete(c.executableClients, method)
+		return
+	}
 	c.executableClients[method] = client
 }
 

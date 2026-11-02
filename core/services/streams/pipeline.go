@@ -1,8 +1,10 @@
 package streams
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/pkg/errors"
 
@@ -23,15 +25,19 @@ type RunResultSaver interface {
 type Pipeline interface {
 	Run(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error)
 	StreamIDs() []StreamID
+	// TerminalDotIDs returns the DOT IDs of the terminal tasks in output index
+	// order. The result is shared and must not be modified.
+	TerminalDotIDs() []string
 }
 
 type multiStreamPipeline struct {
-	lggr      logger.Logger
-	spec      pipeline.Spec
-	runner    Runner
-	rrs       RunResultSaver
-	streamIDs []StreamID
-	newVars   func() pipeline.Vars
+	lggr           logger.Logger
+	spec           pipeline.Spec
+	runner         Runner
+	rrs            RunResultSaver
+	streamIDs      []StreamID
+	newVars        func() pipeline.Vars
+	terminalDotIDs []string
 }
 
 func NewMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs RunResultSaver) (Pipeline, error) {
@@ -92,7 +98,27 @@ func newMultiStreamPipeline(lggr logger.Logger, jb job.Job, runner Runner, rrs R
 		rrs,
 		streamIDs,
 		vars,
+		TerminalDotIDs(spec.Pipeline),
 	}, nil
+}
+
+// TerminalDotIDs returns the DOT IDs of the terminal tasks of p in output index
+// order, the order in which the runner returns their results.
+func TerminalDotIDs(p *pipeline.Pipeline) []string {
+	var terminals []pipeline.Task
+	for _, t := range p.Tasks {
+		if len(t.Outputs()) == 0 {
+			terminals = append(terminals, t)
+		}
+	}
+	slices.SortStableFunc(terminals, func(a, b pipeline.Task) int {
+		return cmp.Compare(a.OutputIndex(), b.OutputIndex())
+	})
+	ids := make([]string, len(terminals))
+	for i, t := range terminals {
+		ids[i] = t.DotID()
+	}
+	return ids
 }
 
 func validateStreamIDs(streamIDs []StreamID) error {
@@ -120,6 +146,10 @@ func (s *multiStreamPipeline) Run(ctx context.Context) (run *pipeline.Run, trrs 
 
 func (s *multiStreamPipeline) StreamIDs() []StreamID {
 	return s.streamIDs
+}
+
+func (s *multiStreamPipeline) TerminalDotIDs() []string {
+	return s.terminalDotIDs
 }
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).

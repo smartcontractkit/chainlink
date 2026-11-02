@@ -1,9 +1,7 @@
 package chainlink_test
 
 import (
-	"bytes"
 	"context"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -14,7 +12,8 @@ import (
 	"go.opentelemetry.io/otel/metric/embedded"
 	"go.opentelemetry.io/otel/metric/noop"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
@@ -55,28 +54,29 @@ func TestHeartbeat_MeterEvents(t *testing.T) {
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
+	t.Parallel()
 
-	lggr := logger.TestLogger(t)
-
-	// Use a thread-safe byte collector
-	collector := &byteCollector{}
-	client, err := beholder.NewWriterClient(collector)
-	require.NoError(t, err)
-
-	// Set the global beholder client
-	beholder.SetClient(client)
-	defer beholder.SetClient(beholder.NewNoopClient()) // Reset to prevent test side effects
+	// Inject a per-test recorder instead of swapping the global beholder client
+	rec := beholdertest.NewRecorder()
+	labels := map[string]string{
+		"system":  "Application",
+		"peer_id": "peer-id",
+		"appID":   "app-id",
+	}
 
 	// Create custom metric counter to track gauge calls and set up heartbeat service
 	var heartbeatCounter, heartbeatCountCounter int32
 	mockMeter := newCountingMeter(t, &heartbeatCounter, &heartbeatCountCounter)
 	c := chainlink.HeartbeatConfig{
 		Beat:  50 * time.Millisecond,
-		Lggr:  lggr,
+		Lggr:  logger.TestLogger(t),
 		P2P:   "peer-id",
 		AppID: "app-id",
 	}
-	heartbeat := chainlink.NewHeartbeat(c, chainlink.WithMeter(mockMeter))
+	heartbeat := chainlink.NewHeartbeat(c,
+		chainlink.WithMeter(mockMeter),
+		chainlink.WithEmitter(custmsg.NewLabelerWithEmitter(rec).WithMapLabels(labels)),
+	)
 	require.NoError(t, heartbeat.Start(t.Context()))
 
 	// Wait for ~10 heartbeats
@@ -90,9 +90,17 @@ func TestHeartbeat_MeterEvents(t *testing.T) {
 	assert.InDelta(t, expectedCalls, hb, 2, "Expected ~%d heartbeat gauge calls", expectedCalls)
 	assert.InDelta(t, expectedCalls, hbCount, 2, "Expected ~%d heartbeat count gauge calls", expectedCalls)
 
-	// Check the output buffer for heartbeat messages
-	outputStr := collector.String()
-	assert.Contains(t, outputStr, "heartbeat", "Output should contain heartbeat messages")
+	// Each tick emits one heartbeat custom message through the injected
+	// emitter, so the message count tracks the gauge counts
+	msgs, err := rec.BaseMessagesForLabels(t, labels)
+	require.NoError(t, err)
+	heartbeatMsgs := 0
+	for _, m := range msgs {
+		if m.Msg == "heartbeat" {
+			heartbeatMsgs++
+		}
+	}
+	assert.InDelta(t, expectedCalls, heartbeatMsgs, 2, "Expected ~%d heartbeat messages", expectedCalls)
 }
 
 // mockMeter is a custom implementation of metric.Meter that counts gauge creation specifically for heartbeat metrics.
@@ -137,22 +145,4 @@ func (g *countingGauge) Record(ctx context.Context, value int64, options ...metr
 
 func (g *countingGauge) Enabled(ctx context.Context) bool {
 	return true
-}
-
-// byteCollector collects all bytes written to it in a thread-safe manner
-type byteCollector struct {
-	mu     sync.Mutex
-	buffer bytes.Buffer
-}
-
-func (bc *byteCollector) Write(p []byte) (n int, err error) {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-	return bc.buffer.Write(p)
-}
-
-func (bc *byteCollector) String() string {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-	return bc.buffer.String()
 }

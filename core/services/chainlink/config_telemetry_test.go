@@ -128,6 +128,28 @@ func TestTelemetryConfig_ResourceAttributes(t *testing.T) {
 	}
 }
 
+func TestTelemetryConfig_ResourceAttributesShardIndex(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		sharding  toml.Sharding
+		telemetry toml.Telemetry
+		expected  string
+	}{
+		{"ShardingEnabled", toml.Sharding{ShardingEnabled: new(true), ShardIndex: new(uint16(2))}, toml.Telemetry{}, "2"},
+		{"ShardingDisabled", toml.Sharding{ShardingEnabled: new(false), ShardIndex: new(uint16(2))}, toml.Telemetry{}, ""},
+		{"ExplicitAttributeWins", toml.Sharding{ShardingEnabled: new(true), ShardIndex: new(uint16(2))}, toml.Telemetry{ResourceAttributes: map[string]string{"shardIndex": "7"}}, "7"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry, sh: &shardingConfig{s: tt.sharding}}
+			assert.Equal(t, tt.expected, tc.ResourceAttributes()["shardIndex"])
+		})
+	}
+}
+
 func TestTelemetryConfig_TraceSampleRatio(t *testing.T) {
 	tests := []struct {
 		name      string

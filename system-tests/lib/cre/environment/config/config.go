@@ -68,10 +68,17 @@ type Config struct {
 	ChipRouter        *ctfchiprouter.Input            `toml:"chip_router" validate:"required"`
 	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
 	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
+	Extensions        *Extensions                     `toml:"extensions"`
 	Addresses         []string                        `toml:"addresses"`
 
 	mu     sync.Mutex
 	loaded bool
+}
+
+// Extensions are centralized CRE services started alongside the DONs, answering to fixed role aliases on the
+// Docker network (see core/scripts/cre/environment/configs/extensions/README.md).
+type Extensions struct {
+	StorageCompose string `toml:"storage_compose" validate:"required"` // path to cre-storage-service/local-stack/compose.yaml
 }
 
 // Validate performs validation checks on the configuration, ensuring all required fields

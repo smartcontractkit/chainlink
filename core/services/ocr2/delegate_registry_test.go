@@ -15,23 +15,54 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
-func TestRegistryOCRKeyBundle(t *testing.T) {
+func TestRegistryOCRKeyBundles(t *testing.T) {
+	t.Parallel()
+
+	evmKey, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+	solKey, err := ocr2key.New(corekeys.Solana)
+	require.NoError(t, err)
+	otherEVMKey, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+
+	multichainSigner, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
+		string(corekeys.EVM):    evmKey.PublicKey(),
+		string(corekeys.Solana): solKey.PublicKey(),
+	})
+	require.NoError(t, err)
+
+	keyStore := keystoremocks.NewOCR2(t)
+	keyStore.EXPECT().GetAll().Return([]ocr2key.KeyBundle{otherEVMKey, evmKey, solKey}, nil)
+
+	got, idx, err := registryOCRKeyBundles(keyStore, &ocrtypes.ContractConfig{
+		Signers: []ocrtypes.OnchainPublicKey{[]byte("other-signer"), multichainSigner},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, idx)
+	require.Len(t, got, 2)
+	assert.Equal(t, evmKey.ID(), got[string(corekeys.EVM)].ID())
+	assert.Equal(t, solKey.ID(), got[string(corekeys.Solana)].ID())
+}
+
+func TestRegistryOCRKeyBundles_NoMatch(t *testing.T) {
 	t.Parallel()
 
 	key, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
 	keyStore := keystoremocks.NewOCR2(t)
-	keyStore.EXPECT().GetAllOfType(corekeys.EVM).Return([]ocr2key.KeyBundle{key}, nil)
+	keyStore.EXPECT().GetAll().Return([]ocr2key.KeyBundle{key}, nil)
 
-	got, err := registryOCRKeyBundle(keyStore, &ocrtypes.ContractConfig{
-		Signers: []ocrtypes.OnchainPublicKey{key.PublicKey()},
+	_, _, err = registryOCRKeyBundles(keyStore, &ocrtypes.ContractConfig{
+		Signers: []ocrtypes.OnchainPublicKey{[]byte("other-signer")},
 	})
-	require.NoError(t, err)
-	require.NotNil(t, got)
-	assert.Equal(t, key.ID(), got.ID())
+	require.ErrorContains(t, err, "none of the node's 1 OCR key bundles match the signers in the registry OCR config")
+
+	_, _, err = registryOCRKeyBundles(keystoremocks.NewOCR2(t), nil)
+	require.ErrorContains(t, err, "no OCR config in the Capabilities Registry")
 }
 
 func TestRegistryOCR2SpecRelayID(t *testing.T) {

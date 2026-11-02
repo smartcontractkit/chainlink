@@ -51,9 +51,9 @@ func collectCounterByAttr(t *testing.T, reader *sdkmetric.ManualReader, name, at
 //   - check unenforced: the Check could not be evaluated, so the limit was skipped and
 //     the operation allowed through. The limit is NOT applied, which is the more serious
 //     of the two and warrants its own alert rather than a label on the other counter.
-//
-//nolint:paralleltest // setupTestMeter swaps the global beholder client
 func TestEngine_LimitDegradationCounters(t *testing.T) {
+	t.Parallel()
+
 	const (
 		unenforcedCounter = "platform_engine_limit_check_unenforced_total"
 		fallbackCounter   = "platform_engine_limit_read_fallback_total"
@@ -61,8 +61,10 @@ func TestEngine_LimitDegradationCounters(t *testing.T) {
 	)
 
 	t.Run("check unenforced records the limit key", func(t *testing.T) {
-		reader := setupTestMeter(t)
-		em, err := monitoring.InitMonitoringResources()
+		t.Parallel()
+
+		meter, reader := newTestMeter(t)
+		em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 		require.NoError(t, err)
 		labeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 
@@ -75,8 +77,10 @@ func TestEngine_LimitDegradationCounters(t *testing.T) {
 	})
 
 	t.Run("the two degradation modes are separate series", func(t *testing.T) {
-		reader := setupTestMeter(t)
-		em, err := monitoring.InitMonitoringResources()
+		t.Parallel()
+
+		meter, reader := newTestMeter(t)
+		em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 		require.NoError(t, err)
 		labeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 

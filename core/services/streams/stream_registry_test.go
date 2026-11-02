@@ -30,6 +30,10 @@ func (m *mockPipeline) StreamIDs() []StreamID {
 	return m.streamIDs
 }
 
+func (m *mockPipeline) TerminalDotIDs() []string {
+	return nil
+}
+
 func Test_Registry(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	runner := &mockRunner{}

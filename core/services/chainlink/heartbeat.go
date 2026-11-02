@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -23,6 +24,7 @@ type Heartbeat struct {
 	beat    time.Duration
 	emitter custmsg.MessageEmitter // Add emitter field
 	meter   metric.Meter           // Add meter field
+	tracer  trace.Tracer           // Add tracer field
 }
 
 type HeartbeatConfig struct {
@@ -70,12 +72,12 @@ func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
 		labels["csa_key"] = cfg.CSAPublicKey
 	}
 
-	cme.WithMapLabels(labels)
 	h := Heartbeat{
 		beat:    cfg.Beat,
 		opts:    cfg,
 		emitter: cme.WithMapLabels(labels),
 		meter:   beholder.GetMeter(),
+		tracer:  beholder.GetTracer(),
 	}
 
 	// Apply test options if any
@@ -105,6 +107,12 @@ func WithMeter(meter metric.Meter) HeartbeatOpt {
 	}
 }
 
+func WithTracer(tracer trace.Tracer) HeartbeatOpt {
+	return func(h *Heartbeat) {
+		h.tracer = tracer
+	}
+}
+
 // Update the start method to use the injected emitter if provided
 func (h *Heartbeat) start(_ context.Context) error {
 	// Setup the heartbeat gauge and count
@@ -120,8 +128,7 @@ func (h *Heartbeat) start(_ context.Context) error {
 
 	// Define tick functions
 	beatFn := func(ctx context.Context) {
-		// TODO allow override of tracer provider into engine for beholder
-		_, innerSpan := beholder.GetTracer().Start(ctx, "heartbeat.beat")
+		_, innerSpan := h.tracer.Start(ctx, "heartbeat.beat")
 		defer innerSpan.End()
 
 		gauge.Record(ctx, 1)

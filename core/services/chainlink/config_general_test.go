@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +20,28 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
+
+func TestGeneralConfig_ResourceAttributesShardIndex(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		toml     string
+		expected string
+	}{
+		{"ShardingEnabled", "[Sharding]\nShardingEnabled = true\nShardIndex = 2\n", "2"},
+		{"ShardingDisabled", "[Sharding]\nShardingEnabled = false\nShardIndex = 2\n", ""},
+		{"ExplicitAttributeWins", "[Telemetry.ResourceAttributes]\nshardIndex = '7'\n\n[Sharding]\nShardingEnabled = true\nShardIndex = 2\n", "7"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfg, err := GeneralConfigOpts{ConfigStrings: []string{tt.toml}}.New()
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, cfg.ResourceAttributes()["shardIndex"])
+		})
+	}
+}
 
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	config, err := GeneralConfigOpts{}.New()
@@ -81,6 +104,42 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 		err = cfg.Validate()
 		require.Contains(t, err.Error(), "invalid configuration: Insecure.DevWebServer: invalid value (true): insecure configs are not allowed on secure builds")
 	})
+}
+
+func TestGeneralConfigOpts_ConcurrentOverrideAndNew(t *testing.T) {
+	t.Parallel()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for range 100 {
+			_, err := GeneralConfigOpts{
+				OverrideFn: func(c *Config, s *Secrets) {
+					*c.Insecure.DevWebServer = true
+					*c.AuditLogger.Enabled = true
+				},
+			}.New()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for range 100 {
+			opts := GeneralConfigOpts{}
+			if _, err := opts.New(); err != nil {
+				t.Error(err)
+				return
+			}
+		}
+	}()
+
+	wg.Wait()
 }
 
 func TestValidateDB(t *testing.T) {

@@ -105,7 +105,7 @@ func (ks *tron) Import(ctx context.Context, keyJSON []byte, password string) (tr
 		return tronkey.Key{}, errors.Wrap(err, "TronKeyStore#ImportKey failed to decrypt key")
 	}
 	if _, found := ks.keyRing.Tron[key.ID()]; found {
-		return tronkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
+		return tronkey.Key{}, fmt.Errorf("%w: key with ID %s already exists", ErrKeyExists, key.ID())
 	}
 	return key, ks.safeAddKey(ctx, key)
 }

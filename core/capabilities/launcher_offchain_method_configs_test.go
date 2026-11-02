@@ -1,0 +1,432 @@
+package capabilities
+
+import (
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	regpkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
+	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
+)
+
+// requestTimeoutFor returns the requestTimeout the launcher wired for (capID, method),
+// read from the executable client's SetConfig log line.
+func requestTimeoutFor(t *testing.T, logs *observer.ObservedLogs, capID, method string) time.Duration {
+	t.Helper()
+	for _, entry := range logs.All() {
+		if entry.Message != "SetConfig" {
+			continue
+		}
+		if entry.ContextMap()["capabilityID"] != capID || entry.ContextMap()["capMethodName"] != method {
+			continue
+		}
+		rt, ok := entry.ContextMap()["requestTimeout"].(time.Duration)
+		if !ok {
+			// zap encodes durations as strings in output; the observer may keep either.
+			if s, isStr := entry.ContextMap()["requestTimeout"].(string); isStr {
+				d, err := time.ParseDuration(s)
+				require.NoError(t, err)
+				return d
+			}
+			require.True(t, ok, "SetConfig log for %s/%s has no requestTimeout", capID, method)
+		}
+		return rt
+	}
+	t.Fatalf("no SetConfig log for %s/%s", capID, method)
+	return 0
+}
+
+// offchainMethodCfg builds an offchain registry payload with method_configs for one capability
+// on one DON, keyed by DON name.
+func offchainMethodCfg(t *testing.T, version uint64, donName string, capID string, methodConfigs map[string]*capabilitiespb.CapabilityMethodConfig) *globalconfig.GlobalConfig {
+	t.Helper()
+	reg := &capabilitiespb.OffchainCapabilitiesRegistry{
+		Domain:  "cre",
+		Env:     "test",
+		Version: version,
+		Dons: map[string]*capabilitiespb.DONConfig{
+			donName: {
+				Capabilities: map[string]*capabilitiespb.CapabilityConfig{
+					capID: {MethodConfigs: methodConfigs},
+				},
+			},
+		},
+	}
+	raw, err := protojson.Marshal(reg)
+	require.NoError(t, err)
+	gc := globalconfig.New()
+	_, err = gc.Store(string(raw), "")
+	require.NoError(t, err)
+	return gc
+}
+
+func onchainMethodCfg(t *testing.T, methodConfigs map[string]*capabilitiespb.CapabilityMethodConfig) []byte {
+	t.Helper()
+	b, err := proto.Marshal(&capabilitiespb.CapabilityConfig{MethodConfigs: methodConfigs})
+	require.NoError(t, err)
+	return b
+}
+
+func TestOffchainMethodConfigs_WantedWithoutOnchainMethods(t *testing.T) {
+	t.Parallel()
+	const capID = "cap@1.0.0"
+	don := regpkg.DON{ID: 1, Name: "don-1"}
+	method := &capabilitiespb.CapabilityMethodConfig{RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{}}}
+	gc := offchainMethodCfg(t, 1, don.Name, capID, map[string]*capabilitiespb.CapabilityMethodConfig{"New": method})
+	snap := newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{don})
+	noMethods := regpkg.DON{ID: don.ID, Name: don.Name, CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{capID: {}}}
+	wanted := computeWantedShimKeys([]regpkg.DON{noMethods}, []regpkg.DON{noMethods}, snap)
+	key := shimID{capID: capID, donID: don.ID, method: "New"}
+	assert.Contains(t, wanted.triggerSubscribers, key)
+	assert.Contains(t, wanted.triggerPublishers, key)
+}
+
+// TestOffchainMethodConfigs_GateOff_Unchanged asserts that with the cutover gate off, the
+// launcher wires the on-chain method configs byte-for-byte (backwards compatibility).
+func TestOffchainMethodConfigs_GateOff_Unchanged(t *testing.T) {
+	t.Parallel()
+	lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
+	reg := regpkg.NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	workflowDonNodes := newNodes(4)
+	capabilityDonNodes := newNodes(4)
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	fullCapID := "write-chain_evm_1@1.0.0"
+	capIDHash := RandomUTF8BytesWord()
+
+	onchainCfg := onchainMethodCfg(t, map[string]*capabilitiespb.CapabilityMethodConfig{
+		"Write": {
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					RequestTimeout:            durationpb.New(30 * time.Second),
+					ServerMaxParallelRequests: 10,
+				},
+			},
+		},
+	})
+
+	wfDONID, capDONID := uint32(1), uint32(2)
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfDONID, uint32(0), uint8(1), true, true, workflowDonNodes, []string{"zone-a"}, 1, nil)
+	addDON(localRegistry, capDONID, uint32(0), uint8(1), true, false, capabilityDonNodes, []string{"zone-a"}, 1, [][32]byte{capIDHash})
+	addCapabilityToDON(localRegistry, capDONID, fullCapID, capabilities.CapabilityTypeTarget, onchainCfg)
+
+	// Offchain payload carries a DIFFERENT Write timeout; with the gate off it must be ignored.
+	gc := offchainMethodCfg(t, 1, "don-2", fullCapID, map[string]*capabilitiespb.CapabilityMethodConfig{
+		"Write": {
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					RequestTimeout:            durationpb.New(time.Minute),
+					ServerMaxParallelRequests: 10,
+				},
+			},
+		},
+	})
+
+	launcher, err := NewLauncher(lggr, sharedPeer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0)
+	require.NoError(t, err)
+	launcher.SetOffchainRegistry(gc, false) // gate OFF
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
+
+	dispatcher.On("SetReceiverForMethod", fullCapID, capDONID, "Write", mock.AnythingOfType("*executable.client")).Return(nil)
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+
+	// The wired method config must be the on-chain one (30s), not the offchain one (1m).
+	assert.Equal(t, 30*time.Second, requestTimeoutFor(t, logs, fullCapID, "Write"),
+		"gate off: on-chain method config must be used unchanged")
+}
+
+// TestOffchainMethodConfigs_GateOn_Overrides asserts that with the cutover gate on, the
+// launcher wires the offchain method config (offchain-wins-with-fallback).
+func TestOffchainMethodConfigs_GateOn_Overrides(t *testing.T) {
+	t.Parallel()
+	lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
+	reg := regpkg.NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	workflowDonNodes := newNodes(4)
+	capabilityDonNodes := newNodes(4)
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	fullCapID := "write-chain_evm_1@1.0.0"
+	capIDHash := RandomUTF8BytesWord()
+
+	onchainCfg := onchainMethodCfg(t, map[string]*capabilitiespb.CapabilityMethodConfig{
+		"Write": {
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					RequestTimeout:            durationpb.New(30 * time.Second),
+					ServerMaxParallelRequests: 10,
+				},
+			},
+		},
+		"View": {
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					RequestTimeout:            durationpb.New(10 * time.Second),
+					ServerMaxParallelRequests: 10,
+				},
+			},
+		},
+	})
+
+	wfDONID, capDONID := uint32(1), uint32(2)
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfDONID, uint32(0), uint8(1), true, true, workflowDonNodes, []string{"zone-a"}, 1, nil)
+	addDON(localRegistry, capDONID, uint32(0), uint8(1), true, false, capabilityDonNodes, []string{"zone-a"}, 1, [][32]byte{capIDHash})
+	addCapabilityToDON(localRegistry, capDONID, fullCapID, capabilities.CapabilityTypeTarget, onchainCfg)
+	// Name the capability DON so the offchain payload can key it.
+	capDON := localRegistry.IDsToDONs[regpkg.DonID(capDONID)]
+	capDON.Name = "don-2"
+	localRegistry.IDsToDONs[regpkg.DonID(capDONID)] = capDON
+
+	// Offchain replaces the method map; omitted View must not be wired.
+	gc := offchainMethodCfg(t, 1, "don-2", fullCapID, map[string]*capabilitiespb.CapabilityMethodConfig{
+		"Write": {
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					RequestTimeout:            durationpb.New(time.Minute),
+					ServerMaxParallelRequests: 10,
+				},
+			},
+		},
+	})
+
+	launcher, err := NewLauncher(lggr, sharedPeer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0)
+	require.NoError(t, err)
+	launcher.SetOffchainRegistry(gc, true) // gate ON
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
+
+	dispatcher.On("SetReceiverForMethod", fullCapID, capDONID, "Write", mock.AnythingOfType("*executable.client")).Return(nil)
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+
+	assert.Equal(t, time.Minute, requestTimeoutFor(t, logs, fullCapID, "Write"),
+		"gate on: offchain Write config must win")
+	dispatcher.AssertNotCalled(t, "SetReceiverForMethod", fullCapID, capDONID, "View", mock.Anything)
+
+	// Selecting an empty capability removes the shim and the workflow-facing method.
+	empty := offchainMethodCfg(t, 2, "don-2", fullCapID, nil)
+	snapshot := newOffchainMethodConfigs(empty.LoadParsed(), []regpkg.DON{capDON})
+	dispatcher.On("RemoveReceiverForMethod", fullCapID, capDONID, "Write").Return().Once()
+	launcher.pruneStaleShims(t.Context(), computeWantedShimKeys([]regpkg.DON{capDON}, nil, snapshot))
+	launcher.addRemoteCapabilities(t.Context(), localRegistry.IDsToDONs[regpkg.DonID(wfDONID)], capDON, localRegistry, snapshot)
+	assert.Empty(t, launcher.cachedShims.executableClients)
+	cc := launcher.cachedShims.combinedClients[shimID{capID: fullCapID, donID: capDONID}]
+	require.NotNil(t, cc)
+	_, err = cc.Execute(t.Context(), capabilities.CapabilityRequest{Method: "Write"})
+	require.ErrorContains(t, err, "method Write not defined")
+}
+
+// TestOffchainMethodConfigs_NoThrashAcrossPasses locks the central invariant of the method_configs
+// overlay: the prune path (computeWantedShimKeys) and the create path (addRemoteCapabilities) must
+// apply the SAME offchain overlay. An offchain-only method's shim created on the first OnNewRegistry
+// pass must survive the second pass untouched.
+//
+// A single pass cannot catch a prune/create overlay mismatch: on the first pass the shim cache is
+// empty, so pruneStaleShims has nothing to remove and the method is created regardless. The thrash
+// only manifests on the second pass — if computeWantedShimKeys did NOT apply the overlay, the
+// offchain-only method would be absent from the wanted set and torn down (RemoveReceiverForMethod)
+// before being re-created, churning every tick. RemoveReceiverForMethod is deliberately left
+// unexpected on the dispatcher mock, so any such prune fails the test.
+func TestOffchainMethodConfigs_NoThrashAcrossPasses(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	reg := regpkg.NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	workflowDonNodes := newNodes(4)
+	capabilityDonNodes := newNodes(4)
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	fullCapID := "write-chain_evm_1@1.0.0"
+	capIDHash := RandomUTF8BytesWord()
+
+	// On-chain carries a single executable method, "Write".
+	onchainCfg := onchainMethodCfg(t, map[string]*capabilitiespb.CapabilityMethodConfig{
+		"Write": {
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					RequestTimeout:            durationpb.New(30 * time.Second),
+					ServerMaxParallelRequests: 10,
+				},
+			},
+		},
+	})
+
+	wfDONID, capDONID := uint32(1), uint32(2)
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfDONID, uint32(0), uint8(1), true, true, workflowDonNodes, []string{"zone-a"}, 1, nil)
+	addDON(localRegistry, capDONID, uint32(0), uint8(1), true, false, capabilityDonNodes, []string{"zone-a"}, 1, [][32]byte{capIDHash})
+	addCapabilityToDON(localRegistry, capDONID, fullCapID, capabilities.CapabilityTypeTarget, onchainCfg)
+	// Name the capability DON so the offchain payload can key it.
+	capDON := localRegistry.IDsToDONs[regpkg.DonID(capDONID)]
+	capDON.Name = "don-2"
+	localRegistry.IDsToDONs[regpkg.DonID(capDONID)] = capDON
+
+	// Offchain adds an executable method "Extra" that exists ONLY offchain (not on-chain).
+	gc := offchainMethodCfg(t, 1, "don-2", fullCapID, map[string]*capabilitiespb.CapabilityMethodConfig{
+		"Extra": {
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					RequestTimeout:            durationpb.New(45 * time.Second),
+					ServerMaxParallelRequests: 10,
+				},
+			},
+		},
+	})
+
+	launcher, err := NewLauncher(lggr, sharedPeer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0)
+	require.NoError(t, err)
+	launcher.SetOffchainRegistry(gc, true) // gate ON
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
+
+	// Only the offchain-only "Extra" shim is created on the first pass.
+	// SetReceiverForMethod fires only on shim creation, once total (pass 1),
+	// not again on pass 2. RemoveReceiverForMethod is intentionally NOT registered: if the overlay
+	// is missing from the wanted-set computation, pass 2 prunes "Extra" and the unexpected call fails
+	// the mock.
+	dispatcher.On("SetReceiverForMethod", fullCapID, capDONID, "Extra", mock.AnythingOfType("*executable.client")).Return(nil)
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+	// Second pass with identical inputs must be a no-op for the shim set.
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+
+	dispatcher.AssertNotCalled(t, "RemoveReceiverForMethod", fullCapID, capDONID, "Extra")
+	dispatcher.AssertNotCalled(t, "RemoveReceiverForMethod", fullCapID, capDONID, "Write")
+}
+
+// Selecting a smaller offchain method map prunes omitted servers without affecting retained
+// methods. Selecting the full map again restores them. Cover trigger and executable paths.
+func TestOffchainMethodConfigs_ServedMethodsReplaceAndRestore(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []string{"trigger", "executable"} {
+		t.Run(kind, func(t *testing.T) {
+			t.Parallel()
+			lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+			reg := regpkg.NewRegistry(lggr)
+			const capID = "evm@1.0.0"
+			var config *capabilitiespb.CapabilityMethodConfig
+			var capabilityType capabilities.CapabilityType
+			var receiverType string
+			if kind == "trigger" {
+				capabilityType = capabilities.CapabilityTypeTrigger
+				receiverType = "*remote.triggerPublisher"
+				config = &capabilitiespb.CapabilityMethodConfig{RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{},
+				}}
+				require.NoError(t, reg.Add(t.Context(), newMockTrigger(capabilities.MustNewCapabilityInfo(capID, capabilityType, "test"))))
+			} else {
+				capabilityType = capabilities.CapabilityTypeTarget
+				receiverType = "*executable.server"
+				config = &capabilitiespb.CapabilityMethodConfig{RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+					RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+						RequestTimeout: durationpb.New(30 * time.Second), ServerMaxParallelRequests: 10,
+					},
+				}}
+				require.NoError(t, reg.Add(t.Context(), &mockCapability{CapabilityInfo: capabilities.MustNewCapabilityInfo(capID, capabilityType, "test")}))
+			}
+
+			capNodes, wfNodes := newNodes(4), newNodes(4)
+			const capDONID uint32 = 2
+			metadata := buildLocalRegistry()
+			addDON(metadata, 1, 0, 1, true, true, wfNodes, []string{"zone-a"}, 1, nil)
+			addDON(metadata, capDONID, 0, 1, true, false, capNodes, []string{"zone-a"}, 1, [][32]byte{RandomUTF8BytesWord()})
+			addCapabilityToDON(metadata, capDONID, capID, capabilityType, onchainMethodCfg(t, map[string]*capabilitiespb.CapabilityMethodConfig{
+				"Disable": config, "Keep": config,
+			}))
+			capDON := metadata.IDsToDONs[regpkg.DonID(capDONID)]
+			capDON.Name = "don-2"
+			wfDON := metadata.IDsToDONs[regpkg.DonID(1)]
+
+			dispatcher := remoteMocks.NewDispatcher(t)
+			peer := mocks.NewSharedPeer(t)
+			peer.On("ID").Return(capNodes[0])
+			launcher, err := NewLauncher(lggr, peer, nil, dispatcher, reg, &mockDonNotifier{}, limits.Factory{}, false, 0)
+			require.NoError(t, err)
+			require.NoError(t, launcher.Start(t.Context()))
+			t.Cleanup(func() { require.NoError(t, launcher.Close()) })
+
+			dispatcher.On("SetReceiverForMethod", capID, capDONID, "Disable", mock.AnythingOfType(receiverType)).Return(nil).Twice()
+			dispatcher.On("SetReceiverForMethod", capID, capDONID, "Keep", mock.AnythingOfType(receiverType)).Return(nil).Once()
+			dispatcher.On("RemoveReceiverForMethod", capID, capDONID, "Disable").Return().Once()
+
+			pass := func(snapshot *offchainMethodConfigs) {
+				t.Helper()
+				launcher.pruneStaleShims(t.Context(), computeWantedShimKeys(nil, []regpkg.DON{capDON}, snapshot))
+				launcher.serveCapabilities(t.Context(), capNodes[0], capDON, []regpkg.DON{wfDON}, snapshot, nil)
+			}
+			serverCount := func() int {
+				return len(launcher.cachedShims.executableServers) + len(launcher.cachedShims.triggerPublishers)
+			}
+			pass(nil)
+			require.Equal(t, 2, serverCount())
+			gc := offchainMethodCfg(t, 1, "don-2", capID, map[string]*capabilitiespb.CapabilityMethodConfig{"Keep": config})
+			reduced := newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{capDON, wfDON})
+			pass(reduced)
+			require.Equal(t, 1, serverCount(), "only the omitted method's shim must be removed")
+			pass(reduced)
+			require.Equal(t, 1, serverCount(), "the omitted method must not be recreated on the next pass")
+			gc = offchainMethodCfg(t, 2, "don-2", capID, map[string]*capabilitiespb.CapabilityMethodConfig{"Disable": config, "Keep": config})
+			pass(newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{capDON, wfDON}))
+			require.Equal(t, 2, serverCount(), "restoring config must recreate the shim")
+			assert.Empty(t, logs.All(), "method removal must not cause a serving error")
+		})
+	}
+}
+
+func TestOffchainMethodConfigs_LocalOnlySkipsRemoteShims(t *testing.T) {
+	t.Parallel()
+	const capID = "cap@1.0.0"
+	lggr := logger.Test(t)
+	dispatcher := remoteMocks.NewDispatcher(t)
+	peer := mocks.NewSharedPeer(t)
+	launcher, err := NewLauncher(lggr, peer, nil, dispatcher, regpkg.NewRegistry(lggr), &mockDonNotifier{}, limits.Factory{}, false, 0)
+	require.NoError(t, err)
+	method := &capabilitiespb.CapabilityMethodConfig{RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{}}}
+	don := regpkg.DON{ID: 1, Name: "don-1", CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{capID: {Config: onchainMethodCfg(t, map[string]*capabilitiespb.CapabilityMethodConfig{"Trigger": method})}}}
+	payload, err := protojson.Marshal(&capabilitiespb.OffchainCapabilitiesRegistry{Version: 1, Dons: map[string]*capabilitiespb.DONConfig{don.Name: {Capabilities: map[string]*capabilitiespb.CapabilityConfig{capID: {LocalOnly: true, MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{"Trigger": method}}}}}})
+	require.NoError(t, err)
+	gc := globalconfig.New()
+	_, err = gc.Store(string(payload), "payload")
+	require.NoError(t, err)
+	snapshot := newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{don})
+	wanted := computeWantedShimKeys([]regpkg.DON{don}, []regpkg.DON{don}, snapshot)
+	assert.Empty(t, wanted.combinedClients)
+	assert.Empty(t, wanted.triggerSubscribers)
+	assert.Empty(t, wanted.triggerPublishers)
+	// With LocalOnly set, both paths must skip the capability before accessing remote metadata
+	// or the dispatcher. The mock has no expectations, so any registration fails the test.
+	launcher.addRemoteCapabilities(t.Context(), regpkg.DON{}, don, nil, snapshot)
+	launcher.serveCapabilities(t.Context(), newNodes(1)[0], don, nil, snapshot, nil)
+	assert.Empty(t, launcher.cachedShims.combinedClients)
+	assert.Empty(t, launcher.cachedShims.triggerSubscribers)
+	assert.Empty(t, launcher.cachedShims.triggerPublishers)
+}

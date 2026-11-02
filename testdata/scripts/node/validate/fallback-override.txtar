@@ -450,6 +450,8 @@ MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 MaxConcurrency = 12
 MaxActivationRetries = 100
+FetchMode = 'gateway'
+FetchAllowedHosts = []
 AdditionalSources = []
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
@@ -620,6 +622,7 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 ConfirmationTimeout = '5m0s'
+UnknownErrorRetryTimeout = '0s'
 
 [EVM.Transactions.AutoPurge]
 Enabled = false

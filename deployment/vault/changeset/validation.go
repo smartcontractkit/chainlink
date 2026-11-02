@@ -8,14 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainSel "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
-	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
-
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
@@ -501,6 +499,211 @@ func ValidateEthBalMonSetWatchListConfig(ctx context.Context, env cldf.Environme
 			if chainConfig.TopUpAmountsWei[i].Cmp(big.NewInt(0)) < 0 {
 				return fmt.Errorf("chain %d: topup_amounts_wei at index %d must be >= 0", chainSelector, i)
 			}
+		}
+	}
+
+	return nil
+}
+
+// ---------------------------------------------- //
+//           CCIP Bridge Validation               //
+// ---------------------------------------------- //
+
+// ValidateCCIPBridgeConfig validates a CCIPBridgeConfig before any proposal is built. It checks the
+// static config, that the source chain + its Timelock/MCM/WETH/Router exist (and WETH/Router have
+// code), and that every destination has an EtherSenderReceiver ref and a whitelisted recipient.
+// Live fee quoting and Timelock balance checks happen in the sequence, which needs on-chain reads.
+func ValidateCCIPBridgeConfig(ctx context.Context, e cldf.Environment, cfg types.CCIPBridgeConfig) error {
+	if cfg.MCMSConfig == nil {
+		return errors.New("MCMSConfig is required")
+	}
+	sources := cfg.NormalizedSources()
+	if len(sources) == 0 {
+		return errors.New("at least one source with transfers is required")
+	}
+
+	evmChains := e.BlockChains.EVMChains()
+	mcmType := commontypes.ProposerManyChainMultisig
+	if cfg.MCMSConfig.MCMSAction == mcmstypes.TimelockActionBypass {
+		mcmType = commontypes.BypasserManyChainMultisig
+	}
+
+	seenSource := make(map[uint64]bool, len(sources))
+	for _, s := range sources {
+		if s.TokenType != types.TokenTypeNative && s.TokenType != types.TokenTypeWrappedNative {
+			return fmt.Errorf("source %d: token_type must be %q or %q, got %q", s.FromChainSelector, types.TokenTypeNative, types.TokenTypeWrappedNative, s.TokenType)
+		}
+		if len(s.Transfers) == 0 {
+			return fmt.Errorf("source %d: at least one transfer is required", s.FromChainSelector)
+		}
+		if seenSource[s.FromChainSelector] {
+			return fmt.Errorf("duplicate source selector %d", s.FromChainSelector)
+		}
+		seenSource[s.FromChainSelector] = true
+
+		sourceChain, ok := evmChains[s.FromChainSelector]
+		if !ok {
+			return fmt.Errorf("source chain %d not found in environment", s.FromChainSelector)
+		}
+		if _, err := GetContractAddress(e.DataStore, s.FromChainSelector, commontypes.RBACTimelock); err != nil {
+			return fmt.Errorf("source %d timelock: %w", s.FromChainSelector, err)
+		}
+		if _, err := GetContractAddress(e.DataStore, s.FromChainSelector, mcmType); err != nil {
+			return fmt.Errorf("source %d MCM (%s): %w", s.FromChainSelector, mcmType, err)
+		}
+		wethStr, err := GetContractAddress(e.DataStore, s.FromChainSelector, WETHContractType)
+		if err != nil {
+			return fmt.Errorf("source %d WETH: %w", s.FromChainSelector, err)
+		}
+		routerStr, err := GetContractAddress(e.DataStore, s.FromChainSelector, RouterContractType)
+		if err != nil {
+			return fmt.Errorf("source %d Router: %w", s.FromChainSelector, err)
+		}
+		if err := assertHasCode(ctx, sourceChain.Client, wethStr, "WETH"); err != nil {
+			return fmt.Errorf("source %d: %w", s.FromChainSelector, err)
+		}
+		if err := assertHasCode(ctx, sourceChain.Client, routerStr, "Router"); err != nil {
+			return fmt.Errorf("source %d: %w", s.FromChainSelector, err)
+		}
+
+		seenDest := make(map[uint64]bool, len(s.Transfers))
+		for i, t := range s.Transfers {
+			where := fmt.Sprintf("source %d transfer %d", s.FromChainSelector, i)
+			if t.ToChainSelector == s.FromChainSelector {
+				return fmt.Errorf("%s: destination selector %d equals source", where, t.ToChainSelector)
+			}
+			if seenDest[t.ToChainSelector] {
+				return fmt.Errorf("%s: duplicate destination selector %d", where, t.ToChainSelector)
+			}
+			seenDest[t.ToChainSelector] = true
+
+			if err := validateEthAddress("destination_address", t.DestinationAddress); err != nil {
+				return fmt.Errorf("%s: %w", where, err)
+			}
+			if common.HexToAddress(t.DestinationAddress) == (common.Address{}) {
+				return fmt.Errorf("%s: destination_address cannot be zero", where)
+			}
+			if t.Amount == nil || t.Amount.Sign() <= 0 {
+				return fmt.Errorf("%s: amount must be positive", where)
+			}
+			if cfg.TestNeeded && t.Amount.Cmp(TestBridgeAmount) <= 0 {
+				return fmt.Errorf("%s: amount %s must exceed test amount %s when test_needed is set", where, t.Amount, TestBridgeAmount)
+			}
+			if t.MaxCCIPFee != nil && t.MaxCCIPFee.Sign() < 0 {
+				return fmt.Errorf("%s: max_ccip_fee cannot be negative", where)
+			}
+
+			esrStr, err := GetContractAddress(e.DataStore, t.ToChainSelector, EtherSenderReceiverContractType)
+			if err != nil {
+				return fmt.Errorf("%s: EtherSenderReceiver for dest chain %d: %w", where, t.ToChainSelector, err)
+			}
+			if destChain, ok := evmChains[t.ToChainSelector]; ok {
+				if err := assertHasCode(ctx, destChain.Client, esrStr, "EtherSenderReceiver"); err != nil {
+					return fmt.Errorf("%s: %w", where, err)
+				}
+			}
+
+			whitelisted, err := GetWhitelistedAddresses(e, []uint64{t.ToChainSelector})
+			if err != nil {
+				return fmt.Errorf("%s: whitelist lookup for chain %d: %w", where, t.ToChainSelector, err)
+			}
+			if !whitelistContains(whitelisted[t.ToChainSelector], t.DestinationAddress) {
+				return fmt.Errorf("%s: destination %s is not whitelisted on chain %d", where, common.HexToAddress(t.DestinationAddress).Hex(), t.ToChainSelector)
+			}
+		}
+	}
+
+	return nil
+}
+
+// assertHasCode fails if there is no contract code at addr on the given client.
+func assertHasCode(ctx context.Context, client interface {
+	CodeAt(context.Context, common.Address, *big.Int) ([]byte, error)
+}, addrStr, label string) error {
+	addr := common.HexToAddress(addrStr)
+	code, err := client.CodeAt(ctx, addr, nil)
+	if err != nil {
+		return fmt.Errorf("%s code check at %s: %w", label, addr.Hex(), err)
+	}
+	if len(code) == 0 {
+		return fmt.Errorf("%s at %s has no code", label, addr.Hex())
+	}
+	return nil
+}
+
+// whitelistContains reports whether addr is in the whitelist entries.
+func whitelistContains(entries []WhitelistEntry, addr string) bool {
+	want := common.HexToAddress(addr).Hex()
+	for _, entry := range entries {
+		if common.HexToAddress(entry.Address).Hex() == want {
+			return true
+		}
+	}
+	return false
+}
+
+func validateUnwrapChangesetConfig(e cldf.Environment, cfg types.CCIPUnwrapTokenConfig) error {
+	if cfg.MCMSConfig == nil {
+		return errors.New("MCMS Config cannot be nil")
+	}
+
+	if len(cfg.Chains) == 0 {
+		return errors.New("chains cannot be empty")
+	}
+
+	evmChains := e.BlockChains.EVMChains()
+	for chainSelector := range cfg.Chains {
+		if _, ok := evmChains[chainSelector]; !ok {
+			return fmt.Errorf("chain %d not found in environment", chainSelector)
+		}
+	}
+
+	for chainSelector, chainConfig := range cfg.Chains {
+		address := chainConfig.ExternalAddressTransfer
+		if address == "" {
+			continue
+		}
+
+		if !common.IsHexAddress(address) {
+			return fmt.Errorf(
+				"invalid transfer address %q for chain %d",
+				address, chainSelector,
+			)
+		}
+
+		recipient := common.HexToAddress(address)
+		if recipient == (common.Address{}) {
+			return fmt.Errorf(
+				"transfer address cannot be zero for chain %d",
+				chainSelector,
+			)
+		}
+
+		whitelist, err := GetWhitelistedAddresses(
+			e,
+			[]uint64{chainSelector},
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"failed to read whitelist for chain %d: %w",
+				chainSelector, err,
+			)
+		}
+
+		found := false
+		for _, entry := range whitelist[chainSelector] {
+			if common.IsHexAddress(entry.Address) &&
+				common.HexToAddress(entry.Address) == recipient {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return fmt.Errorf(
+				"address %s is not whitelisted for chain %d",
+				recipient.Hex(), chainSelector,
+			)
 		}
 	}
 

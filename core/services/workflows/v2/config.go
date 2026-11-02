@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -15,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -59,6 +61,15 @@ type EngineConfig struct {
 
 	BeholderEmitter custmsg.MessageEmitter
 
+	// EventEmitter emits workflow platform events. Defaults to events.DefaultEmitter().
+	EventEmitter *events.Emitter
+
+	// Meter is the OTel meter the engine registers its metrics on. If nil,
+	// newBaseEngine falls back to beholder.GetMeter() at engine construction
+	// time, preserving the default read timing. It is deliberately NOT
+	// resolved in Validate.
+	Meter metric.Meter
+
 	Hooks         LifecycleHooks
 	BillingClient metering.BillingClient
 
@@ -70,6 +81,13 @@ type EngineConfig struct {
 	// OrgResolver is used to resolve organization IDs from workflow owners
 	OrgResolver orgresolver.OrgResolver
 
+	// MeterRecordsEnabled emits a cre:workflow:compute usage record per execution.
+	MeterRecordsEnabled bool
+	// MeteringIdentity is the node's [Metering] deployment dimensions; the engine adds service, pool and DON.
+	MeteringIdentity resourcemanager.DeploymentIdentity
+	// UsageEmitter delivers compute usage records; required when MeterRecordsEnabled.
+	UsageEmitter resourcemanager.Emitter
+
 	// includes additional logging of events internal to user workflows
 	DebugMode bool
 
@@ -79,6 +97,7 @@ type EngineConfig struct {
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardingEnabled         bool
 	MyDonID                 uint32
+	ShardIndex              uint32
 	ShardRoutingSteady      *shardownership.SteadySignal
 	ShardResolver           shardownership.ShardResolver
 
@@ -129,7 +148,13 @@ type EngineLimiters struct {
 	ConfidentialWorkflowsEnabled                limits.GateLimiter
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
 	ShardingFailoverEnabled                     limits.GateLimiter
+	TimeoutBasedFailover                        limits.GateLimiter
+	TimeoutBasedFailoverWindow                  limits.TimeLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
+
+	// newTriggerEventQueue builds a trigger event queue from the same factory and
+	// setting as TriggerEventQueue, for a coordinator's trigger registration to own.
+	newTriggerEventQueue func() (limits.QueueLimiter[triggers.CoordinatedEvent], error)
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -165,6 +190,9 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	l.TriggerEventQueue, err = limits.MakeQueueLimiter[triggers.CoordinatedEvent](lf, cfg.TriggerEventQueueLimit)
 	if err != nil {
 		return err
+	}
+	l.newTriggerEventQueue = func() (limits.QueueLimiter[triggers.CoordinatedEvent], error) {
+		return limits.MakeQueueLimiter[triggers.CoordinatedEvent](lf, cfg.TriggerEventQueueLimit)
 	}
 	l.TriggerEventQueueTimeout, err = limits.MakeUpperBoundLimiter(lf, cfg.TriggerEventQueueTimeout)
 	if err != nil {
@@ -285,10 +313,15 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
-	shardingFailoverSetting := settings.Bool(false)
-	shardingFailoverSetting.Key = "ShardingFailoverEnabled"
-	shardingFailoverSetting.Scope = settings.ScopeGlobal
-	l.ShardingFailoverEnabled, err = limits.MakeGateLimiter(lf, shardingFailoverSetting)
+	l.ShardingFailoverEnabled, err = limits.MakeGateLimiter(lf, cresettings.Default.ShardingFailoverEnabled)
+	if err != nil {
+		return err
+	}
+	l.TimeoutBasedFailover, err = limits.MakeGateLimiter(lf, cresettings.Default.TimeoutBasedFailover)
+	if err != nil {
+		return err
+	}
+	l.TimeoutBasedFailoverWindow, err = lf.MakeTimeLimiter(cresettings.Default.TimeoutBasedFailoverWindow)
 	if err != nil {
 		return err
 	}
@@ -384,6 +417,19 @@ func (l *EngineLimiters) Close() error {
 	)
 }
 
+// Admission returns the limiters a trigger coordinator admits events with.
+// ExecutionConcurrency is this same instance, so coordinated and legacy
+// executions share every concurrency limit. Each registration gets its own
+// trigger event queue, built from the same setting as TriggerEventQueue, so an
+// engine evicting its workflow from these limiters never touches it.
+func (l *EngineLimiters) Admission() triggers.AdmissionLimiters {
+	return triggers.AdmissionLimiters{
+		NewTriggerEventQueue:     l.newTriggerEventQueue,
+		TriggerEventQueueTimeout: l.TriggerEventQueueTimeout,
+		ExecutionConcurrency:     l.ExecutionConcurrency,
+	}
+}
+
 type EngineFeatureFlags struct {
 	// WorkflowTagBackfill gates the reconciler backfill of workflow_specs_v2.workflow_tag.
 	// The Check succeeds only when time.Now() is inside the configured active period,
@@ -392,8 +438,17 @@ type EngineFeatureFlags struct {
 	WorkflowTagBackfill limits.RangeLimiter[commonconfig.Timestamp]
 
 	// CoordinatedEngine selects the coordinatedEngine over the legacy trigger-owning
-	// Engine for newly created workflows. Nil when construction fails; call sites must nil-check.
+	// Engine for newly created workflows. It is read per workflow
+	// (PerWorkflow.CoordinatedEngineEnabled), so it can be set for one workflow, owner or org.
+	// Nil when construction fails; call sites must nil-check.
 	CoordinatedEngine limits.GateLimiter
+
+	// CoordinatedEngineGlobal reads the deprecated node-wide CoordinatedEngineEnabled
+	// setting, so environments that still set it keep their behavior. While it is open,
+	// every newly created workflow uses the coordinatedEngine, whatever CoordinatedEngine
+	// says for it. Remove it once no environment sets the global key. Nil when
+	// construction fails; call sites must nil-check.
+	CoordinatedEngineGlobal limits.GateLimiter
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -406,21 +461,48 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 		return nil, fmt.Errorf("workflow tag backfill flag: %w", err)
 	}
 
-	coordinatedEngine, err := limits.MakeGateLimiter(lf, cresettings.Default.CoordinatedEngineEnabled)
+	coordinatedEngine, err := limits.MakeGateLimiter(lf, cfg.CoordinatedEngineEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("coordinated engine flag: %w", err)
 	}
+	coordinatedEngineGlobal, err := limits.MakeGateLimiter(lf, cresettings.Default.CoordinatedEngineEnabled) //nolint:staticcheck // SA1019: read until no environment sets it
+	if err != nil {
+		return nil, fmt.Errorf("global coordinated engine flag: %w", err)
+	}
 	return &EngineFeatureFlags{
-		WorkflowTagBackfill: workflowTagBackfill,
-		CoordinatedEngine:   coordinatedEngine,
+		WorkflowTagBackfill:     workflowTagBackfill,
+		CoordinatedEngine:       coordinatedEngine,
+		CoordinatedEngineGlobal: coordinatedEngineGlobal,
 	}, nil
 }
 
-func (e *EngineFeatureFlags) Close() error {
-	if e == nil || e.WorkflowTagBackfill == nil {
+// EvictWorkflow removes the per-workflow state (one background goroutine per tenant) that
+// the workflow-scoped flags keep for workflowID. The next read for it starts afresh.
+func (e *EngineFeatureFlags) EvictWorkflow(workflowID string) error {
+	if e == nil {
 		return nil
 	}
-	return e.WorkflowTagBackfill.Close()
+	return errors.Join(
+		limits.TryEvictTenant(e.WorkflowTagBackfill, workflowID),
+		limits.TryEvictTenant(e.CoordinatedEngine, workflowID),
+	)
+}
+
+func (e *EngineFeatureFlags) Close() error {
+	if e == nil {
+		return nil
+	}
+	var errs error
+	if e.WorkflowTagBackfill != nil {
+		errs = errors.Join(errs, e.WorkflowTagBackfill.Close())
+	}
+	if e.CoordinatedEngine != nil {
+		errs = errors.Join(errs, e.CoordinatedEngine.Close())
+	}
+	if e.CoordinatedEngineGlobal != nil {
+		errs = errors.Join(errs, e.CoordinatedEngineGlobal.Close())
+	}
+	return errs
 }
 
 const (
@@ -487,6 +569,9 @@ func (c *EngineConfig) Validate() error {
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
 	}
+	if c.MeterRecordsEnabled && c.UsageEmitter == nil {
+		return errors.New("usage emitter not set")
+	}
 
 	_, err := types.WorkflowIDFromHex(c.WorkflowID)
 	if err != nil {
@@ -507,6 +592,10 @@ func (c *EngineConfig) Validate() error {
 
 	if c.BeholderEmitter == nil {
 		return errors.New("beholder emitter not set")
+	}
+
+	if c.EventEmitter == nil {
+		c.EventEmitter = events.DefaultEmitter()
 	}
 
 	if c.FeatureFlags == nil {

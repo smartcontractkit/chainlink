@@ -21,17 +21,20 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	workflowhost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -48,15 +51,17 @@ import (
 var executingWorkflows atomic.Int64
 
 var (
-	ErrDuplicateExecution      = errors.New("duplicate execution")
-	ErrShardDeniedNotOwner     = errors.New("shard ownership denied: not owner")
-	ErrShardDeniedOrchestrator = errors.New("shard ownership denied: orchestrator error")
-	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
-	ErrAdmissionCache          = errors.New("admission: event cached for failover")
+	ErrDuplicateExecution = triggers.ErrDuplicateExecution
+	ErrEngineDraining     = triggers.ErrEngineDraining
+	ErrEngineClosed       = triggers.ErrEngineClosed
 
-	ErrEngineDraining = errors.New("engine is draining")
-	ErrQueueFull      = errors.New("trigger event queue is full")
-	ErrEnqueueFailed  = errors.New("failed to enqueue trigger event")
+	ErrShardDeniedNotOwner     = fmt.Errorf("shard ownership denied: not owner: %w", triggers.ErrAdmissionDenied)
+	ErrShardDeniedOrchestrator = fmt.Errorf("shard ownership denied: orchestrator error: %w", triggers.ErrAdmissionDenied)
+	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
+	ErrAdmissionCache          = triggers.ErrAdmissionCached
+
+	ErrQueueFull     = errors.New("trigger event queue is full")
+	ErrEnqueueFailed = errors.New("failed to enqueue trigger event")
 
 	ErrZeroTriggerSubscriptions = errors.New("workflow subscribed to zero triggers")
 )
@@ -65,6 +70,14 @@ var (
 // Config Version set in CapabilitiesRegistry is included in every report but is irrelevant
 // to validation on the forwarder side. What matters is DON ID and the set of signer public keys.
 const pinnedWorkflowDonConfigVersion = 1
+
+// keyEngineMode and its values label only the active-executions gauge, distinguishing
+// legacy from coordinated executions.
+const (
+	keyEngineMode              = "engineMode"
+	valueEngineModeLegacy      = "legacy"
+	valueEngineModeCoordinated = "coordinated"
+)
 
 // baseEngine holds the execution machinery shared by every workflow engine:
 // module execution, metering, secrets, labels, the heartbeat, drain state, and
@@ -101,7 +114,9 @@ type baseEngine struct {
 	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
 	tracer trace.Tracer
 
-	orgID string
+	usageMeter    *resourcemanager.ResourceManager
+	usageIdentity resourcemanager.ResourceIdentity
+	orgID         string
 	// orgIDMissingReason records why orgID is empty ("resolver_nil",
 	// "resolver_error", or "empty_response"). It is set once in startWith() and
 	// read by startExecution() to label the org_id_missing counter. It is only
@@ -111,6 +126,10 @@ type baseEngine struct {
 	draining         atomic.Bool
 	activeExecutions atomic.Int32
 	drainStartedAtNs atomic.Int64
+
+	// engineMode labels only the active-executions gauge, distinguishing legacy
+	// from coordinated executions. It is fixed at construction.
+	engineMode string
 }
 
 // newBaseEngine builds the execution machinery shared by every workflow engine.
@@ -120,12 +139,16 @@ type baseEngine struct {
 // Start and Close are supplied by the outer type, because the lifecycle differs
 // per engine, but srvcEng itself lives here — base methods spawn the execution
 // goroutines on it, and Drain sets its health condition.
-func newBaseEngine(cfg *EngineConfig) (*baseEngine, logger.SugaredLogger, error) {
+func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.SugaredLogger, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	em, err := monitoring.InitMonitoringResources()
+	meter := cfg.Meter
+	if meter == nil {
+		meter = beholder.GetMeter()
+	}
+	em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not initialize monitoring resources: %w", err)
 	}
@@ -142,6 +165,7 @@ func newBaseEngine(cfg *EngineConfig) (*baseEngine, logger.SugaredLogger, error)
 	engine := &baseEngine{
 		cfg:               cfg,
 		capCallsSemaphore: cfg.LocalLimiters.CapabilityConcurrency,
+		engineMode:        engineMode,
 	}
 
 	// Build labels using the helper method
@@ -169,8 +193,13 @@ func newBaseEngine(cfg *EngineConfig) (*baseEngine, logger.SugaredLogger, error)
 
 	// Store logger and other fields
 	engine.setLogger(beholderLogger)
-	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2)
+	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2, metering.WithEventEmitter(cfg.EventEmitter))
 	engine.metrics = metricsLabeler
+	// Disabled metering is a no-op inside the resource manager.
+	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter, Settings: cfg.LocalLimiters.Settings})
+	engine.usageIdentity = resourcemanager.WithWorkflowUsagePool(
+		resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
+		resourcemanager.ResourceTypeWorkflowCompute)
 	engine.loggerLabels.Store(&labelsMap)
 	engine.localNode.Store(&localNode)
 
@@ -187,10 +216,57 @@ func (e *baseEngine) initServiceEngine(lggr logger.SugaredLogger, name string, s
 	}.NewServiceEngine(lggr)
 }
 
-// ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
+// ExecuteTrigger is the engine's public execution entry point. It performs no admission control, the caller is responsible for those.
+// It rejects events with ErrEngineClosed unless the engine is started and with ErrEngineDraining once Drain has been called.
+//
+// An admitted execution runs on the service engine's WaitGroup, so Close cancels it and waits for it. The lock is released before
+// the execution runs, since holding it would block Close, and therefore the cancellation, until the execution
+// finished on its own.
 func (e *baseEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	e.activeExecutions.Add(1)
-	defer e.activeExecutions.Add(-1)
+	done := make(chan error, 1)
+
+	// only admit if engine is started and not draining
+	admitErr := e.srvcEng.IfStarted(func() error {
+		if e.Draining() {
+			return ErrEngineDraining
+		}
+
+		// execute in a goroutine tied to the service engine's context
+		// launch async to release the lock held by IfStarted to prevent deadlock
+		// with Close
+		e.srvcEng.GoCtx(ctx, func(ctx context.Context) {
+			// Always send a result, even if executeTrigger panics or calls
+			// runtime.Goexit, so the caller never blocks on done.
+			err := errors.New("execution exited without a result")
+			defer func() { done <- err }()
+
+			err = e.executeTrigger(ctx, event)
+		})
+		return nil
+	})
+	if admitErr != nil {
+		if errors.Is(admitErr, ErrEngineDraining) {
+			return admitErr
+		}
+		return fmt.Errorf("%w: %w", ErrEngineClosed, admitErr)
+	}
+	return <-done
+}
+
+// executeTrigger runs an admitted event, counting it as an active execution while it runs. It runs
+// until the execution finishes or ctx is done.
+//
+// Must be run on the service engine's WaitGroup through GoCtx.
+func (e *baseEngine) executeTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	// engineMode labels only this gauge, so the migration can compare legacy and
+	// coordinated in-flight load without changing every other engine metric.
+	gaugeMetrics := e.metrics.With(keyEngineMode, e.engineMode)
+
+	gaugeMetrics.UpdateActiveExecutionsGauge(ctx, int64(e.activeExecutions.Add(1)))
+	defer func() {
+		// ctx may already be canceled by Close, so the decrement is recorded without its cancellation.
+		gaugeMetrics.UpdateActiveExecutionsGauge(context.WithoutCancel(ctx), int64(e.activeExecutions.Add(-1)))
+	}()
 
 	eventID := event.Event.Event.ID
 	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
@@ -225,6 +301,13 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 	if e.cfg.CachedTriggerSubscriptions != nil && e.cfg.CachedTriggerSubscriptionsEnabled {
 		if err := e.cfg.LocalLimiters.TriggerSubscription.Check(ctx, len(e.cfg.CachedTriggerSubscriptions)); err != nil {
 			return nil, err
+		}
+		// The cache path skips Execute(Subscribe), so modules that derive their trigger
+		// routing from that call (e.g. requirementSelectingModule) must be primed explicitly.
+		if primer, ok := e.cfg.Module.(workflowhost.TriggerCachePrimer); ok {
+			if err := primer.PrimeTriggerCache(ctx, e.cfg.CachedTriggerSubscriptions); err != nil {
+				return nil, fmt.Errorf("failed to prime trigger cache: %w", err)
+			}
 		}
 		e.metrics.IncrementTriggerSubscriptionSourceCounter(ctx, triggerSubscriptionSourceCache)
 		if err := e.cfg.Hooks.OnSubscriptionsReady(e.cfg.CachedTriggerSubscriptions, e.Tenant(), true); err != nil {
@@ -307,6 +390,11 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 // init. Every field it reads is written before OnInitialized fires.
 func (e *baseEngine) Tenant() contexts.CRE {
 	return contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
+}
+
+// SdkName is the SDK the workflow binary was built with.
+func (e *baseEngine) SdkName() string {
+	return e.cfg.SdkName
 }
 
 // Drain marks the engine as draining and prevents new executions from starting.
@@ -518,8 +606,8 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	// instead of vanishing.
 	emitDroppedExecution := func(cause error, class events.ErrorClassification) {
 		executionStatus = store.StatusErrored
-		_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, store.StatusErrored, executionID, cause, class, lggr)
+		_ = e.cfg.EventEmitter.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
+		_ = e.cfg.EventEmitter.EmitExecutionFinishedEvent(ctx, loggerLabels, store.StatusErrored, executionID, cause, class, lggr)
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, store.StatusErrored)
 	}
 
@@ -607,7 +695,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	if e.orgID == "" {
 		e.metrics.IncrementOrgIDMissingCounter(ctx, e.orgIDMissingReason)
 	}
-	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
+	_ = e.cfg.EventEmitter.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
 	registrationID := triggers.RegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
 	err = e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID)
@@ -622,10 +710,10 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	execErrClass := events.ErrorClassificationUnspecified
 	var execHelper *ExecutionHelper
 	defer func() {
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, execErrClass, lggr)
+		_ = e.cfg.EventEmitter.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, execErrClass, lggr)
 		if execHelper != nil {
 			endTime := e.cfg.Clock.Now()
-			profile, emitErr := events.EmitExecutionProfile(
+			profile, emitErr := e.cfg.EventEmitter.EmitExecutionProfile(
 				ctx,
 				e.cfg.WorkflowID,
 				executionID,
@@ -663,13 +751,6 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		}
 	}
 
-	// Track time the guest spends blocked in DON-time host calls so it can be
-	// excluded from metered compute (see compute_metering.go). The wrapper is
-	// always installed; whether the recorded wait is subtracted is gated by
-	// e.cfg.MeterComputeExcludingHostWait below.
-	suspension := &suspensionTracker{}
-	timeProvider = newMeasuredTimeProvider(timeProvider, e.cfg.Clock, suspension)
-
 	// Limit is always usable even on a read failure; err is advisory.
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
@@ -696,7 +777,6 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		base: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 		executionProfile: newExecutionProfileCollector(),
-		suspension:       suspension,
 	}
 
 	execHelper.initLimiters(e.cfg.LocalLimiters)
@@ -718,24 +798,13 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
 
-	// computeDuration is what we meter as RESOURCE_TYPE_COMPUTE. We start from the
-	// end-to-end wall-clock and subtract time the guest spent blocked in DON-time
-	// host calls: that wait is not compute and is non-deterministic across nodes
-	// (a node whose DON-time request lands in the current consensus round returns
-	// in microseconds; one whose request slips to the next round blocks ~a full
-	// round). Operational latency metrics below intentionally keep using
-	// executionDuration.
+	// Metered compute: the module's reported duration, else wall-clock.
 	computeDuration := executionDuration
-	if hostWait := suspension.total(); hostWait > 0 {
-		computeDuration -= hostWait
-		if computeDuration < 0 {
-			computeDuration = 0
-		}
-		executionLogger.Debugw("Excluding DON-time wait from metered compute",
-			"wallClockMs", executionDuration.Milliseconds(),
-			"hostWaitMs", hostWait.Milliseconds(),
-			"computeMs", computeDuration.Milliseconds())
+	if result != nil && result.ComputeDurationMs != nil {
+		computeDuration = time.Duration(result.GetComputeDurationMs()) * time.Millisecond
 	}
+
+	e.emitComputeUsage(ctx, executionLogger, executionID, computeDuration)
 
 	if isMetering {
 		computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
@@ -766,9 +835,9 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		execErrClass = events.ClassifyError(execErr, events.ErrorClassificationSystem)
 		if errors.Is(execErr, context.DeadlineExceeded) {
 			executionStatus = store.StatusTimeout
-			e.metrics.UpdateWorkflowTimeoutDurationHistogram(ctx, int64(executionDuration.Seconds()))
+			e.metrics.UpdateWorkflowTimeoutDurationHistogram(ctx, executionDuration.Seconds())
 		} else {
-			e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
+			e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, executionDuration.Seconds())
 		}
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "err", execErr)
@@ -784,7 +853,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		execErr = errors.New(result.GetError())
 		// The user's workflow ran and returned an error: a user failure.
 		execErrClass = events.ErrorClassificationUser
-		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
+		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, executionDuration.Seconds())
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
@@ -793,7 +862,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 
 	executionStatus = store.StatusCompleted
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
-	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, int64(executionDuration.Seconds()))
+	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, executionDuration.Seconds())
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 	e.cfg.Hooks.OnResultReceived(result)
@@ -904,7 +973,7 @@ func (e *baseEngine) emitUserLogs(ctx context.Context, userLogChan chan *protoev
 			}
 		}
 
-		if err := events.EmitUserLogs(emitCtx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
+		if err := e.cfg.EventEmitter.EmitUserLogs(emitCtx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
 			e.logger().Errorw("Failed to emit user logs", "err", err)
 		}
 		count++
@@ -1004,6 +1073,8 @@ func (e *baseEngine) buildLabels(localNode *capabilities.Node) []any {
 		platform.KeyWorkflowName, e.cfg.WorkflowName.String(),
 		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2,
 		platform.KeyDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyWorkflowDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyShardIndex, strconv.FormatUint(uint64(e.cfg.ShardIndex), 10),
 		platform.KeyDonF, strconv.Itoa(int(localNode.WorkflowDON.F)),
 		platform.KeyDonN, strconv.Itoa(len(localNode.WorkflowDON.Members)),
 		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(
@@ -1080,4 +1151,37 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 		return resolvedOrg{Reason: "empty_response"}
 	}
 	return resolvedOrg{ID: orgID}
+}
+
+// emitComputeUsage emits the cre:workflow:compute usage MeterRecord for one
+// execution and logs the emission. The log line is a contract consumed by the
+// billing reconciler (fields: executionID, eventID, resourceType, value, orgID)
+// and must stay stable. Fail-open: never returns an error to the execution.
+func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, executionID string, computeDuration time.Duration) {
+	if !e.cfg.MeterRecordsEnabled {
+		return
+	}
+	resourceID, err := resourcemanager.WorkflowUsageResourceID(e.cfg.WorkflowID, executionID)
+	if err != nil {
+		lggr.Errorw("Compute usage meter record not emitted", "err", err)
+		return
+	}
+	identity := e.usageIdentity
+	if node := e.localNode.Load(); node != nil {
+		identity = identity.WithDonID(strconv.FormatUint(uint64(node.WorkflowDON.ID), 10))
+	}
+	valueMs := computeDuration.Milliseconds()
+	// The capability event id for compute is the execution id itself: one
+	// compute record per execution, identical on every node of the DON.
+	e.usageMeter.EmitUsage(ctx, identity, executionID, valueMs, resourcemanager.UtilizationFields{
+		ResourceType: resourcemanager.ResourceTypeWorkflowCompute,
+		ResourceID:   resourceID,
+		OrgID:        e.orgID,
+	})
+	lggr.Infow("Emitted capability usage meter record",
+		"eventID", executionID,
+		"resourceType", resourcemanager.ResourceTypeWorkflowCompute,
+		"value", valueMs,
+		"orgID", e.orgID,
+	)
 }

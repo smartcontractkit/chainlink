@@ -444,6 +444,8 @@ func TestConfig_Marshal(t *testing.T) {
 			SyncStrategy:         new("event"),
 			MaxConcurrency:       new(12),
 			MaxActivationRetries: new(100),
+			FetchMode:            new("gateway"),
+			FetchAllowedHosts:    &[]string{},
 			WorkflowStorage: toml.WorkflowStorage{
 				ArtifactStorageHost: new(""),
 				URL:                 new(""),
@@ -486,7 +488,7 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		Local: toml.LocalCapabilities{
-			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-action@.*$`},
+			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-actions@.*$`},
 			UseOffchainRegistry:          new(true),
 		},
 	}
@@ -731,7 +733,8 @@ func TestConfig_Marshal(t *testing.T) {
 						ReadRequestsToMultipleNodes: new(false),
 						Bundles:                     new(false),
 					},
-					ConfirmationTimeout: &minute,
+					ConfirmationTimeout:      &minute,
+					UnknownErrorRetryTimeout: &minute,
 				},
 
 				HeadTracker: evmcfg.HeadTracker{
@@ -1120,6 +1123,7 @@ ReaperInterval = '1m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
 ConfirmationTimeout = '1m0s'
+UnknownErrorRetryTimeout = '1m0s'
 
 [EVM.Transactions.AutoPurge]
 Enabled = false
@@ -1341,6 +1345,9 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.FeeBoost == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.FeeBoost = new(false)
+		}
+		if got.EVM[c].Transactions.UnknownErrorRetryTimeout == nil {
+			got.EVM[c].Transactions.UnknownErrorRetryTimeout = new(commonconfig.Duration)
 		}
 		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
 			got.EVM[c].Transactions.AutoPurge.Threshold = new(uint32(0))
