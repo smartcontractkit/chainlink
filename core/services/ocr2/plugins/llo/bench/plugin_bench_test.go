@@ -82,9 +82,9 @@ func TestParity(t *testing.T) {
 //   - v30: outcome_B (the re-serialized state blob), obs_B, report_B, reports
 //   - v31: precursor_B, obs_B, report_B, reports, blob_B, and KeyValueState I/O
 //     volume (kvread_B, kvwrite_B, kvkeys) — the incremental state cost v30 lacks.
-//   - both: wire_B, the modelled bytes a round moves across the DON (see
-//     wireBytesV30 / wireBytesV31). The bench runs one plugin in process, so
-//     this is derived from the sizes above, not measured.
+//
+// Bytes on the wire are not derived here: the bench runs one plugin in
+// process. TestIntegration_LLO_don_benchmark measures them on a DON.
 func BenchmarkFullRound(b *testing.B) {
 	for _, w := range benchWorkloads {
 		defs, _ := w.channelDefinitions()
@@ -107,7 +107,6 @@ func BenchmarkFullRound(b *testing.B) {
 			b.ReportMetric(float64(len(obs)), "obs_B/op")
 			b.ReportMetric(float64(reportBytes(reports)), "report_B/op")
 			b.ReportMetric(float64(len(reports)), "reports/op")
-			b.ReportMetric(float64(wireBytesV30(benchN, len(obs), len(outcome))), "wire_B/op")
 		})
 
 		b.Run(w.String()+"/v31", func(b *testing.B) {
@@ -142,25 +141,8 @@ func BenchmarkFullRound(b *testing.B) {
 			b.ReportMetric(float64(m.kvReadBytes), "kvread_B/op")
 			b.ReportMetric(float64(m.kvWriteBytes), "kvwrite_B/op")
 			b.ReportMetric(float64(m.kvKeys), "kvkeys/op")
-			b.ReportMetric(float64(wireBytesV31(benchN, m.obsBytes, m.precBytes, m.blobBytes)), "wire_B/op")
 		})
 	}
-}
-
-// wireBytesV30 models the bytes one v30 round moves across a DON of n oracles:
-// every oracle sends its observation to the leader, and the leader sends the
-// outcome to every oracle. Stream values travel inside each observation.
-func wireBytesV30(n, obsBytes, outcomeBytes int) int {
-	return n*obsBytes + n*outcomeBytes
-}
-
-// wireBytesV31 models the bytes one v31 round moves across a DON of n oracles:
-// the same observation and precursor traffic as v30, plus every oracle's blob
-// fetched once by each of its n-1 peers. Stream values travel once per peer
-// through the blob, off the round critical path, instead of inside every
-// observation. The blob term grows with n squared.
-func wireBytesV31(n, obsBytes, precursorBytes, blobBytes int) int {
-	return n*obsBytes + n*precursorBytes + n*(n-1)*blobBytes
 }
 
 // ---------------------------------------------------------------------------

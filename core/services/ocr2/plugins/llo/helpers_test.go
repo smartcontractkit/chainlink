@@ -405,6 +405,22 @@ func addLLOJob(
 	relayType,
 	relayConfig string,
 ) (id int32) {
+	return addLLOJobWithBootstrapper(t, node, configuratorAddr, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), clientPubKey, jobName, pluginConfig, relayType, relayConfig)
+}
+
+// addLLOJobWithBootstrapper is addLLOJob with the bootstrapper locator given
+// in full, for nodes whose p2p address is not 127.0.0.1.
+func addLLOJobWithBootstrapper(
+	t *testing.T,
+	node Node,
+	configuratorAddr common.Address,
+	bootstrapper string,
+	clientPubKey ed25519.PublicKey,
+	jobName string,
+	pluginConfig,
+	relayType,
+	relayConfig string,
+) (id int32) {
 	return node.AddLLOJob(t, fmt.Sprintf(`
 type = "offchainreporting2"
 schemaVersion = 1
@@ -429,7 +445,7 @@ transmitterID = "%x"
 		jobName,
 		configuratorAddr.Hex(),
 		node.KeyBundle.ID(),
-		fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort),
+		bootstrapper,
 		relayType,
 		clientPubKey,
 		pluginConfig,

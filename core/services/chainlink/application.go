@@ -216,6 +216,9 @@ type ApplicationOpts struct {
 	// LLOKeyValueDatabaseFactory replaces the on-disk store LLO v31 jobs use.
 	// Tests only.
 	LLOKeyValueDatabaseFactory ocr3_1types.KeyValueDatabaseFactory
+	// LLONetworkEndpointWrapper wraps the network endpoint factories LLO jobs
+	// use. Tests only.
+	LLONetworkEndpointWrapper ocr2.LLONetworkEndpointWrapper
 }
 
 // safeDefaultBootstrappers returns the configured default bootstrappers from
@@ -838,6 +841,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				CapRegistryChainID:             safeExternalRegistryChainID(cfg),
 				LocalCfg:                       cfg.Capabilities().Local(),
 				LLOKeyValueDatabaseFactory:     opts.LLOKeyValueDatabaseFactory,
+				LLONetworkEndpointWrapper:      opts.LLONetworkEndpointWrapper,
 			},
 			ocr2DelegateConfig,
 		)
