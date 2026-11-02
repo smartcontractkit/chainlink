@@ -2197,6 +2197,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		cfg.WorkflowName.String(),
 		cfg.WorkflowID,
 		"",
+		time.Time{},
 		cfg.WorkflowEncryptionKey,
 		nil,
 	)
