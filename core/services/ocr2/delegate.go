@@ -1052,8 +1052,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, err
 	}
 
-	// WARNING: libocr alpha, MUST NOT be used in production.
-	oracleArgs := libocr2.OCR3_1OracleArgs109Alpha[[]byte]{
+	oracleArgs := libocr2.OCR3_1OracleArgs3[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
