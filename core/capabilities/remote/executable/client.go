@@ -89,6 +89,9 @@ func NewClient(capabilityID, capMethodName string, dispatcher types.Dispatcher, 
 		requestIDToCallerRequest: make(map[string]*request.ClientRequest),
 		stopCh:                   make(services.StopChan),
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
 	return c
 }
 
