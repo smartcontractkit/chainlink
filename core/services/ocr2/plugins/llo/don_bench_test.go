@@ -31,7 +31,6 @@ import (
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	lloreportcodec "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -109,7 +108,7 @@ const (
 //
 // Wire bytes are counted on the endpoint wrapper (netCounter), so the volume
 // comparison holds with or without shaping.
-func TestIntegration_LLO_don_benchmark(t *testing.T) {
+func TestIntegration_LLO_don_benchmark(t *testing.T) { //nolint:paralleltest // runs alone so the timings are not skewed
 	if os.Getenv(donBenchEnv) == "" {
 		t.Skipf("set %s=1 to run the DON benchmark", donBenchEnv)
 	}
@@ -130,7 +129,7 @@ func TestIntegration_LLO_don_benchmark(t *testing.T) {
 	}
 
 	t.Logf("DON benchmark: %d oracles, %d channels, %d streams, %d rounds, DeltaRound %s, p2p host %s", nNodes, donBenchChannels, donBenchStreams, donBenchRoundsValue(t), donBenchDeltaRoundValue(t), donBenchP2PHost())
-	for _, r := range results {
+	for _, r := range results { //nolint:paralleltest // logs results, runs no subtests
 		t.Log(r.String())
 		t.Logf("%s full round message sizes by bytes: %s", r.version, r.sizeProfile)
 	}
@@ -295,7 +294,7 @@ func runDONBench(t *testing.T, version lloconfig.PluginVersion, salt int64, donI
 
 	streams := make([]Stream, donBenchStreams)
 	for i := range streams {
-		streams[i] = Stream{id: uint32(1000 + i), baseBenchmarkPrice: decimal.NewFromInt(int64(1000 + i))} //nolint:gosec // G115: small test counter
+		streams[i] = Stream{id: uint32(1000 + i), baseBenchmarkPrice: decimal.NewFromInt(int64(1000 + i))}
 	}
 
 	// v31 state lives in memory so the round cost excludes disk writes, which
@@ -413,7 +412,7 @@ pluginVersion = "%s"`, serverURL, serverPubKey, donID, configStoreAddress, fromB
 	res.requestMessages, res.requestBytes = wire.reqCount.Load(), wire.reqBytes.Load()
 	res.sizeProfile = wire.profile(8)
 	if n := uint64(len(seqNrsSeen)); n > 0 {
-		res.wireBytesPerRound = (endBytes - fullRoundBytes) / n / uint64(nNodes)
+		res.wireBytesPerRound = (endBytes - fullRoundBytes) / n / uint64(nNodes) //nolint:gosec // G115: nNodes is a small positive count
 	}
 	return res
 }
