@@ -27,3 +27,10 @@ const (
 	TriggerDropReasonObservedAtMissing                = "observed_at_missing"
 	TriggerDropReasonUnknown                          = "unknown"
 )
+
+// Reason values for platform_engine_trigger_event_shadow_failed_total (low cardinality).
+const (
+	ShadowFailReasonWindowCheckFailed = "window_check_failed"
+	ShadowFailReasonQueueFull         = "queue_full"
+	ShadowFailReasonPutFailed         = "put_failed"
+)

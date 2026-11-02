@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -180,7 +181,7 @@ func TestCoordinator_ShadowSettingChange(t *testing.T) {
 }
 
 // TestCoordinator_ShadowScopedByTenant asserts a window set for one org shadows that org's workflows only.
-// The shadowed counter is recorded per workflow.
+// The shadowed counter is recorded per workflow, and an event outside the window is not counted as failed.
 func TestCoordinator_ShadowScopedByTenant(t *testing.T) {
 	t.Parallel()
 	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
@@ -210,6 +211,8 @@ func TestCoordinator_ShadowScopedByTenant(t *testing.T) {
 		map[string]string{platform.KeyWorkflowID: validWorkflowID}))
 	assert.Equal(t, int64(0), counterTotal(t, reader, "platform_engine_trigger_event_shadowed_total",
 		map[string]string{platform.KeyWorkflowID: otherWorkflowID}))
+	assert.Equal(t, int64(0), counterTotal(t, reader, "platform_engine_trigger_event_shadow_failed_total", nil),
+		"an event outside the window is not a failed copy")
 }
 
 // orderLog records puts to the central and workflow queues in the order they happen.
@@ -339,16 +342,19 @@ func (q *failingQueue) Drain(context.Context) ([]CoordinatedEvent, error) { retu
 func (q *failingQueue) Stats(context.Context) (Stats, error)              { return Stats{}, nil }
 
 // TestCoordinator_ShadowBestEffort asserts a failed central put, for any reason, never stops execution and
-// is not counted by the engine's dropped events counter. A full queue counts the drop itself.
+// is not counted by the engine's dropped events counter. It is counted per workflow as a failed copy, with its
+// reason. A full queue also counts the drop itself.
 func TestCoordinator_ShadowBestEffort(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name string
+		name       string
+		wantReason string
 		// setup returns the central queue and a check to run once both events have executed.
 		setup func(t *testing.T) (Queue, func(t *testing.T))
 	}{
 		{
-			name: "queue full",
+			name:       "queue full",
+			wantReason: monitoring.ShadowFailReasonQueueFull,
 			setup: func(t *testing.T) (Queue, func(t *testing.T)) {
 				qm, queueReader := testQueueMetrics(t)
 				return NewQueue(&fakeLimit{limit: 0}, qm, logger.Test(t)), func(t *testing.T) {
@@ -357,7 +363,8 @@ func TestCoordinator_ShadowBestEffort(t *testing.T) {
 			},
 		},
 		{
-			name: "put fails",
+			name:       "put fails",
+			wantReason: monitoring.ShadowFailReasonPutFailed,
 			setup: func(*testing.T) (Queue, func(t *testing.T)) {
 				q := &failingQueue{}
 				return q, func(t *testing.T) {
@@ -385,9 +392,44 @@ func TestCoordinator_ShadowBestEffort(t *testing.T) {
 			assert.Equal(t, int64(0), counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", nil))
 			assert.Equal(t, int64(0), counterTotal(t, reader, "platform_engine_trigger_event_shadowed_total", nil),
 				"a failed central put is not counted as shadowed")
+			assert.Equal(t, int64(2), counterTotal(t, reader, "platform_engine_trigger_event_shadow_failed_total",
+				map[string]string{platform.KeyWorkflowID: validWorkflowID, platform.KeyTriggerDropReason: tt.wantReason}))
+			assert.Equal(t, int64(2), counterTotal(t, reader, "platform_engine_trigger_event_shadow_failed_total", nil),
+				"no other reason is counted")
 			check(t)
 		})
 	}
+}
+
+// failingWindow is a shadow window limiter whose every read fails, as when the settings backend is unavailable.
+type failingWindow struct{}
+
+func (failingWindow) Check(context.Context, commonconfig.Timestamp) error {
+	return errors.New("settings unavailable")
+}
+
+func (failingWindow) Limit(context.Context) (settings.Range[commonconfig.Timestamp], error) {
+	return settings.Range[commonconfig.Timestamp]{}, errors.New("settings unavailable")
+}
+
+func (failingWindow) Close() error { return nil }
+
+// TestCoordinator_ShadowWindowCheckFails asserts that when the shadow window cannot be read, the event still
+// executes, nothing reaches the central queue, and the event is counted as a failed copy for its workflow.
+func TestCoordinator_ShadowWindowCheckFails(t *testing.T) {
+	t.Parallel()
+	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
+	wfMetrics, reader := newTestMeterMetrics(t)
+	f := newCoordinatorFixture(t, withClock(clockwork.NewFakeClockAt(shadowStart)), withMetrics(wfMetrics),
+		withCoordinatorOptions(WithShadowMode(q, failingWindow{})))
+	eventCh := registerWorkflow(t, f, newTestSubscriber())
+
+	sendEvent(t, f, eventCh, "evt-1")
+
+	assert.Empty(t, drainIDs(t, q))
+	assert.Equal(t, []string{"evt-1"}, f.engine.executedIDs())
+	assert.Equal(t, int64(1), counterTotal(t, reader, "platform_engine_trigger_event_shadow_failed_total",
+		map[string]string{platform.KeyWorkflowID: validWorkflowID, platform.KeyTriggerDropReason: monitoring.ShadowFailReasonWindowCheckFailed}))
 }
 
 // TestCoordinator_DrainerLifecycle asserts the drainer starts and stops with the coordinator, and empties the

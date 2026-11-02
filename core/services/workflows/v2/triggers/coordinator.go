@@ -545,8 +545,8 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 
 // putShadow copies event to the central queue when shadow mode is on for it. The window is checked for every
 // event and never cached, so a settings change applies to the next event. A read error counts as off. A
-// failed put is logged only, because the event still runs on the engine path. An accepted put is counted on
-// tm, which carries the workflow labels.
+// failed copy is never returned, because the event still runs on the engine path. Accepted and failed copies
+// are counted on tm, which carries the workflow labels. An event outside the window is not a failure.
 func (c *coordinator) putShadow(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) {
 	if c.shadow == nil {
 		return
@@ -554,6 +554,7 @@ func (c *coordinator) putShadow(ctx context.Context, cw *coordinatedWorkflow, tm
 	if err := c.shadow.activePeriod.Check(ctx, commonconfig.NewTimestamp(event.ObservedAt)); err != nil {
 		if _, outside := errors.AsType[limits.ErrorRangeLimited[commonconfig.Timestamp]](err); !outside {
 			cw.lggr.Warnw("Failed to check shadow trigger mode, not copying the event to the central queue", "err", err)
+			tm.IncrementTriggerEventShadowFailedCounter(ctx, monitoring.ShadowFailReasonWindowCheckFailed)
 		}
 		return
 	}
@@ -561,6 +562,11 @@ func (c *coordinator) putShadow(ctx context.Context, cw *coordinatedWorkflow, tm
 	if err := c.shadow.queue.Put(ctx, event); err != nil {
 		cw.lggr.Debugw("Failed to copy trigger event to the central queue", "triggerID", event.TriggerCapID,
 			"eventID", event.Event.Event.ID, "err", err)
+		reason := monitoring.ShadowFailReasonPutFailed
+		if errors.Is(err, ErrQueueFull) {
+			reason = monitoring.ShadowFailReasonQueueFull
+		}
+		tm.IncrementTriggerEventShadowFailedCounter(ctx, reason)
 		return
 	}
 	tm.IncrementTriggerEventShadowedCounter(ctx)

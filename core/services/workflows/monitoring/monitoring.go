@@ -71,6 +71,7 @@ type EngineMetrics struct {
 	triggerEventAckFailureCounter       metric.Int64Counter
 	triggerEventEnqueuedCounter         metric.Int64Counter
 	triggerEventShadowedCounter         metric.Int64Counter
+	triggerEventShadowFailedCounter     metric.Int64Counter
 	triggerEventEnqueueDroppedCounter   metric.Int64Counter
 	triggerEventDequeueDroppedCounter   metric.Int64Counter
 	triggerEventDroppedTotal            metric.Int64Counter
@@ -384,6 +385,14 @@ func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, er
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger event shadowed counter: %w", err)
+	}
+
+	em.triggerEventShadowFailedCounter, err = meter.Int64Counter(
+		"platform_engine_trigger_event_shadow_failed_total",
+		metric.WithDescription("Trigger events that should have been copied to the central trigger queue in shadow mode but were not, by dropReason"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event shadow failed counter: %w", err)
 	}
 
 	em.triggerEventEnqueueDroppedCounter, err = meter.Int64Counter(
@@ -857,6 +866,14 @@ func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueuedCounter(ctx context
 func (c WorkflowsMetricLabeler) IncrementTriggerEventShadowedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.triggerEventShadowedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementTriggerEventShadowFailedCounter counts one event that was not copied to the central trigger queue in
+// shadow mode. The event itself still executes. Use the ShadowFailReason* constants.
+func (c WorkflowsMetricLabeler) IncrementTriggerEventShadowFailedCounter(ctx context.Context, reason string) {
+	lc := c.With(platform.KeyTriggerDropReason, reason)
+	otelLabels := beholder.OtelAttributes(lc.Labels).AsStringAttributes()
+	lc.em.triggerEventShadowFailedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueueDroppedCounter(ctx context.Context) {
