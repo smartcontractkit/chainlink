@@ -934,21 +934,40 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 	return organizationID, nil
 }
 
-// useCoordinatedEngine reads the CoordinatedEngine flag. A node without a
+// useCoordinatedEngine reads the CoordinatedEngine flags. A node without a
 // TriggerCoordinator always takes the legacy path. On a sharded node the
 // coordinated engine is wrapped in a ShardFailoverManager, which the
 // coordinator delivers through, so shard admission still applies.
+//
+// The deprecated node-wide flag, when open, selects the coordinated engine for
+// every workflow. Otherwise the per-workflow flag decides, resolved from ctx's
+// workflow, owner and org. A flag that cannot be evaluated counts as closed.
 func (h *eventHandler) useCoordinatedEngine(ctx context.Context, workflowID string) bool {
-	if h.triggerCoordinator == nil || h.featureFlags == nil || h.featureFlags.CoordinatedEngine == nil {
+	if h.triggerCoordinator == nil || h.featureFlags == nil {
 		return false
 	}
-	open, err := h.featureFlags.CoordinatedEngine.IsOpen(ctx)
+	return h.coordinatedEngineFlagOpen(ctx, workflowID, "CoordinatedEngineEnabled", h.featureFlags.CoordinatedEngineGlobal) ||
+		h.coordinatedEngineFlagOpen(ctx, workflowID, "PerWorkflow.CoordinatedEngineEnabled", h.featureFlags.CoordinatedEngine)
+}
+
+func (h *eventHandler) coordinatedEngineFlagOpen(ctx context.Context, workflowID, key string, flag limits.GateLimiter) bool {
+	if flag == nil {
+		return false
+	}
+	open, err := flag.IsOpen(ctx)
 	if err != nil {
-		h.lggr.Warnw("Could not evaluate CoordinatedEngine flag, falling back to the legacy engine",
-			"workflowID", workflowID, "err", err)
+		h.lggr.Warnw("Could not evaluate coordinated engine flag, treating it as closed",
+			"workflowID", workflowID, "key", key, "err", err)
 		return false
 	}
 	return open
+}
+
+// evictFeatureFlags drops the per-workflow flag state kept for a closed engine.
+func (h *eventHandler) evictFeatureFlags(workflowID string) {
+	if err := h.featureFlags.EvictWorkflow(workflowID); err != nil {
+		h.lggr.Errorw("Failed to evict workflow from feature flags", "workflowID", workflowID, "err", err)
+	}
 }
 
 // buildEngineConfig builds the module stack (local WASM module plus the
@@ -1149,6 +1168,7 @@ func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.Workflow
 		if innerErr := e.Close(); innerErr != nil && !errors.Is(innerErr, services.ErrAlreadyStopped) {
 			return nil, fmt.Errorf("failed to close workflow engine: %w", innerErr)
 		}
+		h.evictFeatureFlags(workflowID.Hex())
 	}
 	return drainable, nil
 }
@@ -1269,6 +1289,7 @@ func (h *eventHandler) tryEngineCleanup(ctx context.Context, workflowID types.Wo
 	if err := e.Close(); err != nil && !errors.Is(err, services.ErrAlreadyStopped) {
 		return fmt.Errorf("failed to close workflow engine: %w", err)
 	}
+	h.evictFeatureFlags(workflowID.Hex())
 
 	h.cleanupModuleCache(workflowID.Hex())
 
