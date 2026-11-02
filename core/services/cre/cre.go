@@ -979,9 +979,10 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("unable to init central trigger queue drainer metrics: %w", err)
 	}
 	coordinatorClock := clockwork.NewRealClock()
-    // Shadow mode copies coordinated trigger events to the central queue while
-    // FeatureShadowTriggerModeActivePeriod is open. The copies are for observation only.
-    // The drainer logs and discards them, and each event still executes on its workflow's own queue.
+
+	// Shadow mode copies coordinated trigger events to the central queue while
+	// FeatureShadowTriggerModeActivePeriod is open. The copies are for observation only.
+	// The drainer logs and discards them, and each event still executes on its workflow's own queue.
 	centralQueue := triggers.NewQueue(engineLimiters.CentralTriggerEventQueue,
 		wfmonitoring.NewCentralTriggerQueueMetricLabeler(commonmetrics.NewLabeler(), centralQueueMetrics), lggr)
 	centralQueueDrainer := triggers.NewCentralQueueDrainer(centralQueue, engineLimiters.CentralTriggerQueueDrainInterval,
