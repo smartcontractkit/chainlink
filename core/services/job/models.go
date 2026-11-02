@@ -848,6 +848,8 @@ type WorkflowSpec struct {
 	// TriggerSubscriptions caches the marshaled sdkpb.TriggerSubscriptionRequest
 	// values, so future engine starts can skip re-executing the binary to get them.
 	TriggerSubscriptions []byte `toml:"-" db:"trigger_subscriptions"`
+	// SdkName is the SDK that built the binary, persisted alongside TriggerSubscriptions.
+	SdkName string `toml:"-" db:"sdk_name"`
 }
 
 type StandardCapabilitiesConfig struct {
