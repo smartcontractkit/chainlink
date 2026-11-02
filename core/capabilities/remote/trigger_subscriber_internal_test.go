@@ -148,3 +148,12 @@ func TestTriggerSubscriber_RegistrationOrgIDMetric(t *testing.T) {
 		})
 	}
 }
+
+func TestSubRegState_DeliverAfterClose(t *testing.T) {
+	t.Parallel()
+	for range 100 {
+		r := &subRegState{callback: make(chan commoncap.TriggerResponse, 1), done: make(chan struct{})}
+		r.close()
+		require.False(t, r.deliver(commoncap.TriggerResponse{}, make(chan struct{})))
+	}
+}

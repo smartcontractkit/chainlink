@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	ring_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
@@ -129,7 +129,7 @@ hashed_default_assignment = false
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -218,7 +218,7 @@ WorkflowExecutionConcurrencyLimit = '42'`))
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -331,7 +331,7 @@ hashed_default_assignment = false
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -578,7 +578,7 @@ hashed_default_assignment = true
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -613,8 +613,13 @@ func proposeAndApproveShardAssignmentJob(t *testing.T, testEnv *ttypes.TestEnvir
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: "shard-assignment"},
 	}
 
+	// Use a fresh bundle per proposal: the environment's bundle keeps every report, so re-proposing
+	// a previously used assignment would return the cached report without proposing anything.
+	// WithForceExecute is not enough, as it does not reach the nested ProposeJobSpec operation.
+	sharedBundle := testEnv.CreEnvironment.CldfEnvironment.OperationsBundle
+	bundle := operations.NewBundle(sharedBundle.GetContext, sharedBundle.Logger, operations.NewMemoryReporter())
 	report, err := operations.ExecuteOperation(
-		testEnv.CreEnvironment.CldfEnvironment.OperationsBundle,
+		bundle,
 		ring_ops.ProposeShardAssignmentJob,
 		ring_ops.ProposeShardAssignmentJobDeps{Env: *testEnv.CreEnvironment.CldfEnvironment},
 		jobInput,

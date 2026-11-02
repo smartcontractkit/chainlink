@@ -21,12 +21,14 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -49,16 +51,17 @@ import (
 var executingWorkflows atomic.Int64
 
 var (
-	ErrDuplicateExecution      = errors.New("duplicate execution")
+	ErrDuplicateExecution = triggers.ErrDuplicateExecution
+	ErrEngineDraining     = triggers.ErrEngineDraining
+	ErrEngineClosed       = triggers.ErrEngineClosed
+
 	ErrShardDeniedNotOwner     = fmt.Errorf("shard ownership denied: not owner: %w", triggers.ErrAdmissionDenied)
 	ErrShardDeniedOrchestrator = fmt.Errorf("shard ownership denied: orchestrator error: %w", triggers.ErrAdmissionDenied)
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
 	ErrAdmissionCache          = triggers.ErrAdmissionCached
 
-	ErrEngineDraining = errors.New("engine is draining")
-	ErrEngineClosed   = errors.New("engine is closed")
-	ErrQueueFull      = errors.New("trigger event queue is full")
-	ErrEnqueueFailed  = errors.New("failed to enqueue trigger event")
+	ErrQueueFull     = errors.New("trigger event queue is full")
+	ErrEnqueueFailed = errors.New("failed to enqueue trigger event")
 
 	ErrZeroTriggerSubscriptions = errors.New("workflow subscribed to zero triggers")
 )
@@ -111,7 +114,9 @@ type baseEngine struct {
 	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
 	tracer trace.Tracer
 
-	orgID string
+	usageMeter    *resourcemanager.ResourceManager
+	usageIdentity resourcemanager.ResourceIdentity
+	orgID         string
 	// orgIDMissingReason records why orgID is empty ("resolver_nil",
 	// "resolver_error", or "empty_response"). It is set once in startWith() and
 	// read by startExecution() to label the org_id_missing counter. It is only
@@ -139,7 +144,11 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 		return nil, nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	em, err := monitoring.InitMonitoringResources()
+	meter := cfg.Meter
+	if meter == nil {
+		meter = beholder.GetMeter()
+	}
+	em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not initialize monitoring resources: %w", err)
 	}
@@ -186,6 +195,11 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 	engine.setLogger(beholderLogger)
 	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2, metering.WithEventEmitter(cfg.EventEmitter))
 	engine.metrics = metricsLabeler
+	// Disabled metering is a no-op inside the resource manager.
+	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter, Settings: cfg.LocalLimiters.Settings})
+	engine.usageIdentity = resourcemanager.WithWorkflowUsagePool(
+		resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
+		resourcemanager.ResourceTypeWorkflowCompute)
 	engine.loggerLabels.Store(&labelsMap)
 	engine.localNode.Store(&localNode)
 
@@ -376,6 +390,11 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 // init. Every field it reads is written before OnInitialized fires.
 func (e *baseEngine) Tenant() contexts.CRE {
 	return contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
+}
+
+// SdkName is the SDK the workflow binary was built with.
+func (e *baseEngine) SdkName() string {
+	return e.cfg.SdkName
 }
 
 // Drain marks the engine as draining and prevents new executions from starting.
@@ -732,13 +751,6 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		}
 	}
 
-	// Track time the guest spends blocked in DON-time host calls so it can be
-	// excluded from metered compute (see compute_metering.go). The wrapper is
-	// always installed; whether the recorded wait is subtracted is gated by
-	// e.cfg.MeterComputeExcludingHostWait below.
-	suspension := &suspensionTracker{}
-	timeProvider = newMeasuredTimeProvider(timeProvider, e.cfg.Clock, suspension)
-
 	// Limit is always usable even on a read failure; err is advisory.
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
@@ -765,7 +777,6 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		base: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 		executionProfile: newExecutionProfileCollector(),
-		suspension:       suspension,
 	}
 
 	execHelper.initLimiters(e.cfg.LocalLimiters)
@@ -787,24 +798,13 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
 
-	// computeDuration is what we meter as RESOURCE_TYPE_COMPUTE. We start from the
-	// end-to-end wall-clock and subtract time the guest spent blocked in DON-time
-	// host calls: that wait is not compute and is non-deterministic across nodes
-	// (a node whose DON-time request lands in the current consensus round returns
-	// in microseconds; one whose request slips to the next round blocks ~a full
-	// round). Operational latency metrics below intentionally keep using
-	// executionDuration.
+	// Metered compute: the module's reported duration, else wall-clock.
 	computeDuration := executionDuration
-	if hostWait := suspension.total(); hostWait > 0 {
-		computeDuration -= hostWait
-		if computeDuration < 0 {
-			computeDuration = 0
-		}
-		executionLogger.Debugw("Excluding DON-time wait from metered compute",
-			"wallClockMs", executionDuration.Milliseconds(),
-			"hostWaitMs", hostWait.Milliseconds(),
-			"computeMs", computeDuration.Milliseconds())
+	if result != nil && result.ComputeDurationMs != nil {
+		computeDuration = time.Duration(result.GetComputeDurationMs()) * time.Millisecond
 	}
+
+	e.emitComputeUsage(ctx, executionLogger, executionID, computeDuration)
 
 	if isMetering {
 		computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
@@ -1073,6 +1073,8 @@ func (e *baseEngine) buildLabels(localNode *capabilities.Node) []any {
 		platform.KeyWorkflowName, e.cfg.WorkflowName.String(),
 		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2,
 		platform.KeyDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyWorkflowDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyShardIndex, strconv.FormatUint(uint64(e.cfg.ShardIndex), 10),
 		platform.KeyDonF, strconv.Itoa(int(localNode.WorkflowDON.F)),
 		platform.KeyDonN, strconv.Itoa(len(localNode.WorkflowDON.Members)),
 		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(
@@ -1149,4 +1151,37 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 		return resolvedOrg{Reason: "empty_response"}
 	}
 	return resolvedOrg{ID: orgID}
+}
+
+// emitComputeUsage emits the cre:workflow:compute usage MeterRecord for one
+// execution and logs the emission. The log line is a contract consumed by the
+// billing reconciler (fields: executionID, eventID, resourceType, value, orgID)
+// and must stay stable. Fail-open: never returns an error to the execution.
+func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, executionID string, computeDuration time.Duration) {
+	if !e.cfg.MeterRecordsEnabled {
+		return
+	}
+	resourceID, err := resourcemanager.WorkflowUsageResourceID(e.cfg.WorkflowID, executionID)
+	if err != nil {
+		lggr.Errorw("Compute usage meter record not emitted", "err", err)
+		return
+	}
+	identity := e.usageIdentity
+	if node := e.localNode.Load(); node != nil {
+		identity = identity.WithDonID(strconv.FormatUint(uint64(node.WorkflowDON.ID), 10))
+	}
+	valueMs := computeDuration.Milliseconds()
+	// The capability event id for compute is the execution id itself: one
+	// compute record per execution, identical on every node of the DON.
+	e.usageMeter.EmitUsage(ctx, identity, executionID, valueMs, resourcemanager.UtilizationFields{
+		ResourceType: resourcemanager.ResourceTypeWorkflowCompute,
+		ResourceID:   resourceID,
+		OrgID:        e.orgID,
+	})
+	lggr.Infow("Emitted capability usage meter record",
+		"eventID", executionID,
+		"resourceType", resourcemanager.ResourceTypeWorkflowCompute,
+		"value", valueMs,
+		"orgID", e.orgID,
+	)
 }

@@ -1760,6 +1760,53 @@ func (_c *GeneralConfig_Pyroscope_Call) RunAndReturn(run func() config.Pyroscope
 	return _c
 }
 
+// ResourceAttributes provides a mock function with no fields
+func (_m *GeneralConfig) ResourceAttributes() map[string]string {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResourceAttributes")
+	}
+
+	var r0 map[string]string
+	if rf, ok := ret.Get(0).(func() map[string]string); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]string)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_ResourceAttributes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResourceAttributes'
+type GeneralConfig_ResourceAttributes_Call struct {
+	*mock.Call
+}
+
+// ResourceAttributes is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ResourceAttributes() *GeneralConfig_ResourceAttributes_Call {
+	return &GeneralConfig_ResourceAttributes_Call{Call: _e.mock.On("ResourceAttributes")}
+}
+
+func (_c *GeneralConfig_ResourceAttributes_Call) Run(run func()) *GeneralConfig_ResourceAttributes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ResourceAttributes_Call) Return(_a0 map[string]string) *GeneralConfig_ResourceAttributes_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_ResourceAttributes_Call) RunAndReturn(run func() map[string]string) *GeneralConfig_ResourceAttributes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RootDir provides a mock function with no fields
 func (_m *GeneralConfig) RootDir() string {
 	ret := _m.Called()

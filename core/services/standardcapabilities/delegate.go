@@ -62,6 +62,7 @@ type Delegate struct {
 	defaultBootstrappers    []ocrcommontypes.BootstrapperLocator
 	capRegistryAddress      string
 	capRegistryChainID      string
+	shardIndex              uint32
 
 	isNewlyCreatedJob bool
 }
@@ -87,6 +88,7 @@ func NewDelegate(
 	defaultBootstrappers []ocrcommontypes.BootstrapperLocator,
 	capRegistryAddress string,
 	capRegistryChainID string,
+	shardIndex uint32,
 ) *Delegate {
 	return &Delegate{
 		logger:                  logger,
@@ -108,6 +110,7 @@ func NewDelegate(
 		defaultBootstrappers:    defaultBootstrappers,
 		capRegistryAddress:      capRegistryAddress,
 		capRegistryChainID:      capRegistryChainID,
+		shardIndex:              shardIndex,
 	}
 }
 
@@ -392,6 +395,7 @@ func (d *Delegate) NewServices(
 		CRESettings:        d.creSettings,
 		TriggerEventStore:  triggercap.NewTriggerEventStore(d.ds),
 		CapabilityDonID:    capabilityDonID,
+		ShardIndex:         d.shardIndex,
 	}
 	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, dependencies)
 

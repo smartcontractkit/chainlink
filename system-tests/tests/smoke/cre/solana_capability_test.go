@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
@@ -88,7 +88,7 @@ func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	workflowConfig.WFOwner = s.WFOwner
 	const workflowFileLocation = "./solana/solwrite/main.go"
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -138,7 +138,7 @@ func ExecuteSolanaReadTestForCases(t *testing.T, testEnv *configuration.TestEnvi
 			// while still reusing the shared environment cache (sync.Once) for admin sessions.
 			perCaseEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
 
-			userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+			userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 			baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 			server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testEnv.Logger, userLogsCh, baseMessageCh))
 			t.Cleanup(func() {
@@ -514,7 +514,7 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 
 	const workflowFileLocation = "./solana/sollogtrigger/main.go"
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -682,7 +682,7 @@ func ExecuteSolanaLogTriggerCPITest(t *testing.T, tenv *configuration.TestEnviro
 
 	const workflowFileLocation = "./solana/sollogtrigger/main.go"
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {

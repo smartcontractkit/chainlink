@@ -135,12 +135,13 @@ func newBeholderClient(
 	lggr logger.Logger,
 	keyStore keystore.Master,
 	cfgTracing config.Tracing,
+	cfgApp config.AppConfig,
 	cfgTelemetry config.Telemetry,
 	csaPubKeyHex string,
 	beholderAuthHeaders map[string]string,
 ) (*beholder.Client, error) {
-	attributes := make([]attribute.KeyValue, 0, len(cfgTelemetry.ResourceAttributes()))
-	for k, v := range cfgTelemetry.ResourceAttributes() {
+	attributes := make([]attribute.KeyValue, 0, len(cfgApp.ResourceAttributes()))
+	for k, v := range cfgApp.ResourceAttributes() {
 		attributes = append(attributes, attribute.String(k, v))
 	}
 

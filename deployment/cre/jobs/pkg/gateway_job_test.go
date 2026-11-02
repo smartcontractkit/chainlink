@@ -31,6 +31,62 @@ func TestGateway_Validate_ServiceCentric(t *testing.T) {
 	require.ErrorContains(t, g.Validate(), "must provide at least one service")
 }
 
+func newPongTimeoutTestJob(pongTimeoutSec int) GatewayJob {
+	return GatewayJob{
+		ServiceCentricFormatEnabled: true,
+		JobName:                     "Gateway1",
+		RequestTimeoutSec:           15,
+		PongTimeoutSec:              pongTimeoutSec,
+		DONs: []TargetDON{{
+			ID:      "workflow_1",
+			Members: []TargetDONMember{{Address: "0xabc", Name: "Node 1"}},
+		}},
+		Services: []GatewayServiceConfig{{
+			ServiceName: ServiceNameWorkflows,
+			Handlers:    []string{GatewayHandlerTypeWebAPICapabilities},
+			DONs:        []string{"workflow_1"},
+		}},
+	}
+}
+
+func TestGateway_Validate_PongTimeout(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		pong    int
+		wantErr string
+	}{
+		{name: "unset disables the deadline", pong: 0},
+		{name: "above heartbeat", pong: heartbeatIntervalSec + 1},
+		{name: "equal to heartbeat", pong: heartbeatIntervalSec, wantErr: "pong timeout must be 0 or greater"},
+		{name: "below heartbeat", pong: 5, wantErr: "pong timeout must be 0 or greater"},
+		{name: "negative", pong: -1, wantErr: "pong timeout must be 0 or greater"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := newPongTimeoutTestJob(tc.pong).Validate()
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestGateway_Resolve_PongTimeout(t *testing.T) {
+	t.Parallel()
+
+	unset, err := newPongTimeoutTestJob(0).Resolve(0)
+	require.NoError(t, err)
+	assert.NotContains(t, unset, "PongTimeoutSec")
+
+	set, err := newPongTimeoutTestJob(60).Resolve(0)
+	require.NoError(t, err)
+	assert.Contains(t, set, "HeartbeatIntervalSec = 20\nPongTimeoutSec = 60\n")
+}
+
 func TestNewDefaultConfidentialRelayHandler(t *testing.T) {
 	t.Parallel()
 

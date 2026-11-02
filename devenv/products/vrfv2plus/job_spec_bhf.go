@@ -5,7 +5,6 @@ type BlockhashForwarderJobSpec struct {
 	Name                       string
 	ExternalJobID              string
 	ForwardingAllowed          bool
-	CoordinatorV2Address       string
 	CoordinatorV2PlusAddress   string
 	BlockhashStoreAddress      string
 	BatchBlockhashStoreAddress string
@@ -24,7 +23,6 @@ func (b *BlockhashForwarderJobSpec) String() (string, error) {
 schemaVersion                 = 1
 name                          = "{{.Name}}"
 forwardingAllowed             = {{.ForwardingAllowed}}
-coordinatorV2Address          = "{{.CoordinatorV2Address}}"
 coordinatorV2PlusAddress      = "{{.CoordinatorV2PlusAddress}}"
 blockhashStoreAddress	      = "{{.BlockhashStoreAddress}}"
 batchBlockhashStoreAddress	  = "{{.BatchBlockhashStoreAddress}}"

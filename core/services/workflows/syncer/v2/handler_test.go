@@ -135,6 +135,8 @@ func (m *mockEngine) Subscribe(context.Context) ([]*sdk.TriggerSubscription, err
 
 func (m *mockEngine) Tenant() contexts.CRE { return contexts.CRE{} }
 
+func (m *mockEngine) SdkName() string { return "" }
+
 func (m *mockEngine) Drain() bool { return false }
 
 func (m *mockEngine) ActiveExecutions() int32 { return 0 }
@@ -2135,8 +2137,10 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		WithEngineFactoryFn(mockEngineFactory),
 		WithOrgResolver(orgResolver),
 		WithEventEmitter(events.NewEmitter(rec, events.WithNoDurableEmit())),
+		WithShardIndex(3),
 	)
 	require.NoError(t, err)
+	h.SetWorkflowDon(commoncap.DON{ID: 7})
 
 	// Handle workflow registered event
 	event := WorkflowRegisteredEvent{
@@ -2171,6 +2175,9 @@ func Test_Handler_OrganizationID(t *testing.T) {
 
 		if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
 			orgIDFound = true
+			require.Equal(t, int32(7), payload.CreInfo.DonID)
+			require.Equal(t, int32(7), payload.CreInfo.WorkflowDonID)
+			require.Equal(t, uint32(3), payload.CreInfo.ShardIndex)
 			break
 		}
 	}
@@ -2203,8 +2210,10 @@ func Test_Handler_OrganizationID(t *testing.T) {
 			WithEngineFactoryFn(mockEngineFactory),
 			WithOrgResolver(orgResolver),
 			WithEventEmitter(events.NewEmitter(deleteRec, events.WithNoDurableEmit())),
+			WithShardIndex(3),
 		)
 		require.NoError(t, err)
+		hDelete.SetWorkflowDon(commoncap.DON{ID: 7})
 
 		err = hDelete.Handle(ctx, Event{
 			Name: WorkflowDeleted,
@@ -2226,6 +2235,9 @@ func Test_Handler_OrganizationID(t *testing.T) {
 
 			if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
 				deleteOrgIDFound = true
+				require.Equal(t, int32(7), payload.CreInfo.DonID)
+				require.Equal(t, int32(7), payload.CreInfo.WorkflowDonID)
+				require.Equal(t, uint32(3), payload.CreInfo.ShardIndex)
 				break
 			}
 		}

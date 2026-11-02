@@ -39,6 +39,61 @@ func helperFunction() {}
 	assert.Equal(t, []string{"Example_Something", "Test_Smoke_ComplexFlow", "Test_Smoke_HappyPath"}, names)
 }
 
+func TestDiscoverGoTestNames_IncludedPatterns(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "sample_test.go")
+	content := `package sample_test
+
+import "testing"
+
+func Test_CRE_V2_Basic(t *testing.T) {}
+func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {}
+func Example_CRE_Thing() {}
+`
+	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
+
+	names, err := matrix.DiscoverGoTestNames(tmpDir, matrix.DiscoverOptions{
+		IncludedPatterns: []string{`^Test_CRE_`},
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"Test_CRE_V2_Basic"}, names)
+}
+
+// The CRE smoke suite contains a handful of plain unit tests alongside the real
+// E2E tests. Only Test_CRE_* tests need a runner and a CRE environment, so the
+// matrix must exclude everything else.
+func TestBuildCRESmokeMatrix_OnlyCRETests(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "smoke_test.go")
+	content := `package smoke_test
+
+import "testing"
+
+func Test_CRE_V2_Basic(t *testing.T) {}
+func TestMain(m *testing.M) {}
+func Test_Upgrade_Suite(t *testing.T) {}
+func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {}
+func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {}
+func TestMultiGatewayTopology_LoadExpectedConfig(t *testing.T) {}
+func TestPendingQueueStallWedgeCiphertextSizing(t *testing.T) {}
+func Example_Something() {}
+`
+	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
+
+	res, err := matrix.BuildCRESmokeMatrix(context.Background(), matrix.CRESmokeOptions{
+		Dir:   tmpDir,
+		RunID: "123456",
+	})
+	require.NoError(t, err)
+	require.Len(t, res, 1)
+	assert.Equal(t, "Test_CRE_V2_Basic", res[0].TestName)
+}
+
 func TestBuildCRESmokeMatrix(t *testing.T) {
 	t.Parallel()
 

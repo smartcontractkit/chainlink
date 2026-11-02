@@ -7,11 +7,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
@@ -20,29 +19,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
-// setupInitFailureTestMeter swaps the global beholder client for one backed
-// by a manual meter reader, so the engine's counters can be collected. Mirrors
-// setupTestMeter in the internal test package.
-//
-// The swap is global: parallel full-engine tests may register their counters
-// on this meter too, so assertions here must tolerate foreign increments
-// (reason-unique labels and lower bounds, not exact totals).
-func setupInitFailureTestMeter(t *testing.T) *sdkmetric.ManualReader {
+// newTestMeter returns a private meter backed by a manual meter reader, so
+// tests can inject it via EngineConfig.Meter and then collect and inspect the
+// engine's counters. It never touches the process-global beholder client, so
+// it is safe in parallel tests. Mirrors newTestMeter in the internal test
+// package; every increment on the returned reader comes from this test's engine.
+func newTestMeter(t *testing.T) (metric.Meter, *sdkmetric.ManualReader) {
 	t.Helper()
 
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
 
-	prevClient := beholder.GetClient()
-	t.Cleanup(func() { beholder.SetClient(prevClient) })
-
-	client := beholder.NoopClientConfig{Lggr: logger.Test(t)}.New()
-	client.Meter = mp.Meter("beholder")
-	client.MeterProvider = mp
-	beholder.SetClient(client)
-
-	return reader
+	return mp.Meter("beholder"), reader
 }
 
 // collectCounterByAttr sums the named counter and returns the values observed
@@ -84,10 +73,10 @@ func collectInitFailureCounter(t *testing.T, reader *sdkmetric.ManualReader, nam
 // that a module failing the Subscribe phase by attempting a secrets call
 // during trigger subscription fails engine initialization and increments the
 // initialization failure counter with the disallowed-secrets reason.
-//
-//nolint:paralleltest // swaps the global beholder client
 func TestEngine_InitFailureCounter_DisallowedSecretsCall(t *testing.T) {
-	reader := setupInitFailureTestMeter(t)
+	t.Parallel()
+
+	meter, reader := newTestMeter(t)
 
 	module := modulemocks.NewModuleV2(t)
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -98,6 +87,7 @@ func TestEngine_InitFailureCounter_DisallowedSecretsCall(t *testing.T) {
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
+	cfg.Meter = meter
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -122,11 +112,10 @@ func TestEngine_InitFailureCounter_DisallowedSecretsCall(t *testing.T) {
 	initErr := <-initDoneCh
 	require.ErrorContains(t, initErr, "secrets calls cannot be made during trigger subscription")
 
-	// count may include foreign increments from parallel engine tests sharing
-	// the swapped meter; the disallowed-secrets reason is unique to this test
+	// the meter is private to this test, so the count is exact
 	gotCount, gotReasons := collectInitFailureCounter(t, reader, "platform_engine_workflow_initialization_failures_total")
-	require.GreaterOrEqual(t, gotCount, int64(1))
-	require.Contains(t, gotReasons, "disallowed_secrets_call_during_subscription")
+	require.Equal(t, int64(1), gotCount)
+	require.Equal(t, []string{"disallowed_secrets_call_during_subscription"}, gotReasons)
 }
 
 // TestEngine_InitFailureCounter_ZeroTriggerSubscriptions verifies end to end
@@ -134,10 +123,10 @@ func TestEngine_InitFailureCounter_DisallowedSecretsCall(t *testing.T) {
 // initialization as a permanent error and increments the initialization
 // failure counter with the zero-trigger-subscriptions reason, so this
 // condition can be alerted on.
-//
-//nolint:paralleltest // swaps the global beholder client
 func TestEngine_InitFailureCounter_ZeroTriggerSubscriptions(t *testing.T) {
-	reader := setupInitFailureTestMeter(t)
+	t.Parallel()
+
+	meter, reader := newTestMeter(t)
 
 	module := modulemocks.NewModuleV2(t)
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -148,6 +137,7 @@ func TestEngine_InitFailureCounter_ZeroTriggerSubscriptions(t *testing.T) {
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
+	cfg.Meter = meter
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -171,10 +161,8 @@ func TestEngine_InitFailureCounter_ZeroTriggerSubscriptions(t *testing.T) {
 	initErr := <-initDoneCh
 	require.ErrorIs(t, initErr, v2.ErrZeroTriggerSubscriptions)
 
-	// count may include foreign increments from parallel engine tests sharing
-	// the swapped meter; the zero-trigger-subscriptions reason is unique to
-	// this test
+	// the meter is private to this test, so the count is exact
 	gotCount, gotReasons := collectInitFailureCounter(t, reader, "platform_engine_workflow_initialization_failures_total")
-	require.GreaterOrEqual(t, gotCount, int64(1))
-	require.Contains(t, gotReasons, "zero_trigger_subscriptions")
+	require.Equal(t, int64(1), gotCount)
+	require.Equal(t, []string{"zero_trigger_subscriptions"}, gotReasons)
 }

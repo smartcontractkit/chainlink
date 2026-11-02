@@ -20,8 +20,8 @@ github.com/rogpeppe/go-internal v1.16.0 h1:O9DK+vNMDVGLr2BeZqmpLeMjiMNkuXfcqntWb
 github.com/rogpeppe/go-internal v1.16.0/go.mod h1:DrUVZyrJU+txYW5/1kwtXQSMFio52ZOxX7yM1VHvnxs=
 github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp81k=
 github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
-github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20261013212015-e622e8b83b6b h1:tlxPkVQ6ZpJIElqUWc4lU5VH4BB6OzhckG/gHwpaaa0=
-github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20261013212015-e622e8b83b6b/go.mod h1:/i8hjTPFdVWHiY+QjeSiVS2Z3GB3WAZznGgXHstC02E=
+github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260804191526-b7a850ae7648 h1:WEUMkKQPAgcNMRgES6CBWrRUiII+HKEWQjulKQBSuMA=
+github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260804191526-b7a850ae7648/go.mod h1:/i8hjTPFdVWHiY+QjeSiVS2Z3GB3WAZznGgXHstC02E=
 github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260619133249-34ab259a419e h1:e0VGjbCYjW0aNgWt3rfz1+2Gv/pVNyKIT2hV31f2/Mw=
 github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260619133249-34ab259a419e/go.mod h1:B9bBug58zdooG8ylplFLDnto1hapkCYyVO+FZar0hTM=
 github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/aptos v0.0.0-20260619133249-34ab259a419e h1:sAF7O3jy1ZkPk4eCi9I/RjuXGT9d81ax5E/q+FfilJs=

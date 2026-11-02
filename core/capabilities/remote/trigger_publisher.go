@@ -579,6 +579,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			return
 		}
 
+		p.ackCache.MarkDelivered(key)
 		p.mu.Unlock()
 
 		callerDonID := msg.CallerDonId

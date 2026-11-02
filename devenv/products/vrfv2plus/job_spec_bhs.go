@@ -4,7 +4,6 @@ package vrfv2plus
 type BlockhashStoreJobSpec struct {
 	Name                     string
 	ExternalJobID            string
-	CoordinatorV2Address     string
 	CoordinatorV2PlusAddress string
 	BlockhashStoreAddress    string
 	FromAddresses            []string
@@ -23,7 +22,6 @@ schemaVersion = 1
 name = "{{.Name}}"
 externalJobID = "{{.ExternalJobID}}"
 evmChainID = "{{.EVMChainID}}"
-coordinatorV2Address     = "{{.CoordinatorV2Address}}"
 coordinatorV2PlusAddress = "{{.CoordinatorV2PlusAddress}}"
 blockhashStoreAddress    = "{{.BlockhashStoreAddress}}"
 waitBlocks               = {{.WaitBlocks}}

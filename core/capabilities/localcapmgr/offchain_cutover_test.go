@@ -117,6 +117,45 @@ func onchainDONWith(id uint32, caps map[string]registry.CapabilityConfiguration)
 	return registry.DON{ID: id, Name: testDONName(id), CapabilityConfigurations: caps}
 }
 
+func TestReconcile_HTTPCapabilitiesUseSpecConfig(t *testing.T) {
+	t.Parallel()
+
+	for _, capability := range []struct{ id, command string }{
+		{"http-actions@1.0.0-alpha", "http_action"},
+		{"http-trigger@1.0.0-alpha", "http_trigger"},
+	} {
+		for _, offchain := range []bool{false, true} {
+			name := capability.id + "/onchain"
+			if offchain {
+				name = capability.id + "/offchain"
+			}
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				onchain := map[string]any{"proxyMode": "gateway", "metadataBatchSize": float64(25)}
+				override := map[string]any{"proxyMode": "direct", "metadataBatchSize": float64(10)}
+				gc := globalconfig.New()
+				storeOffchain(t, gc, 1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
+					7: {capability.id: specConfigCap(t, override)},
+				})
+				manager, recorder := newCutoverManager(t, &testLocalCapabilities{
+					allowlisted: map[string]bool{capability.id: true},
+				}, gc, offchain)
+				require.NoError(t, manager.reconcile(t.Context(), []registry.DON{
+					onchainDONWith(7, map[string]registry.CapabilityConfiguration{
+						capability.id: onchainSpecConfig(t, onchain),
+					}),
+				}))
+				expected := onchain
+				if offchain {
+					expected = override
+				}
+				assert.Equal(t, expected, recorder.configFor(t, capability.id, 7))
+				assert.Equal(t, capability.command, recorder.last(t).command)
+			})
+		}
+	}
+}
+
 // TestReconcile_EffectiveSpecConfigPrecedence drives the full launch path (Reconcile ->
 // buildDesiredState -> startCapability -> newServicesFn) and asserts the config the capability
 // is actually launched with: on-chain only with the gate off, offchain only with the gate on.

@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
@@ -36,32 +36,18 @@ func (m *testOrgResolver) Ready() error { return nil }
 
 var _ orgresolver.OrgResolver = (*testOrgResolver)(nil)
 
-// setupTestMeter creates a beholder client backed by a manual meter reader
-// so tests can collect and inspect metric increments. Returns the reader and
-// registers a cleanup that restores the previous global beholder client.
-//
-// The client is built from a fully-initialized noop client so that the
-// Emitter, Tracer, and Logger fields are always non-nil — this prevents nil
-// pointer panics if a parallel test calls beholder.GetEmitter() while our
-// client is briefly the global one.
-func setupTestMeter(t *testing.T) *sdkmetric.ManualReader {
+// newTestMeter returns a private meter backed by a manual reader, so tests
+// can inject the meter (via InitMonitoringResourcesWithMeter or
+// EngineConfig.Meter) and then collect and inspect metric increments. It never
+// touches the process-global beholder client, so it is safe in parallel tests.
+func newTestMeter(t *testing.T) (metric.Meter, *sdkmetric.ManualReader) {
 	t.Helper()
 
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
 
-	prevClient := beholder.GetClient()
-	t.Cleanup(func() { beholder.SetClient(prevClient) })
-
-	// Start from a noop client so Emitter/Tracer/Logger are valid, then swap
-	// only the meter for our manual reader.
-	client := beholder.NoopClientConfig{Lggr: logger.Test(t)}.New()
-	client.Meter = mp.Meter("beholder")
-	client.MeterProvider = mp
-	beholder.SetClient(client)
-
-	return reader
+	return mp.Meter("beholder"), reader
 }
 
 // collectCounterValue reads metrics from the manual reader and returns the
@@ -156,9 +142,9 @@ func TestEngine_OrgIDMissingReason(t *testing.T) {
 // TestEngine_OrgIDMissingCounter verifies that the org_id_missing counter is
 // incremented with the correct reason label when orgID is empty, and not
 // incremented when orgID is set.
-//
-//nolint:paralleltest // subtests mutate the global beholder client via setupTestMeter
 func TestEngine_OrgIDMissingCounter(t *testing.T) {
+	t.Parallel()
+
 	const counterName = "platform_engine_org_id_missing_total"
 
 	tests := []struct {
@@ -198,11 +184,12 @@ func TestEngine_OrgIDMissingCounter(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		//nolint:paralleltest // subtests mutate the global beholder client via setupTestMeter
 		t.Run(tt.name, func(t *testing.T) {
-			reader := setupTestMeter(t)
+			t.Parallel()
 
-			em, err := monitoring.InitMonitoringResources()
+			meter, reader := newTestMeter(t)
+
+			em, err := monitoring.InitMonitoringResourcesWithMeter(meter)
 			require.NoError(t, err)
 
 			labeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)

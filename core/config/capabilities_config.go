@@ -24,6 +24,11 @@ type EngineExecutionRateLimit interface {
 	PerSenderBurst() int
 }
 
+const (
+	WorkflowFetchModeGateway = "gateway"
+	WorkflowFetchModeDirect  = "direct"
+)
+
 type CapabilitiesWorkflowRegistry interface {
 	Address() string
 	NetworkID() string
@@ -35,6 +40,8 @@ type CapabilitiesWorkflowRegistry interface {
 	SyncStrategy() string
 	MaxConcurrency() int
 	MaxActivationRetries() int
+	FetchMode() string
+	FetchAllowedHosts() []string
 	WorkflowStorage() WorkflowStorage
 	ModuleCache() ModuleCache
 	AdditionalSources() []AdditionalWorkflowSource

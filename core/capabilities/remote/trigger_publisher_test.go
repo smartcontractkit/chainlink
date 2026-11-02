@@ -126,6 +126,58 @@ func TestTriggerPublisher_ReceiveTriggerEventAcks(t *testing.T) {
 	require.Eventually(t, func() bool { return underlyingTriggerCap.ackCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
 }
 
+func TestTriggerPublisher_AckEvent_ForwardedOnceAfterQuorum(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+	capInfo := commoncap.CapabilityInfo{
+		ID:             capID,
+		CapabilityType: commoncap.CapabilityTypeTrigger,
+		Description:    "Remote Trigger",
+	}
+
+	peers := make([]p2ptypes.PeerID, 4)
+	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+	require.NoError(t, peers[2].UnmarshalText([]byte(peerID3)))
+	require.NoError(t, peers[3].UnmarshalText([]byte("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw")))
+
+	capDonInfo := commoncap.DON{ID: capabilityDONID, Members: []p2ptypes.PeerID{peers[0]}}
+	workflowDonInfo := commoncap.DON{ID: workflowDONID, Members: peers, F: 1}
+
+	dispatcher := mocks.NewDispatcher(t)
+	allowRegistrationChecks(dispatcher)
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+		MaxBatchSize:            1,
+		BatchCollectionPeriod:   time.Second,
+	}
+	underlying := &testTrigger{
+		info:            capInfo,
+		registrationsCh: make(chan commoncap.TriggerRegistrationRequest, 2),
+		eventCh:         make(chan commoncap.TriggerResponse, 2),
+	}
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, logger.Test(t))
+	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, map[uint32]commoncap.DON{workflowDONID: workflowDonInfo}))
+	servicetest.Run(t, publisher)
+
+	eventID, triggerID := "evt-1", "trigA"
+	publisher.Receive(ctx, newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[0]))
+	publisher.Receive(ctx, newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[1]))
+	require.Never(t, func() bool { return underlying.ackCount.Load() > 0 }, 100*time.Millisecond, 10*time.Millisecond)
+
+	// 3rd ACK reaches 2F+1; the 4th and a retransmit must not forward again.
+	publisher.Receive(ctx, newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[2]))
+	publisher.Receive(ctx, newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[3]))
+	publisher.Receive(ctx, newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[0]))
+	require.Eventually(t, func() bool { return underlying.ackCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
+	require.Never(t, func() bool { return underlying.ackCount.Load() > 1 }, 200*time.Millisecond, 10*time.Millisecond)
+}
+
 func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
@@ -1192,6 +1244,7 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 		underlying := &errTrigger{info: capInfo, err: userErr}
 
 		dispatcher := mocks.NewDispatcher(t)
+		allowRegistrationChecks(dispatcher)
 		config := &commoncap.RemoteTriggerConfig{
 			RegistrationRefresh:     100 * time.Millisecond,
 			RegistrationExpiry:      100 * time.Second,
@@ -1245,6 +1298,7 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 		underlying := &errTrigger{info: capInfo, err: errors.New("transient system failure")}
 
 		dispatcher := mocks.NewDispatcher(t)
+		allowRegistrationChecks(dispatcher)
 		config := &commoncap.RemoteTriggerConfig{
 			RegistrationRefresh:     100 * time.Millisecond,
 			RegistrationExpiry:      100 * time.Second,
