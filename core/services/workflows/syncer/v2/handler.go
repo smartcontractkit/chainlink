@@ -469,6 +469,10 @@ func (h *eventHandler) SetWorkflowDon(don commoncap.DON) {
 	h.specMeter.SetWorkflowDon(don)
 }
 
+func (h *eventHandler) myDonIDLabel() string {
+	return strconv.FormatUint(uint64(h.myDonID), 10)
+}
+
 func (h *eventHandler) close() error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Close()
@@ -536,6 +540,9 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
+			platform.KeyDonID, h.myDonIDLabel(),
+			platform.KeyWorkflowDonID, h.myDonIDLabel(),
+			platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
 		)
 		h.emitterMu.RUnlock()
 
@@ -579,6 +586,9 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
+			platform.KeyDonID, h.myDonIDLabel(),
+			platform.KeyWorkflowDonID, h.myDonIDLabel(),
+			platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
 		)
 		h.emitterMu.RUnlock()
 
@@ -636,6 +646,9 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
+			platform.KeyDonID, h.myDonIDLabel(),
+			platform.KeyWorkflowDonID, h.myDonIDLabel(),
+			platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
 		)
 		h.emitterMu.RUnlock()
 
@@ -1558,6 +1571,7 @@ func (h *eventHandler) newV2EngineConfig(
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
 		MyDonID:                 h.myDonID,
+		ShardIndex:              h.myShardIndex,
 		ShardRoutingSteady:      h.shardRoutingSteady,
 		ShardResolver:           h.shardResolver,
 	}
@@ -1666,6 +1680,9 @@ func (h *eventHandler) EmitActivationAbandoned(
 		platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 		platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 		platform.KeyWorkflowSource, payload.Source,
+		platform.KeyDonID, h.myDonIDLabel(),
+		platform.KeyWorkflowDonID, h.myDonIDLabel(),
+		platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
 	)
 	h.emitterMu.RUnlock()
 

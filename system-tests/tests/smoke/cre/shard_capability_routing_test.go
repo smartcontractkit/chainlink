@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -87,7 +87,7 @@ const (
 	registerTriggerLogNeedle = "RegisterTrigger called"
 	// duplicateInFamilyCapWarnNeedle matches the launcher warning that fires when
 	// discovery would route to the lowest DON ID because several in-family DONs
-	// host the same capability - the silent-mis-routing sentinel this topology
+	// host the same capability - the silent misrouting sentinel this topology
 	// must never trigger.
 	duplicateInFamilyCapWarnNeedle = "multiple in-family capability DONs host the same capability"
 	// evmReadWorkflowUserLog is the user log the evmread workflow emits once its
@@ -145,8 +145,8 @@ func mustShardedCapabilitiesTopology(t *testing.T, testEnv *ttypes.TestEnvironme
 			"expected at least 2 shard DONs, found %d. This test requires configs/workflow-sharded-capabilities-don.toml: "+
 				"2 workflow shard DONs without the EVM capability + 2 capability shard DONs hosting the same EVM capability, "+
 				"one per shard family. If this fails in CI, the test is missing from the per-test topology mapping "+
-				"(.github/workflows/cre-system-tests.yaml PER_TEST_TOPOLOGIES_JSON and tools/ci/internal/matrix/system.go "+
-				"defaultCRESmokePerTestTopologies) and ran against the default config. Running DONs: %v",
+				"(tools/ci/internal/matrix/system.go defaultCRESmokePerTestTopologies) and ran against the default config. "+
+				"Running DONs: %v",
 			len(shardDONs), donNames(testEnv))
 	}
 
@@ -474,7 +474,7 @@ func awaitShardedWorkflowExecution(t *testing.T, testEnv *ttypes.TestEnvironment
 	t.Helper()
 	testLogger := framework.L
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {

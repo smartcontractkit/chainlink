@@ -1073,6 +1073,8 @@ func (e *baseEngine) buildLabels(localNode *capabilities.Node) []any {
 		platform.KeyWorkflowName, e.cfg.WorkflowName.String(),
 		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2,
 		platform.KeyDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyWorkflowDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyShardIndex, strconv.FormatUint(uint64(e.cfg.ShardIndex), 10),
 		platform.KeyDonF, strconv.Itoa(int(localNode.WorkflowDON.F)),
 		platform.KeyDonN, strconv.Itoa(len(localNode.WorkflowDON.Members)),
 		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(

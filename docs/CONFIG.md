@@ -1892,7 +1892,7 @@ This allows staged rollout: capabilities not matching any pattern continue launc
 while matching capabilities transition to registry-based launching.
 Examples (using single-quoted TOML strings where backslashes are literal):
 - '^cron@1\.0\.0$' matches exactly "cron@1.0.0"
-- '^http-action@.*$' matches any version of http-action
+- '^http-actions@.*$' matches any version of http-actions
 - '.*' matches all capabilities
 
 ### UseOffchainRegistry

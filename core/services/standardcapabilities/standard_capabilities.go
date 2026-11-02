@@ -46,6 +46,8 @@ type StandardCapabilities struct {
 	// at Initialise time. Zero means the host did not resolve one; the plugin
 	// will fall back to capability-registry lookup.
 	capabilityDonID uint32
+	// shardIndex is this node's shard from the [Sharding] config, plumbed to the LOOP at Initialise.
+	shardIndex uint32
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 	// loopID is the ID this service holds in the plugin registrar. It is set
@@ -101,6 +103,7 @@ func NewStandardCapabilities(
 		creSettings:          dependencies.CRESettings,
 		triggerEventStore:    dependencies.TriggerEventStore,
 		capabilityDonID:      dependencies.CapabilityDonID,
+		shardIndex:           dependencies.ShardIndex,
 		stopChan:             make(chan struct{}),
 		readyChan:            make(chan struct{}),
 	}
@@ -121,6 +124,7 @@ func (s *StandardCapabilities) initialiseDependencies() core.StandardCapabilitie
 		CRESettings:        s.creSettings,
 		TriggerEventStore:  s.triggerEventStore,
 		CapabilityDonID:    s.capabilityDonID,
+		ShardIndex:         s.shardIndex,
 	}
 }
 

@@ -488,7 +488,7 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		Local: toml.LocalCapabilities{
-			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-action@.*$`},
+			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-actions@.*$`},
 			UseOffchainRegistry:          new(true),
 		},
 	}

@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -173,13 +174,30 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 }
 
 func (m *ShardFailoverManager) close() error {
+	// Stop admitting first: close the engine and unregister the handler so no
+	// trigger can be cached after the cache is cleared below. A trigger admitted
+	// between clearing and engine stop would increment cachedEvents with nothing
+	// left to decrement it.
+	var err error
+	if m.engine != nil {
+		err = m.engine.Close()
+	}
 	if m.cfg.Failover.Communicator != nil {
 		m.cfg.Failover.Communicator.UnregisterHandler(m.cfg.WorkflowID)
 	}
-	if m.engine != nil {
-		return m.engine.Close()
+
+	// The cache dies with the engine (workflow paused or deleted): its events
+	// leave the funnel as one closed exit batch, or the node-wide cached-events
+	// total stays inflated for the life of the process.
+	m.mu.Lock()
+	cached := int64(len(m.cache))
+	clear(m.cache)
+	m.mu.Unlock()
+	if cached > 0 {
+		fm := shardFailoverMetrics()
+		fm.RecordCacheExit(context.Background(), monitoring.ShardFailoverCacheExitClosed, cached)
 	}
-	return nil
+	return err
 }
 
 // admissionCheck decides whether the engine should process a trigger event,
@@ -253,25 +271,33 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 		m.removeCachedEvent(msg.TriggerEventId)
 
 	case ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR:
-		event, ok := m.popCachedEvent(msg.TriggerEventId)
+		event, ok := m.popCachedEvent(msg.TriggerEventId, monitoring.ShardFailoverCacheExitReplayed)
 		if !ok {
 			m.cfg.Logger.Warnw("failover: no cached event for triggerEventID, cannot replay",
 				"triggerEventID", msg.TriggerEventId,
 				"workflowID", msg.WorkflowId,
 				"executionID", msg.ExecutionId)
+			shardFailoverMetrics().RecordReplay(context.Background(), monitoring.ShardFailoverReplayMiss)
 			return
 		}
 		m.cfg.Logger.Infow("failover: replaying cached trigger event after system error",
 			"triggerEventID", msg.TriggerEventId,
 			"workflowID", msg.WorkflowId,
 			"executionID", msg.ExecutionId)
-		if err := m.engine.ExecuteTrigger(m.replayExecCtx(context.Background()), event); err != nil {
+		replayStart := time.Now()
+		err := m.engine.ExecuteTrigger(m.replayExecCtx(context.Background()), event)
+		outcome := monitoring.ShardFailoverReplaySucceeded
+		if err != nil {
+			outcome = monitoring.ShardFailoverReplayFailed
 			m.cfg.Logger.Errorw("failover: failed to replay cached trigger event",
 				"triggerEventID", msg.TriggerEventId,
 				"workflowID", msg.WorkflowId,
 				"executionID", msg.ExecutionId,
 				"err", err)
 		}
+		fm := shardFailoverMetrics()
+		fm.RecordReplay(context.Background(), outcome)
+		fm.RecordReplayDuration(context.Background(), outcome, time.Since(replayStart))
 	}
 }
 
@@ -306,12 +332,26 @@ func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardown
 	}
 }
 
+// shardFailoverMetrics returns the process-global failover instruments, or nil
+// when they failed to register (all methods are nil-receiver safe).
+func shardFailoverMetrics() *monitoring.ShardFailoverMetrics {
+	m, _ := monitoring.GlobalShardFailoverMetrics()
+	return m
+}
+
 func (m *ShardFailoverManager) cacheEvent(ctx context.Context, event triggers.CoordinatedEvent) {
 	eventID := event.Event.Event.ID
 	failoverAt := m.timeoutBasedFailoverDeadline(ctx)
 	m.mu.Lock()
+	_, alreadyCached := m.cache[eventID]
 	m.cache[eventID] = cachedEvent{event: event, cachedAt: time.Now(), failoverAt: failoverAt}
 	m.mu.Unlock()
+	// A redelivered event ID overwrites its own entry; recounting it would
+	// inflate the cached counter and the node-wide total.
+	if !alreadyCached {
+		fm := shardFailoverMetrics()
+		fm.RecordTriggerCached(ctx)
+	}
 	m.cfg.Logger.Infow("secondary shard: cached trigger event for failover",
 		"eventID", eventID,
 		"myShardIndex", m.cfg.MyShardIndex,
@@ -390,7 +430,7 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 
 		switch m.checkShardOwnership(ctx) {
 		case shardownership.DenyNotOwner:
-			event, ok := m.popCachedEvent(c.eventID)
+			event, ok := m.popCachedEvent(c.eventID, monitoring.ShardFailoverCacheExitReplayed)
 			if !ok {
 				continue
 			}
@@ -419,7 +459,7 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 				}
 			})
 		case shardownership.Allow:
-			if _, ok := m.popCachedEvent(c.eventID); ok {
+			if _, ok := m.popCachedEvent(c.eventID, monitoring.ShardFailoverCacheExitDrained); ok {
 				m.cfg.Logger.Infow("secondary shard: dropped cached trigger event, shard is owner again",
 					"eventID", c.eventID,
 					"workflowID", m.cfg.WorkflowID)
@@ -429,7 +469,9 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 	}
 }
 
-func (m *ShardFailoverManager) popCachedEvent(eventID string) (triggers.CoordinatedEvent, bool) {
+// popCachedEvent removes eventID from the cache for replay. exit is the
+// ShardFailoverCacheExit* constant describing why the entry left the cache.
+func (m *ShardFailoverManager) popCachedEvent(eventID string, exit string) (triggers.CoordinatedEvent, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ce, ok := m.cache[eventID]
@@ -437,13 +479,23 @@ func (m *ShardFailoverManager) popCachedEvent(eventID string) (triggers.Coordina
 		return triggers.CoordinatedEvent{}, false
 	}
 	delete(m.cache, eventID)
+	fm := shardFailoverMetrics()
+	fm.RecordCacheExit(context.Background(), exit, 1)
 	return ce.event, true
 }
 
 func (m *ShardFailoverManager) removeCachedEvent(eventID string) {
 	m.mu.Lock()
-	delete(m.cache, eventID)
+	_, cached := m.cache[eventID]
+	if cached {
+		delete(m.cache, eventID)
+	}
 	m.mu.Unlock()
+	if !cached {
+		return
+	}
+	fm := shardFailoverMetrics()
+	fm.RecordCacheExit(context.Background(), monitoring.ShardFailoverCacheExitDrained, 1)
 }
 
 func (m *ShardFailoverManager) pruneLoop(ctx context.Context) {
@@ -454,16 +506,29 @@ func (m *ShardFailoverManager) pruneLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			m.mu.Lock()
-			now := time.Now()
-			for id, ce := range m.cache {
-				if now.Sub(ce.cachedAt) > cachedExpiry {
-					delete(m.cache, id)
-				}
-			}
-			m.mu.Unlock()
+			m.pruneExpiredCachedEvents(ctx)
 		}
 	}
+}
+
+// pruneExpiredCachedEvents drops entries older than cachedExpiry: the primary
+// never delivered a verdict for them, so they exit the funnel as expired.
+func (m *ShardFailoverManager) pruneExpiredCachedEvents(ctx context.Context) {
+	m.mu.Lock()
+	now := time.Now()
+	expired := 0
+	for id, ce := range m.cache {
+		if now.Sub(ce.cachedAt) > cachedExpiry {
+			delete(m.cache, id)
+			expired++
+		}
+	}
+	m.mu.Unlock()
+	if expired == 0 {
+		return
+	}
+	fm := shardFailoverMetrics()
+	fm.RecordCacheExit(ctx, monitoring.ShardFailoverCacheExitExpired, int64(expired))
 }
 
 // wireFailover sets up the communicator for ExecutionStatusUpdate messages.
