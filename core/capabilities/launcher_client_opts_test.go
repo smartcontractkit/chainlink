@@ -18,9 +18,9 @@ func TestExecutableClientOpts(t *testing.T) {
 	require.NoError(t, err)
 	w := &launcher{vaultShareSizeLimit: shareSizeLimit}
 
-	// every client gets the durable emit option
-	assert.Len(t, w.executableClientOpts(vaultcommon.CapabilityID, "other"), 1)
-	assert.Len(t, w.executableClientOpts("other@1.0.0", vaulttypes.MethodSecretsGet), 1)
-	// vault direct GetSecrets additionally gets the aggregator factory
-	assert.Len(t, w.executableClientOpts(vaultcommon.CapabilityID, vaulttypes.MethodSecretsGet), 2)
+	// non-vault clients get no options
+	assert.Empty(t, w.executableClientOpts(vaultcommon.CapabilityID, "other"))
+	assert.Empty(t, w.executableClientOpts("other@1.0.0", vaulttypes.MethodSecretsGet))
+	// vault direct GetSecrets gets the aggregator factory
+	assert.Len(t, w.executableClientOpts(vaultcommon.CapabilityID, vaulttypes.MethodSecretsGet), 1)
 }

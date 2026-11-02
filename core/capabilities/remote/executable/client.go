@@ -34,11 +34,6 @@ type client struct {
 
 	aggregatorFactory request.AggregatorFactory
 
-	// durableEmit persists transmission schedule events emitted by requests
-	// created through this client. Nil falls back to durableemitter.GlobalEmit
-	// in the request constructor.
-	durableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
-
 	requestIDToCallerRequest map[string]*request.ClientRequest
 	mutex                    sync.Mutex
 	stopCh                   services.StopChan
@@ -85,13 +80,6 @@ func WithAggregatorFactory(f request.AggregatorFactory) ClientOption {
 	return func(c *client) { c.aggregatorFactory = f }
 }
 
-// WithDurableEmit sets the durable emit func for transmission schedule events
-// emitted by requests created through this client. Nil keeps the default,
-// durableemitter.GlobalEmit.
-func WithDurableEmit(fn func(ctx context.Context, body []byte, attrKVs ...any) error) ClientOption {
-	return func(c *client) { c.durableEmit = fn }
-}
-
 func NewClient(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger, opts ...ClientOption) *client {
 	c := &client{
 		capabilityID:             capabilityID,
@@ -100,9 +88,6 @@ func NewClient(capabilityID, capMethodName string, dispatcher types.Dispatcher, 
 		lggr:                     logger.With(logger.Named(lggr, "ExecutableCapabilityClient"), "capabilityID", capabilityID, "capMethodName", capMethodName),
 		requestIDToCallerRequest: make(map[string]*request.ClientRequest),
 		stopCh:                   make(services.StopChan),
-	}
-	for _, opt := range opts {
-		opt(c)
 	}
 	return c
 }
@@ -271,19 +256,22 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 
 	var req *request.ClientRequest
 	var err error
-	// c.storeRequest is passed as beforeSend so the request is registered before any peer sends
 	if agg != nil {
 		req, err = request.NewClientExecuteRequestWithAggregator(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
-			cfg.requestTimeout, c.capMethodName, agg, c.storeRequest, request.WithDurableEmit(c.durableEmit))
+			cfg.requestTimeout, c.capMethodName, agg)
 	} else {
 		req, err = request.NewClientExecuteRequest(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
-			cfg.requestTimeout, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate, c.storeRequest,
-			request.WithDurableEmit(c.durableEmit))
+			cfg.requestTimeout, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate)
 	}
 	if err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to create client request: %w", err)
 	}
 	c.lggr.Debugw("created new client request", "requestID", req.ID())
+
+	if err = c.storeRequest(req); err != nil {
+		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to store request: %w", err)
+	}
+	req.Send()
 
 	var respResult []byte
 	var respErr error

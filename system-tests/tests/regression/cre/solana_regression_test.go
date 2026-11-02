@@ -18,7 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -618,10 +618,10 @@ func solanaWriteBatchPassedLog(batchName string, cases int) string {
 
 // startSolanaChipSink boots a per-test CHiP sink and returns the channels the workflow logs and
 // engine messages are published to.
-func startSolanaChipSink(t *testing.T, testLogger zerolog.Logger) (chan *workflowevents.UserLogs, chan *commonevents.BaseMessage) {
+func startSolanaChipSink(t *testing.T, testLogger zerolog.Logger) (chan *workfloweventsv2.WorkflowUserLog, chan *commonevents.BaseMessage) {
 	t.Helper()
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))

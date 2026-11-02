@@ -109,6 +109,11 @@ type eventHandler struct {
 	// disabled: its handler-facing methods are nil-receiver safe no-ops.
 	specMeter *SpecMeter
 
+	// meterRecordsEnabled gates the engines' compute usage records; meteringIdentity is the node's [Metering] dimensions.
+	meterRecordsEnabled bool
+	meteringIdentity    resourcemanager.DeploymentIdentity
+	usageEmitter        resourcemanager.Emitter
+
 	orgResolver    orgresolver.OrgResolver
 	secretsFetcher v2.SecretsFetcher
 	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
@@ -199,6 +204,16 @@ func WithTriggerCoordinator(tc triggers.Coordinator) func(*eventHandler) {
 func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.billingClient = client
+	}
+}
+
+// WithUsageMetering enables compute usage records on the engines, delivered
+// through emitter; dep is the node's [Metering] dimensions.
+func WithUsageMetering(dep resourcemanager.DeploymentIdentity, emitter resourcemanager.Emitter) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.meterRecordsEnabled = true
+		e.meteringIdentity = dep
+		e.usageEmitter = emitter
 	}
 }
 
@@ -454,6 +469,10 @@ func (h *eventHandler) SetWorkflowDon(don commoncap.DON) {
 	h.specMeter.SetWorkflowDon(don)
 }
 
+func (h *eventHandler) myDonIDLabel() string {
+	return strconv.FormatUint(uint64(h.myDonID), 10)
+}
+
 func (h *eventHandler) close() error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Close()
@@ -521,6 +540,9 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
+			platform.KeyDonID, h.myDonIDLabel(),
+			platform.KeyWorkflowDonID, h.myDonIDLabel(),
+			platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
 		)
 		h.emitterMu.RUnlock()
 
@@ -564,6 +586,9 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
+			platform.KeyDonID, h.myDonIDLabel(),
+			platform.KeyWorkflowDonID, h.myDonIDLabel(),
+			platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
 		)
 		h.emitterMu.RUnlock()
 
@@ -621,6 +646,9 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 			platform.KeyWorkflowSource, payload.Source,
+			platform.KeyDonID, h.myDonIDLabel(),
+			platform.KeyWorkflowDonID, h.myDonIDLabel(),
+			platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
 		)
 		h.emitterMu.RUnlock()
 
@@ -1531,6 +1559,9 @@ func (h *eventHandler) newV2EngineConfig(
 		WorkflowRegistryAddress:           h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector:     h.workflowRegistryChainSelector,
 		OrgResolver:                       h.orgResolver,
+		MeterRecordsEnabled:               h.meterRecordsEnabled,
+		MeteringIdentity:                  h.meteringIdentity,
+		UsageEmitter:                      h.usageEmitter,
 		SecretsFetcher:                    h.secretsFetcher,
 		OverrideFetcher:                   h.overrideFetcherForOwner(owner),
 		DebugMode:                         h.debugMode,
@@ -1540,6 +1571,7 @@ func (h *eventHandler) newV2EngineConfig(
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
 		MyDonID:                 h.myDonID,
+		ShardIndex:              h.myShardIndex,
 		ShardRoutingSteady:      h.shardRoutingSteady,
 		ShardResolver:           h.shardResolver,
 	}
@@ -1648,6 +1680,9 @@ func (h *eventHandler) EmitActivationAbandoned(
 		platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 		platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
 		platform.KeyWorkflowSource, payload.Source,
+		platform.KeyDonID, h.myDonIDLabel(),
+		platform.KeyWorkflowDonID, h.myDonIDLabel(),
+		platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
 	)
 	h.emitterMu.RUnlock()
 

@@ -82,7 +82,7 @@ func Test_ClientRequest_WithAggregator(t *testing.T) {
 		capabilityPeers, _, capInfo := capabilityDon(t, 4, 1)
 		agg := &countingAggregator{want: 3}
 		req, err := request.NewClientExecuteRequestWithAggregator(t.Context(), logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, newClientRequestTestDispatcher(), 10*time.Minute, "", agg, nil)
+			workflowDonInfo, newClientRequestTestDispatcher(), 10*time.Minute, "", agg)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -106,7 +106,7 @@ func Test_ClientRequest_WithAggregator(t *testing.T) {
 		capabilityPeers, _, capInfo := capabilityDon(t, 4, 1)
 		agg := &countingAggregator{want: 2}
 		req, err := request.NewClientExecuteRequestWithAggregator(t.Context(), logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, newClientRequestTestDispatcher(), 10*time.Minute, "", agg, nil)
+			workflowDonInfo, newClientRequestTestDispatcher(), 10*time.Minute, "", agg)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -121,7 +121,7 @@ func Test_ClientRequest_WithAggregator(t *testing.T) {
 		t.Parallel()
 		_, _, capInfo := capabilityDon(t, 4, 1)
 		_, err := request.NewClientExecuteRequestWithAggregator(t.Context(), logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, newClientRequestTestDispatcher(), 10*time.Minute, "", nil, nil)
+			workflowDonInfo, newClientRequestTestDispatcher(), 10*time.Minute, "", nil)
 		require.Error(t, err)
 	})
 }

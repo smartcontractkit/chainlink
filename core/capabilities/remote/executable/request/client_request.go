@@ -9,14 +9,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
@@ -28,9 +23,22 @@ type clientResponse struct {
 	Err    error
 }
 
+// messageFields are the fields of the outgoing MessageBody that the caller controls.
+type messageFields struct {
+	CapabilityID     string
+	CapabilityDonID  uint32
+	CallerDonID      uint32
+	Method           string
+	Payload          []byte
+	MessageID        []byte
+	CapabilityMethod string
+}
+
 type ClientRequest struct {
 	id               string
-	cancelFn         context.CancelFunc
+	dispatcher       types.Dispatcher
+	peers            []p2ptypes.PeerID
+	message          messageFields
 	responseCh       chan clientResponse
 	createdAt        time.Time
 	responseReceived map[p2ptypes.PeerID]bool
@@ -44,74 +52,39 @@ type ClientRequest struct {
 
 	respSent bool
 	mux      sync.Mutex
-	wg       *sync.WaitGroup
-}
-
-// clientRequestConfig holds the sinks for the transmission schedule event.
-// Zero values resolve to the late-bound globals.
-type clientRequestConfig struct {
-	emitter beholder.Emitter
-	durable func(ctx context.Context, body []byte, attrKVs ...any) error
-}
-
-// ClientRequestOption configures the sinks used for a ClientRequest's
-// transmission schedule event.
-type ClientRequestOption func(*clientRequestConfig)
-
-// WithEmitter sets the beholder emitter used for the transmission schedule
-// event. A nil emitter defaults to beholder.GlobalEmitter(), which resolves
-// the global client at emit time.
-func WithEmitter(e beholder.Emitter) ClientRequestOption {
-	return func(c *clientRequestConfig) { c.emitter = e }
-}
-
-// WithDurableEmit overrides the durable emit func (default durableemitter.GlobalEmit).
-func WithDurableEmit(fn func(ctx context.Context, body []byte, attrKVs ...any) error) ClientRequestOption {
-	return func(c *clientRequestConfig) { c.durable = fn }
-}
-
-// newClientRequestConfig applies opts and defaults the sinks before the
-// transmission schedule event is emitted inside newClientRequest, so overrides
-// apply to it. A nil emitter defaults to beholder.GlobalEmitter(), which resolves
-// the global client at emit time.
-func newClientRequestConfig(opts []ClientRequestOption) clientRequestConfig {
-	cfg := clientRequestConfig{}
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-	if cfg.emitter == nil {
-		cfg.emitter = beholder.GlobalEmitter()
-	}
-	if cfg.durable == nil {
-		cfg.durable = durableemitter.GlobalEmit
-	}
-	return cfg
 }
 
 // NewClientExecuteRequest creates a new client request for a remote executable capability.
-// V2 capabilities always use the AllAtOnce transmission schedule.
-//
-// beforeSend, if non-nil, is invoked with the request before any transmission to
-// peers begins, so that early responses are not dropped.
+// The request is not sent until Send is called.
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, capMethodName string,
-	signers [][]byte, minResponsesToAggregate uint32, beforeSend func(*ClientRequest) error, opts ...ClientRequestOption,
+	signers [][]byte, minResponsesToAggregate uint32,
 ) (*ClientRequest, error) {
 	rawRequest, requestID, lggr, workflowExecutionID, err := prepareRequest(lggr, req)
 	if err != nil {
 		return nil, err
 	}
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout,
-		types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName,
-		signers, minResponsesToAggregate, nil, beforeSend, newClientRequestConfig(opts))
+	if remoteCapabilityInfo.DON == nil {
+		return nil, errors.New("remote capability info missing DON")
+	}
+	msg := messageFields{
+		CapabilityID:     remoteCapabilityInfo.ID,
+		CapabilityDonID:  remoteCapabilityInfo.DON.ID,
+		CallerDonID:      localDonInfo.ID,
+		Method:           types.MethodExecute,
+		Payload:          rawRequest,
+		MessageID:        []byte(requestID),
+		CapabilityMethod: capMethodName,
+	}
+	return newClientRequest(lggr, requestID, remoteCapabilityInfo, dispatcher, requestTimeout, msg,
+		workflowExecutionID, req.Metadata.ReferenceID, signers, minResponsesToAggregate, nil)
 }
 
 // NewClientExecuteRequestWithAggregator is NewClientExecuteRequest with the outcome decided by aggregator.
 func NewClientExecuteRequestWithAggregator(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, capMethodName string, aggregator ResponseAggregator,
-	beforeSend func(*ClientRequest) error, opts ...ClientRequestOption,
 ) (*ClientRequest, error) {
 	if aggregator == nil {
 		return nil, errors.New("aggregator cannot be nil")
@@ -120,9 +93,20 @@ func NewClientExecuteRequestWithAggregator(ctx context.Context, lggr logger.Logg
 	if err != nil {
 		return nil, err
 	}
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout,
-		types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName,
-		nil, 0, aggregator, beforeSend, newClientRequestConfig(opts))
+	if remoteCapabilityInfo.DON == nil {
+		return nil, errors.New("remote capability info missing DON")
+	}
+	msg := messageFields{
+		CapabilityID:     remoteCapabilityInfo.ID,
+		CapabilityDonID:  remoteCapabilityInfo.DON.ID,
+		CallerDonID:      localDonInfo.ID,
+		Method:           types.MethodExecute,
+		Payload:          rawRequest,
+		MessageID:        []byte(requestID),
+		CapabilityMethod: capMethodName,
+	}
+	return newClientRequest(lggr, requestID, remoteCapabilityInfo, dispatcher, requestTimeout, msg,
+		workflowExecutionID, req.Metadata.ReferenceID, nil, 0, aggregator)
 }
 
 // prepareRequest marshals the request and derives its request ID and enriched logger.
@@ -146,186 +130,63 @@ func prepareRequest(lggr logger.Logger, req commoncap.CapabilityRequest) (rawReq
 }
 
 var (
-	defaultDelayMargin = 10 * time.Second
 	// Extra time the workflow DON client waits beyond requestTimeout for P2P responses
 	// after remote capability nodes hit their execution deadline.
 	defaultResponseAggregationGrace = 10 * time.Second
 )
 
-func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
-	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	methodType string, rawRequest []byte, workflowExecutionID, stepRef, capMethodName string,
-	signers [][]byte, minResponsesToAggregate uint32,
-	aggregator ResponseAggregator, beforeSend func(*ClientRequest) error, cfg clientRequestConfig,
+func newClientRequest(lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
+	dispatcher types.Dispatcher, requestTimeout time.Duration, message messageFields,
+	workflowExecutionID, stepRef string, signers [][]byte, minResponsesToAggregate uint32,
+	aggregator ResponseAggregator,
 ) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
 		return nil, errors.New("remote capability info missing DON")
 	}
 
-	peerIDToTransmissionDelay := getPeerIDToTransmissionDelays(remoteCapabilityDonInfo.Members)
-
-	// send schedule through beholder for single execution performance tracking
-	if err := emitTransmissionScheduleEvent(ctx, cfg,
-		workflowExecutionID,
-		requestID,
-		remoteCapabilityInfo.ID,
-		stepRef,
-		peerIDToTransmissionDelay,
-	); err != nil {
-		lggr.Errorw("failed to emit transmission schedule event", "error", err)
+	responseReceived := make(map[p2ptypes.PeerID]bool, len(remoteCapabilityDonInfo.Members))
+	for _, peerID := range remoteCapabilityDonInfo.Members {
+		responseReceived[peerID] = false
 	}
-
-	responseReceived := make(map[p2ptypes.PeerID]bool)
-
-	maxDelayDuration := time.Duration(0)
-	for _, delay := range peerIDToTransmissionDelay {
-		if delay > maxDelayDuration {
-			maxDelayDuration = delay
-		}
-	}
-
-	// Add some margin to allow the last peer to respond
-	maxDelayDuration += defaultDelayMargin
-
-	// Instantiate a new context based on the parent, but without its deadline.
-	// We set a new deadline instead equal to the original timeout OR the full length
-	// of the execution schedule plus some margin, whichever is greater
-
-	// We do this to ensure that we will always execute the entire transmission schedule.
-	// This ensures that all capability DON nodes will receive a quorum of requests,
-	// and will execute all requests they receive from the workflow DON, preventing
-	// quorum errors from lagging members of the workflow DON.
-	dl, ok := ctx.Deadline()
-	originalTimeout := time.Duration(0)
-	if ok {
-		originalTimeout = time.Until(dl)
-	}
-	effectiveTimeout := max(originalTimeout, maxDelayDuration)
-
-	// Now let's create a new context based on the adjusted timeout value.
-	// By calling WithoutCancel, we ensure that this context can only be cancelled in
-	// one of two ways -- 1) by explicitly calling the cancelFn we create below, or 2)
-	// after the adjusted timeout expires.
-	ctxWithoutCancel := context.WithoutCancel(ctx)
-	ctxWithCancel, cancelFn := context.WithTimeout(ctxWithoutCancel, effectiveTimeout)
 
 	if aggregator == nil {
 		aggregator = newQuorumAggregator(lggr, signers, workflowExecutionID, stepRef,
 			len(remoteCapabilityDonInfo.Members), remoteCapabilityDonInfo.F, minResponsesToAggregate)
 	}
 
-	var wg sync.WaitGroup
-	cr := &ClientRequest{
+	return &ClientRequest{
 		id:               requestID,
-		cancelFn:         cancelFn,
+		dispatcher:       dispatcher,
+		peers:            remoteCapabilityDonInfo.Members,
+		message:          message,
 		createdAt:        time.Now(),
 		requestTimeout:   requestTimeout,
 		responseReceived: responseReceived,
 		responseCh:       make(chan clientResponse, 1),
-		wg:               &wg,
 		lggr:             lggr,
 		aggregator:       aggregator,
-	}
+	}, nil
+}
 
-	// beforeSend must run before any sends: remote peers can answer before the
-	// caller finishes registering the request, and such responses are dropped as
-	// unknown message IDs, starving the response quorum.
-	if beforeSend != nil {
-		if err := beforeSend(cr); err != nil {
-			cancelFn()
-			return nil, fmt.Errorf("failed to register request: %w", err)
+// Send dispatches the request to all remote capability peers. Callers must register the
+// request to receive responses before calling Send, since peers may reply immediately.
+func (c *ClientRequest) Send() {
+	for _, peerID := range c.peers {
+		// the dispatcher mutates the message, so each peer gets its own
+		message := &types.MessageBody{
+			CapabilityId:     c.message.CapabilityID,
+			CapabilityDonId:  c.message.CapabilityDonID,
+			CallerDonId:      c.message.CallerDonID,
+			Method:           c.message.Method,
+			Payload:          c.message.Payload,
+			MessageId:        c.message.MessageID,
+			CapabilityMethod: c.message.CapabilityMethod,
+		}
+		if err := c.dispatcher.Send(peerID, message); err != nil {
+			c.lggr.Errorw("failed to send message", "peerID", peerID, "error", err)
 		}
 	}
-
-	lggr.Debugw("sending request to peers", "schedule", peerIDToTransmissionDelay, "originalTimeout", originalTimeout, "effectiveTimeout", effectiveTimeout)
-
-	for peerID, delay := range peerIDToTransmissionDelay {
-		responseReceived[peerID] = false
-
-		wg.Add(1)
-		go func(innerCtx context.Context, peerID ragep2ptypes.PeerID, delay time.Duration) {
-			defer wg.Done()
-			message := &types.MessageBody{
-				CapabilityId:     remoteCapabilityInfo.ID,
-				CapabilityDonId:  remoteCapabilityDonInfo.ID,
-				CallerDonId:      localDonInfo.ID,
-				Method:           methodType,
-				Payload:          rawRequest,
-				MessageId:        []byte(requestID),
-				CapabilityMethod: capMethodName,
-			}
-
-			timer := time.NewTimer(delay)
-			defer timer.Stop()
-
-			select {
-			case <-innerCtx.Done():
-				lggr.Debugw("context done, not sending request to peer", "peerID", peerID)
-				return
-			case <-timer.C:
-				lggr.Debugw("sending request to peer", "peerID", peerID)
-				err := dispatcher.Send(peerID, message)
-				if err != nil {
-					lggr.Errorw("failed to send message", "peerID", peerID, "error", err)
-				}
-			}
-		}(ctxWithCancel, peerID, delay)
-	}
-
-	return cr, nil
-}
-
-// getPeerIDToTransmissionDelays returns a map of PeerID to the time.Duration that the node
-// with that PeerID should wait before transmitting the capability request. If a node is not
-// in the map, it should not transmit. With the AllAtOnce schedule every DON member transmits
-// immediately.
-func getPeerIDToTransmissionDelays(donPeerIDs []p2ptypes.PeerID) map[p2ptypes.PeerID]time.Duration {
-	peerIDToTransmissionDelay := make(map[p2ptypes.PeerID]time.Duration, len(donPeerIDs))
-	for _, peerID := range donPeerIDs {
-		peerIDToTransmissionDelay[peerID] = 0
-	}
-	return peerIDToTransmissionDelay
-}
-
-func emitTransmissionScheduleEvent(ctx context.Context, cfg clientRequestConfig,
-	workflowExecutionID, transmissionID, capabilityID, stepRef string, peerIDToTransmissionDelay map[p2ptypes.PeerID]time.Duration,
-) error {
-	// map of peer IDs to their transmission delays in milliseconds
-	peerDelaysMap := make(map[string]int64, len(peerIDToTransmissionDelay))
-	for peerID, delay := range peerIDToTransmissionDelay {
-		peerDelaysMap[peerID.String()] = delay.Milliseconds()
-	}
-
-	msg := &events.TransmissionsScheduledEvent{
-		Timestamp:              time.Now().Format(time.RFC3339),
-		ScheduleType:           ScheduleAllAtOnce,
-		WorkflowExecutionID:    workflowExecutionID,
-		TransmissionID:         transmissionID,
-		CapabilityID:           capabilityID,
-		StepRef:                stepRef,
-		PeerTransmissionDelays: peerDelaysMap,
-	}
-
-	b, err := proto.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("failed to marshal TransmissionScheduleEvent: %w", err)
-	}
-
-	// emit transmission schedule event to track which nodes are successful when called to emit
-	entity := fmt.Sprintf("%s.%s", TransmissionEventProtoPkg, TransmissionEventEntity)
-	if err = cfg.emitter.Emit(ctx, b,
-		"beholder_data_schema", TransmissionEventSchema, // required
-		"beholder_domain", "platform", // required
-		"beholder_entity", entity); err != nil { // required
-		return err
-	}
-
-	err = cfg.durable(ctx, b, "source", "platform", "type", entity)
-	if err != nil && !errors.Is(err, durableemitter.ErrNotInitialized) {
-		return err
-	}
-	return nil
 }
 
 func (c *ClientRequest) ID() string {
@@ -341,8 +202,6 @@ func (c *ClientRequest) Expired() bool {
 }
 
 func (c *ClientRequest) Cancel(err error) {
-	c.cancelFn()
-	c.wg.Wait()
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	if !c.respSent {

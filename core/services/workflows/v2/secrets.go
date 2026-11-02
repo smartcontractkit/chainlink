@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -153,13 +154,14 @@ func (s *secretsFetcher) vaultGetSecretsMetadata(ctx context.Context, callbackID
 }
 
 // countSecretsCall reserves one call from the per-execution secrets call
-// budget shared by GetSecrets and GetRawSecrets.
+// budget shared by GetSecrets and GetRawSecrets. Exceeding the budget is a
+// user-origin LimitExceeded error.
 func (s *secretsFetcher) countSecretsCall(ctx context.Context) error {
 	s.callCounter.mu.Lock()
 	defer s.callCounter.mu.Unlock()
 	secretsCalled := s.callCounter.called + 1
 	if err := s.secretsCallsLimit.Check(ctx, secretsCalled); err != nil {
-		return err
+		return caperrors.NewLimitExceededError("secrets call limit exceeded", err)
 	}
 	s.callCounter.called = secretsCalled
 	return nil

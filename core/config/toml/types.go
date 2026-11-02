@@ -2554,6 +2554,8 @@ type WorkflowRegistry struct {
 	SyncStrategy            *string
 	MaxConcurrency          *int
 	MaxActivationRetries    *int
+	FetchMode               *string
+	FetchAllowedHosts       *[]string
 	WorkflowStorage         WorkflowStorage
 	ModuleCache             ModuleCache
 	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
@@ -2596,6 +2598,14 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 		r.MaxActivationRetries = f.MaxActivationRetries
 	}
 
+	if f.FetchMode != nil {
+		r.FetchMode = f.FetchMode
+	}
+
+	if f.FetchAllowedHosts != nil {
+		r.FetchAllowedHosts = f.FetchAllowedHosts
+	}
+
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
 	r.ModuleCache.setFrom(&f.ModuleCache)
 
@@ -2613,6 +2623,22 @@ const MaxAdditionalSources = 5
 func (r *WorkflowRegistry) ValidateConfig() error {
 	if err := r.WorkflowStorage.ValidateConfig(); err != nil {
 		return err
+	}
+
+	if r.FetchMode != nil {
+		switch *r.FetchMode {
+		case coreconfig.WorkflowFetchModeGateway, coreconfig.WorkflowFetchModeDirect:
+		default:
+			return configutils.InvalidError{Name: "FetchMode", Value: *r.FetchMode, Msg: "must be 'gateway' or 'direct'"}
+		}
+	}
+
+	if r.FetchAllowedHosts != nil {
+		for i, h := range *r.FetchAllowedHosts {
+			if strings.TrimSpace(h) == "" || strings.Contains(h, "/") || strings.Contains(h, ":") {
+				return configutils.InvalidError{Name: fmt.Sprintf("FetchAllowedHosts[%d]", i), Value: h, Msg: "must be a bare hostname without scheme, port or path"}
+			}
+		}
 	}
 
 	if len(r.AdditionalSourcesConfig) > MaxAdditionalSources {
@@ -2823,7 +2849,7 @@ type LocalCapabilities struct {
 	// launched from the capabilities registry instead of via job specs.
 	// Examples (regex patterns):
 	//   - "^cron@1\.0\.0$" matches exactly "cron@1.0.0"
-	//   - "^http-action@.*$" matches any version of http-action
+	//   - "^http-actions@.*$" matches any version of http-actions
 	//   - ".*" matches all capabilities
 	RegistryBasedLaunchAllowlist []string `toml:",omitempty"`
 	// UseOffchainRegistry gates the offchain capabilities registry cutover. Default false: the
@@ -2862,7 +2888,7 @@ func ValidateCapabilityID(capID string) error {
 		return configutils.InvalidError{
 			Name:  "CapabilityID",
 			Value: capID,
-			Msg:   "must be in format 'name@version' (e.g., 'http-action@1.0.0')",
+			Msg:   "must be in format 'name@version' (e.g., 'http-actions@1.0.0')",
 		}
 	}
 	return nil

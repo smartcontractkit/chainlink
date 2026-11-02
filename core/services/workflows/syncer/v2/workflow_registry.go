@@ -836,6 +836,7 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 	}
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
 	failoverEnabled := w.shardingFailoverGate != nil && w.shardingFailoverGate.AllowErr(ctx) == nil
+	shardFailoverMetrics().SetFailoverEnabled(ctx, failoverEnabled)
 	for _, wf := range workflows {
 		id := wf.WorkflowID.Hex()
 		if failoverEnabled {

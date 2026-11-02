@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
@@ -1203,6 +1204,12 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimitOnRawSecrets(t *testing.T) {
 		// second call should fail due to exceeding the bound limiter (limit == 1)
 		_, err := sf.GetRawSecretsResponse(t.Context(), req, keyFetcher)
 		require.ErrorContains(t, err, "limited: cannot use 2, limit is 1")
+
+		// The relay answers user-origin errors with invalid params, not internal.
+		capErr, ok := errors.AsType[caperrors.Error](err)
+		require.True(t, ok)
+		assert.Equal(t, caperrors.OriginUser, capErr.Origin())
+		assert.Equal(t, caperrors.LimitExceeded, capErr.Code())
 	})
 
 	t.Run("raw and normal secrets calls share the budget", func(t *testing.T) {

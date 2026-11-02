@@ -27,7 +27,7 @@ The sink can optionally forward events to a real Chip Ingress endpoint by settin
 ## Example Snippet
 
 ```go
-userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 publishFn := t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh)
 server := t_helpers.StartChipTestSink(t, publishFn)

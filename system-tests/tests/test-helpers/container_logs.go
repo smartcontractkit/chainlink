@@ -131,9 +131,9 @@ func ContainerLogLinesForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment, 
 }
 
 // CountNodesetContainersWithLog returns how many of the nodeset's containers
-// currently contain needle in their logs - for per-node convergence proofs,
-// where a single container's log line is not enough.
-func CountNodesetContainersWithLog(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string) int {
+// currently contain a line matching every needle - for per-node convergence
+// proofs, where a single container's log line is not enough.
+func CountNodesetContainersWithLog(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName string, needles ...string) int {
 	t.Helper()
 
 	targetNames := make(map[string]struct{})
@@ -158,11 +158,22 @@ func CountNodesetContainersWithLog(t *testing.T, testEnv *ttypes.TestEnvironment
 			framework.L.Warn().Str("container", containerName).Err(readErr).Msg("could not read container logs")
 			continue
 		}
-		if strings.Contains(content, needle) {
+		if logsContainMatchingLine(content, needles...) {
 			count++
 		}
 	}
 	return count
+}
+
+func logsContainMatchingLine(content string, needles ...string) bool {
+	for line := range strings.Lines(content) {
+		if len(needles) > 0 && !slices.ContainsFunc(needles, func(needle string) bool {
+			return !strings.Contains(line, needle)
+		}) {
+			return true
+		}
+	}
+	return false
 }
 
 // AssertNodeLogs requires needle to appear in at least one Chainlink node container log.

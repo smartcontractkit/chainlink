@@ -357,16 +357,26 @@ func (f *coordinatorFixture) holdExecutions(t *testing.T) (release func()) {
 	return release
 }
 
-// countingPool counts Wait calls on a ResourcePoolLimiter, so a test can tell
-// when the admitter has taken an event off the queue and waits for a slot.
+// countingPool counts Wait and Available calls on a ResourcePoolLimiter, so a
+// test can tell when the admitter waits for a slot, or how often a pool is read.
 type countingPool struct {
 	limits.ResourcePoolLimiter[int]
-	waits atomic.Int32
+	waits      atomic.Int32
+	availables atomic.Int32
 }
 
 func (p *countingPool) Wait(ctx context.Context, amount int) (func(), error) {
 	p.waits.Add(1)
 	return p.ResourcePoolLimiter.Wait(ctx, amount)
+}
+
+func newCountingPool(limit int) *countingPool {
+	return &countingPool{ResourcePoolLimiter: limits.GlobalResourcePoolLimiter(limit)}
+}
+
+func (p *countingPool) Available(ctx context.Context) (int, error) {
+	p.availables.Add(1)
+	return p.ResourcePoolLimiter.Available(ctx)
 }
 
 // useTestMeter points the global beholder meter at a manual reader, so workflow

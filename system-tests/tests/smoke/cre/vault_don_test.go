@@ -25,7 +25,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -202,7 +202,7 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		require.NoError(t, err)
 		updateEnc, err := vaultutils.EncryptSecretWithWorkflowOwner(updateValue, vaultParsedPublicKey, workflowOwnerAddress)
 		require.NoError(t, err)
-		ulCh := make(chan *workflowevents.UserLogs, 1000)
+		ulCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 		bmCh := make(chan *commonevents.BaseMessage, 1000)
 		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
 		t.Cleanup(func() {
@@ -254,7 +254,7 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
 		enc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-basic", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
 		require.NoError(t, err)
-		ulCh := make(chan *workflowevents.UserLogs, 1000)
+		ulCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 		bmCh := make(chan *commonevents.BaseMessage, 1000)
 		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
 		t.Cleanup(func() {
@@ -301,7 +301,7 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 
 	allowlistAuth := newAllowlistVaultRequestAuth(workflowOwner, sc, wfReg)
 
-	ulCh := make(chan *workflowevents.UserLogs, 1000)
+	ulCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	bmCh := make(chan *commonevents.BaseMessage, 1000)
 	sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
 	t.Cleanup(func() {
@@ -560,7 +560,7 @@ VaultPublicKeyEncryptOnlyEnabled = 'true'`))
 	requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 	auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
 
-	ulCh := make(chan *workflowevents.UserLogs, 1000)
+	ulCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	bmCh := make(chan *commonevents.BaseMessage, 1000)
 	sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
 	t.Cleanup(func() {
@@ -611,7 +611,7 @@ func ExecuteVaultIncludeInvalidLivenessSmokeTest(t *testing.T, fixture *vaultSce
 	executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, deletedSecretID, owner, gwURL, namespaces)
 	executeVaultSecretsDeleteWithAuth(t, auth, deletedSecretID, owner, gwURL, namespaces)
 
-	ulCh := make(chan *workflowevents.UserLogs, 1000)
+	ulCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	bmCh := make(chan *commonevents.BaseMessage, 1000)
 	sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
 	t.Cleanup(func() {
@@ -645,7 +645,7 @@ func waitForDeletedSecretNotFoundPhase(
 	t *testing.T,
 	verifier *vaultVerifierHandle,
 	deletedSecretID string,
-	ulCh chan *workflowevents.UserLogs,
+	ulCh chan *workfloweventsv2.WorkflowUserLog,
 	bmCh chan *commonevents.BaseMessage,
 ) {
 	t.Helper()
@@ -1087,7 +1087,7 @@ func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {
 
 func executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(
 	t *testing.T, verifier *vaultVerifierHandle,
-	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
+	userLogsCh chan *workfloweventsv2.WorkflowUserLog, baseMessageCh chan *commonevents.BaseMessage,
 ) {
 	testLogger := framework.L
 	testLogger.Info().Msg("Verifying get secret is rejected for invalid identifier via workflow...")
@@ -1108,7 +1108,7 @@ func executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(
 // message survives the workflow-DON -> vault-DON remote capability hop.
 func executeVaultSecretsGetBatchTooBigViaWorkflowTest(
 	t *testing.T, verifier *vaultVerifierHandle,
-	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
+	userLogsCh chan *workfloweventsv2.WorkflowUserLog, baseMessageCh chan *commonevents.BaseMessage,
 ) {
 	testLogger := framework.L
 	testLogger.Info().Msg("Verifying get secret is rejected for oversized batch via workflow...")

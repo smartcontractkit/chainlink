@@ -1,5 +1,21 @@
 # Changelog Chainlink Core
 
+## 2.71.0
+
+### Minor Changes
+
+- [#24025](https://github.com/smartcontractkit/chainlink/pull/24025) [`a660e1e`](https://github.com/smartcontractkit/chainlink/commit/a660e1e75bdd6ab98238a1857e8c030aa621282d) - Minor bump to start next version
+
+- [#24014](https://github.com/smartcontractkit/chainlink/pull/24014) [`a170ee9`](https://github.com/smartcontractkit/chainlink/commit/a170ee9f1085b5d7943d3321946c1028f9f5e433) - #added Offchain capability configs support `localOnly` (`local_only`) to disable Don2Don client/server shims while retaining local capability execution. The flag follows whole-capability source selection and participates in divergence telemetry.
+
+- [#24064](https://github.com/smartcontractkit/chainlink/pull/24064) [`fb2745b`](https://github.com/smartcontractkit/chainlink/commit/fb2745bd0f1e7eaccccb2a1a2bebd8f4bc5dc543) - Add `Capabilities.WorkflowRegistry.FetchMode` (`gateway` default, or `direct`), and `FetchAllowedHosts` so nodes can download workflow artifacts directly instead of through the Gateway. #added
+
+### Patch Changes
+
+- [#23858](https://github.com/smartcontractkit/chainlink/pull/23858) [`7052b8d`](https://github.com/smartcontractkit/chainlink/commit/7052b8d8cfe3706c44120f8b4a2520affd22ac54) - Emit a `cre:workflow:compute` usage MeterRecord per workflow execution when `[Metering].MeterRecordsEnabled` is on. The compute duration is reported by the module that ran the workflow (the guest run for WASM, the enclave-measured run for confidential workflows). #internal
+
+- [#24067](https://github.com/smartcontractkit/chainlink/pull/24067) [`103c5cc`](https://github.com/smartcontractkit/chainlink/commit/103c5cc178cecb988017f2d0bc8542555251beb9) - #bugfix Remote trigger fixes: the publisher forwards ACKs to the underlying trigger once per event, and the subscriber no longer panics or blocks when a trigger is unregistered while an event is being delivered.
+
 ## 2.70.0
 
 ### Minor Changes

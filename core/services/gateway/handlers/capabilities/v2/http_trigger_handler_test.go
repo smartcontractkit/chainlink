@@ -2087,35 +2087,17 @@ func TestHttpTriggerHandler_CheckRateLimit_PerOrgOverride(t *testing.T) {
 	testMetrics := createTestMetrics(t, &config.DONConfig{Members: []config.NodeConfig{{Address: "node1"}}})
 	handler := NewHTTPTriggerHandler(logger.Test(t), WithDefaults(ServiceConfig{}), nil, nil, metadataHandler, rateLimiter, testMetrics, orgResolver)
 
-	// The first check for each workflow creates its per-workflow-tenant limiter, sized
-	// immediately from the setting resolved for that request's scope (a bucket starts
-	// full, so a later burst increase would add no tokens): org-restricted is denied
-	// from the very first request, org-normal falls through to the global default
-	// (burst 3).
-	restrictedCallback := hc.NewCallback()
-	err = handler.checkRateLimit(t.Context(), restrictedWfID, "req-1", restrictedCallback)
-	require.Error(t, err)
-	restrictedPayload, waitErr := restrictedCallback.Wait(t.Context())
-	require.NoError(t, waitErr)
-	requireUserErrorSent(t, restrictedPayload, jsonrpc.ErrLimitExceeded)
-
-	require.NoError(t, handler.checkRateLimit(t.Context(), normalWfID, "req-2", hc.NewCallback()))
-
-	// Wait past the scoped RateLimiter's settings poll interval
-	// (pkg/settings/limits.pollPeriod = 5s) to show enforcement is stable across a
-	// refresh cycle.
-	time.Sleep(6 * time.Second)
-
-	// org-restricted's override (burst 0) is still active: denied.
+	// Each workflow's per-tenant limiter loads its limit from settings when first created,
+	// so org-restricted's override (burst 0) applies from the very first check: denied.
 	callback := hc.NewCallback()
-	err = handler.checkRateLimit(t.Context(), restrictedWfID, "req-3", callback)
+	err = handler.checkRateLimit(t.Context(), restrictedWfID, "req-1", callback)
 	require.Error(t, err)
 	payload, waitErr := callback.Wait(t.Context())
 	require.NoError(t, waitErr)
 	requireUserErrorSent(t, payload, jsonrpc.ErrLimitExceeded)
 
-	// org-normal has no override and still has burst left over from the global default: allowed.
-	require.NoError(t, handler.checkRateLimit(t.Context(), normalWfID, "req-4", hc.NewCallback()))
+	// org-normal has no override and falls through to the global default (burst 3): allowed.
+	require.NoError(t, handler.checkRateLimit(t.Context(), normalWfID, "req-2", hc.NewCallback()))
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *testing.T) {

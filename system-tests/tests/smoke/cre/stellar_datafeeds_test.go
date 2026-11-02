@@ -12,7 +12,7 @@ import (
 
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	stellarfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
@@ -31,7 +31,7 @@ func executeStellarDataFeedsWriteTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	stellarChain *stellchain.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	t.Helper()
