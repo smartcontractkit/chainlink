@@ -45,9 +45,11 @@ const (
 	donBenchChannels = 2000
 	donBenchStreams  = 2000
 	// donBenchRounds is how many full rounds, every channel delivered, each
-	// oracle must reach before the run stops. Channels are voted in five per
-	// round, so the first full round comes after donBenchChannels/5 rounds.
-	donBenchRounds = 20
+	// oracle must reach before the run stops, unless LLO_DON_BENCH_ROUNDS
+	// overrides it. Channels are voted in five per round, so the first full
+	// round comes after donBenchChannels/5 rounds.
+	donBenchRounds    = 20
+	donBenchRoundsEnv = "LLO_DON_BENCH_ROUNDS"
 	// donBenchDeltaRound is the round cadence floor libocr enforces, unless
 	// LLO_DON_BENCH_DELTA_ROUND overrides it. The lowest the OCR3.1 production
 	// sanity check accepts with the default snapshot retention, and the same
@@ -127,7 +129,7 @@ func TestIntegration_LLO_don_benchmark(t *testing.T) {
 		})
 	}
 
-	t.Logf("DON benchmark: %d oracles, %d channels, %d streams, %d rounds, DeltaRound %s, p2p host %s", nNodes, donBenchChannels, donBenchStreams, donBenchRounds, donBenchDeltaRoundValue(t), donBenchP2PHost())
+	t.Logf("DON benchmark: %d oracles, %d channels, %d streams, %d rounds, DeltaRound %s, p2p host %s", nNodes, donBenchChannels, donBenchStreams, donBenchRoundsValue(t), donBenchDeltaRoundValue(t), donBenchP2PHost())
 	for _, r := range results {
 		t.Log(r.String())
 		t.Logf("%s full round message sizes by bytes: %s", r.version, r.sizeProfile)
@@ -192,6 +194,19 @@ func donBenchDeltaRoundValue(t *testing.T) time.Duration {
 	d, err := time.ParseDuration(v)
 	require.NoError(t, err, "%s", donBenchDeltaRoundEnv)
 	return d
+}
+
+// donBenchRoundsValue is the full round count a run waits for.
+func donBenchRoundsValue(t *testing.T) int {
+	t.Helper()
+	v := os.Getenv(donBenchRoundsEnv)
+	if v == "" {
+		return donBenchRounds
+	}
+	n, err := strconv.Atoi(v)
+	require.NoError(t, err, "%s", donBenchRoundsEnv)
+	require.Positive(t, n, "%s", donBenchRoundsEnv)
+	return n
 }
 
 // donBenchP2PHost is the loopback address the oracles listen and announce on.
@@ -266,12 +281,13 @@ func runDONBench(t *testing.T, version lloconfig.PluginVersion, salt int64, donI
 		c.Log.Level = new(logLevel)
 		onP2PHost(c)
 	})
+	fullRounds := donBenchRoundsValue(t)
 	bootstrapper := fmt.Sprintf("%s@%s", bootstrapPeerID, net.JoinHostPort(p2pHost, strconv.Itoa(bootstrapNodePort)))
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	// The server drops packets once this buffer is full, so size it for the
 	// whole run plus the rounds in flight when it ends.
-	packets := make(chan *packet, 2*donBenchChannels*donBenchRounds*nNodes)
+	packets := make(chan *packet, 2*donBenchChannels*fullRounds*nNodes)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 	serverPubKey := serverKey.PublicKey
 	srv := NewMercuryServer(t, serverKey, packets)
@@ -329,7 +345,7 @@ pluginVersion = "%s"`, serverURL, serverPubKey, donID, configStoreAddress, fromB
 	configSetAt := time.Now()
 	setProductionConfig(t, donID, steve, backend, configurator, configuratorAddress, nodes, opts...)
 
-	// Collect until every oracle has delivered donBenchRounds full rounds.
+	// Collect until every oracle has delivered fullRounds full rounds.
 	// Transmissions arrive out of order, so rounds are counted by seqNr.
 	byOracle := map[string][]donBenchReport{}
 	// oracle => seqNr => reports delivered for that round
@@ -376,7 +392,7 @@ pluginVersion = "%s"`, serverURL, serverPubKey, donID, configStoreAddress, fromB
 					full++
 				}
 			}
-			if full >= donBenchRounds {
+			if full >= fullRounds {
 				finished++
 			}
 		}
