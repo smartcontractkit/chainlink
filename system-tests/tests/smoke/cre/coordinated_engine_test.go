@@ -218,7 +218,12 @@ func Test_CRE_V2_CoordinatedEngine_RollbackToLegacy(t *testing.T) {
 
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog,
 		"Amazing workflow user log", 2*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
-	requireCoordinatorLogForWorkflow(t, testEnv, coordinatedEngineDON, workflowID)
+	// Execution only needs a quorum. Wait for every node to create its engine
+	// before pausing, or a slower node may first discover the workflow paused
+	// and never emit the teardown event that this test requires from all nodes.
+	require.Eventually(t, func() bool {
+		return t_helpers.CountNodesetContainersWithLog(t, testEnv, coordinatedEngineDON, coordinatorLogMessage, workflowID) == len(testEnv.Dons.MustWorkflowDON().Nodes)
+	}, time.Minute, 5*time.Second, "workflow %s was not registered through the coordinator on all workflow nodes", workflowID)
 	registrationsBefore := countCoordinatorLogLinesForWorkflow(t, testEnv, coordinatedEngineDON, workflowID)
 
 	// Flag off: engines created from now on are legacy. The baseline has the flag
@@ -340,8 +345,6 @@ func waitForEngineTeardown(t *testing.T, testEnv *ttypes.TestEnvironment, workfl
 	t.Helper()
 
 	require.Eventually(t, func() bool {
-		lines := t_helpers.ContainerLogLinesForNodeset(t, testEnv, coordinatedEngineDON, "handled event (WorkflowPaused)")
-		lines = slices.DeleteFunc(lines, func(line string) bool { return !strings.Contains(line, workflowID) })
-		return len(lines) >= len(testEnv.Dons.MustWorkflowDON().Nodes) // one per workflow node
+		return t_helpers.CountNodesetContainersWithLog(t, testEnv, coordinatedEngineDON, "handled event (WorkflowPaused)", workflowID) == len(testEnv.Dons.MustWorkflowDON().Nodes)
 	}, 2*time.Minute, 5*time.Second, "workflow %s was not torn down on all workflow nodes", workflowID)
 }
