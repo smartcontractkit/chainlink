@@ -571,7 +571,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON r
 			continue
 		}
 		if capabilityConfig.LocalOnly {
-			w.lggr.Debugw("skipping local-only capability", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid)
+			w.lggr.Debugw("skipping local-only capability", "myDONName", myDON.Name, "remoteDONName", remoteDON.Name, "capabilityID", cid)
 			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultSkipped)
 			continue
 		}
@@ -711,7 +711,6 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 
 	cc, isNewCC := w.getCombinedClient(info)
 	for method, config := range methodConfig {
-		w.lggr.Infow("addRemoteCapabilityV2", "capID", capID, "method", method)
 		if config.RemoteTriggerConfig == nil && config.RemoteExecutableConfig == nil {
 			// TODO CRE-1021 metrics
 			w.lggr.Errorw("no remote config found", "method", method, "capID", capID)
