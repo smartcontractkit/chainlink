@@ -185,14 +185,14 @@ func TestBridgeConnManager_GetObservation_CacheHitAndMiss(t *testing.T) {
 	bridge := testBridge(t, "cachebridge")
 	requestData := map[string]any{"data": map[string]any{"endpoint": "crypto"}}
 
-	_, err := m.GetObservation(bridge, requestData)
+	_, err := m.GetObservation(bridge, requestData, time.Minute)
 	require.ErrorIs(t, err, ErrBridgeObservationNotFound)
 
 	key, err := bridgeObservationCacheKey(bridge.Name.String(), requestData["data"].(map[string]any))
 	require.NoError(t, err)
 
 	m.PutObservation(key, []byte(`{"result":"9700"}`))
-	got, err := m.GetObservation(bridge, requestData)
+	got, err := m.GetObservation(bridge, requestData, time.Minute)
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"result":"9700"}`, string(got))
 
@@ -220,13 +220,61 @@ func TestBridgeConnManager_GetObservation_ExpiresAfterTTL(t *testing.T) {
 
 	m.PutObservation(key, []byte(`{"result":"9700"}`))
 
-	clock.Advance(observationTTL)
-	got, err := m.GetObservation(bridge, requestData)
+	clock.Advance(defaultObservationTTL)
+	got, err := m.GetObservation(bridge, requestData, defaultObservationTTL)
 	require.NoError(t, err, "an entry at exactly the TTL boundary must not be treated as expired")
 	assert.JSONEq(t, `{"result":"9700"}`, string(got))
 
 	clock.Advance(time.Nanosecond)
-	_, err = m.GetObservation(bridge, requestData)
+	_, err = m.GetObservation(bridge, requestData, defaultObservationTTL)
+	require.ErrorIs(t, err, ErrBridgeObservationExpired)
+}
+
+func TestBridgeConnManager_GetObservation_SpecTTL(t *testing.T) {
+	t.Parallel()
+	m := newTestManager()
+	clock := clockwork.NewFakeClock()
+	m.clock = clock
+	bridge := testBridge(t, "specttlbridge")
+	requestData := map[string]any{"data": map[string]any{"endpoint": "crypto"}}
+	const specTTL = 2 * time.Hour
+
+	key, err := bridgeObservationCacheKey(bridge.Name.String(), requestData["data"].(map[string]any))
+	require.NoError(t, err)
+
+	m.PutObservation(key, []byte(`{"result":"9700"}`))
+
+	// Past the default TTL but within the spec TTL: still served.
+	clock.Advance(defaultObservationTTL + time.Minute)
+	got, err := m.GetObservation(bridge, requestData, specTTL)
+	require.NoError(t, err, "an entry older than the default TTL must still be served when the spec sets a longer cacheTTL")
+	assert.JSONEq(t, `{"result":"9700"}`, string(got))
+
+	// Past the spec TTL: expired.
+	clock.Advance(specTTL - defaultObservationTTL)
+	_, err = m.GetObservation(bridge, requestData, specTTL)
+	require.ErrorIs(t, err, ErrBridgeObservationExpired)
+}
+
+func TestBridgeConnManager_GetObservation_ZeroTTLFallsBackToDefault(t *testing.T) {
+	t.Parallel()
+	m := newTestManager()
+	clock := clockwork.NewFakeClock()
+	m.clock = clock
+	bridge := testBridge(t, "defaultttlbridge")
+	requestData := map[string]any{"data": map[string]any{"endpoint": "crypto"}}
+
+	key, err := bridgeObservationCacheKey(bridge.Name.String(), requestData["data"].(map[string]any))
+	require.NoError(t, err)
+
+	m.PutObservation(key, []byte(`{"result":"9700"}`))
+
+	clock.Advance(defaultObservationTTL)
+	_, err = m.GetObservation(bridge, requestData, 0)
+	require.NoError(t, err, "a zero TTL must fall back to the default TTL")
+
+	clock.Advance(time.Nanosecond)
+	_, err = m.GetObservation(bridge, requestData, 0)
 	require.ErrorIs(t, err, ErrBridgeObservationExpired)
 }
 
@@ -235,9 +283,9 @@ func TestBridgeConnManager_GetObservation_MissingDataField(t *testing.T) {
 	m := newTestManager()
 	bridge := testBridge(t, "nodatabridge")
 
-	_, err := m.GetObservation(bridge, map[string]any{"foo": "bar"})
+	_, err := m.GetObservation(bridge, map[string]any{"foo": "bar"}, time.Minute)
 	require.Error(t, err, "requestData without a \"data\" field must be rejected, not silently subscribed")
 
-	_, err = m.GetObservation(bridge, map[string]any{"data": map[string]any{}})
+	_, err = m.GetObservation(bridge, map[string]any{"data": map[string]any{}}, time.Minute)
 	assert.Error(t, err, "an empty \"data\" field must be rejected")
 }
