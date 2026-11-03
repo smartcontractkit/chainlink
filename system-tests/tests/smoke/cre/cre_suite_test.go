@@ -45,6 +45,16 @@ func Test_CRE_V2_Suite_Bucket_C(t *testing.T) {
 	runSuiteBucket(t, suite_config.SuiteBucketC)
 }
 
+//nolint:paralleltest // suite runner owns environment setup; parallelism is managed by the scenario runner
+func Test_CRE_V2_Suite_VaultDirectRead(t *testing.T) {
+	runSuiteBucket(t, suite_config.SuiteBucketVaultDirectRead)
+}
+
+//nolint:paralleltest // suite runner owns environment setup; parallelism is managed by the scenario runner
+func Test_CRE_V2_Suite_VaultDirectReadErrors(t *testing.T) {
+	runSuiteBucket(t, suite_config.SuiteBucketVaultDirectReadErrors)
+}
+
 func runSuiteBucket(t *testing.T, bucket suite_config.SuiteBucket) {
 	require.NoError(t, suite_config.ValidateSuiteBucketRegistry(), "invalid suite bucket registry")
 
@@ -137,6 +147,31 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				}
 				ExecuteVaultReadSecretsWithReshareFlagsTest(t, fixture, reshareEnv)
 			})
+		})
+	case suite_config.SuiteScenarioVaultDirectRead:
+		t.Run("Vault Direct Read - "+topology, func(t *testing.T) {
+			t_helpers.SkipIfMixedEnv(t, "vault direct-read behavior is absent in baseline images; the direct-path log assertions cannot pass until the feature lands in develop")
+			if parallelEnabled {
+				t.Parallel()
+			}
+			fixture := setupVaultSharedScenarioFixture(t, getVaultDefaultTestConfig(t))
+			testEnv := fixture.TestEnv
+			if parallelEnabled {
+				testEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+			}
+			ExecuteVaultDirectReadTests(t, fixture, testEnv)
+		})
+	case suite_config.SuiteScenarioVaultDirectReadErrors:
+		t.Run("Vault Direct Read Errors - "+topology, func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
+			fixture := setupVaultSharedScenarioFixture(t, getVaultDefaultTestConfig(t))
+			testEnv := fixture.TestEnv
+			if parallelEnabled {
+				testEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+			}
+			ExecuteVaultDirectReadErrorsTests(t, fixture, testEnv)
 		})
 	case suite_config.SuiteScenarioCronChipIngressStack:
 		t.Run("Cron Beholder - "+topology, func(t *testing.T) {

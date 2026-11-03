@@ -145,19 +145,28 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	}
 	lc, err := vaultcap.NewRequestLifecycleTracker(o.lggr)
 	require.NoError(t, err)
+	validator := makeTestValidator(t,
+		o.maxCiphertextLengthBytes,
+		o.maxIdentifierOwnerLengthBytes,
+		o.maxIdentifierNamespaceLengthBytes,
+		o.maxIdentifierKeyLengthBytes,
+		o.maxRequestBatchSize,
+	)
+	metrics := newTestMetrics(t)
 	return &ReportingPlugin{
 		lggr:       o.lggr,
 		store:      o.store,
-		metrics:    newTestMetrics(t),
+		metrics:    metrics,
 		cfg:        cfg,
 		onchainCfg: o.onchainCfg,
-		validator: makeTestValidator(t,
-			o.maxCiphertextLengthBytes,
-			o.maxIdentifierOwnerLengthBytes,
-			o.maxIdentifierNamespaceLengthBytes,
-			o.maxIdentifierKeyLengthBytes,
-			o.maxRequestBatchSize,
-		),
+		validator:  validator,
+		reads: &getSecretsHandler{
+			lggr:            o.lggr,
+			metrics:         metrics,
+			validator:       validator,
+			publicKey:       o.publicKey,
+			privateKeyShare: o.privateKeyShare,
+		},
 		lifecycle:                    lc,
 		marshalBlob:                  o.marshalBlob,
 		unmarshalBlob:                o.unmarshalBlob,
