@@ -27,9 +27,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
@@ -1251,6 +1253,104 @@ func topUpSubscription(t *testing.T, consumer *bind.TransactOpts, consumerContra
 		require.NoError(t, err)
 	}
 	backend.Commit()
+}
+
+// testSingleConsumerWorstCaseGasFloor checks that the fulfillment gas limit is
+// floored at the worst case. With a small callbackGasLimit the estimate lands
+// below the floor, so the floor binds on the enqueued transaction.
+func testSingleConsumerWorstCaseGasFloor(
+	t *testing.T,
+	ownerKey ethkey.KeyV2,
+	uni coordinatorV2UniverseCommon,
+	batchCoordinatorAddress common.Address,
+	_ bool,
+	vrfVersion vrfcommon.Version,
+	nativePayment bool,
+) {
+	ctx := t.Context()
+	callBackGasLimit := uint32(100_000)
+
+	key1 := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			// Gas lane.
+			Key:          new(key1.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		})(c, s)
+		c.EVM[0].GasEstimator.LimitDefault = new(uint64(3.5e6))
+		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
+		c.Feature.LogPoller = new(true)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
+	})
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
+	consumer := uni.vrfConsumers[0]
+	consumerContract := uni.consumerContracts[0]
+	consumerContractAddress := uni.consumerContractAddresses[0]
+	// Create a subscription and fund with 5 LINK.
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni.rootContract, uni.backend, nativePayment)
+
+	// Fund gas lane.
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
+	require.NoError(t, app.Start(ctx))
+
+	// Create VRF job.
+	jbs := createVRFJobs(
+		t,
+		[][]ethkey.KeyV2{{key1}},
+		app,
+		uni.rootContract,
+		uni.rootContractAddress,
+		batchCoordinatorAddress,
+		uni,
+		nil,
+		vrfVersion,
+		false,
+		gasLanePriceWei,
+	)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	coordConfig, err := uni.rootContract.GetConfig(&bind.CallOpts{})
+	require.NoError(t, err)
+	expectedFloor := v22.WorstCaseGasFloor(callBackGasLimit, coordConfig.GasAfterPaymentCalculation())
+
+	// Make the randomness request.
+	numWords := uint32(1)
+	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, callBackGasLimit, uni.rootContract, uni.backend, nativePayment)
+
+	// Wait for the fulfillment to be queued.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 1
+	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
+
+	// Mine the fulfillment that was queued.
+	require.True(t, mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID))
+
+	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract, nativePayment)
+	assertNumRandomWords(t, consumerContract, numWords)
+
+	// The mined fulfillment's gas limit must be at least the floor.
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
+	txes, err := txstore.FindTxesByMetaFieldAndStates(ctx, "GlobalSubId", subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed, txmgrcommon.TxFinalized}, testutils.SimulatedChainID)
+	require.NoError(t, err)
+	requestIDHash := common.BytesToHash(requestID.Bytes()).String()
+	found := false
+	for _, tx := range txes {
+		meta, err := tx.GetMeta()
+		require.NoError(t, err)
+		if meta.RequestID != nil && meta.RequestID.String() == requestIDHash {
+			found = true
+			t.Logf("fulfillment gas limit %d, floor %d", tx.FeeLimit, expectedFloor)
+			require.GreaterOrEqual(t, tx.FeeLimit, expectedFloor)
+		}
+	}
+	require.True(t, found, "no fulfillment transaction found for request %s", requestIDHash)
+
+	t.Log("Done!")
 }
 
 func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(

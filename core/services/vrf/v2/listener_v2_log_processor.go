@@ -600,6 +600,8 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 
 	l.Infow("Processing requests for subscription")
 
+	gasAfterPaymentCalculation := lsn.gasAfterPaymentCalculation(ctx, l)
+
 	ready, expired := lsn.getReadyAndExpired(l, reqs)
 	for _, reqID := range expired {
 		processed[reqID] = struct{}{}
@@ -702,6 +704,18 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				// Insufficient funds, have to wait for a user top up. Leave it unprocessed for now
 				ll.Infow("Insufficient balance to fulfill a request, returning")
 				return processed
+			}
+
+			// eth_estimateGas measures the callback as it behaves during estimation,
+			// which can be cheaper than on-chain execution. Floor the gas limit at the
+			// worst case so the fulfillment completes even if the callback uses its
+			// entire allotment.
+			if floor := WorstCaseGasFloor(p.reqCommitment.CallbackGasLimit(), gasAfterPaymentCalculation); p.gasLimit < floor {
+				ll.Infow("Estimated gas limit below worst-case floor, bumping",
+					"estimatedGasLimit", p.gasLimit,
+					"gasFloor", floor,
+					"callbackGasLimit", p.reqCommitment.CallbackGasLimit())
+				p.gasLimit = floor
 			}
 
 			ll.Infow("Enqueuing fulfillment")
