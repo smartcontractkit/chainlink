@@ -4,6 +4,12 @@
 
 ### Patch Changes
 
+- [#24135](https://github.com/smartcontractkit/chainlink/pull/24135) [`275f0a5`](https://github.com/smartcontractkit/chainlink/commit/275f0a54d74567c7a0bbb765d3043bced70b4f5a) - Bump `go-stellar-sdk` to v0.8.0 (Protocol 30) so the Stellar integration decodes the CAP-0088 ledger header extension (millisecond close times) that every ledger carries after the upgrade. Without this bump, ledgers produced after the upgrade fail to decode. #bugfix
+
+## 2.71.1
+
+### Patch Changes
+
 - Hotfix release from v2.71.0
 
 ## 2.71.0
