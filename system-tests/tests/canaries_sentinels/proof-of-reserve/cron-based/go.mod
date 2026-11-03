@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	github.com/ethereum/go-ethereum v1.17.4
 	github.com/smartcontractkit/chain-selectors v1.0.111
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261102182936-41b5359fb0f4
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261103144707-836e24a39f17
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20261014151355-5868490cb3e3
 	github.com/smartcontractkit/cre-sdk-go v1.5.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0
@@ -55,7 +55,7 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261005132539-b7d63d5fd549 // indirect
-	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342 // indirect
+	github.com/smartcontractkit/libocr v0.0.0-20261030173950-199a6f17c598 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0 // indirect

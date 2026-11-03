@@ -16,14 +16,14 @@ require (
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.35.1
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261102182936-41b5359fb0f4
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261103144707-836e24a39f17
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20261015161422-ea52d84d2f7a
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260512150409-b4068bf735e6
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.10-0.20261026125309-7812a3db1b9b
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.14.10-0.20260511081501-829666151188
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
-	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342
+	github.com/smartcontractkit/libocr v0.0.0-20261030173950-199a6f17c598
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.28.0
