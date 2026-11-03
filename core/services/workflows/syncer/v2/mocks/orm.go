@@ -292,17 +292,17 @@ func (_c *ORM_PauseWorkflowSpec_Call) RunAndReturn(run func(context.Context, str
 	return _c
 }
 
-// SaveTriggerSubscriptions provides a mock function with given fields: ctx, id, payload
-func (_m *ORM) SaveTriggerSubscriptions(ctx context.Context, id string, payload []byte) error {
-	ret := _m.Called(ctx, id, payload)
+// SaveTriggerSubscriptions provides a mock function with given fields: ctx, id, payload, sdkName
+func (_m *ORM) SaveTriggerSubscriptions(ctx context.Context, id string, payload []byte, sdkName string) error {
+	ret := _m.Called(ctx, id, payload, sdkName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveTriggerSubscriptions")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, []byte) error); ok {
-		r0 = rf(ctx, id, payload)
+	if rf, ok := ret.Get(0).(func(context.Context, string, []byte, string) error); ok {
+		r0 = rf(ctx, id, payload, sdkName)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -319,13 +319,14 @@ type ORM_SaveTriggerSubscriptions_Call struct {
 //   - ctx context.Context
 //   - id string
 //   - payload []byte
-func (_e *ORM_Expecter) SaveTriggerSubscriptions(ctx interface{}, id interface{}, payload interface{}) *ORM_SaveTriggerSubscriptions_Call {
-	return &ORM_SaveTriggerSubscriptions_Call{Call: _e.mock.On("SaveTriggerSubscriptions", ctx, id, payload)}
+//   - sdkName string
+func (_e *ORM_Expecter) SaveTriggerSubscriptions(ctx interface{}, id interface{}, payload interface{}, sdkName interface{}) *ORM_SaveTriggerSubscriptions_Call {
+	return &ORM_SaveTriggerSubscriptions_Call{Call: _e.mock.On("SaveTriggerSubscriptions", ctx, id, payload, sdkName)}
 }
 
-func (_c *ORM_SaveTriggerSubscriptions_Call) Run(run func(ctx context.Context, id string, payload []byte)) *ORM_SaveTriggerSubscriptions_Call {
+func (_c *ORM_SaveTriggerSubscriptions_Call) Run(run func(ctx context.Context, id string, payload []byte, sdkName string)) *ORM_SaveTriggerSubscriptions_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].([]byte))
+		run(args[0].(context.Context), args[1].(string), args[2].([]byte), args[3].(string))
 	})
 	return _c
 }
@@ -335,7 +336,7 @@ func (_c *ORM_SaveTriggerSubscriptions_Call) Return(_a0 error) *ORM_SaveTriggerS
 	return _c
 }
 
-func (_c *ORM_SaveTriggerSubscriptions_Call) RunAndReturn(run func(context.Context, string, []byte) error) *ORM_SaveTriggerSubscriptions_Call {
+func (_c *ORM_SaveTriggerSubscriptions_Call) RunAndReturn(run func(context.Context, string, []byte, string) error) *ORM_SaveTriggerSubscriptions_Call {
 	_c.Call.Return(run)
 	return _c
 }

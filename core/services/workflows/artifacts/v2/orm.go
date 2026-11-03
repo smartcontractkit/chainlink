@@ -50,10 +50,11 @@ type WorkflowSpecsDS interface {
 
 	// SaveTriggerSubscriptions persists the marshaled trigger subscription
 	// payload for id, so future engine starts can skip re-executing the WASM
-	// binary's Subscribe() call. A missing row is a no-op, not an error: the
+	// binary's Subscribe() call, along with the SDK name (kept if sdkName is
+	// empty). A missing row is a no-op, not an error: the
 	// spec may have been deleted/paused concurrently with this best-effort
 	// cache write.
-	SaveTriggerSubscriptions(ctx context.Context, id string, payload []byte) error
+	SaveTriggerSubscriptions(ctx context.Context, id string, payload []byte, sdkName string) error
 }
 
 type ORM interface {
@@ -219,8 +220,8 @@ func (orm *orm) DeleteWorkflowSpecs(ctx context.Context, ids []string) error {
 	return err
 }
 
-func (orm *orm) SaveTriggerSubscriptions(ctx context.Context, id string, payload []byte) error {
-	query := `UPDATE workflow_specs_v2 SET trigger_subscriptions = $2 WHERE workflow_id = $1`
-	_, err := orm.ds.ExecContext(ctx, query, id, payload)
+func (orm *orm) SaveTriggerSubscriptions(ctx context.Context, id string, payload []byte, sdkName string) error {
+	query := `UPDATE workflow_specs_v2 SET trigger_subscriptions = $2, sdk_name = COALESCE(NULLIF($3, ''), sdk_name) WHERE workflow_id = $1`
+	_, err := orm.ds.ExecContext(ctx, query, id, payload, sdkName)
 	return err
 }

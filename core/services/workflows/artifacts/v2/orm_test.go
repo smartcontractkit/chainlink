@@ -460,11 +460,12 @@ func Test_SaveTriggerSubscriptions(t *testing.T) {
 		require.NoError(t, err)
 
 		payload := []byte("marshaled-trigger-subscriptions")
-		require.NoError(t, orm.SaveTriggerSubscriptions(ctx, spec.WorkflowID, payload))
+		require.NoError(t, orm.SaveTriggerSubscriptions(ctx, spec.WorkflowID, payload, "go"))
 
 		dbSpec, err := orm.GetWorkflowSpec(ctx, spec.WorkflowID)
 		require.NoError(t, err)
 		require.Equal(t, payload, dbSpec.TriggerSubscriptions)
+		require.Equal(t, "go", dbSpec.SdkName)
 
 		// A subsequent UpsertWorkflowSpec (e.g. a status flip) must not clobber
 		// the cached payload: it isn't in the upsert's column list.
@@ -475,6 +476,13 @@ func Test_SaveTriggerSubscriptions(t *testing.T) {
 		dbSpec, err = orm.GetWorkflowSpec(ctx, spec.WorkflowID)
 		require.NoError(t, err)
 		require.Equal(t, payload, dbSpec.TriggerSubscriptions, "trigger_subscriptions must survive an unrelated upsert")
+		require.Equal(t, "go", dbSpec.SdkName, "sdk_name must survive an unrelated upsert")
+
+		// An empty sdkName keeps the stored value.
+		require.NoError(t, orm.SaveTriggerSubscriptions(ctx, spec.WorkflowID, payload, ""))
+		dbSpec, err = orm.GetWorkflowSpec(ctx, spec.WorkflowID)
+		require.NoError(t, err)
+		require.Equal(t, "go", dbSpec.SdkName)
 	})
 
 	t.Run("no-op when the workflow ID doesn't exist", func(t *testing.T) {
@@ -484,6 +492,6 @@ func Test_SaveTriggerSubscriptions(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		orm := &orm{ds: db, lggr: lggr}
 
-		require.NoError(t, orm.SaveTriggerSubscriptions(ctx, "inexistent-workflow-id", []byte("payload")))
+		require.NoError(t, orm.SaveTriggerSubscriptions(ctx, "inexistent-workflow-id", []byte("payload"), "go"))
 	})
 }
