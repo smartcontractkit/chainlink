@@ -55,8 +55,8 @@ var (
 	ErrEngineDraining     = triggers.ErrEngineDraining
 	ErrEngineClosed       = triggers.ErrEngineClosed
 
-	ErrShardDeniedNotOwner     = fmt.Errorf("shard ownership denied: not owner: %w", triggers.ErrAdmissionDenied)
-	ErrShardDeniedOrchestrator = fmt.Errorf("shard ownership denied: orchestrator error: %w", triggers.ErrAdmissionDenied)
+	ErrShardDeniedNotOwner     = triggers.ErrShardDeniedNotOwner
+	ErrShardDeniedOrchestrator = triggers.ErrShardDeniedOrchestrator
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
 	ErrAdmissionCache          = triggers.ErrAdmissionCached
 
@@ -196,7 +196,7 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2, metering.WithEventEmitter(cfg.EventEmitter))
 	engine.metrics = metricsLabeler
 	// Disabled metering is a no-op inside the resource manager.
-	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter})
+	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter, Settings: cfg.LocalLimiters.Settings})
 	engine.usageIdentity = resourcemanager.WithWorkflowUsagePool(
 		resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
 		resourcemanager.ResourceTypeWorkflowCompute)
