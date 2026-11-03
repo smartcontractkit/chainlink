@@ -558,7 +558,9 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		err = h.workflowActivatedEvent(ctx, payload)
 		if err != nil {
 			h.lggr.Errorw("failed to handle workflow activated event", "error", err, "workflowID", wfID)
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", customerFacingError(err)), h.lggr)
+			if !event.ShardTransition {
+				logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", customerFacingError(err)), h.lggr)
+			}
 			return err
 		}
 
@@ -669,9 +671,12 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}()
 
 		if herr = h.workflowDeletedEvent(ctx, payload, wfOwner); herr != nil {
-			if errors.Is(herr, ErrDrainInProgress) {
+			switch {
+			case event.ShardTransition:
+				// Shard moves are invisible to customers; the sync loop logs the failure.
+			case errors.Is(herr, ErrDrainInProgress):
 				logCustMsg(ctx, cma, fmt.Sprintf("workflow deletion deferred: %v", herr), h.lggr)
-			} else {
+			default:
 				logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", herr), h.lggr)
 			}
 			return herr

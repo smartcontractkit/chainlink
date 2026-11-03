@@ -2739,19 +2739,22 @@ func Test_handler_SourceParity_PauseActivateCycle(t *testing.T) {
 }
 
 // Test_Handler_ShardTransitionSkipsStatusEmit checks that lifecycle events marked
-// ShardTransition still run through the handler but are not emitted externally.
+// ShardTransition still run through the handler but send no external lifecycle
+// events or customer messages. Both handler paths fail here, since customer
+// messages are only sent on failure.
 func Test_Handler_ShardTransitionSkipsStatusEmit(t *testing.T) {
 	t.Parallel()
 
 	wfID := types.WorkflowID{0x42}
 	owner := []byte{0xaa, 0xbb, 0xcc, 0xdd}
 
-	newHandler := func(t *testing.T, orm *mocks.ORM) (*eventHandler, *beholdertest.Recorder) {
+	newHandler := func(t *testing.T, orm *mocks.ORM) (h *eventHandler, statusRec, custMsgRec *beholdertest.Recorder) {
 		t.Helper()
 		lggr := logger.TestLogger(t)
 		lf := limits.Factory{Logger: lggr}
-		custMsgEmitter := custmsg.NewLabelerWithEmitter(beholdertest.NewRecorder())
-		statusRec := beholdertest.NewRecorder()
+		custMsgRec = beholdertest.NewRecorder()
+		custMsgEmitter := custmsg.NewLabelerWithEmitter(custMsgRec)
+		statusRec = beholdertest.NewRecorder()
 
 		er := NewEngineRegistry()
 		registry := capreg.NewRegistry(lggr)
@@ -2768,14 +2771,14 @@ func Test_Handler_ShardTransitionSkipsStatusEmit(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store.NewInMemoryStore(lggr, clockwork.NewFakeClock()), nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, custMsgEmitter, limiters, nil, rl, workflowLimits, artifactStore, workflowkey.MustNewXXXTestingOnly(big.NewInt(1)), &testDonNotifier{},
+		h, err = NewEventHandler(lggr, store.NewInMemoryStore(lggr, clockwork.NewFakeClock()), nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, custMsgEmitter, limiters, nil, rl, workflowLimits, artifactStore, workflowkey.MustNewXXXTestingOnly(big.NewInt(1)), &testDonNotifier{},
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(mockEngineFactory),
 			withTestOrgResolver(),
 			WithEventEmitter(events.NewEmitter(statusRec, events.WithNoDurableEmit())),
 		)
 		require.NoError(t, err)
-		return h, statusRec
+		return h, statusRec, custMsgRec
 	}
 
 	for _, shardTransition := range []bool{false, true} {
@@ -2787,29 +2790,30 @@ func Test_Handler_ShardTransitionSkipsStatusEmit(t *testing.T) {
 				WorkflowOwner: hex.EncodeToString(owner),
 				WorkflowName:  "wf",
 			}, nil)
-			orm.EXPECT().DeleteWorkflowSpec(mock.Anything, wfID.Hex()).Return(&job.WorkflowSpec{}, nil)
-			h, statusRec := newHandler(t, orm)
+			orm.EXPECT().DeleteWorkflowSpec(mock.Anything, wfID.Hex()).Return(nil, assert.AnError)
+			h, statusRec, custMsgRec := newHandler(t, orm)
 
-			require.NoError(t, h.Handle(t.Context(), Event{
+			require.Error(t, h.Handle(t.Context(), Event{
 				Name:            WorkflowDeleted,
 				Data:            WorkflowDeletedEvent{WorkflowID: wfID},
 				ShardTransition: shardTransition,
 			}))
 
-			// The spec is released either way (asserted by the ORM mock); only the emit differs.
+			// The spec release is attempted either way (asserted by the ORM mock); only the external signals differ.
 			if shardTransition {
 				assert.Zero(t, statusRec.Len(t), "shard moves must not emit a lifecycle event")
+				assert.Zero(t, custMsgRec.Len(t), "shard moves must not send customer messages")
 			} else {
 				assert.Positive(t, statusRec.Len(t, "beholder_entity", "workflows.v2.WorkflowDeleted"))
+				assert.Positive(t, custMsgRec.Len(t))
 			}
 		})
 
 		t.Run(fmt.Sprintf("WorkflowActivated/ShardTransition=%t", shardTransition), func(t *testing.T) {
 			t.Parallel()
-			// Activation fails early, but the status event is emitted (with the error) regardless.
 			orm := mocks.NewORM(t)
 			orm.EXPECT().GetWorkflowSpec(mock.Anything, wfID.Hex()).Return(nil, assert.AnError)
-			h, statusRec := newHandler(t, orm)
+			h, statusRec, custMsgRec := newHandler(t, orm)
 
 			require.Error(t, h.Handle(t.Context(), Event{
 				Name: WorkflowActivated,
@@ -2824,8 +2828,10 @@ func Test_Handler_ShardTransitionSkipsStatusEmit(t *testing.T) {
 
 			if shardTransition {
 				assert.Zero(t, statusRec.Len(t), "shard moves must not emit a lifecycle event")
+				assert.Zero(t, custMsgRec.Len(t), "shard moves must not send customer messages")
 			} else {
 				assert.Positive(t, statusRec.Len(t, "beholder_entity", "workflows.v2.WorkflowActivated"))
+				assert.Positive(t, custMsgRec.Len(t))
 			}
 		})
 	}
