@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -113,4 +114,29 @@ func TestConfidentialMetricsConcurrentLifecycle(t *testing.T) {
 	wg.Go(func() { assert.NoError(t, m.close()) })
 	wg.Wait()
 	assert.Empty(t, collectLastFailures(t, reader))
+}
+
+func TestConfidentialMetricsExecutionDurationBuckets(t *testing.T) {
+	t.Parallel()
+	m, reader := newTestConfidentialMetrics(t)
+	m.executionDuration.Record(t.Context(), 42_000, m.attrs)
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+	var found bool
+	for _, sm := range rm.ScopeMetrics {
+		for _, md := range sm.Metrics {
+			if md.Name != "enclave_execution_time_ms" {
+				continue
+			}
+			hist, ok := md.Data.(metricdata.Histogram[int64])
+			require.True(t, ok)
+			require.Len(t, hist.DataPoints, 1)
+			assert.Equal(t, enclaveExecutionBucketsMs, hist.DataPoints[0].Bounds)
+			// 42s lands in (30s, 45s], above the SDK default's 10s ceiling.
+			assert.Equal(t, uint64(1), hist.DataPoints[0].BucketCounts[slices.Index(enclaveExecutionBucketsMs, 45_000)])
+			found = true
+		}
+	}
+	require.True(t, found)
 }
