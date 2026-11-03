@@ -265,6 +265,40 @@ func TestConfidentialModule_Execute(t *testing.T) {
 
 		assert.Equal(t, execReq.GetConfig(), confReq.Execution.SdkExecuteRequest.GetConfig())
 	})
+
+	t.Run("execution timestamp is forwarded from the engine's execution helper", func(t *testing.T) {
+		t.Parallel()
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+
+		var capturedReq capabilities.CapabilityRequest
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+				capturedReq = req
+			}).
+			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
+
+		mod := mustNewConfidentialModule(t, capReg, &confidentialrelay.ExecutionHandlers{}, "https://example.com/wasm", ComputeBinaryHash([]byte("some-binary")), "wf-abc", "0xowner", "my-workflow", "v2", limits.NewGateLimiter(true), lggr)
+
+		// Build the helper the way base_engine does, so the module sees the
+		// raw-secrets wrapper rather than *ExecutionHelper itself.
+		executionTimestamp := time.Unix(1_767_225_600, 0).UTC()
+		helper := (&ExecutionHelper{
+			WorkflowExecutionID: "exec-ts",
+			ExecutionTimestamp:  executionTimestamp,
+			SecretsFetcher:      &stubExecutionHelper{},
+		}).PossiblyWithRawSecrets()
+		require.IsType(t, &executionHelperWithRawSecrets{}, helper)
+
+		_, err := mod.Execute(ctx, execReq, helper)
+		require.NoError(t, err)
+
+		assert.Equal(t, "exec-ts", capturedReq.Metadata.WorkflowExecutionID)
+		assert.Equal(t, executionTimestamp, capturedReq.Metadata.ExecutionTimestamp)
+	})
 }
 
 // collectMetric returns the aggregated value of a named instrument from the

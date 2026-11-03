@@ -58,6 +58,7 @@ type secretsFetcher struct {
 	workflowName          string
 	workflowID            string
 	phaseID               string
+	executionTimestamp    time.Time
 	workflowEncryptionKey workflowkey.Key
 
 	metrics *monitoring.WorkflowsMetricLabeler
@@ -89,6 +90,7 @@ func NewSecretsFetcher(
 	workflowName string,
 	workflowID string,
 	phaseID string,
+	executionTimestamp time.Time,
 	workflowEncryptionKey workflowkey.Key,
 	overrideFetcher SecretsFetcher,
 ) RawSecretsFetcher {
@@ -106,6 +108,7 @@ func NewSecretsFetcher(
 		workflowName:          workflowName,
 		workflowID:            workflowID,
 		phaseID:               phaseID,
+		executionTimestamp:    executionTimestamp,
 		workflowEncryptionKey: workflowEncryptionKey,
 		metrics:               metrics,
 		overrideFetcher:       overrideFetcher,
@@ -123,6 +126,7 @@ func (s *secretsFetcher) vaultGetSecretsMetadata(ctx context.Context, callbackID
 		WorkflowName:        s.workflowName,
 		WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(callbackID, 10)),
 		ReferenceID:         strconv.FormatInt(callbackID, 10),
+		ExecutionTimestamp:  s.executionTimestamp,
 	}
 	// When the WorkflowDonID binding gate is enabled, the remote executable
 	// capability server rejects requests whose RequestMetadata.WorkflowDonID
