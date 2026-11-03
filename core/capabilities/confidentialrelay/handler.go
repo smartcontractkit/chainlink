@@ -494,17 +494,18 @@ func (h *Handler) fetchSecrets(
 			respErr = capErr // surface the vault's message, not the transport-wrapped chain
 			userErr = true
 		}
-		l.Errorw("vault secrets fetch failed", "userError", userErr, "err", err)
+		logVaultFailure(l, "vault secrets fetch failed", userErr, err)
 		return nil, &relayError{code: code, err: respErr}
 	}
 
 	result, err := translateVaultResponse(vaultResp, params.EnclavePublicKey)
 	if err != nil {
 		code := jsonrpc.ErrInternal
-		if IsUserError(err) {
+		userErr := IsUserError(err)
+		if userErr {
 			code = jsonrpc.ErrInvalidParams
 		}
-		l.Errorw("translating vault response failed", "userError", IsUserError(err), "err", err)
+		logVaultFailure(l, "translating vault response failed", userErr, err)
 		return nil, &relayError{code: code, err: err}
 	}
 
@@ -516,6 +517,16 @@ func (h *Handler) fetchSecrets(
 
 	l.Debugw("fetched secrets from vault", "secrets", len(result.Secrets))
 	return signedResult, nil
+}
+
+// logVaultFailure logs user errors (e.g. a missing secret) at info so they
+// don't drown out system failures at error level.
+func logVaultFailure(l logger.Logger, msg string, userErr bool, err error) {
+	if userErr {
+		l.Infow(msg, "userError", true, "err", err)
+		return
+	}
+	l.Errorw(msg, "userError", false, "err", err)
 }
 
 // translateVaultResponse converts a vault GetSecretsResponse to the enclave relay protocol format.
