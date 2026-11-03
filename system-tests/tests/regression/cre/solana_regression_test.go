@@ -135,6 +135,8 @@ func Test_CRE_V2_Solana_Regression(t *testing.T) {
 // Test_CRE_V2_Solana_LogTrigger_Regression is kept separate from Test_CRE_V2_Solana_Regression so
 // that CI runs it on its own runner: compiling every Solana workflow on one runner at once takes
 // long enough to time out the tests.
+//
+//nolint:paralleltest // t.Parallel is gated on CRE_TEST_PARALLEL_ENABLED
 func Test_CRE_V2_Solana_LogTrigger_Regression(t *testing.T) {
 	if parallelEnabled {
 		t.Parallel()
