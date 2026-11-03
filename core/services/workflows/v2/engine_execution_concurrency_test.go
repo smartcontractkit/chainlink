@@ -780,11 +780,7 @@ func TestEngine_ConcurrencySlotsReturnToBaseline(t *testing.T) {
 				// A denied event is ACKed, so the ACK marks the end of the denial.
 				require.Eventually(t, func() bool { return h.ackCalls.Load() == 1 }, testutils.WaitTimeout(t), 5*time.Millisecond,
 					"the denied event is ACKed")
-				if h.mode == lifecycleCoordinated {
-					// The coordinator takes a slot before it delivers to the engine, and must give it back.
-					return 1
-				}
-				// The legacy engine checks admission before the event is queued, so it never takes a slot.
+				// Both paths check admission before the event is queued, so a denial never takes a slot.
 				return 0
 			},
 		},

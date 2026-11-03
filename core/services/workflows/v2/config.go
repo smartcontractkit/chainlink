@@ -568,7 +568,10 @@ type LifecycleHooks struct {
 	//   - nil: the event is allowed; the engine enqueues and executes it.
 	//   - ErrAdmissionCache: the event was cached by the admission layer;
 	//     the engine drops it without ACKing.
-	//   - any other error: the event is denied; the engine ACKs and drops it.
+	//   - any other error while ctx is still live: the event is denied; the
+	//     engine ACKs and drops it.
+	//   - any error once ctx is done: the check was cut short; the engine drops
+	//     the event without ACKing.
 	OnTriggerAdmission func(ctx context.Context, event triggers.CoordinatedEvent) error
 
 	// Used by the standalone engine

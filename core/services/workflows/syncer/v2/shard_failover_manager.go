@@ -37,6 +37,14 @@ const timeoutBasedFailoverTick = time.Second
 
 const failoverAutoExecutionTotalMetric = "failover_auto_execution_total"
 
+// shardOwnershipCheckTimeout bounds one shard ownership lookup, whatever
+// resolver serves it. It matches the longest bound inside a resolver (the
+// manual resolver's 30s ShardIndexMapper.WaitReady at boot), so it cuts short
+// only a lookup that would otherwise hang.
+const shardOwnershipCheckTimeout = 30 * time.Second
+
+var _ triggers.Admitter = (*ShardFailoverManager)(nil)
+
 // ShardFailoverManager wraps a workflow Engine and handles shard ownership
 // decisions externally, keeping the Engine oblivious to sharding. On the
 // primary shard it allows all trigger events through. On a secondary shard
@@ -46,9 +54,10 @@ const failoverAutoExecutionTotalMetric = "failover_auto_execution_total"
 // The ownership check runs wherever the wrapped engine receives events. A legacy
 // engine registers its own triggers and calls the OnTriggerAdmission hook before
 // enqueueing. A coordinated engine relies on the trigger coordinator, which
-// subscribes and delivers through this manager, so ExecuteTrigger runs the check
-// before delegating. Either way the manager only decides; whoever holds the
-// trigger handles acts on a denial (ACK and drop) or a cached event (no ACK).
+// subscribes through this manager and calls Admit before enqueueing. Either way
+// the check runs on the trigger reader's context, before any execution slot is
+// taken, and the manager only decides. Whoever holds the trigger handles acts on
+// a denial (ACK and drop) or a cached event (no ACK).
 //
 // Lifecycle:
 //   - NewShardFailoverManager(cfg) creates the manager (no engine yet).
@@ -202,14 +211,19 @@ func (m *ShardFailoverManager) close() error {
 
 // admissionCheck decides whether the engine should process a trigger event,
 // checking shard ownership dynamically per-trigger. It is wired as a legacy
-// engine's OnTriggerAdmission hook and called by ExecuteTrigger for a
-// coordinated engine.
+// engine's OnTriggerAdmission hook and called by Admit for a coordinated engine.
+//
+// If ctx ends during the check it returns ctx.Err(), not a denial: the lookup
+// failed only because the caller stopped waiting, so the event must not be ACKed.
 func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event triggers.CoordinatedEvent) error {
 	if !m.cfg.ShardingEnabled {
 		return nil
 	}
 
 	verdict := m.checkShardOwnership(ctx)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	switch verdict {
 	case shardownership.Allow:
@@ -308,11 +322,16 @@ func (m *ShardFailoverManager) replayExecCtx(parent context.Context) context.Con
 }
 
 // checkShardOwnership performs a dynamic per-trigger shard ownership check.
+// The lookup is bounded by shardOwnershipCheckTimeout, so an unresponsive
+// resolver is reported as an orchestrator error rather than stalling the reader.
 func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardownership.Verdict {
 	needShardOwnerCheck := m.cfg.ShardRoutingSteady == nil || !m.cfg.ShardRoutingSteady.SkipCommittedOwnerCheck()
 	if !needShardOwnerCheck {
 		return shardownership.Allow
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, shardOwnershipCheckTimeout)
+	defer cancel()
 
 	switch {
 	case m.cfg.ShardResolver != nil:
@@ -638,15 +657,16 @@ func (m *ShardFailoverManager) ActiveExecutions() int32 { return m.engine.Active
 // DrainStartedAt delegates to the wrapped engine.
 func (m *ShardFailoverManager) DrainStartedAt() (time.Time, bool) { return m.engine.DrainStartedAt() }
 
-// ExecuteTrigger is how the trigger coordinator delivers events to a
-// coordinated engine on a sharded node. The coordinated engine never calls
-// OnTriggerAdmission, so the shard ownership check runs here first. An
-// admission error (triggers.ErrAdmissionDenied or triggers.ErrAdmissionCached)
-// is returned for the coordinator to act on; otherwise the event is delegated.
+// Admit is the shard ownership check for a coordinated engine, which never
+// calls OnTriggerAdmission. The trigger coordinator calls it before enqueueing
+// and acts on the result (see triggers.Admitter).
+func (m *ShardFailoverManager) Admit(ctx context.Context, event triggers.CoordinatedEvent) error {
+	return m.admissionCheck(ctx, event)
+}
+
+// ExecuteTrigger delegates to the wrapped engine. On the coordinated path the
+// event already passed Admit before it was queued.
 func (m *ShardFailoverManager) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	if err := m.admissionCheck(ctx, event); err != nil {
-		return err
-	}
 	return m.engine.ExecuteTrigger(ctx, event)
 }
 

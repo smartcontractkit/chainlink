@@ -948,18 +948,16 @@ func (r *lifecycleEngineRegistry) Get(wid types.WorkflowID) (triggers.Registered
 	return r.engine, true
 }
 
-// admittingEngine runs an admission check before delivering to the engine, as the shard
-// failover manager does for a coordinated engine.
+// admittingEngine is a triggers.Admitter in front of the engine, as the shard failover manager
+// is for a coordinated engine. The coordinator calls Admit before enqueueing, and ExecuteTrigger
+// delegates unchanged.
 type admittingEngine struct {
 	triggers.RegisteredEngine
 	admission func(context.Context, triggers.CoordinatedEvent) error
 }
 
-func (e admittingEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	if err := e.admission(ctx, event); err != nil {
-		return err
-	}
-	return e.RegisteredEngine.ExecuteTrigger(ctx, event)
+func (e admittingEngine) Admit(ctx context.Context, event triggers.CoordinatedEvent) error {
+	return e.admission(ctx, event)
 }
 
 // set makes e the engine under test.
