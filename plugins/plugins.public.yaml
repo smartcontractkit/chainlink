@@ -63,33 +63,33 @@ plugins:
 
   capability-cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "3a157854911bf837f1a7305c66501ea5f7bc038e"
+      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
       installPath: "."
       flags: "-tags timetzdata"
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "e6f512fbf3bdc3adaa96bfdd1d497c4507eab05d"
+      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
       installPath: "."
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "e6f512fbf3bdc3adaa96bfdd1d497c4507eab05d"
+      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
       installPath: "."
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "3a157854911bf837f1a7305c66501ea5f7bc038e"
+      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
       installPath: "."
 
   capability-evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "3a157854911bf837f1a7305c66501ea5f7bc038e"
+      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
       installPath: "."
 
   capability-solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "2951f2cf06c3c0d52fe8b738764218cdb571635c"
+      gitRef: "e8826a0426f7e4ec6e96ada0c61937de5d4cda19"
       installPath: "."
 
   capability-aptos:
@@ -104,10 +104,10 @@ plugins:
 
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/chainlink-confidential-compute/enclave/apps/confidential-http/capability"
-      gitRef: "c81a7a6bd15999eb3136e7526e8d833d3760755e"
+      gitRef: "aee12ace07681e06c7ba309cf361d72b131c250b"
       installPath: "./cmd/confidential-http"
 
   confidential-workflows:
     - moduleURI: "github.com/smartcontractkit/chainlink-confidential-compute/enclave/apps/confidential-workflows/capability"
-      gitRef: "c81a7a6bd15999eb3136e7526e8d833d3760755e"
+      gitRef: "aee12ace07681e06c7ba309cf361d72b131c250b"
       installPath: "./cmd/confidential-workflows"
