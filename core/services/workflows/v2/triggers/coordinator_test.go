@@ -288,10 +288,15 @@ func TestCoordinator_DeliverAdmission(t *testing.T) {
 			_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 			require.NoError(t, err)
 			eventCh <- triggerEvent("evt-1")
-			// The reader handles one event at a time, so once it takes the probe,
-			// evt-1's admission, including any ACK, is complete. ReadLoop drops the
-			// probe itself, as an errored trigger response, without enqueueing it.
+			// The reader handles one event at a time, so once it has counted the
+			// probe, evt-1's admission, including any ACK, is complete. ReadLoop
+			// drops the probe itself, as an errored trigger response. Wait for that
+			// before unregistering, or the reader may stop without handling the probe.
 			eventCh <- capabilities.TriggerResponse{Err: errors.New("probe")}
+			probe := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonTriggerResponseError}
+			require.Eventually(t, func() bool {
+				return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", probe) == 1
+			}, 5*time.Second, 10*time.Millisecond, "the reader handled the probe")
 			if tc.wantExecuted {
 				// Wait for the admitter to deliver the event: unregistering first
 				// would drop it from the queue.
@@ -312,10 +317,7 @@ func TestCoordinator_DeliverAdmission(t *testing.T) {
 			wantDrops := map[string]int64{monitoring.TriggerDropReasonTriggerResponseError: 1} // the probe
 			maps.Copy(wantDrops, tc.wantDrops)
 			// Every reason is compared, so a drop counted under the wrong reason fails.
-			// The reader counts the probe's drop after it takes the probe, so wait for it.
-			require.EventuallyWithT(t, func(c *assert.CollectT) {
-				assert.Equal(c, wantDrops, dropsByReason(t, reader), "drops by reason")
-			}, 5*time.Second, 10*time.Millisecond)
+			assert.Equal(t, wantDrops, dropsByReason(t, reader), "drops by reason")
 			assert.Equal(t, tc.wantNotOwner, counterTotal(t, reader, shardNotOwnerTotal, nil), shardNotOwnerTotal)
 			assert.Equal(t, tc.wantOrchErr, counterTotal(t, reader, shardOrchErrTotal, nil), shardOrchErrTotal)
 		})
