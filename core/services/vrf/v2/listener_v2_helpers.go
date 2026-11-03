@@ -85,22 +85,30 @@ func (lsn *listenerV2) gasAfterPaymentCalculation(ctx context.Context, l logger.
 
 	config, err := lsn.coordinator.GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
+		// Use the larger of the last known value and the fallback, and cache it
+		// so a failing RPC is not retried on every pass.
+		gasAfterPayment := max(cached, FallbackGasAfterPaymentCalculation)
 		if cached != 0 {
-			l.Warnw("Couldn't refresh coordinator config, reusing last known gasAfterPaymentCalculation",
-				"err", err, "gasAfterPaymentCalculation", cached)
-			return cached
+			l.Warnw("Couldn't refresh coordinator config, using conservative gasAfterPaymentCalculation",
+				"err", err, "lastKnown", cached, "gasAfterPaymentCalculation", gasAfterPayment)
+		} else {
+			l.Errorw("Couldn't get config from coordinator, using fallback gasAfterPaymentCalculation",
+				"err", err, "gasAfterPaymentCalculation", gasAfterPayment)
 		}
-		l.Errorw("Couldn't get config from coordinator, using fallback gasAfterPaymentCalculation",
-			"err", err, "fallbackGasAfterPaymentCalculation", FallbackGasAfterPaymentCalculation)
-		return FallbackGasAfterPaymentCalculation
+		lsn.setGasAfterPaymentCache(gasAfterPayment)
+		return gasAfterPayment
 	}
 
 	gasAfterPayment := config.GasAfterPaymentCalculation()
+	lsn.setGasAfterPaymentCache(gasAfterPayment)
+	return gasAfterPayment
+}
+
+func (lsn *listenerV2) setGasAfterPaymentCache(gasAfterPayment uint32) {
 	lsn.gasAfterPaymentMu.Lock()
 	lsn.gasAfterPayment = gasAfterPayment
 	lsn.gasAfterPaymentExpires = time.Now().Add(gasAfterPaymentCalculationTTL)
 	lsn.gasAfterPaymentMu.Unlock()
-	return gasAfterPayment
 }
 
 // observeRequestSimDuration records the time between the given requests simulations or

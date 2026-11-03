@@ -1310,8 +1310,8 @@ func testSingleConsumerWorstCaseGasFloor(
 	)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
-	coordConfig, err := uni.rootContract.GetConfig(&bind.CallOpts{})
-	require.NoError(t, err)
+	coordConfig, cfgErr := uni.rootContract.GetConfig(&bind.CallOpts{})
+	require.NoError(t, cfgErr)
 	expectedFloor := v22.WorstCaseGasFloor(callBackGasLimit, coordConfig.GasAfterPaymentCalculation())
 
 	// Make the randomness request.
