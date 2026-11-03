@@ -741,6 +741,94 @@ func TestTriggerPublisher_CloseAndUnregister(t *testing.T) {
 		require.ErrorContains(t, err, "stopped unregistering after a timeout")
 		require.Equal(t, int32(1), underlying.unregisterCount.Load())
 	})
+
+	t.Run("retries an explicit unregister cancelled by close", func(t *testing.T) {
+		t.Parallel()
+
+		dispatcher := mocks.NewDispatcher(t)
+		checkReceived := make(chan struct{}, 1)
+		dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
+			return m.Method == remotetypes.MethodTriggerRegistrationCheck
+		})).Run(func(mock.Arguments) {
+			select {
+			case checkReceived <- struct{}{}:
+			default:
+			}
+		}).Return(nil).Maybe()
+
+		underlying := &cancellableUnregisterTrigger{info: capInfo, firstUnregisterStarted: make(chan struct{})}
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+		require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+		servicetest.Run(t, publisher)
+
+		publisher.Receive(ctx, newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA"))
+		// The explicit unregister below is only processed once the publisher has recorded the registration.
+		select {
+		case <-checkReceived:
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for registration check message")
+		}
+
+		receiveDone := make(chan struct{})
+		go func() {
+			defer close(receiveDone)
+			publisher.Receive(ctx, &remotetypes.MessageBody{
+				Sender:      peers[1][:],
+				Method:      remotetypes.MethodUnregisterTrigger,
+				CallerDonId: workflowDONID,
+				Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
+					TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+						WorkflowIds: []string{workflowID1},
+						TriggerIds:  []string{"triggerA"},
+					},
+				},
+			})
+		}()
+		<-underlying.firstUnregisterStarted
+
+		require.NoError(t, publisher.CloseAndUnregister(ctx))
+		<-receiveDone
+		require.Equal(t, []string{"triggerA"}, underlying.succeeded())
+	})
+}
+
+// cancellableUnregisterTrigger blocks its first UnregisterTrigger call until the context is cancelled.
+type cancellableUnregisterTrigger struct {
+	info                   commoncap.CapabilityInfo
+	firstUnregisterStarted chan struct{}
+	calls                  atomic.Int32
+	mu                     sync.Mutex
+	unregistered           []string
+}
+
+func (tr *cancellableUnregisterTrigger) Info(context.Context) (commoncap.CapabilityInfo, error) {
+	return tr.info, nil
+}
+
+func (tr *cancellableUnregisterTrigger) RegisterTrigger(context.Context, commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
+	return make(chan commoncap.TriggerResponse), nil
+}
+
+func (tr *cancellableUnregisterTrigger) UnregisterTrigger(ctx context.Context, req commoncap.TriggerRegistrationRequest) error {
+	if tr.calls.Add(1) == 1 {
+		close(tr.firstUnregisterStarted)
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+	tr.unregistered = append(tr.unregistered, req.TriggerID)
+	return nil
+}
+
+func (tr *cancellableUnregisterTrigger) succeeded() []string {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+	return tr.unregistered
+}
+
+func (tr *cancellableUnregisterTrigger) AckEvent(context.Context, string, string, string) error {
+	return nil
 }
 
 // unregisterFailingTrigger accepts registrations and fails, or hangs until cancelled, on unregister.

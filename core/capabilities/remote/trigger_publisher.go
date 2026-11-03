@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -53,6 +54,11 @@ type triggerPublisher struct {
 	registerExecutor *ParallelExecutor
 	lggr             logger.Logger
 	metrics          triggerPublisherMetrics
+
+	// Explicit unregisters in flight or failed, retried by CloseAndUnregister. Protected by mu.
+	pendingUnregs  map[registrationKey]*pubRegState
+	inflightUnregs sync.WaitGroup
+	releasing      bool // set by CloseAndUnregister; blocks new unregisters in Receive
 }
 
 type triggerPublisherMetrics struct {
@@ -135,6 +141,7 @@ func NewTriggerPublisher(capabilityID, capMethodName string, dispatcher types.Di
 		ackCache:        messagecache.NewMessageCache[ackKey, p2ptypes.PeerID](),
 		unregisterCache: messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
 		registrations:   make(map[registrationKey]*pubRegState),
+		pendingUnregs:   make(map[registrationKey]*pubRegState),
 		batchingQueue:   make(map[[32]byte]*batchedResponse),
 		stopCh:          make(services.StopChan),
 		lggr:            logger.With(logger.Named(lggr, "TriggerPublisher"), "capabilityID", capabilityID, "capMethodName", capMethodName),
@@ -484,7 +491,8 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 
 		p.mu.Lock()
 		reg, exists := p.registrations[key]
-		if !exists {
+		// Once releasing, CloseAndUnregister owns unregistering everything left.
+		if !exists || p.releasing {
 			p.mu.Unlock()
 			return
 		}
@@ -510,6 +518,8 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.lggr.Debugw("unregister trigger", "workflowID", key.workflowID, "triggerID", key.triggerID,
 			"callerDonId", msg.CallerDonId, "minRequired", minRequired, "sender", sender)
 		delete(p.registrations, key)
+		p.pendingUnregs[key] = reg // retried by CloseAndUnregister if this call fails
+		p.inflightUnregs.Add(1)
 		p.unregisterCache.MarkDelivered(key)
 		p.unregisterCache.Delete(key)
 		p.messageCache.Delete(key)
@@ -517,6 +527,12 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 
 		unregisterCtx, cancel := p.stopCh.NewCtx()
 		err = p.cfg.Load().underlying.UnregisterTrigger(unregisterCtx, reg.request)
+		p.mu.Lock()
+		if err == nil {
+			delete(p.pendingUnregs, key)
+		}
+		p.mu.Unlock()
+		p.inflightUnregs.Done()
 		if err != nil {
 			unregisterOutcome = "error"
 			p.lggr.Errorw("failed to unregister trigger on underlying", "workflowID", key.workflowID, "triggerID", key.triggerID, "err", err)
@@ -976,8 +992,16 @@ func (p *triggerPublisher) CloseAndUnregister(ctx context.Context) error {
 	closeErr := p.Close()
 
 	p.mu.Lock()
+	p.releasing = true
+	p.mu.Unlock()
+	// Close cancels in-flight explicit unregisters; wait, then retry the ones that failed.
+	p.inflightUnregs.Wait()
+
+	p.mu.Lock()
 	regs := p.registrations
+	maps.Copy(regs, p.pendingUnregs)
 	p.registrations = make(map[registrationKey]*pubRegState)
+	p.pendingUnregs = make(map[registrationKey]*pubRegState)
 	p.mu.Unlock()
 
 	cfg := p.cfg.Load()
