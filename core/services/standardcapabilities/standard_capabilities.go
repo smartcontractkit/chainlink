@@ -18,7 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-const defaultStartTimeout = 3 * time.Minute
+const (
+	defaultStartTimeout = 3 * time.Minute
+
+	defaultDonIDResolveTimeout = 3 * time.Minute
+	defaultDonIDRetryInterval  = time.Second
+)
 
 var (
 	ErrServiceStopped  = errors.New("service stopped")
@@ -48,6 +53,12 @@ type StandardCapabilities struct {
 	capabilityDonID uint32
 	// shardIndex is this node's shard from the [Sharding] config, plumbed to the LOOP at Initialise.
 	shardIndex uint32
+	// resolveDonID resolves capabilityDonID at Start when the host did not
+	// provide one. It errors while the answer may still change, e.g. before the
+	// capability registry has synced.
+	resolveDonID        func(ctx context.Context) (uint32, error)
+	donIDResolveTimeout time.Duration
+	donIDRetryInterval  time.Duration
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 	// loopID is the ID this service holds in the plugin registrar. It is set
@@ -158,6 +169,10 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				s.startTimeout = defaultStartTimeout
 			}
 
+			if s.capabilityDonID == 0 && s.resolveDonID != nil {
+				s.capabilityDonID = s.awaitCapabilityDonID()
+			}
+
 			cctx, cancel := s.stopChan.CtxWithTimeout(s.startTimeout)
 			defer cancel()
 
@@ -187,6 +202,36 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 
 		return nil
 	})
+}
+
+// awaitCapabilityDonID retries resolveDonID until it gives a definitive answer
+// or donIDResolveTimeout passes, in which case it returns 0 and the plugin falls
+// back to the workflow DON ID.
+func (s *StandardCapabilities) awaitCapabilityDonID() uint32 {
+	timeout, interval := s.donIDResolveTimeout, s.donIDRetryInterval
+	if timeout == 0 {
+		timeout = defaultDonIDResolveTimeout
+	}
+	if interval == 0 {
+		interval = defaultDonIDRetryInterval
+	}
+	ctx, cancel := s.stopChan.CtxWithTimeout(timeout)
+	defer cancel()
+
+	for attempt := 1; ; attempt++ {
+		donID, err := s.resolveDonID(ctx)
+		if err == nil {
+			s.log.Infow("Resolved capability DON ID from registry", "donID", donID, "attempts", attempt)
+			return donID
+		}
+		select {
+		case <-ctx.Done():
+			s.log.Errorw("Could not resolve capability DON ID; falling back to workflow DON ID for event labeling",
+				"attempts", attempt, "err", err)
+			return 0
+		case <-time.After(interval):
+		}
+	}
 }
 
 // Ready is a non-blocking check for the service's ready state.  Errors if not
