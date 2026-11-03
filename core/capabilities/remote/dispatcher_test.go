@@ -5,13 +5,16 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -52,7 +55,10 @@ func newTestConfig() testConfig {
 // startDispatcher starts a dispatcher with the given local peer ID. Messages
 // written to the returned channel are delivered as if received from the network.
 func startDispatcher(t *testing.T, cfg testConfig, localID p2ptypes.PeerID, signer *mocks.Signer, sharedPeer *mocks.SharedPeer) (remotetypes.Dispatcher, chan<- p2ptypes.Message) {
-	lggr := logger.Test(t)
+	return startDispatcherWithLogger(t, logger.Test(t), cfg, localID, signer, sharedPeer)
+}
+
+func startDispatcherWithLogger(t *testing.T, lggr logger.Logger, cfg testConfig, localID p2ptypes.PeerID, signer *mocks.Signer, sharedPeer *mocks.SharedPeer) (remotetypes.Dispatcher, chan<- p2ptypes.Message) {
 	recvCh := make(chan p2ptypes.Message)
 	sharedPeer.On("Receive", mock.Anything).Return((<-chan p2ptypes.Message)(recvCh))
 	sharedPeer.On("ID", mock.Anything).Return(localID)
@@ -203,7 +209,8 @@ func TestDispatcher_DropsWhenReceiverBufferFull(t *testing.T) {
 
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
-	d, recvCh := startDispatcher(t, testConfig{receiverBufferSize: 1}, peerID2, mocks.NewSigner(t), mocks.NewSharedPeer(t))
+	lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
+	d, recvCh := startDispatcherWithLogger(t, lggr, testConfig{receiverBufferSize: 1}, peerID2, mocks.NewSigner(t), mocks.NewSharedPeer(t))
 
 	rcv := &blockingReceiver{entered: make(chan struct{}), release: make(chan struct{}), received: make(chan string, 10)}
 	require.NoError(t, d.SetReceiver(capID1, donID1, rcv))
@@ -215,8 +222,10 @@ func TestDispatcher_DropsWhenReceiverBufferFull(t *testing.T) {
 	<-rcv.entered // receiver is now blocked, the buffer is empty
 	send("buffered")
 	send("dropped")
-	// the dispatcher loop is single-threaded: once this is accepted, "dropped" has been handled
-	send("dropped too")
+	// Release only after the drop happened; otherwise the receiver may free buffer space first.
+	require.Eventually(t, func() bool {
+		return logs.FilterMessage("receiver channel full, dropping message").Len() == 1
+	}, tests.WaitTimeout(t), 10*time.Millisecond)
 	close(rcv.release)
 
 	require.Equal(t, "handled", <-rcv.received)

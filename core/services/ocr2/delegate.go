@@ -553,7 +553,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		// The job-spec path carries no registry capability ID, so fall back to
 		// the pinned constant; the registry-driven path (NewServices) passes the
 		// actual ID from the registry.
-		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, dontimeCapabilityID)
+		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, dontimeCapabilityID, d.limitsFactory)
 
 	case types.RingPlugin:
 		return d.newServicesRing(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
@@ -686,7 +686,7 @@ func (d *Delegate) NewServices(
 
 	switch pluginType {
 	case types.DonTimePlugin:
-		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, capabilityID)
+		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, capabilityID, d.limitsFactory)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported for registry-driven launch", pluginType)
 	}
@@ -974,7 +974,8 @@ func (d *Delegate) newServicesVaultPlugin(
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
 	lpk := vaultcap.NewLazyPublicKey()
-	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, limitsFactory, requestLifecycle)
+	directReader := vaultcap.NewLazyDirectSecretsReader()
+	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, directReader, limitsFactory, requestLifecycle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault capability: %w", err)
 	}
@@ -1051,7 +1052,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, err
 	}
 
-	oracleArgs := libocr2.OCR3_1OracleArgs2[[]byte]{
+	oracleArgs := libocr2.OCR3_1OracleArgs3[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
@@ -1077,13 +1078,14 @@ func (d *Delegate) newServicesVaultPlugin(
 		vaultocrplugin.NewVaultORM(d.ds),
 		&dkgRecipientKey,
 		lpk,
+		directReader,
 		limitsFactory,
 		requestLifecycle,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
 	}
-	wrappedRpf := beholderwrapper.NewReportingPluginFactory(
+	wrappedRpf := beholderwrapper.NewReportingPluginFactory2(
 		rpf,
 		lggr,
 		"vault",
@@ -1172,6 +1174,7 @@ func (d *Delegate) newDonTimePlugin(
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	capabilityID string,
+	limitsFactory limits.Factory,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
@@ -1266,6 +1269,10 @@ func (d *Delegate) newDonTimePlugin(
 	if err != nil {
 		return nil, err
 	}
+	err = baseFactory.InitLimits(limitsFactory)
+	if err != nil {
+		return nil, err
+	}
 	oracleArgs.ReportingPluginFactory = ocr3beholderwrapper.NewReportingPluginFactory(
 		baseFactory,
 		lggr,
@@ -1273,10 +1280,6 @@ func (d *Delegate) newDonTimePlugin(
 	)
 
 	oracle, err := libocr2.NewOracle(oracleArgs)
-	if err != nil {
-		return nil, err
-	}
-
 	if err != nil {
 		return nil, err
 	}

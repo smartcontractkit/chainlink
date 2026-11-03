@@ -1350,7 +1350,17 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 	cfg := defaultTestConfig(t, func(cfg *cresettings.Workflows) {
 		cfg.CapabilityCallTimeout.DefaultValue = 50 * time.Millisecond
 	})
-	cfg.Lggr, logs = logger.TestObserved(t, zapcore.ErrorLevel)
+	cfg.Lggr, logs = logger.TestObserved(t, zapcore.DebugLevel)
+	// relevantLogs drains the observer and keeps errors plus the (debug-level) metering mode switch.
+	relevantLogs := func() []observer.LoggedEntry {
+		var out []observer.LoggedEntry
+		for _, e := range logs.TakeAll() {
+			if e.Level >= zapcore.ErrorLevel || strings.Contains(e.Message, "switching to metering mode") {
+				out = append(out, e)
+			}
+		}
+		return out
+	}
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
@@ -1450,7 +1460,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		require.Equal(t, wantExecID, executionID)
 		capability.AssertExpectations(t)
 
-		logged := logs.TakeAll()
+		logged := relevantLogs()
 		require.Len(t, logged, 1)
 		assert.Contains(t, logged[0].Message, "switching to metering mode")
 	})
@@ -1544,7 +1554,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		require.Equal(t, wantExecID, executionID)
 		capability.AssertExpectations(t)
 
-		logged := logs.TakeAll()
+		logged := relevantLogs()
 		require.Empty(t, logged)
 	})
 
@@ -1624,7 +1634,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		require.Equal(t, wantExecID, executionID)
 		capability.AssertExpectations(t)
 
-		logged := logs.TakeAll()
+		logged := relevantLogs()
 		require.Empty(t, logged)
 	})
 
@@ -1718,7 +1728,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		require.Equal(t, wantExecID, executionID)
 		capability.AssertExpectations(t)
 
-		logged := logs.TakeAll()
+		logged := relevantLogs()
 		require.Len(t, logged, 1)
 		assert.Contains(t, logged[0].Message, "metering mode")
 	})
@@ -2197,6 +2207,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		cfg.WorkflowName.String(),
 		cfg.WorkflowID,
 		"",
+		time.Time{},
 		cfg.WorkflowEncryptionKey,
 		nil,
 	)
