@@ -463,8 +463,17 @@ type EngineFeatureFlags struct {
 	WorkflowTagBackfill limits.RangeLimiter[commonconfig.Timestamp]
 
 	// CoordinatedEngine selects the coordinatedEngine over the legacy trigger-owning
-	// Engine for newly created workflows. Nil when construction fails; call sites must nil-check.
+	// Engine for newly created workflows. It is read per workflow
+	// (PerWorkflow.CoordinatedEngineEnabled), so it can be set for one workflow, owner or org.
+	// Nil when construction fails; call sites must nil-check.
 	CoordinatedEngine limits.GateLimiter
+
+	// CoordinatedEngineGlobal reads the deprecated node-wide CoordinatedEngineEnabled
+	// setting, so environments that still set it keep their behavior. While it is open,
+	// every newly created workflow uses the coordinatedEngine, whatever CoordinatedEngine
+	// says for it. Remove it once no environment sets the global key. Nil when
+	// construction fails; call sites must nil-check.
+	CoordinatedEngineGlobal limits.GateLimiter
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -477,21 +486,48 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 		return nil, fmt.Errorf("workflow tag backfill flag: %w", err)
 	}
 
-	coordinatedEngine, err := limits.MakeGateLimiter(lf, cresettings.Default.CoordinatedEngineEnabled)
+	coordinatedEngine, err := limits.MakeGateLimiter(lf, cfg.CoordinatedEngineEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("coordinated engine flag: %w", err)
 	}
+	coordinatedEngineGlobal, err := limits.MakeGateLimiter(lf, cresettings.Default.CoordinatedEngineEnabled) //nolint:staticcheck // SA1019: read until no environment sets it
+	if err != nil {
+		return nil, fmt.Errorf("global coordinated engine flag: %w", err)
+	}
 	return &EngineFeatureFlags{
-		WorkflowTagBackfill: workflowTagBackfill,
-		CoordinatedEngine:   coordinatedEngine,
+		WorkflowTagBackfill:     workflowTagBackfill,
+		CoordinatedEngine:       coordinatedEngine,
+		CoordinatedEngineGlobal: coordinatedEngineGlobal,
 	}, nil
 }
 
-func (e *EngineFeatureFlags) Close() error {
-	if e == nil || e.WorkflowTagBackfill == nil {
+// EvictWorkflow removes the per-workflow state (one background goroutine per tenant) that
+// the workflow-scoped flags keep for workflowID. The next read for it starts afresh.
+func (e *EngineFeatureFlags) EvictWorkflow(workflowID string) error {
+	if e == nil {
 		return nil
 	}
-	return e.WorkflowTagBackfill.Close()
+	return errors.Join(
+		limits.TryEvictTenant(e.WorkflowTagBackfill, workflowID),
+		limits.TryEvictTenant(e.CoordinatedEngine, workflowID),
+	)
+}
+
+func (e *EngineFeatureFlags) Close() error {
+	if e == nil {
+		return nil
+	}
+	var errs error
+	if e.WorkflowTagBackfill != nil {
+		errs = errors.Join(errs, e.WorkflowTagBackfill.Close())
+	}
+	if e.CoordinatedEngine != nil {
+		errs = errors.Join(errs, e.CoordinatedEngine.Close())
+	}
+	if e.CoordinatedEngineGlobal != nil {
+		errs = errors.Join(errs, e.CoordinatedEngineGlobal.Close())
+	}
+	return errs
 }
 
 const (

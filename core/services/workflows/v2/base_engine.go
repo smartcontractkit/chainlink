@@ -55,8 +55,8 @@ var (
 	ErrEngineDraining     = triggers.ErrEngineDraining
 	ErrEngineClosed       = triggers.ErrEngineClosed
 
-	ErrShardDeniedNotOwner     = fmt.Errorf("shard ownership denied: not owner: %w", triggers.ErrAdmissionDenied)
-	ErrShardDeniedOrchestrator = fmt.Errorf("shard ownership denied: orchestrator error: %w", triggers.ErrAdmissionDenied)
+	ErrShardDeniedNotOwner     = triggers.ErrShardDeniedNotOwner
+	ErrShardDeniedOrchestrator = triggers.ErrShardDeniedOrchestrator
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
 	ErrAdmissionCache          = triggers.ErrAdmissionCached
 

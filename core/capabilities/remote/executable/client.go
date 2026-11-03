@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -95,15 +96,17 @@ func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localD
 		return errors.New("requestTimeout must be positive")
 	}
 
-	// always replace the whole dynamicConfig object to avoid inconsistent state
-	c.cfg.Store(&dynamicConfig{
+	newCfg := &dynamicConfig{
 		remoteCapabilityInfo:    remoteCapabilityInfo,
 		localDONInfo:            localDonInfo,
 		requestTimeout:          requestTimeout,
 		signers:                 signers,
 		minResponsesToAggregate: minResponsesToAggregate,
-	})
-	c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout)
+	}
+	// always replace the whole dynamicConfig object to avoid inconsistent state
+	if prev := c.cfg.Swap(newCfg); prev == nil || !reflect.DeepEqual(*prev, *newCfg) {
+		c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout, "minResponsesToAggregate", minResponsesToAggregate)
+	}
 	return nil
 }
 
