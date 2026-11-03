@@ -93,6 +93,13 @@ type enclavesList struct {
 	Enclaves []enclaveEntry
 }
 
+// requestLatencyBucketsMs covers relay requests up to and past the 60s
+// ConfidentialRelayHandlerTimeout; the SDK default buckets stop at 10s.
+var requestLatencyBucketsMs = []float64{
+	5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000,
+	10_000, 15_000, 20_000, 30_000, 45_000, 60_000, 90_000,
+}
+
 type handlerMetrics struct {
 	requestCount         metric.Int64Counter
 	requestLatency       metric.Int64Histogram
@@ -105,7 +112,8 @@ func newMetrics() (*handlerMetrics, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to register request count counter: %w", err)
 	}
-	requestLatency, err := beholder.GetMeter().Int64Histogram("enclave_relay_request_latency_ms", metric.WithUnit("ms"))
+	requestLatency, err := beholder.GetMeter().Int64Histogram("enclave_relay_request_latency_ms",
+		metric.WithUnit("ms"), metric.WithExplicitBucketBoundaries(requestLatencyBucketsMs...))
 	if err != nil {
 		return nil, fmt.Errorf("failed to register request latency histogram: %w", err)
 	}
