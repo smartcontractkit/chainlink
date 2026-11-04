@@ -148,20 +148,29 @@ func (t *transmissionReaper) reap(ctx context.Context, batchSize int, reapType s
 	return rowsDeleted, nil
 }
 
+// reapStale deletes transmissions older than maxAge.
+//
+// The candidate rows are locked with SKIP LOCKED: the ORM's Delete removes rows by transmission_hash
+// while this query walks them by inserted_at, so without SKIP LOCKED the two can hold locks on rows
+// the other wants and deadlock (40P01). Reaping is best-effort, so skipping a row that is being
+// deleted right now is fine; it is picked up by a later batch or the next reap cycle.
 func (t *transmissionReaper) reapStale(ctx context.Context, batchSize int) (sql.Result, error) {
 	return t.ds.ExecContext(ctx, `
 DELETE FROM llo_mercury_transmit_queue AS q
 USING (
-    SELECT transmission_hash 
+    SELECT transmission_hash
     FROM llo_mercury_transmit_queue
     WHERE inserted_at < NOW() - ($1 * INTERVAL '1 MICROSECOND')
     ORDER BY inserted_at ASC
     LIMIT $2
+    FOR UPDATE SKIP LOCKED
 ) AS to_delete
 WHERE q.transmission_hash = to_delete.transmission_hash;
 `, t.maxAge.Microseconds(), batchSize)
 }
 
+// reapOrphaned deletes transmissions whose DON no longer has an OCR2 spec. See reapStale for why the
+// candidate rows are selected with SKIP LOCKED.
 func (t *transmissionReaper) reapOrphaned(ctx context.Context, batchSize int) (sql.Result, error) {
 	return t.ds.ExecContext(ctx, `
 WITH activeDonIds AS (
@@ -173,11 +182,12 @@ WITH activeDonIds AS (
 )
 DELETE FROM llo_mercury_transmit_queue as q
 USING (
-    SELECT transmission_hash 
+    SELECT transmission_hash
     FROM llo_mercury_transmit_queue
     WHERE don_id NOT IN (SELECT don_id FROM activeDonIds)
     ORDER BY inserted_at ASC
     LIMIT $1
+    FOR UPDATE SKIP LOCKED
 ) AS to_delete
 WHERE q.transmission_hash = to_delete.transmission_hash;
 `, batchSize)

@@ -8,10 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 )
 
 func NewSqlxDB(t testing.TB) *sqlx.DB {
@@ -44,6 +46,34 @@ SET statement_timeout = '30s';`)
 func MustExec(t *testing.T, ds sqlutil.DataSource, stmt string, args ...any) {
 	ctx := t.Context()
 	require.NoError(t, utils.JustError(ds.ExecContext(ctx, stmt, args...)))
+}
+
+// NewIndependentSqlxSessions returns n handles to a fresh, migrated test database, each pinned to its own
+// connection (pool size 1). Unlike NewSqlxDB, operations are not wrapped in a single test transaction and
+// session state is not shared, so concurrent sessions can observe and contend for each other's locks.
+// Provisioning a database is expensive, so use this only for tests that need real concurrency.
+func NewIndependentSqlxSessions(t testing.TB, n int) []*sqlx.DB {
+	testutils.SkipShortDB(t)
+
+	ctx := testutils.Context(t)
+	dbURL := testdb.New(t, true)
+
+	sessions := make([]*sqlx.DB, n)
+	for i := range sessions {
+		db, err := pg.DBConfig{
+			IdleInTxSessionTimeout: time.Hour,
+			// Fail instead of hanging when a query waits on a lock, so tests that
+			// check for lock avoidance regress loudly rather than timing out.
+			LockTimeout:  10 * time.Second,
+			MaxOpenConns: 1,
+			MaxIdleConns: 1,
+		}.New(ctx, dbURL.String(), pg.DriverPostgres)
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, db.Close()) })
+		sessions[i] = db
+	}
+
+	return sessions
 }
 
 func MustCount(t *testing.T, db *sqlx.DB, stmt string, args ...any) (cnt int) {
