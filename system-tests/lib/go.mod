@@ -44,7 +44,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20261028174148-0d48af26262a
 	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20261028170155-b0c194ffac3f
 	github.com/smartcontractkit/chainlink-stellar/deployment v0.0.0-20261028170155-b0c194ffac3f
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.9
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.17.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.15.0

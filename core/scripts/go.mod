@@ -35,7 +35,7 @@ require (
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20261022195454-600e2b321c7a
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20261005112317-b723176adfe8
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.10-0.20261103184250-0e7a999d9121
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.17.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.24-0.20261022155844-32538607cda4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20260126202327-6be9a05f0caf
@@ -692,9 +692,3 @@ replace github.com/moby/go-archive v0.2.0 => github.com/moby/go-archive v0.1.0
 // Exclude Juno's placeholder dependency. It is only intended to be resolved via
 // Juno's local replace directive and is not used directly by chainlink
 exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
-
-// chainlink-testing-framework/framework v0.16.8 ships an otel-collector self-telemetry
-// config (service.telemetry.metrics.readers[].periodic.interval: 10s) that the pinned
-// otel/opentelemetry-collector-contrib:0.123.0 rejects (expects int ms), so the collector
-// crash-loops and `obs up` produces no Beholder logs in Loki. Pin to v0.16.7 until CTF fixes it.
-// replace github.com/smartcontractkit/chainlink-testing-framework/framework => github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.7
