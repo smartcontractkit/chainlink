@@ -45,20 +45,9 @@ type StandardCapabilities struct {
 	orgResolver          orgresolver.OrgResolver
 	creSettings          core.SettingsBroadcaster
 	triggerEventStore    capabilities.EventStore
-	// capabilityDonID is the authoritative on-chain DON ID this plugin process
-	// was spawned for, resolved by the host (localcapmgr.startCapability or
-	// Delegate.NewServices). Plumbed to the LOOP via StandardCapabilitiesDependencies
-	// at Initialise time. Zero means the host did not resolve one; the plugin
-	// will fall back to capability-registry lookup.
-	capabilityDonID uint32
+	capDonIDResolver     CapDonIDResolver
 	// shardIndex is this node's shard from the [Sharding] config, plumbed to the LOOP at Initialise.
 	shardIndex uint32
-	// resolveDonID resolves capabilityDonID at Start when the host did not
-	// provide one. It errors while the answer may still change, e.g. before the
-	// capability registry has synced.
-	resolveDonID        func(ctx context.Context) (uint32, error)
-	donIDResolveTimeout time.Duration
-	donIDRetryInterval  time.Duration
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 	// loopID is the ID this service holds in the plugin registrar. It is set
@@ -97,6 +86,7 @@ func NewStandardCapabilities(
 	command string,
 	configJSON string,
 	pluginRegistrar plugins.RegistrarConfig,
+	capDonIDResolver CapDonIDResolver,
 	dependencies core.StandardCapabilitiesDependencies,
 ) *StandardCapabilities {
 	return &StandardCapabilities{
@@ -113,7 +103,7 @@ func NewStandardCapabilities(
 		orgResolver:          dependencies.OrgResolver,
 		creSettings:          dependencies.CRESettings,
 		triggerEventStore:    dependencies.TriggerEventStore,
-		capabilityDonID:      dependencies.CapabilityDonID,
+		capDonIDResolver:     capDonIDResolver,
 		shardIndex:           dependencies.ShardIndex,
 		stopChan:             make(chan struct{}),
 		readyChan:            make(chan struct{}),
@@ -122,7 +112,7 @@ func NewStandardCapabilities(
 
 // initialiseDependencies builds the StandardCapabilitiesDependencies delivered to
 // the capability LOOP via Initialise.
-func (s *StandardCapabilities) initialiseDependencies() core.StandardCapabilitiesDependencies {
+func (s *StandardCapabilities) initialiseDependencies(capDonID uint32) core.StandardCapabilitiesDependencies {
 	return core.StandardCapabilitiesDependencies{
 		Config:             s.config,
 		Store:              s.store,
@@ -134,7 +124,7 @@ func (s *StandardCapabilities) initialiseDependencies() core.StandardCapabilitie
 		OrgResolver:        s.orgResolver,
 		CRESettings:        s.creSettings,
 		TriggerEventStore:  s.triggerEventStore,
-		CapabilityDonID:    s.capabilityDonID,
+		CapabilityDonID:    capDonID,
 		ShardIndex:         s.shardIndex,
 	}
 }
@@ -169,8 +159,13 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				s.startTimeout = defaultStartTimeout
 			}
 
-			if s.capabilityDonID == 0 && s.resolveDonID != nil {
-				s.capabilityDonID = s.awaitCapabilityDonID()
+			rctx, cancel := s.stopChan.NewCtx()
+			defer cancel()
+			capDonID, err := s.capDonIDResolver.awaitCapDonID(rctx)
+			if err != nil {
+				s.log.Errorf("error waiting to resolve the capability Don ID: %v", err)
+				s.setReadyErr(fmt.Errorf("error waiting to resolve the capability Don ID: %w", err))
+				return
 			}
 
 			cctx, cancel := s.stopChan.CtxWithTimeout(s.startTimeout)
@@ -182,7 +177,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				return
 			}
 
-			dependencies := s.initialiseDependencies()
+			dependencies := s.initialiseDependencies(capDonID)
 			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)
 				s.setReadyErr(fmt.Errorf("initialising standard capabilities service: %w", err))
@@ -202,36 +197,6 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 
 		return nil
 	})
-}
-
-// awaitCapabilityDonID retries resolveDonID until it gives a definitive answer
-// or donIDResolveTimeout passes, in which case it returns 0 and the plugin falls
-// back to the workflow DON ID.
-func (s *StandardCapabilities) awaitCapabilityDonID() uint32 {
-	timeout, interval := s.donIDResolveTimeout, s.donIDRetryInterval
-	if timeout == 0 {
-		timeout = defaultDonIDResolveTimeout
-	}
-	if interval == 0 {
-		interval = defaultDonIDRetryInterval
-	}
-	ctx, cancel := s.stopChan.CtxWithTimeout(timeout)
-	defer cancel()
-
-	for attempt := 1; ; attempt++ {
-		donID, err := s.resolveDonID(ctx)
-		if err == nil {
-			s.log.Infow("Resolved capability DON ID from registry", "donID", donID, "attempts", attempt)
-			return donID
-		}
-		select {
-		case <-ctx.Done():
-			s.log.Errorw("Could not resolve capability DON ID; falling back to workflow DON ID for event labeling",
-				"attempts", attempt, "err", err)
-			return 0
-		case <-time.After(interval):
-		}
-	}
 }
 
 // Ready is a non-blocking check for the service's ready state.  Errors if not
