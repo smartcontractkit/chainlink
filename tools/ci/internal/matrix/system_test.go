@@ -356,7 +356,9 @@ func TestBuildCRERegressionMatrix_AdditionalOverrides(t *testing.T) {
 
 import "testing"
 
-func Test_CRE_V2_Solana_Regression(t *testing.T) {}
+func Test_CRE_V2_Solana_Regression_ReadWrite(t *testing.T) {}
+func Test_CRE_V2_Solana_Regression_LogTrigger_Fields(t *testing.T) {}
+func Test_CRE_V2_Solana_Regression_LogTrigger_Filters(t *testing.T) {}
 `
 	require.NoError(t, os.WriteFile(testFile, []byte(content), 0o600))
 
@@ -365,8 +367,19 @@ func Test_CRE_V2_Solana_Regression(t *testing.T) {}
 		RunID: "789012",
 	})
 	require.NoError(t, err)
-	require.Len(t, res, 1)
+	require.Len(t, res, 3)
 
-	assert.Equal(t, "Test_CRE_V2_Solana_Regression", res[0].TestName)
-	assert.Equal(t, "configs/workflow-don-solana.toml", res[0].Configs)
+	testNames := make([]string, 0, len(res))
+	runners := make(map[string]struct{}, len(res))
+	for _, entry := range res {
+		testNames = append(testNames, entry.TestName)
+		runners[entry.RunsOn] = struct{}{}
+		assert.Equal(t, "configs/workflow-don-solana.toml", entry.Configs)
+	}
+	assert.ElementsMatch(t, []string{
+		"Test_CRE_V2_Solana_Regression_ReadWrite",
+		"Test_CRE_V2_Solana_Regression_LogTrigger_Fields",
+		"Test_CRE_V2_Solana_Regression_LogTrigger_Filters",
+	}, testNames)
+	assert.Len(t, runners, 3)
 }
