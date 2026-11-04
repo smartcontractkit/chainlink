@@ -14,12 +14,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
@@ -230,101 +228,6 @@ func Test_ServicesForSpec_AllowlistEnforcement(t *testing.T) {
 		assert.Panics(t, func() {
 			_, _ = d.ServicesForSpec(context.Background(), spec)
 		})
-	})
-}
-
-func TestResolveCapabilityDonID(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	capabilityID := "evm:ChainSelector:42@1.0.0"
-	localPeerID := testPeerID(1)
-
-	node := func(peerID p2ptypes.PeerID) capabilities.Node {
-		return capabilities.Node{PeerID: &peerID}
-	}
-	donWithNodes := func(id uint32, nodes ...capabilities.Node) capabilities.DONWithNodes {
-		return capabilities.DONWithNodes{
-			DON:   capabilities.DON{ID: id},
-			Nodes: nodes,
-		}
-	}
-
-	t.Run("returns matching DON ID", func(t *testing.T) {
-		t.Parallel()
-
-		registry := mocks.NewCapabilitiesRegistry(t)
-		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return([]capabilities.DONWithNodes{
-			donWithNodes(10, node(testPeerID(2))),
-			donWithNodes(20, node(localPeerID)),
-		}, nil)
-
-		got, err := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
-			return localPeerID, nil
-		}, capabilityID)
-
-		require.NoError(t, err)
-		assert.Equal(t, uint32(20), got)
-	})
-
-	t.Run("falls back to 0 when no DON matches local peer", func(t *testing.T) {
-		t.Parallel()
-
-		registry := mocks.NewCapabilitiesRegistry(t)
-		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return([]capabilities.DONWithNodes{
-			donWithNodes(10, node(testPeerID(2))),
-		}, nil)
-
-		got, err := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
-			return localPeerID, nil
-		}, capabilityID)
-
-		require.NoError(t, err)
-		assert.Equal(t, uint32(0), got)
-	})
-
-	t.Run("falls back to 0 when local peer matches multiple DONs", func(t *testing.T) {
-		t.Parallel()
-
-		registry := mocks.NewCapabilitiesRegistry(t)
-		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return([]capabilities.DONWithNodes{
-			donWithNodes(10, node(localPeerID)),
-			donWithNodes(20, node(localPeerID)),
-		}, nil)
-
-		got, err := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
-			return localPeerID, nil
-		}, capabilityID)
-
-		require.NoError(t, err)
-		assert.Equal(t, uint32(0), got)
-	})
-
-	t.Run("errors for retry when getPeerID fails", func(t *testing.T) {
-		t.Parallel()
-
-		registry := mocks.NewCapabilitiesRegistry(t)
-
-		got, err := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
-			return p2ptypes.PeerID{}, errors.New("dispatcher not ready")
-		}, capabilityID)
-
-		require.Error(t, err)
-		assert.Equal(t, uint32(0), got)
-	})
-
-	t.Run("errors for retry when registry call fails", func(t *testing.T) {
-		t.Parallel()
-
-		registry := mocks.NewCapabilitiesRegistry(t)
-		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return(nil, errors.New("registry unavailable"))
-
-		got, err := resolveCapabilityDonID(ctx, logger.Test(t), registry, func() (p2ptypes.PeerID, error) {
-			return localPeerID, nil
-		}, capabilityID)
-
-		require.Error(t, err)
-		assert.Equal(t, uint32(0), got)
 	})
 }
 

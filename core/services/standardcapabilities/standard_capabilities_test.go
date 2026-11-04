@@ -47,6 +47,7 @@ func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
 			"not/found/path/to/binary",
 			"{}",
 			registrar,
+			&staticCapDonIDResolver{},
 			core.StandardCapabilitiesDependencies{},
 		)
 		// Start runs RegisterLOOP synchronously; the capturingRegistrar
@@ -94,6 +95,7 @@ func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
 			"not/found/path/to/binary",
 			"{}",
 			registrar,
+			&staticCapDonIDResolver{},
 			core.StandardCapabilitiesDependencies{},
 		)
 
@@ -115,10 +117,11 @@ func TestStandardCapabilities_InitialiseDependenciesRoundTrip(t *testing.T) {
 		"not/found/path/to/binary",
 		want.Config,
 		&capturingRegistrar{},
+		&staticCapDonIDResolver{},
 		want,
 	)
 
-	got := std.initialiseDependencies()
+	got := std.initialiseDependencies(0)
 
 	require.Equal(t, want.Config, got.Config, "config should be re-delivered to LOOP Initialise dependencies")
 }
@@ -130,102 +133,21 @@ func TestStandardCapabilities_ShardIndexDeliveredToLOOP(t *testing.T) {
 		"not/found/path/to/binary",
 		"{}",
 		&capturingRegistrar{},
+		&staticCapDonIDResolver{},
 		core.StandardCapabilitiesDependencies{ShardIndex: 3},
 	)
 
-	require.Equal(t, uint32(3), std.initialiseDependencies().ShardIndex)
+	require.Equal(t, uint32(3), std.initialiseDependencies(0).ShardIndex)
 }
 
-// TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP asserts that the
-// host-resolved capability DON ID is carried on the dependencies delivered to
-// the capability LOOP at Initialise. Without this, a trigger producer silently
-// falls back to the consumer workflow's DON for metering identity and event
-// labels even when the node knows which DON it is serving.
+// Without this, a trigger producer silently falls back to the consumer workflow's
+// DON for metering identity and event labels even when the node knows which DON
+// it is serving.
 func TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP(t *testing.T) {
 	t.Parallel()
-	t.Run("nonzero DON ID round-trips when the DON is known", func(t *testing.T) {
-		t.Parallel()
-		const knownDonID = uint32(42)
-		std := NewStandardCapabilities(
-			logger.TestLogger(t),
-			"not/found/path/to/binary",
-			"{}",
-			&capturingRegistrar{},
-			core.StandardCapabilitiesDependencies{CapabilityDonID: knownDonID},
-		)
+	std := NewStandardCapabilities(logger.TestLogger(t), "not/found/path/to/binary", "{}", &capturingRegistrar{}, &staticCapDonIDResolver{}, core.StandardCapabilitiesDependencies{})
 
-		got := std.initialiseDependencies()
-
-		require.Equal(t, knownDonID, got.CapabilityDonID,
-			"the host-resolved capability DON ID must reach the LOOP at Initialise")
-	})
-
-	t.Run("zero DON ID is preserved when the host could not resolve one", func(t *testing.T) {
-		t.Parallel()
-		std := NewStandardCapabilities(
-			logger.TestLogger(t),
-			"not/found/path/to/binary",
-			"{}",
-			&capturingRegistrar{},
-			core.StandardCapabilitiesDependencies{},
-		)
-
-		got := std.initialiseDependencies()
-
-		require.Zero(t, got.CapabilityDonID,
-			"an unresolved DON ID stays zero so the LOOP can fall back to the workflow DON")
-	})
-}
-
-// Right after node start the capability registry may not have synced yet, so
-// DON ID resolution must be retried rather than settling on the workflow DON
-// for the life of the process.
-func TestStandardCapabilities_AwaitCapabilityDonID(t *testing.T) {
-	t.Parallel()
-
-	newStd := func(t *testing.T, resolve func(context.Context) (uint32, error)) *StandardCapabilities {
-		std := NewStandardCapabilities(logger.TestLogger(t), "not/found/path/to/binary", "{}", &capturingRegistrar{}, core.StandardCapabilitiesDependencies{})
-		std.resolveDonID = resolve
-		std.donIDRetryInterval = time.Millisecond
-		return std
-	}
-
-	t.Run("retries until the registry is available", func(t *testing.T) {
-		t.Parallel()
-		calls := 0
-		std := newStd(t, func(context.Context) (uint32, error) {
-			calls++
-			if calls < 3 {
-				return 0, errors.New("metadataRegistry information not available")
-			}
-			return 10, nil
-		})
-
-		require.Equal(t, uint32(10), std.awaitCapabilityDonID())
-		require.Equal(t, 3, calls)
-	})
-
-	t.Run("does not retry a definitive zero", func(t *testing.T) {
-		t.Parallel()
-		calls := 0
-		std := newStd(t, func(context.Context) (uint32, error) {
-			calls++
-			return 0, nil
-		})
-
-		require.Zero(t, std.awaitCapabilityDonID())
-		require.Equal(t, 1, calls)
-	})
-
-	t.Run("falls back to zero on timeout", func(t *testing.T) {
-		t.Parallel()
-		std := newStd(t, func(context.Context) (uint32, error) {
-			return 0, errors.New("metadataRegistry information not available")
-		})
-		std.donIDResolveTimeout = 20 * time.Millisecond
-
-		require.Zero(t, std.awaitCapabilityDonID())
-	})
+	require.Equal(t, uint32(42), std.initialiseDependencies(42).CapabilityDonID)
 }
 
 const capturingRegistrarErr = "capturingRegistrar: stop after capture"
@@ -266,7 +188,7 @@ func TestStandardCapabilities_CloseUnregistersLOOP(t *testing.T) {
 	lggr := logger.TestLogger(t).Named("consensus@1.0.0-alpha")
 
 	newStd := func() *StandardCapabilities {
-		std := NewStandardCapabilities(lggr, "not/found/path/to/binary", "{}", pluginRegistrar, core.StandardCapabilitiesDependencies{})
+		std := NewStandardCapabilities(lggr, "not/found/path/to/binary", "{}", pluginRegistrar, &staticCapDonIDResolver{}, core.StandardCapabilitiesDependencies{})
 		std.startTimeout = time.Second
 		return std
 	}
@@ -318,7 +240,7 @@ func TestStandardCapabilityStart(t *testing.T) {
 			GatewayConnector:   &gatewayConnectorMock{},
 			P2PKeystore:        &keystoreMock{},
 		}
-		standardCapability := NewStandardCapabilities(lggr, spec.Command, spec.Config, pluginRegistrar, dependencies)
+		standardCapability := NewStandardCapabilities(lggr, spec.Command, spec.Config, pluginRegistrar, &staticCapDonIDResolver{}, dependencies)
 		standardCapability.startTimeout = 1 * time.Second
 		err := standardCapability.Start(ctx)
 		require.NoError(t, err)
