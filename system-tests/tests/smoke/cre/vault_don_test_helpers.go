@@ -300,6 +300,7 @@ type vaultWorkflowCheck struct {
 type vaultWorkflowPhase struct {
 	Name   string
 	Checks []vaultWorkflowCheck
+	Batch  bool
 }
 
 type vaultRequestAuth struct {
@@ -1522,7 +1523,7 @@ func vaultWorkflowPhaseToConfig(phase vaultWorkflowPhase) vaultsecret_config.Pha
 			ExpectNotFound:  check.ExpectNotFound,
 		})
 	}
-	return vaultsecret_config.Phase{Name: phase.Name, Checks: checks}
+	return vaultsecret_config.Phase{Name: phase.Name, Checks: checks, Batch: phase.Batch}
 }
 
 func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, requestOwner, expectedResponseOwner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {

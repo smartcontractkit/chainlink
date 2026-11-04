@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/config"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
@@ -43,6 +46,16 @@ func Test_CRE_V2_Suite_Bucket_B(t *testing.T) {
 
 func Test_CRE_V2_Suite_Bucket_C(t *testing.T) {
 	runSuiteBucket(t, suite_config.SuiteBucketC)
+}
+
+//nolint:paralleltest // suite runner owns environment setup; parallelism is managed by the scenario runner
+func Test_CRE_V2_Suite_VaultDirectRead(t *testing.T) {
+	runSuiteBucket(t, suite_config.SuiteBucketVaultDirectRead)
+}
+
+//nolint:paralleltest // suite runner owns environment setup; parallelism is managed by the scenario runner
+func Test_CRE_V2_Suite_VaultDirectReadErrors(t *testing.T) {
+	runSuiteBucket(t, suite_config.SuiteBucketVaultDirectReadErrors)
 }
 
 func runSuiteBucket(t *testing.T, bucket suite_config.SuiteBucket) {
@@ -138,6 +151,31 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				ExecuteVaultReadSecretsWithReshareFlagsTest(t, fixture, reshareEnv)
 			})
 		})
+	case suite_config.SuiteScenarioVaultDirectRead:
+		t.Run("Vault Direct Read - "+topology, func(t *testing.T) {
+			t_helpers.SkipIfMixedEnv(t, "vault direct-read behavior is absent in baseline images; the direct-path log assertions cannot pass until the feature lands in develop")
+			if parallelEnabled {
+				t.Parallel()
+			}
+			fixture := setupVaultSharedScenarioFixture(t, getVaultDefaultTestConfig(t))
+			testEnv := fixture.TestEnv
+			if parallelEnabled {
+				testEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+			}
+			ExecuteVaultDirectReadTests(t, fixture, testEnv)
+		})
+	case suite_config.SuiteScenarioVaultDirectReadErrors:
+		t.Run("Vault Direct Read Errors - "+topology, func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
+			fixture := setupVaultSharedScenarioFixture(t, getVaultDefaultTestConfig(t))
+			testEnv := fixture.TestEnv
+			if parallelEnabled {
+				testEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+			}
+			ExecuteVaultDirectReadErrorsTests(t, fixture, testEnv)
+		})
 	case suite_config.SuiteScenarioCronChipIngressStack:
 		t.Run("Cron Beholder - "+topology, func(t *testing.T) {
 			if parallelEnabled {
@@ -179,8 +217,25 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			if parallelEnabled {
 				t.Parallel()
 			}
-			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
-			ExecuteDonTimeTest(t, testEnv)
+			for _, tc := range []struct {
+				name      string
+				sequenced bool
+			}{
+				{"sequenced", true},
+				{"unsequenced", false},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					if parallelEnabled {
+						t.Parallel()
+					}
+					testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
+					if tc.sequenced {
+						t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(fmt.Sprintf(`DonTimeSequencedTimestampsActivePeriod = '%s'`,
+							settings.Range[config.Timestamp]{Lower: config.NewTimestamp(time.Now()), Upper: config.NewTimestamp(time.Now().Add(1 * time.Hour))}.String())))
+					}
+					ExecuteDonTimeTest(t, testEnv)
+				})
+			}
 		})
 	case suite_config.SuiteScenarioConsensus:
 		t.Run("Consensus - "+topology, func(t *testing.T) {
