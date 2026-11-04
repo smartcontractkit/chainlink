@@ -2,6 +2,7 @@ package llo_test
 
 import (
 	"crypto/ed25519"
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"net"
@@ -30,6 +31,7 @@ import (
 	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/pluginconfig"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	lloreportcodec "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec"
+	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec/evm"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -66,7 +68,48 @@ const (
 	// address, so it can be shaped apart from Postgres and the transmission
 	// server, which stay on 127.0.0.1. Default 127.0.0.1.
 	donBenchP2PHostEnv = "LLO_DON_BENCH_P2P_HOST"
+	// donBenchVariantsEnv selects the variants to run, comma separated, from
+	// donBenchVariants. Default v30,v31.
+	donBenchVariantsEnv = "LLO_DON_BENCH_VARIANTS"
 )
+
+// donBenchVariant is one plugin version and channel set to benchmark.
+type donBenchVariant struct {
+	name    string
+	version lloconfig.PluginVersion
+	salt    int64
+	donID   uint32
+	// format and scheme are those of every channel.
+	format llotypes.ReportFormat
+	scheme llotypes.SigningScheme
+}
+
+// donBenchVariants are the runs LLO_DON_BENCH_VARIANTS can select. The EVM
+// variants use the same channels, signed per report or as one Merkle bundle
+// root per round, so the two compare directly.
+var donBenchVariants = []donBenchVariant{
+	{name: "v30", version: lloconfig.PluginVersionV30, salt: 900, donID: 777300, format: llotypes.ReportFormatJSON},
+	{name: "v31", version: lloconfig.PluginVersionV31, salt: 950, donID: 777310, format: llotypes.ReportFormatJSON},
+	{name: "v31-evm", version: lloconfig.PluginVersionV31, salt: 1000, donID: 777320, format: llotypes.ReportFormatEVMABIEncodeUnpacked},
+	{name: "v31-evm-merkle", version: lloconfig.PluginVersionV31, salt: 1050, donID: 777330, format: llotypes.ReportFormatEVMABIEncodeUnpacked, scheme: llotypes.SigningSchemeMerkle},
+}
+
+// donBenchSelectedVariants returns the variants LLO_DON_BENCH_VARIANTS names,
+// in that order.
+func donBenchSelectedVariants(t *testing.T) []donBenchVariant {
+	t.Helper()
+	names := []string{"v30", "v31"}
+	if v := os.Getenv(donBenchVariantsEnv); v != "" {
+		names = strings.Split(v, ",")
+	}
+	selected := make([]donBenchVariant, 0, len(names))
+	for _, name := range names {
+		i := slices.IndexFunc(donBenchVariants, func(v donBenchVariant) bool { return v.name == strings.TrimSpace(name) })
+		require.GreaterOrEqual(t, i, 0, "%s: unknown variant %q", donBenchVariantsEnv, name)
+		selected = append(selected, donBenchVariants[i])
+	}
+	return selected
+}
 
 // TestIntegration_LLO_don_benchmark runs a 4 oracle DON with real libocr over
 // loopback TCP once per plugin version, on the same channel set, and
@@ -113,18 +156,11 @@ func TestIntegration_LLO_don_benchmark(t *testing.T) { //nolint:paralleltest // 
 		t.Skipf("set %s=1 to run the DON benchmark", donBenchEnv)
 	}
 
-	versions := []struct {
-		version lloconfig.PluginVersion
-		salt    int64
-		donID   uint32
-	}{
-		{version: lloconfig.PluginVersionV30, salt: 900, donID: 777300},
-		{version: lloconfig.PluginVersionV31, salt: 950, donID: 777310},
-	}
-	results := make([]donBenchResult, 0, len(versions))
-	for _, v := range versions {
-		t.Run(string(v.version), func(t *testing.T) {
-			results = append(results, runDONBench(t, v.version, v.salt, v.donID))
+	variants := donBenchSelectedVariants(t)
+	results := make([]donBenchResult, 0, len(variants))
+	for _, v := range variants {
+		t.Run(v.name, func(t *testing.T) {
+			results = append(results, runDONBench(t, v))
 		})
 	}
 
@@ -135,9 +171,9 @@ func TestIntegration_LLO_don_benchmark(t *testing.T) { //nolint:paralleltest // 
 	}
 }
 
-// donBenchResult is one version's run, aggregated over every oracle.
+// donBenchResult is one variant's run, aggregated over every oracle.
 type donBenchResult struct {
-	version lloconfig.PluginVersion
+	version string
 	// timeToFirstReport is from config set to the first delivered report,
 	// timeToFullRound to the first round that delivered every channel.
 	timeToFirstReport, timeToFullRound time.Duration
@@ -240,8 +276,9 @@ func p2pOnHost(host string) func(c *chainlink.Config) {
 	}
 }
 
-func runDONBench(t *testing.T, version lloconfig.PluginVersion, salt int64, donID uint32) donBenchResult {
+func runDONBench(t *testing.T, variant donBenchVariant) donBenchResult {
 	const logLevel = toml.LogLevel(zapcore.ErrorLevel)
+	version, salt, donID := variant.version, variant.salt, variant.donID
 	p2pHost := donBenchP2PHost()
 	onP2PHost := p2pOnHost(p2pHost)
 
@@ -276,7 +313,7 @@ func runDONBench(t *testing.T, version lloconfig.PluginVersion, salt int64, donI
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, fmt.Sprintf("bootstrap_llo_bench_%s", version), backend, bootstrapCSAKey, func(c *chainlink.Config) {
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, fmt.Sprintf("bootstrap_llo_bench_%s", variant.name), backend, bootstrapCSAKey, func(c *chainlink.Config) {
 		c.Log.Level = new(logLevel)
 		onP2PHost(c)
 	})
@@ -313,17 +350,11 @@ fromBlock = %d
 lloDonID = %d
 lloConfigMode = "bluegreen"
 `, testutils.SimulatedChainID, fromBlock, donID)
-	addBootstrapJob(t, bootstrapNode, configuratorAddress, fmt.Sprintf("job-bench-%s", version), relayType, relayConfig)
+	addBootstrapJob(t, bootstrapNode, configuratorAddress, fmt.Sprintf("job-bench-%s", variant.name), relayType, relayConfig)
 
 	channelDefinitions := make(llotypes.ChannelDefinitions, donBenchChannels)
 	for i := range uint32(donBenchChannels) {
-		channelDefinitions[i] = llotypes.ChannelDefinition{
-			ReportFormat: llotypes.ReportFormatJSON,
-			Streams: []llotypes.Stream{{
-				StreamID:   streams[int(i)%len(streams)].id,
-				Aggregator: llotypes.AggregatorMedian,
-			}},
-		}
+		channelDefinitions[i] = donBenchChannel(variant, i, streams)
 	}
 	url, sha := newChannelDefinitionsServer(t, channelDefinitions)
 	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
@@ -336,7 +367,7 @@ channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d
 pluginVersion = "%s"`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock, version)
 	for i, node := range nodes {
-		addLLOJobWithBootstrapper(t, node, configuratorAddress, bootstrapper, clientPubKeys[i], fmt.Sprintf("bench-%s", version), pluginConfig, relayType, relayConfig)
+		addLLOJobWithBootstrapper(t, node, configuratorAddress, bootstrapper, clientPubKeys[i], fmt.Sprintf("bench-%s", variant.name), pluginConfig, relayType, relayConfig)
 		addMemoStreamSpecs(t, node, streams)
 	}
 
@@ -365,7 +396,7 @@ pluginVersion = "%s"`, serverURL, serverPubKey, donID, configStoreAddress, fromB
 		pr, ok := peer.FromContext(pckt.ctx)
 		require.True(t, ok)
 		addr := pr.Addr.String()
-		_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(pckt.req.Payload)
+		r, err := decodeDONBenchPayload(variant, pckt.req.Payload)
 		require.NoError(t, err)
 
 		byOracle[addr] = append(byOracle[addr], donBenchReport{report: r, receivedAt: receivedAt})
@@ -405,7 +436,7 @@ pluginVersion = "%s"`, serverURL, serverPubKey, donID, configStoreAddress, fromB
 	}
 	require.NoError(t, bootstrapNode.App.Stop())
 
-	res := summarizeDONBench(t, version, byOracle, roundsByOracle)
+	res := summarizeDONBench(t, variant.name, byOracle, roundsByOracle)
 	res.timeToFirstReport = firstReportAt.Sub(configSetAt)
 	res.timeToFullRound = fullRoundAt.Sub(configSetAt)
 	res.wireBytesTotal = endBytes
@@ -417,12 +448,82 @@ pluginVersion = "%s"`, serverURL, serverPubKey, donID, configStoreAddress, fromB
 	return res
 }
 
+// donBenchChannel is channel i of a variant. Each channel reads its own memo
+// stream. An EVM channel also reads the first two streams as its native and
+// link prices, and encodes timestamps in nanoseconds so the delivered report
+// carries the agreed observation timestamp exactly.
+func donBenchChannel(variant donBenchVariant, i uint32, streams []Stream) llotypes.ChannelDefinition {
+	own := llotypes.Stream{StreamID: streams[int(i)%len(streams)].id, Aggregator: llotypes.AggregatorMedian}
+	switch variant.format {
+	case llotypes.ReportFormatJSON:
+		return llotypes.ChannelDefinition{ReportFormat: llotypes.ReportFormatJSON, Streams: []llotypes.Stream{own}}
+	case llotypes.ReportFormatEVMABIEncodeUnpacked:
+		// The feed ID ends in the channel ID plus one, since a zero feed ID
+		// is rejected.
+		var feedID [32]byte
+		binary.BigEndian.PutUint32(feedID[28:], i+1)
+		return llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Streams: []llotypes.Stream{
+				{StreamID: streams[0].id, Aggregator: llotypes.AggregatorMedian},
+				{StreamID: streams[1].id, Aggregator: llotypes.AggregatorMedian},
+				own,
+			},
+			Opts:          llotypes.ChannelOpts(fmt.Sprintf(`{"baseUSDFee":"0","expirationWindow":3600,"feedID":"0x%x","abi":[{"type":"int192"}],"TimeResolution":"ns"}`, feedID)),
+			SigningScheme: variant.scheme,
+		}
+	default:
+		panic(fmt.Sprintf("unsupported DON benchmark format %s", variant.format))
+	}
+}
+
+// decodeDONBenchPayload returns the seqNr, channel and agreed observation
+// timestamp a transmitted payload carries.
+func decodeDONBenchPayload(variant donBenchVariant, payload []byte) (lloprotocol.Report, error) {
+	switch {
+	case variant.format == llotypes.ReportFormatJSON:
+		_, _, r, _, err := (lloreportcodec.JSONReportCodec{}).UnpackDecode(payload)
+		return r, err
+	case variant.scheme == llotypes.SigningSchemeMerkle:
+		values, err := lloevm.MerklePayloadTypes.Unpack(payload)
+		if err != nil {
+			return lloprotocol.Report{}, err
+		}
+		return donBenchEVMReport(values[1].(uint64), values[6].([]byte))
+	default:
+		values, err := lloevm.PayloadTypes.Unpack(payload)
+		if err != nil {
+			return lloprotocol.Report{}, err
+		}
+		reportCtx := values[0].([3][32]byte)
+		// The legacy report context packs seqNr as epoch and round, 256
+		// rounds per epoch.
+		epoch := binary.BigEndian.Uint32(reportCtx[1][27:31])
+		seqNr := uint64(epoch)*256 + uint64(reportCtx[1][31])
+		return donBenchEVMReport(seqNr, values[1].([]byte))
+	}
+}
+
+// donBenchEVMReport reads the channel and observation timestamp from the
+// nanosecond resolution header of an EVMABIEncodeUnpacked report: the feed ID
+// in word 0, which ends in the channel ID plus one, and the timestamp in word 2.
+func donBenchEVMReport(seqNr uint64, report []byte) (lloprotocol.Report, error) {
+	if len(report) < 3*32 {
+		return lloprotocol.Report{}, fmt.Errorf("report too short: %d bytes", len(report))
+	}
+	return lloprotocol.Report{
+		SeqNr:                           seqNr,
+		ChannelID:                       binary.BigEndian.Uint32(report[28:32]) - 1,
+		ObservationTimestampNanoseconds: binary.BigEndian.Uint64(report[88:96]),
+	}, nil
+}
+
 // summarizeDONBench reduces the delivered reports to the result figures, over
 // full rounds only: those every oracle delivered every channel for, so the
 // channel voting rounds and the rounds cut off by shutdown stay out. Round
 // intervals come from the agreed timestamps, identical across the DON; latency
 // and throughput pool every oracle.
-func summarizeDONBench(t *testing.T, version lloconfig.PluginVersion, byOracle map[string][]donBenchReport, roundsByOracle map[string]map[uint64]int) donBenchResult {
+func summarizeDONBench(t *testing.T, version string, byOracle map[string][]donBenchReport, roundsByOracle map[string]map[uint64]int) donBenchResult {
 	t.Helper()
 	res := donBenchResult{version: version}
 
@@ -457,7 +558,18 @@ func summarizeDONBench(t *testing.T, version lloconfig.PluginVersion, byOracle m
 			}
 		}
 	}
-	require.NotEmpty(t, obsTsBySeqNr, "no full round delivered")
+	if len(obsTsBySeqNr) == 0 {
+		full := map[string][]uint64{}
+		for addr, rounds := range roundsByOracle {
+			for seqNr, n := range rounds {
+				if n >= donBenchChannels {
+					full[addr] = append(full[addr], seqNr)
+				}
+			}
+			slices.Sort(full[addr])
+		}
+		require.FailNow(t, "no round delivered in full by every oracle", "full seqNrs by transmitting address: %v", full)
+	}
 
 	seqNrs := make([]uint64, 0, len(obsTsBySeqNr))
 	for seqNr := range obsTsBySeqNr {

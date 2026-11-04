@@ -47,6 +47,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	llokeyring "github.com/smartcontractkit/chainlink-data-streams/llo/keyring"
 	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/pluginconfig"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
@@ -1755,7 +1756,7 @@ func (d *Delegate) newServicesLLO(
 	lggr = logger.Sugared(lggr.Named("LLO").With("donID", pluginCfg.DonID, "channelDefinitionsContractAddress", pluginCfg.ChannelDefinitionsContractAddress))
 
 	// Handle key bundle IDs explicitly specified in job spec
-	kbm := make(map[llotypes.ReportFormat]llo.Key)
+	kbm := make(map[llotypes.ReportFormat]llokeyring.Key)
 	for rfStr, kbid := range pluginCfg.KeyBundleIDs {
 		k, err3 := d.ks.Get(kbid)
 		if err3 != nil {
@@ -1781,6 +1782,7 @@ func (d *Delegate) newServicesLLO(
 		llotypes.ReportFormatEVMABIEncodeUnpackedExpr,
 		llotypes.ReportFormatCapabilityTrigger,
 		llotypes.ReportFormatEVMStreamlined,
+		llotypes.ReportFormatEVMMerkle,
 	}
 	for _, rf := range evmKeySignedFormats {
 		if _, exists := kbm[rf]; !exists {
@@ -1804,7 +1806,7 @@ func (d *Delegate) newServicesLLO(
 	// config on the job spec instead.
 	// https://smartcontract-it.atlassian.net/browse/MERC-3594
 	lggr.Infof("Using on-chain signing keys for LLO job %d (%s): %v", jb.ID, jb.Name.ValueOrZero(), kbm)
-	kr := llo.NewOnchainKeyring(lggr, kbm, pluginCfg.DonID)
+	kr := llokeyring.NewOnchainKeyring(lggr, kbm, pluginCfg.DonID)
 
 	telemetryContractID := fmt.Sprintf("%s/%d", spec.ContractID, pluginCfg.DonID)
 
