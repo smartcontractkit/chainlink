@@ -899,6 +899,7 @@ func TestTriggerSubscriber_UnregisteredTriggerIDReleasesLock(t *testing.T) {
 	subscriber.Receive(t.Context(), buildTriggerEventWithTriggerID(t, sender, workflowID1, "unknown-trigger", "event1"))
 
 	// Every lock-taking path must still complete and a valid event must still be delivered.
+	validMsg := buildTriggerEventWithTriggerID(t, sender, workflowID1, "trigger1", "event2")
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -914,7 +915,7 @@ func TestTriggerSubscriber_UnregisteredTriggerIDReleasesLock(t *testing.T) {
 			t.Error(err)
 			return
 		}
-		subscriber.Receive(t.Context(), buildTriggerEventWithTriggerID(t, sender, workflowID1, "trigger1", "event2"))
+		subscriber.Receive(t.Context(), validMsg)
 	}()
 	select {
 	case <-done:
