@@ -10,10 +10,9 @@ import (
 )
 
 // TestResolverMetrics_SettingsArrivalToApply proves the arrival wiring end to
-// end: a settings Store is observed by the resolver's settings subscription,
-// and the next resolve applies it, bumping the config update count and
-// recording exactly one arrival→in-effect staleness sample per actual
-// settings change.
+// end: the delegate records the arrival just before Store, and the next
+// resolve applies it, bumping the config update count and recording exactly
+// one arrival→in-effect staleness sample per actual settings change.
 func TestResolverMetrics_SettingsArrivalToApply(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
@@ -28,10 +27,10 @@ static_default_assignment = [0]
 [per_owner_assignment]
   ` + ownerA + ` = [1]
 `
+	// The delegate records the arrival before Store; a resolve can only see
+	// the config after Store, so the arrival always precedes the apply.
+	f.metrics.RecordSettingsArrival(settingsStringHash(blobA), time.Now())
 	storeShardAssignment(t, settings, blobA)
-	// The subscription goroutine records the arrival asynchronously; give it
-	// a beat so the arrival is observed before the resolve applies the blob.
-	time.Sleep(100 * time.Millisecond)
 	donID, found, err := r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 	require.True(t, found)
@@ -52,8 +51,8 @@ static_default_assignment = [0]
 [per_owner_assignment]
   ` + ownerA + ` = [2]
 `
+	f.metrics.RecordSettingsArrival(settingsStringHash(blobB), time.Now())
 	storeShardAssignment(t, settings, blobB)
-	time.Sleep(100 * time.Millisecond)
 	donID, found, err = r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 	require.True(t, found)

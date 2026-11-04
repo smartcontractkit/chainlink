@@ -24,7 +24,30 @@ static_default_assignment = [0, 1]
 
 func newTestDelegate(t *testing.T) *delegate {
 	t.Helper()
-	return NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New())
+	return NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New(), nil)
+}
+
+func TestServicesForSpecShardAssignmentArrivalHook(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	shardSettings := &loop.AtomicSettings{}
+	var gotRaw, loadAtArrival string
+	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, shardSettings, globalconfig.New(), func(raw string) {
+		gotRaw = raw
+		u, err := shardSettings.Load()
+		require.NoError(t, err)
+		loadAtArrival = u.Settings
+	})
+
+	_, err := d.ServicesForSpec(ctx, cresettingsJob(1, shardAssignmentToml))
+	require.NoError(t, err)
+
+	assert.Equal(t, shardAssignmentToml, gotRaw)
+	assert.Empty(t, loadAtArrival, "the arrival hook must run before Store")
+	u, err := shardSettings.Load()
+	require.NoError(t, err)
+	assert.Equal(t, shardAssignmentToml, u.Settings)
 }
 
 func cresettingsJob(id int32, settings string) job.Job {
@@ -152,7 +175,7 @@ func TestServicesForSpecCapRegistry(t *testing.T) {
 
 	ctx := context.Background()
 	gc := globalconfig.New()
-	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, gc)
+	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, gc, nil)
 	capRegJob := func(id int32, payload string) job.Job {
 		jb := cresettingsJob(id, capRegSettings(payload))
 		jb.CRESettingsSpec.Hash = payload
@@ -186,7 +209,7 @@ func TestServicesForSpecCapRegistryInvalidPayloadFreesSlot(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New())
+	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New(), nil)
 
 	_, err := d.ServicesForSpec(ctx, cresettingsJob(1, "config_type = \"capabilities_registry\"\n"))
 	require.Error(t, err)

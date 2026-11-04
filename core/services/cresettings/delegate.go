@@ -24,24 +24,26 @@ const (
 	offchainConfigKey = "offchain_config"
 )
 
-func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings, capRegistry *globalconfig.GlobalConfig) *delegate {
+func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings, capRegistry *globalconfig.GlobalConfig, onShardAssignmentArrival func(raw string)) *delegate {
 	return &delegate{
-		lggr:                    lggr,
-		atomicSettings:          atomicSettings,
-		shardAssignmentSettings: shardAssignmentSettings,
-		capRegistry:             capRegistry,
-		capRegMetrics:           globalconfig.DefaultMetrics(),
+		lggr:                     lggr,
+		atomicSettings:           atomicSettings,
+		shardAssignmentSettings:  shardAssignmentSettings,
+		capRegistry:              capRegistry,
+		onShardAssignmentArrival: onShardAssignmentArrival,
+		capRegMetrics:            globalconfig.DefaultMetrics(),
 	}
 }
 
 var _ job.Delegate = (*delegate)(nil)
 
 type delegate struct {
-	lggr                    logger.Logger
-	atomicSettings          *loop.AtomicSettings
-	shardAssignmentSettings *loop.AtomicSettings
-	capRegistry             *globalconfig.GlobalConfig
-	capRegMetrics           *globalconfig.Metrics
+	lggr                     logger.Logger
+	atomicSettings           *loop.AtomicSettings
+	shardAssignmentSettings  *loop.AtomicSettings
+	capRegistry              *globalconfig.GlobalConfig
+	onShardAssignmentArrival func(raw string)
+	capRegMetrics            *globalconfig.Metrics
 
 	// activeJobIDs maps config type to the active job ID.
 	activeJobIDs sync.Map
@@ -83,6 +85,11 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 		d.lggr.Infow("Updated capabilities registry config", "hash", spec.Hash, "offchainVersion", version)
 
 	case ConfigTypeShardAssignment:
+		if d.onShardAssignmentArrival != nil {
+			// before Store: a resolve can only see the config after Store, so
+			// the arrival is always recorded by then
+			d.onShardAssignmentArrival(spec.Settings)
+		}
 		if err := d.shardAssignmentSettings.Store(core.SettingsUpdate{
 			Settings: spec.Settings,
 			Hash:     spec.Hash,

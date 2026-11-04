@@ -88,6 +88,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
@@ -748,7 +749,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// surface a visible error in the UI rather than silently doing nothing.
 	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
-	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings, offchainCapRegistry)
+	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings, offchainCapRegistry, func(raw string) { shardownership.RecordSettingsArrival(globalLogger, raw) })
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	stdcapDelegate := standardcapabilities.NewDelegate(
 		globalLogger,
