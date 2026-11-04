@@ -126,6 +126,7 @@ func Test_CRE_V2_Solana_Regression_ReadWrite(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // parallelism is conditional on CRE_TEST_PARALLEL_ENABLED
 func Test_CRE_V2_Solana_Regression_LogTrigger_Fields(t *testing.T) {
 	if parallelEnabled {
 		t.Parallel()
@@ -133,6 +134,7 @@ func Test_CRE_V2_Solana_Regression_LogTrigger_Fields(t *testing.T) {
 	runSolanaLogTriggerNegativeTestSuite(t, solanaNegativeTestsLogTriggerFields)
 }
 
+//nolint:paralleltest // parallelism is conditional on CRE_TEST_PARALLEL_ENABLED
 func Test_CRE_V2_Solana_Regression_LogTrigger_Filters(t *testing.T) {
 	if parallelEnabled {
 		t.Parallel()

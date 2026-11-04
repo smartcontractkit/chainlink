@@ -139,8 +139,8 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 }
 
 var defaultCRERegressionPerTestConfigs = map[string]string{
-	"Test_CRE_V2_Stellar_Regression":                  "configs/workflow-gateway-don-stellar.toml",
-	"Test_CRE_V2_Solana_Regression_ReadWrite":         "configs/workflow-don-solana.toml",
+	"Test_CRE_V2_Stellar_Regression":                   "configs/workflow-gateway-don-stellar.toml",
+	"Test_CRE_V2_Solana_Regression_ReadWrite":          "configs/workflow-don-solana.toml",
 	"Test_CRE_V2_Solana_Regression_LogTrigger_Fields":  "configs/workflow-don-solana.toml",
 	"Test_CRE_V2_Solana_Regression_LogTrigger_Filters": "configs/workflow-don-solana.toml",
 }
