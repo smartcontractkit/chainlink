@@ -11,8 +11,9 @@ import (
 
 // TestResolverMetrics_SettingsArrivalToApply proves the arrival wiring end to
 // end: a settings Store is observed by the resolver's settings subscription,
-// and the next resolve applies it, bumping the config version and recording
-// exactly one arrival→in-effect staleness sample per actual settings change.
+// and the next resolve applies it, bumping the config update count and
+// recording exactly one arrival→in-effect staleness sample per actual
+// settings change.
 func TestResolverMetrics_SettingsArrivalToApply(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
@@ -35,9 +36,9 @@ static_default_assignment = [0]
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, uint32(1), donID)
-	version, ok := f.gaugeValue(t, "platform_shard_assignment_config_version")
+	updateCount, ok := f.gaugeValue(t, "platform_shard_assignment_config_update_count")
 	require.True(t, ok)
-	require.Equal(t, int64(1), version)
+	require.Equal(t, int64(1), updateCount)
 	require.Equal(t, uint64(1), f.histogramCount(t, "platform_shard_assignment_config_staleness_seconds", nil))
 
 	// Re-observing the same blob records nothing.
@@ -57,9 +58,9 @@ static_default_assignment = [0]
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, uint32(2), donID)
-	version, ok = f.gaugeValue(t, "platform_shard_assignment_config_version")
+	updateCount, ok = f.gaugeValue(t, "platform_shard_assignment_config_update_count")
 	require.True(t, ok)
-	require.Equal(t, int64(2), version, "a real settings change bumps the config version")
+	require.Equal(t, int64(2), updateCount, "a real settings change bumps the config update count")
 	require.Equal(t, uint64(2), f.histogramCount(t, "platform_shard_assignment_config_staleness_seconds", nil),
 		"one staleness sample per actual settings change")
 }

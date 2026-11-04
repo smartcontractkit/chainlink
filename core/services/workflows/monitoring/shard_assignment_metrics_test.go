@@ -165,12 +165,12 @@ func TestShardAssignmentMetricsInstruments(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, int64(4242), gaugeValue(rm, "platform_shard_assignment_settings_hash"))
 
-	versionGauge, ok := metrics["platform_shard_assignment_config_version"]
-	require.True(t, ok, "config version gauge must be registered")
-	gauge, ok = versionGauge.Data.(metricdata.Gauge[int64])
+	updateCountGauge, ok := metrics["platform_shard_assignment_config_update_count"]
+	require.True(t, ok, "config update count gauge must be registered")
+	gauge, ok = updateCountGauge.Data.(metricdata.Gauge[int64])
 	require.True(t, ok)
 	require.Len(t, gauge.DataPoints, 1)
-	require.Equal(t, int64(1), gauge.DataPoints[0].Value, "the first applied settings version is 1")
+	require.Equal(t, int64(1), gauge.DataPoints[0].Value, "the first applied settings update count is 1")
 
 	stalenessMet, ok := metrics["platform_shard_assignment_config_staleness_seconds"]
 	require.True(t, ok, "config staleness histogram must be registered")
@@ -249,33 +249,33 @@ func TestShardAssignmentMetricsAppliedDiffBaselineIsGlobal(t *testing.T) {
 	require.NotNil(t, prev)
 }
 
-func TestShardAssignmentMetricsConfigVersion(t *testing.T) {
+func TestShardAssignmentMetricsConfigUpdateCount(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	reader, m := newTestShardAssignmentMetrics(t)
 
-	require.Zero(t, gaugeValue(collect(t, reader), "platform_shard_assignment_config_version"),
-		"no version is recorded before anything is applied")
+	require.Zero(t, gaugeValue(collect(t, reader), "platform_shard_assignment_config_update_count"),
+		"no update count is recorded before anything is applied")
 
 	changed, _ := m.RecordSettingsApplied(ctx, 111, 111, nil)
 	require.True(t, changed)
-	require.Equal(t, int64(1), gaugeValue(collect(t, reader), "platform_shard_assignment_config_version"))
+	require.Equal(t, int64(1), gaugeValue(collect(t, reader), "platform_shard_assignment_config_update_count"))
 
 	changed, _ = m.RecordSettingsApplied(ctx, 111, 111, nil)
-	require.False(t, changed, "re-observing the same blob must not bump the version")
-	require.Equal(t, int64(1), gaugeValue(collect(t, reader), "platform_shard_assignment_config_version"))
+	require.False(t, changed, "re-observing the same blob must not bump the update count")
+	require.Equal(t, int64(1), gaugeValue(collect(t, reader), "platform_shard_assignment_config_update_count"))
 
 	changed, _ = m.RecordSettingsApplied(ctx, 222, 222, nil)
 	require.True(t, changed)
-	require.Equal(t, int64(2), gaugeValue(collect(t, reader), "platform_shard_assignment_config_version"))
+	require.Equal(t, int64(2), gaugeValue(collect(t, reader), "platform_shard_assignment_config_update_count"))
 
 	require.True(t, m.RecordSettingsParseError(ctx, 333))
-	require.Equal(t, int64(2), gaugeValue(collect(t, reader), "platform_shard_assignment_config_version"),
-		"a parse error must not move the version gauge: a broken version is not applied")
+	require.Equal(t, int64(2), gaugeValue(collect(t, reader), "platform_shard_assignment_config_update_count"),
+		"a parse error must not move the update count gauge: a broken version is not applied")
 
 	changed, _ = m.RecordSettingsApplied(ctx, 111, 111, nil)
 	require.True(t, changed, "a version returning after a different one is a change")
-	require.Equal(t, int64(3), gaugeValue(collect(t, reader), "platform_shard_assignment_config_version"))
+	require.Equal(t, int64(3), gaugeValue(collect(t, reader), "platform_shard_assignment_config_update_count"))
 }
 
 func TestShardAssignmentMetricsConfigStaleness(t *testing.T) {

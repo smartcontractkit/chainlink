@@ -53,7 +53,7 @@ type ShardAssignmentMetrics struct {
 	resolverRequests  metric.Int64Counter
 	resolverDuration  metric.Float64Histogram
 	settingsHashGauge metric.Int64Gauge
-	configVersion     metric.Int64Gauge
+	configUpdateCount metric.Int64Gauge
 	configStaleness   metric.Float64Histogram
 	updated           metric.Int64Counter
 
@@ -63,7 +63,7 @@ type ShardAssignmentMetrics struct {
 	lastAppliedCfg     *cresettings.ShardAssignmentConfig
 	parseErrSeen       bool
 	lastParseErrorHash uint32
-	appliedVersion     int64
+	appliedUpdateCount int64
 	lastArrivalRawHash uint32
 	lastArrivalAt      time.Time
 }
@@ -121,8 +121,8 @@ func NewShardAssignmentMetricsWithMeter(meter metric.Meter) (*ShardAssignmentMet
 	if err != nil {
 		return nil, err
 	}
-	m.configVersion, err = meter.Int64Gauge("platform_shard_assignment_config_version",
-		metric.WithDescription("Node-local monotonic count of applied shard assignment settings versions (resets on restart)"))
+	m.configUpdateCount, err = meter.Int64Gauge("platform_shard_assignment_config_update_count",
+		metric.WithDescription("Node-local monotonic count of applied shard assignment settings updates (resets on restart)"))
 	if err != nil {
 		return nil, err
 	}
@@ -212,12 +212,12 @@ func (m *ShardAssignmentMetrics) RecordSettingsApplied(ctx context.Context, sett
 	m.lastAppliedCfg = cfg
 	m.parseErrSeen = false
 	m.lastParseErrorHash = 0
-	var version int64
+	var updateCount int64
 	var staleness time.Duration
 	arrivalMatched := false
 	if changed {
-		m.appliedVersion++
-		version = m.appliedVersion
+		m.appliedUpdateCount++
+		updateCount = m.appliedUpdateCount
 		if m.lastArrivalRawHash == rawHash {
 			arrivalMatched = true
 			staleness = time.Since(m.lastArrivalAt)
@@ -227,7 +227,7 @@ func (m *ShardAssignmentMetrics) RecordSettingsApplied(ctx context.Context, sett
 	m.mu.Unlock()
 	m.settingsHashGauge.Record(ctx, int64(settingsHash))
 	if changed {
-		m.configVersion.Record(ctx, version)
+		m.configUpdateCount.Record(ctx, updateCount)
 		m.updated.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", ShardAssignmentUpdateApplied)))
 		if arrivalMatched {
 			m.configStaleness.Record(ctx, staleness.Seconds())
