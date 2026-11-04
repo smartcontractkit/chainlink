@@ -1061,19 +1061,17 @@ func newWorkflowRegistrySyncerV2(
 			return nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
 		}
 
-		if diskMonitorEnabled {
-			dm, dmErr := syncerV2.NewWorkflowModuleCacheDiskMonitor(
-				lggr,
-				fileStore.CacheDir(),
-				syncerV2.WorkflowModuleCacheDiskMonitorTickInterval,
-			)
-			if dmErr != nil {
-				return nil, nil, fmt.Errorf("unable to create module cache disk monitor: %w", dmErr)
-			}
-			srvcs = append(srvcs, dm)
-
-			lggr.Infow("Module cache disk monitor enabled", "cacheDir", fileStore.CacheDir())
+		dm, dmErr := syncerV2.NewWorkflowModuleCacheDiskMonitor(
+			lggr,
+			fileStore.CacheDir(),
+			syncerV2.WorkflowModuleCacheDiskMonitorTickInterval,
+		)
+		if dmErr != nil {
+			return nil, nil, fmt.Errorf("unable to create module cache disk monitor: %w", dmErr)
 		}
+		srvcs = append(srvcs, dm)
+
+		lggr.Infow("Module cache disk monitor enabled", "cacheDir", fileStore.CacheDir())
 
 		if cacheEnabled {
 			cm, cmErr := syncerV2.NewCacheMetrics()
