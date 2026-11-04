@@ -2873,6 +2873,27 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
 
+	t.Run("oversized module result error is truncated", func(t *testing.T) {
+		t.Parallel()
+		ew := newStartedTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
+			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+				Return(&sdkpb.ExecutionResult{
+					Result: &sdkpb.ExecutionResult_Error{
+						Error: strings.Repeat("A", 40<<20),
+					},
+				}, nil).
+				Once()
+		})
+
+		err := ew.engine.ExecuteTrigger(ctx, makeEvent("oversized_error_event"))
+		require.NoError(t, err)
+
+		require.Equal(t, "errored", <-ew.executionFinishedCh)
+		gotErr := <-ew.executionErrorCh
+		require.Less(t, len(gotErr), 8*1024, "guest error must be bounded before it reaches hooks and telemetry")
+		require.Contains(t, gotErr, "[truncated, 41943040 bytes total]")
+	})
+
 	t.Run("duplicate event ID is rejected with ErrDuplicateExecution", func(t *testing.T) {
 		t.Parallel()
 		ew := newStartedTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
