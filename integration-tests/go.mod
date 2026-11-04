@@ -433,7 +433,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20261028174148-0d48af26262a // indirect
 	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20261029182832-ae2ca5ac5292 // indirect
 	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20261028170155-b0c194ffac3f // indirect
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.9 // indirect
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.17.0 // indirect
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260928110227-94ca436e6c53 // indirect
 	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260925185547-7ea74de84cb2 // indirect
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20261006194723-4eb7dfecb683 // indirect

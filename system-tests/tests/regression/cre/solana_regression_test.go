@@ -87,14 +87,12 @@ var (
 // system-owned (and therefore non-executable) account.
 var solanaFundingAmount = big.NewInt(1_000_000_000)
 
-// Test_CRE_V2_Solana_Regression runs all Solana regression scenarios as subtests under a single
-// CI matrix entry, mirroring Test_CRE_V2_Stellar_Regression.
+// Test_CRE_V2_Solana_Regression_ReadWrite runs the read and write batches in one CI matrix entry.
 //
-// Unlike the Stellar group, which boots one test environment and shares it across its subtests,
-// every Solana subtest sets up its own environment with per-test keys, so the whole group can
-// run in parallel (CRE_TEST_PARALLEL_ENABLED) without the subtests colliding on the shared
-// registry deployer nonces.
-func Test_CRE_V2_Solana_Regression(t *testing.T) {
+// Every Solana subtest uses per-test keys to avoid registry deployer nonce collisions.
+// Log trigger cases run in separate entries to bound concurrent WASM module initialization
+// on each runner while keeping subtests parallel (CRE_TEST_PARALLEL_ENABLED).
+func Test_CRE_V2_Solana_Regression_ReadWrite(t *testing.T) {
 	if parallelEnabled {
 		t.Parallel()
 	}
@@ -126,10 +124,30 @@ func Test_CRE_V2_Solana_Regression(t *testing.T) {
 		}
 		runSolanaReadNegativeTestSuite(t, "program-block-and-tx-calls", solanaReadBatchProgramBlockAndTxCalls)
 	})
+}
+
+//nolint:paralleltest // parallelism is conditional on CRE_TEST_PARALLEL_ENABLED
+func Test_CRE_V2_Solana_Regression_LogTrigger_Fields(t *testing.T) {
+	if parallelEnabled {
+		t.Parallel()
+	}
+	runSolanaLogTriggerNegativeTestSuite(t, solanaNegativeTestsLogTriggerFields)
+}
+
+//nolint:paralleltest // parallelism is conditional on CRE_TEST_PARALLEL_ENABLED
+func Test_CRE_V2_Solana_Regression_LogTrigger_Filters(t *testing.T) {
+	if parallelEnabled {
+		t.Parallel()
+	}
+	runSolanaLogTriggerNegativeTestSuite(t, solanaNegativeTestsLogTriggerFilters)
+}
+
+func runSolanaLogTriggerNegativeTestSuite(t *testing.T, tests []solanaNegativeTest) {
+	t.Helper()
 
 	// Log trigger cases cannot be batched - a rejected registration fails the whole engine, so
 	// each case runs as its own subtest with its own workflow deployment.
-	for _, tCase := range solanaNegativeTestsLogTrigger {
+	for _, tCase := range tests {
 		testName := fmt.Sprintf(solanaTestNameTemplate, tCase.functionToTest, tCase.name)
 		t.Run(testName, func(t *testing.T) {
 			if parallelEnabled {
@@ -480,15 +498,18 @@ const (
 // but using a real program keeps every field other than the one under test realistic.
 const solanaLogReadTestProgramID = "J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4"
 
-// Each of these cases costs a whole workflow deployment, so the table is kept to exactly one
+// Each of these cases costs a whole workflow deployment, so the tables keep exactly one
 // case per branch of the capability's filter validation.
-var solanaNegativeTestsLogTrigger = []solanaNegativeTest{
-	// LogTrigger - address that is not a 32-byte public key
-	{"31 bytes (short) address", solanaShortKey, solanaLogTriggerInvalidAddress, invalidTriggerAddressError(31)},
+var solanaNegativeTestsLogTriggerFields = []solanaNegativeTest{
 	// LogTrigger - filter fields that must be set
 	{"no event name", "", solanaLogTriggerEmptyEventName, expectedSolanaEmptyEventName},
 	{"no filter name", "", solanaLogTriggerEmptyFilterName, expectedSolanaEmptyFilterName},
 	{"no contract IDL", "", solanaLogTriggerEmptyIDL, expectedSolanaEmptyIDL},
+}
+
+var solanaNegativeTestsLogTriggerFilters = []solanaNegativeTest{
+	// LogTrigger - address that is not a 32-byte public key
+	{"31 bytes (short) address", solanaShortKey, solanaLogTriggerInvalidAddress, invalidTriggerAddressError(31)},
 	// LogTrigger - a subkey cannot be required to equal two different values at once
 	{"two equality filters on one subkey", "", solanaLogTriggerConflictSubkeys, expectedSolanaConflictingSubkeys},
 	// LogTrigger - the CPI destination address is a public key too

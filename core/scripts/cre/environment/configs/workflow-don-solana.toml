@@ -12,6 +12,7 @@
   chain_id = "22222222222222222222222222222222222222222222"
   port = "8550"
   type = "solana"
+  image = "docker.io/unheilbars/solana-validator:v4.2.2"
   public_key = "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV"
   contracts_dir = "../tests/smoke/cre/solana_contracts"
   [blockchains.solana_programs]
