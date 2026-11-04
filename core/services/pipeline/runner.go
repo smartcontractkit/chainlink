@@ -593,22 +593,59 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 }
 
 func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
-	elapsed := trr.FinishedAt.Time.Sub(trr.CreatedAt)
-
-	PromPipelineTaskExecutionTime.WithLabelValues(strconv.Itoa(int(spec.JobID)), spec.JobName, trr.Task.DotID(), string(trr.Task.Type())).Set(float64(elapsed))
-	var status string
+	status := "completed"
 	if trr.Result.Error != nil {
 		status = "error"
-	} else {
-		status = "completed"
 	}
+	m := taskMetricsFor(spec, trr.Task, status)
+	m.executionTime.Set(float64(trr.FinishedAt.Time.Sub(trr.CreatedAt)))
+	m.finished.Inc()
+}
 
+// taskMetricsKey identifies the series one finished task run reports to.
+type taskMetricsKey struct {
+	jobID      int32
+	jobName    string
+	dotID      string
+	taskType   TaskType
+	bridgeName string
+	status     string
+}
+
+// taskMetrics holds the series of one task and finish status.
+type taskMetrics struct {
+	executionTime prometheus.Gauge
+	finished      prometheus.Counter
+}
+
+// taskMetricsCache keeps the series handles of every task that has run. Every
+// task run of every pipeline reports to the same two metric vectors, and a
+// label lookup takes the vector's lock, which concurrent task runs contend on.
+// The series are never deleted, so a handle stays valid once looked up.
+var taskMetricsCache sync.Map // taskMetricsKey -> *taskMetrics
+
+func taskMetricsFor(spec Spec, task Task, status string) *taskMetrics {
 	bridgeName := ""
-	if bridgeTask, ok := trr.Task.(*BridgeTask); ok {
+	if bridgeTask, ok := task.(*BridgeTask); ok {
 		bridgeName = bridgeTask.Name
 	}
-
-	PromPipelineTasksTotalFinished.WithLabelValues(strconv.Itoa(int(spec.JobID)), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), bridgeName, status).Inc()
+	key := taskMetricsKey{
+		jobID:      spec.JobID,
+		jobName:    spec.JobName,
+		dotID:      task.DotID(),
+		taskType:   task.Type(),
+		bridgeName: bridgeName,
+		status:     status,
+	}
+	if m, ok := taskMetricsCache.Load(key); ok {
+		return m.(*taskMetrics)
+	}
+	jobID := strconv.Itoa(int(spec.JobID))
+	m, _ := taskMetricsCache.LoadOrStore(key, &taskMetrics{
+		executionTime: PromPipelineTaskExecutionTime.WithLabelValues(jobID, spec.JobName, key.dotID, string(key.taskType)),
+		finished:      PromPipelineTasksTotalFinished.WithLabelValues(jobID, spec.JobName, key.dotID, string(key.taskType), bridgeName, status),
+	})
+	return m.(*taskMetrics)
 }
 
 // ExecuteAndInsertFinishedRun executes a run in memory then inserts the finished run/task run records, returning the final result

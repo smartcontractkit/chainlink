@@ -159,8 +159,9 @@ func setupNode(
 	backend evmtypes.Backend,
 	csaKey csakey.KeyV2,
 	f func(*chainlink.Config),
+	deps ...any,
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
-	app, peerID, clientPubKey, ocr2kb, observedLogs, _ = setupRestartableNode(t, port, dbName, backend, csaKey, f)
+	app, peerID, clientPubKey, ocr2kb, observedLogs, _ = setupRestartableNode(t, port, dbName, backend, csaKey, f, deps...)
 	return app, peerID, clientPubKey, ocr2kb, observedLogs
 }
 
@@ -176,6 +177,7 @@ func setupRestartableNode(
 	backend evmtypes.Backend,
 	csaKey csakey.KeyV2,
 	f func(*chainlink.Config),
+	deps ...any,
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs, restart func(t *testing.T, whileDown func()) chainlink.Application) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
@@ -248,9 +250,9 @@ func setupRestartableNode(
 	newApp := func(t *testing.T) chainlink.Application {
 		var a chainlink.Application
 		if backend != nil {
-			a = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+			a = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, append([]any{p2pKey, ocr2kb, csaKey, lggr.Named(dbName)}, deps...)...)
 		} else {
-			a = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+			a = cltest.NewApplicationWithConfig(t, config, append([]any{p2pKey, ocr2kb, csaKey, lggr.Named(dbName)}, deps...)...)
 		}
 		require.NoError(t, a.Start(t.Context()))
 		return a
@@ -403,6 +405,22 @@ func addLLOJob(
 	relayType,
 	relayConfig string,
 ) (id int32) {
+	return addLLOJobWithBootstrapper(t, node, configuratorAddr, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), clientPubKey, jobName, pluginConfig, relayType, relayConfig)
+}
+
+// addLLOJobWithBootstrapper is addLLOJob with the bootstrapper locator given
+// in full, for nodes whose p2p address is not 127.0.0.1.
+func addLLOJobWithBootstrapper(
+	t *testing.T,
+	node Node,
+	configuratorAddr common.Address,
+	bootstrapper string,
+	clientPubKey ed25519.PublicKey,
+	jobName string,
+	pluginConfig,
+	relayType,
+	relayConfig string,
+) (id int32) {
 	return node.AddLLOJob(t, fmt.Sprintf(`
 type = "offchainreporting2"
 schemaVersion = 1
@@ -427,7 +445,7 @@ transmitterID = "%x"
 		jobName,
 		configuratorAddr.Hex(),
 		node.KeyBundle.ID(),
-		fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort),
+		bootstrapper,
 		relayType,
 		clientPubKey,
 		pluginConfig,
