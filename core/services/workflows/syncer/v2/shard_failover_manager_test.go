@@ -17,6 +17,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
@@ -642,7 +643,7 @@ func TestShardFailoverManager_AdmitBlockingResolver(t *testing.T) {
 	}
 	deadline := <-resolver.deadline
 	require.False(t, deadline.IsZero(), "the lookup must be bounded even if the caller sets no deadline")
-	assert.WithinDuration(t, start.Add(shardOwnershipCheckTimeout), deadline, 5*time.Second)
+	assert.WithinDuration(t, start.Add(cresettings.Default.ShardOwnershipCheckTimeout.DefaultValue), deadline, 5*time.Second)
 
 	cancel()
 	select {
@@ -654,6 +655,50 @@ func TestShardFailoverManager_AdmitBlockingResolver(t *testing.T) {
 		t.Fatal("Admit did not return after its context was cancelled")
 	}
 	assert.Empty(t, m.cache, "a cut-short lookup must not cache the event")
+}
+
+// TestShardFailoverManager_ShardOwnershipCheckTimeout covers where the bound on
+// one ownership lookup comes from. A configured limiter sets it. A nil limiter
+// or a non-positive value falls back to the cresettings default, so the lookup
+// is never left unbounded.
+func TestShardFailoverManager_ShardOwnershipCheckTimeout(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		limiter limits.TimeLimiter
+		want    time.Duration
+	}{
+		{"nil limiter uses the default", nil, cresettings.Default.ShardOwnershipCheckTimeout.DefaultValue},
+		{"configured", limits.NewTimeLimiter(2 * time.Minute), 2 * time.Minute},
+		{"zero uses the default", limits.NewTimeLimiter(0), cresettings.Default.ShardOwnershipCheckTimeout.DefaultValue},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			resolver := newBlockingShardResolver()
+			m := newAdmissionTestManager(t, &recordingEngine{}, ShardFailoverManagerConfig{
+				ShardingEnabled: true, ShardResolver: resolver, ShardOwnershipCheckTimeout: tc.limiter,
+				Failover: FailoverConfig{ShardingFailoverGate: limits.NewGateLimiter(true)},
+			})
+
+			ctx, cancel := context.WithCancel(t.Context())
+			admitted := make(chan error, 1)
+			start := time.Now()
+			go func() { admitted <- m.Admit(ctx, testCoordinatedEvent("evt-1")) }()
+
+			var deadline time.Time
+			select {
+			case deadline = <-resolver.deadline:
+			case <-time.After(5 * time.Second):
+				t.Fatal("ownership lookup never started")
+			}
+			cancel()
+			<-admitted
+			assert.WithinDuration(t, start.Add(tc.want), deadline, 5*time.Second)
+		})
+	}
 }
 
 // TestShardFailoverManager_CachedEventOnStatusUpdate covers failover on the

@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
@@ -36,12 +37,6 @@ const cachedExpiry = 10 * time.Minute
 const timeoutBasedFailoverTick = time.Second
 
 const failoverAutoExecutionTotalMetric = "failover_auto_execution_total"
-
-// shardOwnershipCheckTimeout bounds one shard ownership lookup, whatever
-// resolver serves it. It matches the longest bound inside a resolver (the
-// manual resolver's 30s ShardIndexMapper.WaitReady at boot), so it cuts short
-// only a lookup that would otherwise hang.
-const shardOwnershipCheckTimeout = 30 * time.Second
 
 var _ triggers.Admitter = (*ShardFailoverManager)(nil)
 
@@ -99,6 +94,9 @@ type ShardFailoverManagerConfig struct {
 	ShardResolver           shardownership.ShardResolver
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardRoutingSteady      *shardownership.SteadySignal
+	// ShardOwnershipCheckTimeout bounds one shard ownership lookup. A nil
+	// limiter uses the cresettings default.
+	ShardOwnershipCheckTimeout limits.TimeLimiter
 
 	// ShardDonLookup resolves a DON ID to the current DON, e.g. via
 	// capRegistry.DONByID. ResolveAllShards always returns real DON IDs
@@ -322,7 +320,7 @@ func (m *ShardFailoverManager) replayExecCtx(parent context.Context) context.Con
 }
 
 // checkShardOwnership performs a dynamic per-trigger shard ownership check.
-// The lookup is bounded by shardOwnershipCheckTimeout, so an unresponsive
+// The lookup is bounded by ShardOwnershipCheckTimeout, so an unresponsive
 // resolver is reported as an orchestrator error rather than stalling the reader.
 func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardownership.Verdict {
 	needShardOwnerCheck := m.cfg.ShardRoutingSteady == nil || !m.cfg.ShardRoutingSteady.SkipCommittedOwnerCheck()
@@ -330,7 +328,7 @@ func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardown
 		return shardownership.Allow
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, shardOwnershipCheckTimeout)
+	ctx, cancel := context.WithTimeout(ctx, m.shardOwnershipCheckTimeout(ctx))
 	defer cancel()
 
 	switch {
@@ -349,6 +347,28 @@ func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardown
 	default:
 		return shardownership.Allow
 	}
+}
+
+// shardOwnershipCheckTimeout reads the lookup bound. It falls back to the
+// cresettings default if the limiter is unset or has no usable value, so a
+// lookup is never left unbounded.
+func (m *ShardFailoverManager) shardOwnershipCheckTimeout(ctx context.Context) time.Duration {
+	fallback := cresettings.Default.ShardOwnershipCheckTimeout.DefaultValue
+	if m.cfg.ShardOwnershipCheckTimeout == nil {
+		return fallback
+	}
+	timeout, err := m.cfg.ShardOwnershipCheckTimeout.Limit(ctx)
+	if err != nil {
+		if !limits.IsErrRecoverable(err) {
+			m.cfg.Logger.Warnw("Failed to read shard ownership check timeout, using the default", "default", fallback, "err", err)
+			return fallback
+		}
+		m.cfg.Logger.Errorw("Failed to read shard ownership check timeout; continuing with the value the limiter returned", "err", err)
+	}
+	if timeout <= 0 {
+		return fallback
+	}
+	return timeout
 }
 
 // shardFailoverMetrics returns the process-global failover instruments, or nil

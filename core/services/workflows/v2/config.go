@@ -150,6 +150,7 @@ type EngineLimiters struct {
 	ShardingFailoverEnabled                     limits.GateLimiter
 	TimeoutBasedFailover                        limits.GateLimiter
 	TimeoutBasedFailoverWindow                  limits.TimeLimiter
+	ShardOwnershipCheckTimeout                  limits.TimeLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
 
 	// ShadowTriggerMode is open while a coordinated trigger event's observed time is inside the
@@ -330,6 +331,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 		return err
 	}
 	l.TimeoutBasedFailoverWindow, err = lf.MakeTimeLimiter(cresettings.Default.TimeoutBasedFailoverWindow)
+	if err != nil {
+		return err
+	}
+	l.ShardOwnershipCheckTimeout, err = lf.MakeTimeLimiter(cresettings.Default.ShardOwnershipCheckTimeout)
 	if err != nil {
 		return err
 	}
