@@ -327,12 +327,9 @@ func (d *delegate) v31FactoryParams(lggr logger.Logger, psrrc lloprotocol.Predec
 		ReportTelemetryCh:                enabledCh(d.cfg.V31Config.CaptureReportTelemetry, d.telem.GetReportTelemetryCh()),
 		AttributedObservationTelemetryCh: enabledCh(d.cfg.V31Config.CaptureAttributedObservationTelemetry, d.telem.GetAttributedObservationTelemetryCh()),
 		DonID:                            d.cfg.DonID,
-		MaxSnapshotRounds:                d.cfg.V31Config.MaxSnapshotRounds,
 		BlobLifetimeRounds:               d.cfg.V31Config.BlobLifetimeRounds,
 		MaxDurationBlobObservation:       d.cfg.V31Config.MaxDurationBlobObservation.Duration(),
 		BlobInFlightWaitFactor:           d.cfg.V31Config.BlobInFlightWaitFactor,
-		MaxBlobSnapshotAge:               d.cfg.V31Config.MaxBlobSnapshotAge.Duration(),
-		MaxRoundPeriod:                   d.cfg.V31Config.MaxRoundPeriod.Duration(),
 	}
 }
 

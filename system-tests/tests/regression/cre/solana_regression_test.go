@@ -49,6 +49,10 @@ const (
 	solanaMaxReadCallsPerBatch = 15
 	// solanaMaxWriteCallsPerBatch mirrors PerWorkflow.ChainWrite.TargetsLimit.
 	solanaMaxWriteCallsPerBatch = 10
+
+	// solanaWorkflowLogTimeout leaves headroom for compiling the workflows of all parallel
+	// subtests, which can take ~2m on a loaded CI runner.
+	solanaWorkflowLogTimeout = 3 * time.Minute
 )
 
 // solanaTestNameTemplate is a template for Solana negative test names to avoid duplication,
@@ -126,6 +130,17 @@ func Test_CRE_V2_Solana_Regression(t *testing.T) {
 		}
 		runSolanaReadNegativeTestSuite(t, "program-block-and-tx-calls", solanaReadBatchProgramBlockAndTxCalls)
 	})
+}
+
+// Test_CRE_V2_Solana_LogTrigger_Regression is kept separate from Test_CRE_V2_Solana_Regression so
+// that CI runs it on its own runner: compiling every Solana workflow on one runner at once takes
+// long enough to time out the tests.
+//
+//nolint:paralleltest // t.Parallel is gated on CRE_TEST_PARALLEL_ENABLED
+func Test_CRE_V2_Solana_LogTrigger_Regression(t *testing.T) {
+	if parallelEnabled {
+		t.Parallel()
+	}
 
 	// Log trigger cases cannot be batched - a rejected registration fails the whole engine, so
 	// each case runs as its own subtest with its own workflow deployment.
@@ -248,7 +263,7 @@ func SolanaWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, batchNa
 		baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog,
 		solanaWriteBatchPassedLog(batchName, len(cases)),
-		2*time.Minute,
+		solanaWorkflowLogTimeout,
 		t_helpers.WithUserLogWorkflowID(workflowID),
 	)
 	testLogger.Info().Msgf("Solana Write Fail test successfully completed for batch '%s'", batchName)
@@ -432,7 +447,7 @@ func SolanaReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, batchNam
 		baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog,
 		solanaReadBatchPassedLog(batchName, len(cases)),
-		2*time.Minute,
+		solanaWorkflowLogTimeout,
 		t_helpers.WithUserLogWorkflowID(workflowID),
 	)
 	testLogger.Info().Msgf("Solana Read Fail test successfully completed for batch '%s'", batchName)
@@ -533,7 +548,7 @@ func SolanaLogTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, so
 		testLogger,
 		baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog,
-		2*time.Minute,
+		solanaWorkflowLogTimeout,
 		t_helpers.WithBaseMessageWorkflowID(workflowID),
 		t_helpers.WithBaseMessageLabelContains("err", solanaNegativeTest.expectedError),
 	)
