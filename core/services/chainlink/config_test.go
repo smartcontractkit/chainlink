@@ -732,6 +732,7 @@ func TestConfig_Marshal(t *testing.T) {
 						Enabled:                     new(false),
 						ReadRequestsToMultipleNodes: new(false),
 						Bundles:                     new(false),
+						FeeMultiplier:               new(decimal.RequireFromString("1.5")),
 					},
 					ConfirmationTimeout:      &minute,
 					UnknownErrorRetryTimeout: &minute,
@@ -1132,6 +1133,7 @@ Enabled = false
 Enabled = false
 ReadRequestsToMultipleNodes = false
 Bundles = false
+FeeMultiplier = '1.5'
 
 [EVM.BalanceMonitor]
 Enabled = true
