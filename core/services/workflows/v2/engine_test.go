@@ -2879,6 +2879,9 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 				Return(&sdkpb.ExecutionResult{
 					Result: &sdkpb.ExecutionResult_Error{
+						// 40 MiB guest error, far over the 10 MiB transport limit.
+						// before: "AAAA...(40 MiB)...AAAA"
+						// after:  "AAAA...(4 KiB)...AAAA... [truncated, 41943040 bytes total]"
 						Error: strings.Repeat("A", 40<<20),
 					},
 				}, nil).
