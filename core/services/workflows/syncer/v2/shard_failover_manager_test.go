@@ -695,7 +695,7 @@ func TestShardFailoverManager_ShardOwnershipCheckTimeout(t *testing.T) {
 				t.Fatal("ownership lookup never started")
 			}
 			cancel()
-			<-admitted
+			require.ErrorIs(t, <-admitted, context.Canceled)
 			assert.WithinDuration(t, start.Add(tc.want), deadline, 5*time.Second)
 		})
 	}
