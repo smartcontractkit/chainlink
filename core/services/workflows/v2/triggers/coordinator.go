@@ -594,13 +594,15 @@ func (c *coordinator) admitEvent(ctx context.Context, cw *coordinatedWorkflow, t
 	switch {
 	case err == nil:
 		return true
+	case errors.Is(err, ErrAdmissionCached):
+		// Deliberately left un-ACKed so it can be replayed on failover. Checked
+		// before ctx.Err(), as in the legacy put, so an event cached just before
+		// an unregister is not counted as an unregistered drop.
+		cw.lggr.Infow("Trigger event cached for failover", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
 	case ctx.Err() != nil:
 		// Unregistered during the check. Nothing was decided, so the event is not ACKed.
 		cw.lggr.Infow("Unregistered during trigger admission, dropping event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
 		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonUnregistered)
-	case errors.Is(err, ErrAdmissionCached):
-		// Deliberately left un-ACKed so it can be replayed on failover.
-		cw.lggr.Infow("Trigger event cached for failover", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
 	case errors.Is(err, ErrAdmissionDenied):
 		cw.lggr.Infow("Trigger event denied admission, dropping", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
 		// WithoutCancel: an unregister racing in must not stop the ACK of a decided denial.
