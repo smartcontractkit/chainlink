@@ -3,8 +3,6 @@ package remote_test
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -724,6 +722,9 @@ func newTriggerSubscriberForTest(
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
+		if t.Failed() {
+			return // a leaked subscriber mutex would block Unregister/Close and hang the suite
+		}
 		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), regReq))
 		require.NoError(t, subscriber.Close())
 	})
@@ -879,31 +880,10 @@ func TestTriggerSubscriber_PropagateOrgIDEvaluatedEachTick(t *testing.T) {
 	require.Eventually(t, orgIDSent(""), 5*time.Second, 10*time.Millisecond, "OrgID must be stripped again once the flag is off")
 }
 
-const unregisteredTriggerIDChildEnv = "TRIGGER_SUBSCRIBER_UNLOCK_REGRESSION_CHILD"
-
 // Regression: an event whose workflow is registered but whose trigger ID is not (the same state a
 // pause/unregister racing Receive produces) must not leave the subscriber mutex held.
-// Runs in a child process: a leaked mutex also blocks the subscriber cleanup, so only the parent can time out.
 func TestTriggerSubscriber_UnregisteredTriggerIDReleasesLock(t *testing.T) {
-	if os.Getenv(unregisteredTriggerIDChildEnv) == "1" {
-		testUnregisteredTriggerIDReleasesLock(t)
-		return
-	}
 	t.Parallel()
-
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestTriggerSubscriber_UnregisteredTriggerIDReleasesLock$", "-test.count=1", "-test.v") //nolint:gosec // G204: re-runs this test binary
-	cmd.Env = append(os.Environ(), unregisteredTriggerIDChildEnv+"=1")
-	cmd.WaitDelay = 5 * time.Second
-	out, err := cmd.CombinedOutput()
-	if ctx.Err() != nil {
-		t.Fatalf("subscriber mutex was not released: child test timed out\n%s", out)
-	}
-	require.NoError(t, err, string(out))
-}
-
-func testUnregisteredTriggerIDReleasesLock(t *testing.T) {
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
 		RegistrationExpiry:      100 * time.Second,
