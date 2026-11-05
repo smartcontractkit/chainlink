@@ -487,6 +487,8 @@ type harnessOptions struct {
 	meter         metric.Meter
 	clock         clockwork.Clock
 	admission     func(context.Context, triggers.CoordinatedEvent) error
+	lggr          commonlogger.Logger
+	ackErr        error
 }
 
 // harnessOption configures newEngineLifecycleHarness.
@@ -553,6 +555,16 @@ func withAdmission(check func(context.Context, triggers.CoordinatedEvent) error)
 	return func(o *harnessOptions) { o.admission = check }
 }
 
+// withLogger makes the engine and the coordinator log to lggr.
+func withLogger(lggr commonlogger.Logger) harnessOption {
+	return func(o *harnessOptions) { o.lggr = lggr }
+}
+
+// withAckErr makes the trigger capability fail every ACK with err.
+func withAckErr(err error) harnessOption {
+	return func(o *harnessOptions) { o.ackErr = err }
+}
+
 // newEngineLifecycleHarness builds the engine for mode without starting it. Whatever the test
 // leaves running is canceled and closed at cleanup.
 func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...harnessOption) *engineLifecycleHarness {
@@ -584,9 +596,12 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(h.eventCh, nil).Maybe()
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Maybe()
 	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).
-		Run(func(context.Context, string, string, string) { h.ackCalls.Add(1) }).Return(nil).Maybe()
+		Run(func(context.Context, string, string, string) { h.ackCalls.Add(1) }).Return(o.ackErr).Maybe()
 
 	cfg := defaultTestConfig(t, o.settings)
+	if o.lggr != nil {
+		cfg.Lggr = o.lggr
+	}
 	if o.limiters != nil {
 		// A copy, so wrapping its ExecutionConcurrency below does not change the shared struct.
 		// The copy still holds the shared limiter instances.
@@ -704,7 +719,7 @@ func (h *engineLifecycleHarness) newCoordinator(capreg *regmocks.CapabilitiesReg
 			CapRegistry:  capreg,
 			RegTimeout:   limits.NewTimeLimiter(5 * time.Second),
 			ChainAllowed: limits.NewGateLimiter(true),
-			Logger:       commonlogger.Test(h.t),
+			Logger:       h.cfg.Lggr,
 			Metrics:      monitoring.NewWorkflowsMetricLabeler(commonmetrics.NewLabeler(), em),
 		},
 		// The engine's own limiters, as in production, so the limits a scenario sets apply to both.
