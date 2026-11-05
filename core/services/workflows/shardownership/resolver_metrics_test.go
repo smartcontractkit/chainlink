@@ -650,10 +650,53 @@ static_default_assignment = [0]
 	}), "a failed batch call counts one error, matching a single-shot call")
 }
 
-// TestResolverMetrics_SettingsDiffLogBaselineIsGlobal proves the applied-diff
-// baseline lives with the global dedup state: a second resolver that never
-// observed the previous version still logs the real diff, not "initial".
-func TestResolverMetrics_SettingsDiffLogBaselineIsGlobal(t *testing.T) {
+// TestResolverMetrics_SettingsDiffBaselineSurvivesParseError proves the
+// applied-diff baseline is the last successfully applied config: a broken
+// settings version in between does not reset it, so the next good version
+// logs the real owner moves rather than an "initial" diff.
+func TestResolverMetrics_SettingsDiffBaselineSurvivesParseError(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	f := newAssignmentMetricsFixture(t)
+
+	lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
+	settings := &loop.AtomicSettings{}
+	storeShardAssignment(t, settings, `
+static_default_assignment = [0]
+
+[per_owner_assignment]
+  `+ownerA+` = [1]
+`)
+	r := f.manualResolver(settings, nil, lggr)
+	_, _, err := r.ResolveShard(ctx, "wf-a", ownerA)
+	require.NoError(t, err)
+	require.Len(t, logs.FilterMessage("Shard assignment settings applied").All(), 1)
+
+	storeShardAssignment(t, settings, `static_default_assignment = "not-an-array"`)
+	_, _, err = r.ResolveShard(ctx, "wf-a", ownerA)
+	require.Error(t, err)
+
+	storeShardAssignment(t, settings, `
+static_default_assignment = [0]
+
+[per_owner_assignment]
+  `+ownerA+` = [3]
+`)
+	_, _, err = r.ResolveShard(ctx, "wf-a", ownerA)
+	require.NoError(t, err)
+	entries := logs.FilterMessage("Shard assignment settings applied").All()
+	require.Len(t, entries, 2, "the broken version logs no applied diff")
+	fields := entries[1].ContextMap()
+	require.NotContains(t, fields, "initial", "the diff baseline survives the parse error")
+	require.Equal(t, []any{ownerA[2:] + "=[1]->[3]"}, fields["perOwnerMoved"])
+}
+
+// TestResolverMetrics_SettingsDiffBaselineIsPerResolver pins the per-resolver
+// diff baseline: a resolver diffs against what it applied itself, so a second
+// resolver instance logs an initial diff for its first apply even though the
+// process already applied a previous version, while the resolver that applied
+// that version keeps logging the real owner moves.
+func TestResolverMetrics_SettingsDiffBaselineIsPerResolver(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	f := newAssignmentMetricsFixture(t)
@@ -669,7 +712,6 @@ static_default_assignment = [0]
 	r1 := f.manualResolver(settings, nil, lggr)
 	_, _, err := r1.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
-	require.Len(t, logs.FilterMessage("Shard assignment settings applied").All(), 1)
 
 	storeShardAssignment(t, settings, `
 static_default_assignment = [0]
@@ -682,9 +724,23 @@ static_default_assignment = [0]
 	require.NoError(t, err)
 	entries := logs.FilterMessage("Shard assignment settings applied").All()
 	require.Len(t, entries, 2)
-	fields := entries[1].ContextMap()
-	require.NotContains(t, fields, "initial", "the diff baseline is the globally applied config, not the new resolver's nil baseline")
-	require.Equal(t, []any{ownerA[2:] + "=[1]->[3]"}, fields["perOwnerMoved"])
+	require.Contains(t, entries[1].ContextMap(), "initial",
+		"the baseline is per-resolver: r2 never applied the previous version")
+	require.NotContains(t, entries[1].ContextMap(), "perOwnerMoved")
+
+	storeShardAssignment(t, settings, `
+static_default_assignment = [0]
+
+[per_owner_assignment]
+  `+ownerA+` = [5]
+`)
+	_, _, err = r1.ResolveShard(ctx, "wf-a", ownerA)
+	require.NoError(t, err)
+	entries = logs.FilterMessage("Shard assignment settings applied").All()
+	require.Len(t, entries, 3)
+	fields := entries[2].ContextMap()
+	require.NotContains(t, fields, "initial")
+	require.Equal(t, []any{ownerA[2:] + "=[1]->[5]"}, fields["perOwnerMoved"])
 }
 
 // TestResolverMetrics_SettingsDiffLogCapsOwnerLists proves each owner list in

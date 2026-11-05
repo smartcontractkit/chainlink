@@ -3,15 +3,21 @@ package cresettings
 import (
 	"context"
 	"fmt"
+	"os"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
 const (
@@ -25,6 +31,68 @@ static_default_assignment = [0, 1]
 func newTestDelegate(t *testing.T) *delegate {
 	t.Helper()
 	return NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New())
+}
+
+var shardAssignmentReader *sdkmetric.ManualReader
+
+func TestMain(m *testing.M) {
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	client := beholder.NoopClientConfig{}.New()
+	client.Meter = mp.Meter("cresettings-test")
+	client.MeterProvider = mp
+	beholder.SetClient(client)
+	shardAssignmentReader = reader
+	code := m.Run()
+	_ = mp.Shutdown(context.Background())
+	os.Exit(code)
+}
+
+var arrivalTestHashCounter atomic.Uint32
+
+// TestServicesForSpecShardAssignmentArrivalRecorded proves the delegate
+// records the arrival of the exact raw blob it Stores, before Store: applying
+// that blob through the same global metrics afterwards produces exactly one
+// arrival→in-effect staleness sample.
+func TestServicesForSpecShardAssignmentArrivalRecorded(t *testing.T) { //nolint:paralleltest // uses the process-global metrics singleton
+	ctx := context.Background()
+	shardSettings := &loop.AtomicSettings{}
+	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, shardSettings, globalconfig.New())
+
+	_, err := d.ServicesForSpec(ctx, cresettingsJob(1, shardAssignmentToml))
+	require.NoError(t, err)
+
+	u, err := shardSettings.Load()
+	require.NoError(t, err)
+	assert.Equal(t, shardAssignmentToml, u.Settings)
+
+	m, err := wfmonitoring.GlobalShardAssignmentMetrics()
+	require.NoError(t, err)
+	// A unique parsed hash per run keeps -count reruns a real change; the
+	// arrival slot matches on the raw blob alone.
+	before := stalenessSampleCount(t)
+	require.True(t, m.RecordSettingsApplied(ctx, arrivalTestHashCounter.Add(1), shardAssignmentToml))
+	require.Equal(t, before+1, stalenessSampleCount(t))
+}
+
+func stalenessSampleCount(t *testing.T) uint64 {
+	t.Helper()
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, shardAssignmentReader.Collect(t.Context(), &rm))
+	for _, sm := range rm.ScopeMetrics {
+		for _, met := range sm.Metrics {
+			if met.Name != "platform_shard_assignment_config_staleness_seconds" {
+				continue
+			}
+			hist, ok := met.Data.(metricdata.Histogram[float64])
+			require.True(t, ok)
+			if len(hist.DataPoints) == 0 {
+				return 0
+			}
+			return hist.DataPoints[0].Count
+		}
+	}
+	return 0
 }
 
 func cresettingsJob(id int32, settings string) job.Job {
