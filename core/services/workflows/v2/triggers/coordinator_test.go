@@ -386,6 +386,42 @@ func TestCoordinator_AdmitHung(t *testing.T) {
 	assert.Equal(t, int64(0), counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", denied))
 }
 
+// TestCoordinator_AdmitCachedThenUnregistered covers an event the engine caches
+// for failover just as the registration is unregistered. The event sits in the
+// failover cache, so it must not be counted as an unregistered drop, matching
+// the legacy put. It is not ACKed either way.
+func TestCoordinator_AdmitCachedThenUnregistered(t *testing.T) {
+	t.Parallel()
+	wfMetrics, reader := newTestMeterMetrics(t)
+	admission, queues := newTrackedAdmission()
+	f := newCoordinatorFixture(t, withAdmission(admission), withMetrics(wfMetrics))
+
+	admitting := make(chan struct{})
+	f.engine.admit = func(ctx context.Context, _ CoordinatedEvent) error {
+		close(admitting)
+		<-ctx.Done()
+		return ErrAdmissionCached
+	}
+	trigger, eventCh := f.expectTrigger(t)
+	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
+
+	_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+	require.NoError(t, err)
+	eventCh <- triggerEvent("evt-1")
+	select {
+	case <-admitting:
+	case <-time.After(5 * time.Second):
+		t.Fatal("admission check never started")
+	}
+	require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+
+	// The queue closes only after the reader returns, so admitEvent is done.
+	require.Eventually(t, func() bool { return queues.get(t, 0).closed.Load() }, 5*time.Second, 5*time.Millisecond)
+	assert.Empty(t, f.engine.executed())
+	trigger.AssertNotCalled(t, "AckEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	assert.Empty(t, dropsByReason(t, reader), "a cached event is not a drop")
+}
+
 // TestCoordinator_Ack covers acknowledgement: routing to the registration's
 // handle, and the failure paths for unknown or malformed registration IDs.
 func TestCoordinator_Ack(t *testing.T) {
