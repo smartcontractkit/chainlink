@@ -11,7 +11,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 )
 
 func TestShardAssignmentConstants(t *testing.T) {
@@ -57,11 +56,9 @@ func TestShardAssignmentMetricsNilReceiver(t *testing.T) {
 	m.RecordResolverRequest(ctx, ShardResolverManual, ShardResolverOutcomeFound, ShardResolverSourcePerOwner, time.Second)
 	m.AddResolverRequest(ctx, ShardResolverManual, ShardResolverOutcomeNotFound, "")
 	m.RecordResolverDuration(ctx, ShardResolverRing, time.Second)
-	m.RecordSettingsArrival(1, time.Now())
-	changed, prev := m.RecordSettingsApplied(ctx, 1, 1, nil)
-	require.False(t, changed)
-	require.Nil(t, prev)
-	require.False(t, m.RecordSettingsParseError(ctx, 1))
+	m.RecordSettingsArrival("raw", time.Now())
+	require.False(t, m.RecordSettingsApplied(ctx, 1, "raw"))
+	require.False(t, m.RecordSettingsParseError(ctx, "raw"))
 }
 
 // TestGlobalShardAssignmentMetricsRebindsWhenClientChanges proves the global
@@ -121,8 +118,8 @@ func TestShardAssignmentMetricsInstruments(t *testing.T) {
 	m.RecordResolverRequest(ctx, ShardResolverManual, ShardResolverOutcomeFound, ShardResolverSourcePerOwner, 2*time.Second)
 	m.RecordResolverRequest(ctx, ShardResolverRing, ShardResolverOutcomeNotFound, "", 4*time.Millisecond)
 	m.AddResolverRequest(ctx, ShardResolverOverride, ShardResolverOutcomeError, "")
-	m.RecordSettingsArrival(4242, time.Now().Add(-90*time.Second))
-	m.RecordSettingsApplied(ctx, 4242, 4242, nil)
+	m.RecordSettingsArrival("settings-blob", time.Now().Add(-90*time.Second))
+	m.RecordSettingsApplied(ctx, 4242, "settings-blob")
 
 	var rm metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(ctx, &rm))
@@ -192,24 +189,19 @@ func TestShardAssignmentMetricsSettingsUpdateDedup(t *testing.T) {
 	ctx := t.Context()
 	reader, m := newTestShardAssignmentMetrics(t)
 
-	changed, _ := m.RecordSettingsApplied(ctx, 111, 111, nil)
-	require.True(t, changed)
-	changed, _ = m.RecordSettingsApplied(ctx, 111, 111, nil)
-	require.False(t, changed)
-	changed, _ = m.RecordSettingsApplied(ctx, 222, 222, nil)
-	require.True(t, changed)
-	changed, _ = m.RecordSettingsApplied(ctx, 111, 111, nil)
-	require.True(t, changed)
+	require.True(t, m.RecordSettingsApplied(ctx, 111, "raw-111"))
+	require.False(t, m.RecordSettingsApplied(ctx, 111, "raw-111"))
+	require.True(t, m.RecordSettingsApplied(ctx, 222, "raw-222"))
+	require.True(t, m.RecordSettingsApplied(ctx, 111, "raw-111"))
 
-	require.True(t, m.RecordSettingsParseError(ctx, 333))
-	require.False(t, m.RecordSettingsParseError(ctx, 333))
-	require.True(t, m.RecordSettingsParseError(ctx, 444))
+	require.True(t, m.RecordSettingsParseError(ctx, "raw-333"))
+	require.False(t, m.RecordSettingsParseError(ctx, "raw-333"))
+	require.True(t, m.RecordSettingsParseError(ctx, "raw-444"))
 
 	// A successfully applied version resets the parse-error dedup, so the
 	// same broken blob recurring after a good one counts (and logs) again.
-	changed, _ = m.RecordSettingsApplied(ctx, 555, 555, nil)
-	require.True(t, changed)
-	require.True(t, m.RecordSettingsParseError(ctx, 333),
+	require.True(t, m.RecordSettingsApplied(ctx, 555, "raw-555"))
+	require.True(t, m.RecordSettingsParseError(ctx, "raw-333"),
 		"a bad version recurring after a good one must be counted again")
 
 	var rm metricdata.ResourceMetrics
@@ -221,34 +213,6 @@ func TestShardAssignmentMetricsSettingsUpdateDedup(t *testing.T) {
 		"parse errors must not move the hash gauge: the last applied version stays")
 }
 
-// TestShardAssignmentMetricsAppliedDiffBaselineIsGlobal proves the diff
-// baseline follows the global dedup state rather than staying per-resolver:
-// the second observer of a change sees the real previous config, not
-// "initial", even when it never observed the version before it.
-func TestShardAssignmentMetricsAppliedDiffBaselineIsGlobal(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	_, m := newTestShardAssignmentMetrics(t)
-
-	changed, prev := m.RecordSettingsApplied(ctx, 1, 10, &cresettings.ShardAssignmentConfig{
-		PerOwnerAssignment: map[string][]uint32{"owner-a": {1}},
-	})
-	require.True(t, changed)
-	require.Nil(t, prev)
-
-	changed, prev = m.RecordSettingsApplied(ctx, 2, 20, &cresettings.ShardAssignmentConfig{
-		PerOwnerAssignment: map[string][]uint32{"owner-b": {2}},
-	})
-	require.True(t, changed)
-	require.NotNil(t, prev, "the baseline must be the previously applied config, not nil")
-	require.Equal(t, map[string][]uint32{"owner-a": {1}}, prev.PerOwnerAssignment)
-
-	// The same hash observed again is not a change and keeps the baseline.
-	changed, prev = m.RecordSettingsApplied(ctx, 2, 20, nil)
-	require.False(t, changed)
-	require.NotNil(t, prev)
-}
-
 func TestShardAssignmentMetricsConfigUpdateCount(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
@@ -257,24 +221,20 @@ func TestShardAssignmentMetricsConfigUpdateCount(t *testing.T) {
 	require.Zero(t, gaugeValue(collect(t, reader), "platform_shard_assignment_config_update_count"),
 		"no update count is recorded before anything is applied")
 
-	changed, _ := m.RecordSettingsApplied(ctx, 111, 111, nil)
-	require.True(t, changed)
+	require.True(t, m.RecordSettingsApplied(ctx, 111, "raw-111"))
 	require.Equal(t, int64(1), gaugeValue(collect(t, reader), "platform_shard_assignment_config_update_count"))
 
-	changed, _ = m.RecordSettingsApplied(ctx, 111, 111, nil)
-	require.False(t, changed, "re-observing the same blob must not bump the update count")
+	require.False(t, m.RecordSettingsApplied(ctx, 111, "raw-111"), "re-observing the same blob must not bump the update count")
 	require.Equal(t, int64(1), gaugeValue(collect(t, reader), "platform_shard_assignment_config_update_count"))
 
-	changed, _ = m.RecordSettingsApplied(ctx, 222, 222, nil)
-	require.True(t, changed)
+	require.True(t, m.RecordSettingsApplied(ctx, 222, "raw-222"))
 	require.Equal(t, int64(2), gaugeValue(collect(t, reader), "platform_shard_assignment_config_update_count"))
 
-	require.True(t, m.RecordSettingsParseError(ctx, 333))
+	require.True(t, m.RecordSettingsParseError(ctx, "raw-333"))
 	require.Equal(t, int64(2), gaugeValue(collect(t, reader), "platform_shard_assignment_config_update_count"),
 		"a parse error must not move the update count gauge: a broken version is not applied")
 
-	changed, _ = m.RecordSettingsApplied(ctx, 111, 111, nil)
-	require.True(t, changed, "a version returning after a different one is a change")
+	require.True(t, m.RecordSettingsApplied(ctx, 111, "raw-111"), "a version returning after a different one is a change")
 	require.Equal(t, int64(3), gaugeValue(collect(t, reader), "platform_shard_assignment_config_update_count"))
 }
 
@@ -285,8 +245,8 @@ func TestShardAssignmentMetricsConfigStaleness(t *testing.T) {
 	// An arrival preceding the apply is consumed and recorded in the (30, 60]
 	// bucket of the staleness histogram.
 	reader, m := newTestShardAssignmentMetrics(t)
-	m.RecordSettingsArrival(1111, time.Now().Add(-45*time.Second))
-	m.RecordSettingsApplied(ctx, 111, 1111, nil)
+	m.RecordSettingsArrival("raw-1111", time.Now().Add(-45*time.Second))
+	m.RecordSettingsApplied(ctx, 111, "raw-1111")
 	hist := stalenessHistogram(t, reader)
 	require.Equal(t, uint64(1), histogramDataCount(hist, nil))
 	require.Equal(t, []uint64{0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0}, histogramBucketCounts(hist, nil),
@@ -294,27 +254,27 @@ func TestShardAssignmentMetricsConfigStaleness(t *testing.T) {
 	require.Zero(t, m.lastArrivalRawHash, "a matched arrival is consumed on apply")
 
 	// Re-observing the same blob is not a change and records nothing.
-	m.RecordSettingsApplied(ctx, 111, 1111, nil)
+	m.RecordSettingsApplied(ctx, 111, "raw-1111")
 	require.Equal(t, uint64(1), histogramDataCount(stalenessHistogram(t, reader), nil))
 
 	// A superseded arrival (a newer blob arrived after the one applied)
 	// produces no sample and keeps its slot for a later matching apply.
-	m.RecordSettingsArrival(9999, time.Now().Add(-10*time.Second))
-	m.RecordSettingsApplied(ctx, 222, 2222, nil)
+	m.RecordSettingsArrival("raw-9999", time.Now().Add(-10*time.Second))
+	m.RecordSettingsApplied(ctx, 222, "raw-2222")
 	require.Equal(t, uint64(1), histogramDataCount(stalenessHistogram(t, reader), nil))
-	require.Equal(t, uint32(9999), m.lastArrivalRawHash)
+	require.Equal(t, settingsStringHash("raw-9999"), m.lastArrivalRawHash)
 
 	// A change with no arrival observed at all produces no sample.
 	reader2, m2 := newTestShardAssignmentMetrics(t)
-	m2.RecordSettingsApplied(ctx, 333, 3333, nil)
+	m2.RecordSettingsApplied(ctx, 333, "raw-3333")
 	require.Zero(t, histogramDataCount(stalenessHistogram(t, reader2), nil))
 
 	// Semantically identical settings (same parsed hash, new raw blob) are
 	// not a change: no sample and the arrival slot is left alone.
-	m2.RecordSettingsArrival(5555, time.Now().Add(-10*time.Second))
-	m2.RecordSettingsApplied(ctx, 333, 5555, nil)
+	m2.RecordSettingsArrival("raw-5555", time.Now().Add(-10*time.Second))
+	m2.RecordSettingsApplied(ctx, 333, "raw-5555")
 	require.Zero(t, histogramDataCount(stalenessHistogram(t, reader2), nil))
-	require.Equal(t, uint32(5555), m2.lastArrivalRawHash)
+	require.Equal(t, settingsStringHash("raw-5555"), m2.lastArrivalRawHash)
 }
 
 func stalenessHistogram(t *testing.T, reader *sdkmetric.ManualReader) metricdata.Histogram[float64] {

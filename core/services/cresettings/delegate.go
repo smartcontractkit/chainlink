@@ -7,12 +7,14 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
 const (
@@ -24,26 +26,24 @@ const (
 	offchainConfigKey = "offchain_config"
 )
 
-func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings, capRegistry *globalconfig.GlobalConfig, onShardAssignmentArrival func(raw string)) *delegate {
+func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings, capRegistry *globalconfig.GlobalConfig) *delegate {
 	return &delegate{
-		lggr:                     lggr,
-		atomicSettings:           atomicSettings,
-		shardAssignmentSettings:  shardAssignmentSettings,
-		capRegistry:              capRegistry,
-		onShardAssignmentArrival: onShardAssignmentArrival,
-		capRegMetrics:            globalconfig.DefaultMetrics(),
+		lggr:                    lggr,
+		atomicSettings:          atomicSettings,
+		shardAssignmentSettings: shardAssignmentSettings,
+		capRegistry:             capRegistry,
+		capRegMetrics:           globalconfig.DefaultMetrics(),
 	}
 }
 
 var _ job.Delegate = (*delegate)(nil)
 
 type delegate struct {
-	lggr                     logger.Logger
-	atomicSettings           *loop.AtomicSettings
-	shardAssignmentSettings  *loop.AtomicSettings
-	capRegistry              *globalconfig.GlobalConfig
-	onShardAssignmentArrival func(raw string)
-	capRegMetrics            *globalconfig.Metrics
+	lggr                    logger.Logger
+	atomicSettings          *loop.AtomicSettings
+	shardAssignmentSettings *loop.AtomicSettings
+	capRegistry             *globalconfig.GlobalConfig
+	capRegMetrics           *globalconfig.Metrics
 
 	// activeJobIDs maps config type to the active job ID.
 	activeJobIDs sync.Map
@@ -85,10 +85,10 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 		d.lggr.Infow("Updated capabilities registry config", "hash", spec.Hash, "offchainVersion", version)
 
 	case ConfigTypeShardAssignment:
-		if d.onShardAssignmentArrival != nil {
-			// before Store: a resolve can only see the config after Store, so
-			// the arrival is always recorded by then
-			d.onShardAssignmentArrival(spec.Settings)
+		// before Store: a resolve can only see the config after Store, so
+		// the arrival is always recorded by then
+		if m, err := wfmonitoring.GlobalShardAssignmentMetrics(); err == nil {
+			m.RecordSettingsArrival(spec.Settings, time.Now())
 		}
 		if err := d.shardAssignmentSettings.Store(core.SettingsUpdate{
 			Settings: spec.Settings,

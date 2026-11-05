@@ -29,7 +29,7 @@ static_default_assignment = [0]
 `
 	// The delegate records the arrival before Store; a resolve can only see
 	// the config after Store, so the arrival always precedes the apply.
-	f.metrics.RecordSettingsArrival(settingsStringHash(blobA), time.Now())
+	f.metrics.RecordSettingsArrival(blobA, time.Now())
 	storeShardAssignment(t, settings, blobA)
 	donID, found, err := r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
@@ -51,7 +51,7 @@ static_default_assignment = [0]
 [per_owner_assignment]
   ` + ownerA + ` = [2]
 `
-	f.metrics.RecordSettingsArrival(settingsStringHash(blobB), time.Now())
+	f.metrics.RecordSettingsArrival(blobB, time.Now())
 	storeShardAssignment(t, settings, blobB)
 	donID, found, err = r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)

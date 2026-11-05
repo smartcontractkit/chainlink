@@ -133,22 +133,19 @@ type manualShardResolver struct {
 	metrics          *wfmon.ShardAssignmentMetrics
 
 	// cfgMu guards the memo of the last observed raw settings blob so the
-	// resolve hot path skips re-parsing and re-hashing unchanged settings.
-	cfgMu      sync.Mutex
-	lastRaw    string
-	lastParsed *cresettings.ShardAssignmentConfig
-	lastErr    error
+	// resolve hot path skips re-parsing and re-hashing unchanged settings,
+	// and the last successfully applied config that serves as the diff-log
+	// baseline (kept separately from lastParsed so a parse error does not
+	// lose it).
+	cfgMu          sync.Mutex
+	lastRaw        string
+	lastParsed     *cresettings.ShardAssignmentConfig
+	lastErr        error
+	lastAppliedCfg *cresettings.ShardAssignmentConfig
 }
 
 func NewManualShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, lggr logger.Logger) ShardResolver {
 	return newManualShardResolver(settings, orgResolver, shardIndexMapper, logger.Named(lggr, "ManualShardResolver"), globalShardAssignmentMetrics(lggr))
-}
-
-// RecordSettingsArrival records a shard assignment settings update arriving at
-// this node. It is wired into the cresettings delegate as a callback (see
-// application.go) because the delegate cannot import workflows/monitoring.
-func RecordSettingsArrival(lggr logger.Logger, raw string) {
-	globalShardAssignmentMetrics(lggr).RecordSettingsArrival(settingsStringHash(raw), time.Now())
 }
 
 func newManualShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, lggr logger.Logger, metrics *wfmon.ShardAssignmentMetrics) *manualShardResolver {
@@ -297,17 +294,21 @@ func (m *manualShardResolver) loadObservedConfig(ctx context.Context) (*cresetti
 
 	cfg, err := cresettings.ParseShardAssignmentConfig(raw)
 	if err != nil {
-		if m.metrics.RecordSettingsParseError(ctx, settingsStringHash(raw)) {
+		if m.metrics.RecordSettingsParseError(ctx, raw) {
 			m.lggr.Warnw("Failed to parse shard assignment settings; returning error", "err", err)
 		}
 		m.cacheObservedConfig(raw, nil, err)
 		return nil, err
 	}
 	hash := shardAssignmentSettingsHash(cfg)
-	changed, prev := m.metrics.RecordSettingsApplied(ctx, hash, settingsStringHash(raw), cfg)
+	// The baseline flip and the metrics dedup must be atomic together so the
+	// resolver that wins the dedup always diffed against the true predecessor.
+	m.cfgMu.Lock()
+	prev := m.lastAppliedCfg
+	m.lastAppliedCfg = cfg
+	changed := m.metrics.RecordSettingsApplied(ctx, hash, raw)
+	m.cfgMu.Unlock()
 	if changed {
-		// The diff is O(owners) and each list is capped, so it is built and
-		// logged here rather than inside cfgMu.
 		m.lggr.Infow("Shard assignment settings applied", assignmentDiffKVs(prev, cfg, hash)...)
 	}
 	m.cacheObservedConfig(raw, cfg, nil)
@@ -394,12 +395,6 @@ func shardAssignmentSettingsHash(cfg *cresettings.ShardAssignmentConfig) uint32 
 	for _, owner := range slices.Sorted(maps.Keys(cfg.HashedOwnerAssignment)) {
 		_, _ = fmt.Fprintf(h, ";hashedOwner=%s", owner)
 	}
-	return h.Sum32()
-}
-
-func settingsStringHash(raw string) uint32 {
-	h := fnv.New32a()
-	_, _ = h.Write([]byte(raw))
 	return h.Sum32()
 }
 
