@@ -302,6 +302,13 @@ func (e *engine) put(ctx context.Context, event triggers.CoordinatedEvent) error
 			e.base.logger().Infow("Trigger event cached for failover, not enqueuing", "triggerID", triggerID, "eventID", eventID)
 			return err
 		}
+		if ctx.Err() != nil {
+			// The reader stopped during the check. Nothing was decided, so the event is not ACKed.
+			e.base.logger().Infow("Trigger admission cut short, dropping event without ACK", "triggerID", triggerID, "eventID", eventID, "err", err)
+			e.base.metrics.With(platform.KeyTriggerID, triggerID).
+				IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonUnregistered)
+			return err
+		}
 		// Denied: ACK and drop
 		registrationID := triggers.RegistrationID(e.base.cfg.WorkflowID, event.TriggerIndex)
 		if ackErr := e.base.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, eventID); ackErr != nil {

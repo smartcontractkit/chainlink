@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
@@ -498,29 +500,25 @@ func TestShardFailoverManager_Subscribe(t *testing.T) {
 	})
 }
 
-// TestShardFailoverManager_ExecuteTrigger covers admission on the coordinated
-// path. The coordinated engine never calls OnTriggerAdmission, so the manager
-// must check shard ownership itself before delivering.
-func TestShardFailoverManager_ExecuteTrigger(t *testing.T) {
+// TestShardFailoverManager_Admit covers admission on the coordinated path. The
+// coordinated engine never calls OnTriggerAdmission, so the trigger coordinator
+// calls Admit before enqueueing. Admit only decides: it never delivers.
+func TestShardFailoverManager_Admit(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name         string
-		cfg          ShardFailoverManagerConfig
-		execErr      error
-		wantErr      error
-		wantExecuted bool
-		wantCached   bool
+		name       string
+		cfg        ShardFailoverManagerConfig
+		wantErr    error
+		wantCached bool
 	}{
 		{
-			name:         "sharding disabled delivers",
-			cfg:          ShardFailoverManagerConfig{ShardingEnabled: false, ShardResolver: secondaryResolver},
-			wantExecuted: true,
+			name: "sharding disabled admits",
+			cfg:  ShardFailoverManagerConfig{ShardingEnabled: false, ShardResolver: secondaryResolver},
 		},
 		{
-			name:         "owner delivers",
-			cfg:          ShardFailoverManagerConfig{ShardingEnabled: true, ShardResolver: ownerResolver},
-			wantExecuted: true,
+			name: "owner admits",
+			cfg:  ShardFailoverManagerConfig{ShardingEnabled: true, ShardResolver: ownerResolver},
 		},
 		{
 			name: "secondary with failover enabled caches",
@@ -547,40 +545,164 @@ func TestShardFailoverManager_ExecuteTrigger(t *testing.T) {
 			cfg:     ShardFailoverManagerConfig{ShardingEnabled: true, ShardResolver: erroringShardResolver{}},
 			wantErr: triggers.ErrAdmissionDenied,
 		},
-		{
-			name:         "engine error passes through",
-			cfg:          ShardFailoverManagerConfig{ShardingEnabled: true, ShardResolver: ownerResolver},
-			execErr:      v2.ErrEngineDraining,
-			wantErr:      v2.ErrEngineDraining,
-			wantExecuted: true,
-		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			engine := &recordingEngine{execErr: tc.execErr}
+			engine := &recordingEngine{}
 			m := newAdmissionTestManager(t, engine, tc.cfg)
 
-			err := m.ExecuteTrigger(t.Context(), testCoordinatedEvent("evt-1"))
+			err := m.Admit(t.Context(), testCoordinatedEvent("evt-1"))
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
 			} else {
 				require.NoError(t, err)
 			}
 
-			var wantIDs []string
-			if tc.wantExecuted {
-				wantIDs = []string{"evt-1"}
-			}
-			assert.Equal(t, wantIDs, engine.executedIDs(), "events delivered to the engine")
+			assert.Empty(t, engine.executedIDs(), "Admit never delivers to the engine")
 			_, gotCached := m.cache["evt-1"]
 			assert.Equal(t, tc.wantCached, gotCached, "event cached for failover")
 		})
 	}
 }
 
+// TestShardFailoverManager_ExecuteTrigger covers delivery on the coordinated
+// path. The event already passed Admit before it was queued, so ExecuteTrigger
+// delegates without checking ownership again.
+func TestShardFailoverManager_ExecuteTrigger(t *testing.T) {
+	t.Parallel()
+
+	t.Run("delivers without an ownership check", func(t *testing.T) {
+		t.Parallel()
+		engine := &recordingEngine{}
+		// A secondary would be cached by Admit. ExecuteTrigger must not look.
+		m := newAdmissionTestManager(t, engine, ShardFailoverManagerConfig{
+			ShardingEnabled: true, ShardResolver: secondaryResolver, Failover: FailoverConfig{ShardingFailoverGate: limits.NewGateLimiter(true)},
+		})
+
+		require.NoError(t, m.ExecuteTrigger(t.Context(), testCoordinatedEvent("evt-1")))
+		assert.Equal(t, []string{"evt-1"}, engine.executedIDs())
+		assert.Empty(t, m.cache)
+	})
+
+	t.Run("engine error passes through", func(t *testing.T) {
+		t.Parallel()
+		engine := &recordingEngine{execErr: v2.ErrEngineDraining}
+		m := newAdmissionTestManager(t, engine, ShardFailoverManagerConfig{ShardingEnabled: true, ShardResolver: ownerResolver})
+
+		require.ErrorIs(t, m.ExecuteTrigger(t.Context(), testCoordinatedEvent("evt-1")), v2.ErrEngineDraining)
+		assert.Equal(t, []string{"evt-1"}, engine.executedIDs())
+	})
+}
+
+// blockingShardResolver stands in for an unresponsive orchestrator: ResolveShard
+// blocks until its context ends, then fails the way a real resolver would.
+type blockingShardResolver struct {
+	started  chan struct{}
+	deadline chan time.Time
+}
+
+func newBlockingShardResolver() *blockingShardResolver {
+	return &blockingShardResolver{started: make(chan struct{}, 1), deadline: make(chan time.Time, 1)}
+}
+
+func (r *blockingShardResolver) ResolveShard(ctx context.Context, _ string, _ string) (uint32, bool, error) {
+	deadline, _ := ctx.Deadline()
+	r.deadline <- deadline
+	r.started <- struct{}{}
+	<-ctx.Done()
+	return 0, false, fmt.Errorf("orchestrator unavailable: %w", ctx.Err())
+}
+
+func (r *blockingShardResolver) ResolveShards(context.Context, []string, []string) (map[string]uint32, error) {
+	return nil, errors.New("not implemented")
+}
+
+// TestShardFailoverManager_AdmitBlockingResolver covers a shard ownership lookup
+// that never returns, on the coordinated path. The lookup is bounded, and
+// cancelling the caller's context cuts it short without a verdict: no denial, so
+// the coordinator does not ACK, and no caching.
+func TestShardFailoverManager_AdmitBlockingResolver(t *testing.T) {
+	t.Parallel()
+
+	resolver := newBlockingShardResolver()
+	m := newAdmissionTestManager(t, &recordingEngine{}, ShardFailoverManagerConfig{
+		ShardingEnabled: true, ShardResolver: resolver, Failover: FailoverConfig{ShardingFailoverGate: limits.NewGateLimiter(true)},
+	})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	admitted := make(chan error, 1)
+	start := time.Now()
+	go func() { admitted <- m.Admit(ctx, testCoordinatedEvent("evt-1")) }()
+
+	select {
+	case <-resolver.started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("ownership lookup never started")
+	}
+	deadline := <-resolver.deadline
+	require.False(t, deadline.IsZero(), "the lookup must be bounded even if the caller sets no deadline")
+	assert.WithinDuration(t, start.Add(cresettings.Default.ShardOwnershipCheckTimeout.DefaultValue), deadline, 5*time.Second)
+
+	cancel()
+	select {
+	case err := <-admitted:
+		require.ErrorIs(t, err, context.Canceled)
+		require.NotErrorIs(t, err, triggers.ErrAdmissionDenied, "a cut-short lookup must not be ACKed as a denial")
+		require.NotErrorIs(t, err, triggers.ErrAdmissionCached)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Admit did not return after its context was cancelled")
+	}
+	assert.Empty(t, m.cache, "a cut-short lookup must not cache the event")
+}
+
+// TestShardFailoverManager_ShardOwnershipCheckTimeout covers where the bound on
+// one ownership lookup comes from. A configured limiter sets it. A nil limiter
+// or a non-positive value falls back to the cresettings default, so the lookup
+// is never left unbounded.
+func TestShardFailoverManager_ShardOwnershipCheckTimeout(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		limiter limits.TimeLimiter
+		want    time.Duration
+	}{
+		{"nil limiter uses the default", nil, cresettings.Default.ShardOwnershipCheckTimeout.DefaultValue},
+		{"configured", limits.NewTimeLimiter(2 * time.Minute), 2 * time.Minute},
+		{"zero uses the default", limits.NewTimeLimiter(0), cresettings.Default.ShardOwnershipCheckTimeout.DefaultValue},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			resolver := newBlockingShardResolver()
+			m := newAdmissionTestManager(t, &recordingEngine{}, ShardFailoverManagerConfig{
+				ShardingEnabled: true, ShardResolver: resolver, ShardOwnershipCheckTimeout: tc.limiter,
+				Failover: FailoverConfig{ShardingFailoverGate: limits.NewGateLimiter(true)},
+			})
+
+			ctx, cancel := context.WithCancel(t.Context())
+			admitted := make(chan error, 1)
+			start := time.Now()
+			go func() { admitted <- m.Admit(ctx, testCoordinatedEvent("evt-1")) }()
+
+			var deadline time.Time
+			select {
+			case deadline = <-resolver.deadline:
+			case <-time.After(5 * time.Second):
+				t.Fatal("ownership lookup never started")
+			}
+			cancel()
+			require.ErrorIs(t, <-admitted, context.Canceled)
+			assert.WithinDuration(t, start.Add(tc.want), deadline, 5*time.Second)
+		})
+	}
+}
+
 // TestShardFailoverManager_CachedEventOnStatusUpdate covers failover on the
-// coordinated path. An event the secondary cached in ExecuteTrigger is dropped
+// coordinated path. An event the secondary cached in Admit is dropped
 // when the primary reports an outcome, and replayed on a system error. Replay
 // goes straight to the wrapped engine.
 func TestShardFailoverManager_CachedEventOnStatusUpdate(t *testing.T) {
@@ -612,7 +734,7 @@ func TestShardFailoverManager_CachedEventOnStatusUpdate(t *testing.T) {
 			m := newAdmissionTestManager(t, engine, ShardFailoverManagerConfig{
 				ShardingEnabled: true, ShardResolver: secondaryResolver, Failover: FailoverConfig{ShardingFailoverGate: limits.NewGateLimiter(true)},
 			})
-			require.ErrorIs(t, m.ExecuteTrigger(t.Context(), testCoordinatedEvent("evt-1")), triggers.ErrAdmissionCached)
+			require.ErrorIs(t, m.Admit(t.Context(), testCoordinatedEvent("evt-1")), triggers.ErrAdmissionCached)
 
 			m.HandleExecutionStatusUpdate(&ringpb.ExecutionStatusUpdate{
 				WorkflowId:     "wf-1",

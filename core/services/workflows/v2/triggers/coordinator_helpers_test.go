@@ -63,10 +63,19 @@ type fakeEngine struct {
 	execute func(ctx context.Context, event CoordinatedEvent)
 	// err is returned from every ExecuteTrigger call.
 	err error
+	// admit, if set, is the engine's admission check. Unset admits every event.
+	admit func(ctx context.Context, event CoordinatedEvent) error
 
 	mu      sync.Mutex
 	events  []CoordinatedEvent
 	tenants []contexts.CRE
+}
+
+func (e *fakeEngine) Admit(ctx context.Context, event CoordinatedEvent) error {
+	if e.admit == nil {
+		return nil
+	}
+	return e.admit(ctx, event)
 }
 
 func (e *fakeEngine) ExecuteTrigger(ctx context.Context, event CoordinatedEvent) error {

@@ -203,6 +203,76 @@ func TestEngine_AdmissionDenialParity(t *testing.T) {
 	}
 }
 
+// TestEngine_AdmissionCutShortParity asserts that the legacy and the coordinated engine handle an
+// admission check that is still running when ingress stops the same way, e.g. a shard ownership
+// lookup against an unresponsive orchestrator. Stopping ingress (closing the legacy engine,
+// unregistering the coordinated one) must cancel the check and return promptly. The check failed
+// only because it was cut short, so the event is not ACKed, not counted as a denial, and dropped
+// as unregistered. It never takes an execution slot.
+func TestEngine_AdmissionCutShortParity(t *testing.T) {
+	t.Parallel()
+
+	const (
+		shardOrchErrTotal = "platform_engine_shard_execution_denied_orchestrator_error"
+		// Stopping ingress cancels the check at once, so a failure shows within seconds.
+		cutShortWait = 5 * time.Second
+	)
+
+	for _, mode := range []lifecycleEngineMode{lifecycleLegacy, lifecycleCoordinated} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Parallel()
+			meter := newDropMeter(t)
+			admitting := make(chan struct{})
+			checkErr := make(chan error, 1)
+			h := newEngineLifecycleHarness(t, mode, withMeter(meter.meter),
+				withAdmission(func(ctx context.Context, _ triggers.CoordinatedEvent) error {
+					close(admitting)
+					<-ctx.Done()
+					checkErr <- ctx.Err()
+					// A resolver reports the cut-short lookup as a failure, which would read as a denial.
+					return v2.ErrShardDeniedOrchestrator
+				}))
+			h.start()
+
+			h.deliver(cutShortWait)
+			select {
+			case <-admitting:
+			case <-time.After(cutShortWait):
+				t.Fatal("admission check never started")
+			}
+
+			stopped := make(chan error, 1)
+			go func() {
+				if mode == lifecycleCoordinated {
+					stopped <- h.coordinator.UnregisterTriggers(h.tenantCtx(), h.cfg.WorkflowID)
+					return
+				}
+				stopped <- h.close()
+			}()
+			select {
+			case err := <-stopped:
+				require.NoError(t, err)
+			case <-time.After(cutShortWait):
+				t.Fatal("stopping ingress did not return while an admission check was running")
+			}
+			select {
+			case err := <-checkErr:
+				require.ErrorIs(t, err, context.Canceled)
+			case <-time.After(cutShortWait):
+				t.Fatal("admission check was not cancelled")
+			}
+
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				assert.Equal(c, map[string]int64{monitoring.TriggerDropReasonUnregistered: 1}, meter.drops(t), "drops by reason")
+			}, cutShortWait, 5*time.Millisecond)
+			assert.Zero(t, h.ackCalls.Load(), "a cut-short check decided nothing, so the event is not ACKed")
+			assert.Zero(t, meter.total(t, shardOrchErrTotal), shardOrchErrTotal)
+			assert.Zero(t, h.slots.waits.Load(), "an admission check never waits for an execution slot")
+			assert.Zero(t, h.moduleExecutions.Load(), "the event never reaches the module")
+		})
+	}
+}
+
 // dropMeter is a test meter that the engine and the coordinator both record on.
 type dropMeter struct {
 	meter  metric.Meter
