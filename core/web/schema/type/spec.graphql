@@ -103,6 +103,8 @@ type VRFSpec {
     backoffInitialDelay: String!
     backoffMaxDelay: String!
     gasLanePrice: String
+    gasOverhead: Int
+    premiumPercentage: Int
     vrfOwnerAddress: String
 }
 

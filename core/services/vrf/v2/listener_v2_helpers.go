@@ -23,15 +23,29 @@ func uniqueReqs(reqs []pendingRequest) int {
 // It can be used to estimate the amount of LINK or native needed to fulfill a request.
 const GasProofVerification uint32 = 200_000
 
+// DefaultPremiumPercentage is the premium percentage used to reserve the
+// worst-case fee when the job spec does not set premiumPercentage. It covers
+// every premium configured on current deployments (highest observed is 84) with
+// headroom. Set premiumPercentage in the job spec to match a chain's configured
+// premium exactly; the coordinator caps premiums at 155.
+const DefaultPremiumPercentage uint32 = 100
+
+// withPremium applies the coordinator's premium percentage to a gas cost.
+func withPremium(cost *big.Int, premiumPercentage uint32) *big.Int {
+	return cost.Mul(cost, big.NewInt(int64(100+premiumPercentage))).Quo(cost, big.NewInt(100))
+}
+
 // EstimateFeeJuels estimates the amount of link needed to fulfill a request
-// given the callback gas limit, the gas price, and the wei per unit link.
-// An error is returned if the wei per unit link provided is zero.
-func EstimateFeeJuels(callbackGasLimit uint32, maxGasPriceWei, weiPerUnitLink *big.Int) (*big.Int, error) {
+// given the callback gas limit, the gas overhead, the gas price, the premium
+// percentage and the wei per unit link. An error is returned if the wei per
+// unit link provided is zero.
+func EstimateFeeJuels(callbackGasLimit, gasOverhead uint32, maxGasPriceWei, weiPerUnitLink *big.Int, premiumPercentage uint32) (*big.Int, error) {
 	if weiPerUnitLink.Cmp(big.NewInt(0)) == 0 {
 		return nil, errors.New("wei per unit link is zero")
 	}
-	maxGasUsed := big.NewInt(int64(callbackGasLimit + GasProofVerification))
+	maxGasUsed := big.NewInt(int64(callbackGasLimit + gasOverhead))
 	costWei := maxGasUsed.Mul(maxGasUsed, maxGasPriceWei)
+	costWei = withPremium(costWei, premiumPercentage)
 	// Multiply by 1e18 first so that we don't lose a ton of digits due to truncation when we divide
 	// by weiPerUnitLink
 	numerator := costWei.Mul(costWei, big.NewInt(1e18))
@@ -40,10 +54,58 @@ func EstimateFeeJuels(callbackGasLimit uint32, maxGasPriceWei, weiPerUnitLink *b
 }
 
 // EstimateFeeWei estimates the amount of wei needed to fulfill a request
-func EstimateFeeWei(callbackGasLimit uint32, maxGasPriceWei *big.Int) (*big.Int, error) {
-	maxGasUsed := big.NewInt(int64(callbackGasLimit + GasProofVerification))
+func EstimateFeeWei(callbackGasLimit, gasOverhead uint32, maxGasPriceWei *big.Int, premiumPercentage uint32) (*big.Int, error) {
+	maxGasUsed := big.NewInt(int64(callbackGasLimit + gasOverhead))
 	costWei := maxGasUsed.Mul(maxGasUsed, maxGasPriceWei)
-	return costWei, nil
+	return withPremium(costWei, premiumPercentage), nil
+}
+
+// gasOverhead returns the gas reserved for coordinator verification and
+// accounting: the job spec override if set, otherwise the measured default.
+func (lsn *listenerV2) gasOverhead() uint32 {
+	if lsn.job.VRFSpec.GasOverhead != nil {
+		return *lsn.job.VRFSpec.GasOverhead
+	}
+	return GasProofVerification
+}
+
+// premiumPercentage returns the premium percentage used to reserve worst-case
+// fees: the job spec override if set, otherwise the default.
+func (lsn *listenerV2) premiumPercentage() uint32 {
+	if lsn.job.VRFSpec.PremiumPercentage != nil {
+		return *lsn.job.VRFSpec.PremiumPercentage
+	}
+	return DefaultPremiumPercentage
+}
+
+// reservedFee returns the amount to reserve from a subscription for a request:
+// the larger of the simulated charge and the worst-case charge (full callback
+// gas limit at the gas lane maximum price, including the premium).
+func reservedFee(p *vrfPipelineResult) *big.Int {
+	switch {
+	case p.maxFee == nil:
+		return p.fundsNeeded
+	case p.fundsNeeded == nil:
+		return p.maxFee
+	case p.maxFee.Cmp(p.fundsNeeded) >= 0:
+		return p.maxFee
+	default:
+		return p.fundsNeeded
+	}
+}
+
+// WorstCaseGasFloorMargin covers the fulfillment event emission and counter
+// writes not included in the gas overhead.
+const WorstCaseGasFloorMargin uint32 = 10_000
+
+// WorstCaseGasFloor returns the gas limit needed to fulfill a request whose
+// callback uses its entire callbackGasLimit: the callback allotment plus the
+// EIP-150 retained gas required by _callWithExactGas, and the coordinator's
+// verification and accounting work (gasOverhead).
+func WorstCaseGasFloor(callbackGasLimit, gasOverhead uint32) uint64 {
+	return uint64(callbackGasLimit)*64/63 +
+		uint64(gasOverhead) +
+		uint64(WorstCaseGasFloorMargin)
 }
 
 // observeRequestSimDuration records the time between the given requests simulations or

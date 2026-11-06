@@ -79,6 +79,14 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 		return jb, fmt.Errorf("gasLanePrice must be positive, given: %s", spec.GasLanePrice.String())
 	}
 
+	if spec.GasOverhead != nil && *spec.GasOverhead == 0 {
+		return jb, fmt.Errorf("gasOverhead must be positive, given: %d", *spec.GasOverhead)
+	}
+
+	if spec.PremiumPercentage != nil && (*spec.PremiumPercentage == 0 || *spec.PremiumPercentage > 155) {
+		return jb, fmt.Errorf("premiumPercentage must be between 1 and 155, given: %d", *spec.PremiumPercentage)
+	}
+
 	var foundVRFTask bool
 	for _, t := range jb.Pipeline.Tasks {
 		if t.Type() == pipeline.TaskTypeVRFV2 || t.Type() == pipeline.TaskTypeVRFV2Plus {
