@@ -15,7 +15,9 @@ import (
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	ocr3_changeset "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -72,11 +74,41 @@ func (o *ConsensusQueue) PostEnvStartup(
 		return nil
 	}
 
+	if err := deployContract(creEnv, testLogger); err != nil {
+		return fmt.Errorf("failed to deploy consensusQueue OCR3 contract: %w", err)
+	}
+
 	err := createJobs(ctx, creEnv, don, dons)
 	if err != nil {
 		return fmt.Errorf("failed to create consensusQueue jobs: %w", err)
 	}
 	//TODO more?
+	return nil
+}
+
+// deployContract deploys the OCR3 contract the job spec uses as its contractID.
+// The OCR config itself comes from the Capabilities Registry.
+func deployContract(creEnv *cre.Environment, testLogger zerolog.Logger) error {
+	input := ocr3_changeset.DeployOCR3Input{
+		ChainSelector: creEnv.RegistryChainSelector,
+		Qualifier:     cre.ConsensusQueueCapability,
+		Labels:        []string{cre.ConsensusQueueCapability},
+	}
+	if err := (ocr3_changeset.DeployOCR3{}).VerifyPreconditions(*creEnv.CldfEnvironment, input); err != nil {
+		return errors.Wrap(err, "precondition verification failed")
+	}
+	out, err := (ocr3_changeset.DeployOCR3{}).Apply(*creEnv.CldfEnvironment, input)
+	if err != nil {
+		return err
+	}
+	contracts.MergeAllDataStores(creEnv, out)
+
+	refKey := pkg.GetOCR3CapabilityAddressRefKey(creEnv.RegistryChainSelector, cre.ConsensusQueueCapability)
+	addrRef, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(refKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get deployed contract address")
+	}
+	testLogger.Info().Msgf("Deployed consensus-queue OCR3 contract on chain %d at %s", creEnv.RegistryChainSelector, addrRef.Address)
 	return nil
 }
 
