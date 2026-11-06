@@ -36,14 +36,14 @@ func withPremium(cost *big.Int, premiumPercentage uint32) *big.Int {
 }
 
 // EstimateFeeJuels estimates the amount of link needed to fulfill a request
-// given the callback gas limit, the gas price, the premium percentage and the
-// wei per unit link. An error is returned if the wei per unit link provided is
-// zero.
-func EstimateFeeJuels(callbackGasLimit uint32, maxGasPriceWei, weiPerUnitLink *big.Int, premiumPercentage uint32) (*big.Int, error) {
+// given the callback gas limit, the gas overhead, the gas price, the premium
+// percentage and the wei per unit link. An error is returned if the wei per
+// unit link provided is zero.
+func EstimateFeeJuels(callbackGasLimit, gasOverhead uint32, maxGasPriceWei, weiPerUnitLink *big.Int, premiumPercentage uint32) (*big.Int, error) {
 	if weiPerUnitLink.Cmp(big.NewInt(0)) == 0 {
 		return nil, errors.New("wei per unit link is zero")
 	}
-	maxGasUsed := big.NewInt(int64(callbackGasLimit + GasProofVerification))
+	maxGasUsed := big.NewInt(int64(callbackGasLimit + gasOverhead))
 	costWei := maxGasUsed.Mul(maxGasUsed, maxGasPriceWei)
 	costWei = withPremium(costWei, premiumPercentage)
 	// Multiply by 1e18 first so that we don't lose a ton of digits due to truncation when we divide
@@ -54,10 +54,19 @@ func EstimateFeeJuels(callbackGasLimit uint32, maxGasPriceWei, weiPerUnitLink *b
 }
 
 // EstimateFeeWei estimates the amount of wei needed to fulfill a request
-func EstimateFeeWei(callbackGasLimit uint32, maxGasPriceWei *big.Int, premiumPercentage uint32) (*big.Int, error) {
-	maxGasUsed := big.NewInt(int64(callbackGasLimit + GasProofVerification))
+func EstimateFeeWei(callbackGasLimit, gasOverhead uint32, maxGasPriceWei *big.Int, premiumPercentage uint32) (*big.Int, error) {
+	maxGasUsed := big.NewInt(int64(callbackGasLimit + gasOverhead))
 	costWei := maxGasUsed.Mul(maxGasUsed, maxGasPriceWei)
 	return withPremium(costWei, premiumPercentage), nil
+}
+
+// gasOverhead returns the gas reserved for coordinator verification and
+// accounting: the job spec override if set, otherwise the measured default.
+func (lsn *listenerV2) gasOverhead() uint32 {
+	if lsn.job.VRFSpec.GasOverhead != nil {
+		return *lsn.job.VRFSpec.GasOverhead
+	}
+	return GasProofVerification
 }
 
 // premiumPercentage returns the premium percentage used to reserve worst-case

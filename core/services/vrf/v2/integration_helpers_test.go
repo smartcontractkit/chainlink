@@ -1375,7 +1375,7 @@ func testSingleConsumerWorstCaseGasFloor(
 	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
 	require.True(t, ok)
 	gasPriceWei := chain.Config().EVM().GasEstimator().PriceMaxKey(key1.Address)
-	expectedReservation, resErr := v22.EstimateFeeJuels(callBackGasLimit, gasPriceWei.ToInt(), vrftesthelpers.WeiPerUnitLink.BigInt(), v22.DefaultPremiumPercentage)
+	expectedReservation, resErr := v22.EstimateFeeJuels(callBackGasLimit, v22.GasProofVerification, gasPriceWei.ToInt(), vrftesthelpers.WeiPerUnitLink.BigInt(), v22.DefaultPremiumPercentage)
 	require.NoError(t, resErr)
 
 	// Make the randomness request.
@@ -1476,11 +1476,11 @@ func testSingleConsumerWorstCaseGasFloorOverride(
 	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
 	require.True(t, ok)
 	gasPriceWei := chain.Config().EVM().GasEstimator().PriceMaxKey(key1.Address)
-	expectedReservation, expErr := v22.EstimateFeeJuels(callBackGasLimit, gasPriceWei.ToInt(), vrftesthelpers.WeiPerUnitLink.BigInt(), premiumOverride)
+	expectedReservation, expErr := v22.EstimateFeeJuels(callBackGasLimit, gasOverheadOverride, gasPriceWei.ToInt(), vrftesthelpers.WeiPerUnitLink.BigInt(), premiumOverride)
 	require.NoError(t, expErr)
-	// The premium override differs from the default, so a reservation at the
-	// override value can only come from the job spec.
-	defaultReservation, defErr := v22.EstimateFeeJuels(callBackGasLimit, gasPriceWei.ToInt(), vrftesthelpers.WeiPerUnitLink.BigInt(), v22.DefaultPremiumPercentage)
+	// The overrides differ from the defaults, so a reservation at the override
+	// values can only come from the job spec.
+	defaultReservation, defErr := v22.EstimateFeeJuels(callBackGasLimit, v22.GasProofVerification, gasPriceWei.ToInt(), vrftesthelpers.WeiPerUnitLink.BigInt(), v22.DefaultPremiumPercentage)
 	require.NoError(t, defErr)
 	require.Negative(t, expectedReservation.Cmp(defaultReservation)) // override premium is lower than the default
 
@@ -1564,7 +1564,7 @@ func testSingleConsumerWorstCaseReservation(
 	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
 	require.True(t, ok)
 	gasPriceWei := chain.Config().EVM().GasEstimator().PriceMaxKey(key1.Address)
-	maxCost, err := v22.EstimateFeeJuels(callBackGasLimit, gasPriceWei.ToInt(), vrftesthelpers.WeiPerUnitLink.BigInt(), v22.DefaultPremiumPercentage)
+	maxCost, err := v22.EstimateFeeJuels(callBackGasLimit, v22.GasProofVerification, gasPriceWei.ToInt(), vrftesthelpers.WeiPerUnitLink.BigInt(), v22.DefaultPremiumPercentage)
 	require.NoError(t, err)
 
 	// Fund below the worst-case cost but above the simulated charge.

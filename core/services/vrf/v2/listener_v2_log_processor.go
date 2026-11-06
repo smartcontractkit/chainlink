@@ -601,12 +601,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 
 	l.Infow("Processing requests for subscription")
 
-	// Gas reserved for coordinator verification and accounting when flooring
-	// the fulfillment gas limit; overridable per job for chain repricing events.
-	gasOverhead := GasProofVerification
-	if lsn.job.VRFSpec.GasOverhead != nil {
-		gasOverhead = *lsn.job.VRFSpec.GasOverhead
-	}
+	gasOverhead := lsn.gasOverhead()
 
 	ready, expired := lsn.getReadyAndExpired(l, reqs)
 	for _, reqID := range expired {
@@ -993,10 +988,11 @@ func (lsn *listenerV2) estimateFee(
 	maxGasPriceWei *assets.Wei,
 ) (*big.Int, error) {
 	premiumPercentage := lsn.premiumPercentage()
+	gasOverhead := lsn.gasOverhead()
 	// NativePayment() returns true if and only if the version is V2+ and the
 	// request was made in ETH.
 	if req.NativePayment() {
-		return EstimateFeeWei(req.CallbackGasLimit(), maxGasPriceWei.ToInt(), premiumPercentage)
+		return EstimateFeeWei(req.CallbackGasLimit(), gasOverhead, maxGasPriceWei.ToInt(), premiumPercentage)
 	}
 
 	// In the event we are using LINK we need to estimate the fee in juels
@@ -1010,6 +1006,7 @@ func (lsn *listenerV2) estimateFee(
 
 	return EstimateFeeJuels(
 		req.CallbackGasLimit(),
+		gasOverhead,
 		maxGasPriceWei.ToInt(),
 		roundData.Answer,
 		premiumPercentage,
