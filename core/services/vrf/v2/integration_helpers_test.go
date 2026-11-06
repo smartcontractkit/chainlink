@@ -1256,9 +1256,9 @@ func topUpSubscription(t *testing.T, consumer *bind.TransactOpts, consumerContra
 	backend.Commit()
 }
 
-// createVRFJobWithGasOverhead creates a single direct-mode VRF job whose spec
-// overrides the fulfillment gas overhead.
-func createVRFJobWithGasOverhead(
+// createVRFJobWithOverrides creates a single direct-mode VRF job whose spec
+// overrides the given optional settings.
+func createVRFJobWithOverrides(
 	t *testing.T,
 	fromKey ethkey.KeyV2,
 	app *cltest.TestApplication,
@@ -1267,14 +1267,16 @@ func createVRFJobWithGasOverhead(
 	uni coordinatorV2UniverseCommon,
 	vrfVersion vrfcommon.Version,
 	gasLanePrice *assets.Wei,
-	gasOverhead uint32,
+	gasOverhead *uint32,
+	premiumPercentage *uint32,
 ) job.Job {
 	ctx := t.Context()
+	externalJobID := uuid.New()
 	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 	spec := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-		JobID:                    uuid.New().String(),
-		Name:                     "vrf-gas-overhead-override",
+		JobID:                    externalJobID.String(),
+		Name:                     "vrf-overrides",
 		VRFVersion:               vrfVersion,
 		CoordinatorAddress:       coordinatorAddress.Hex(),
 		MinIncomingConfirmations: 2,
@@ -1285,18 +1287,24 @@ func createVRFJobWithGasOverhead(
 		V2:                       true,
 		GasLanePrice:             gasLanePrice,
 		EVMChainID:               testutils.SimulatedChainID.String(),
-	}).Toml() + fmt.Sprintf("\ngasOverhead = %d\n", gasOverhead)
+	}).Toml()
+	if gasOverhead != nil {
+		spec += fmt.Sprintf("\ngasOverhead = %d\n", *gasOverhead)
+	}
+	if premiumPercentage != nil {
+		spec += fmt.Sprintf("\npremiumPercentage = %d\n", *premiumPercentage)
+	}
 
 	jb, err := vrfcommon.ValidatedVRFSpec(spec)
 	require.NoError(t, err)
-	require.NotNil(t, jb.VRFSpec.GasOverhead)
-	require.Equal(t, gasOverhead, *jb.VRFSpec.GasOverhead)
+	require.Equal(t, gasOverhead, jb.VRFSpec.GasOverhead)
+	require.Equal(t, premiumPercentage, jb.VRFSpec.PremiumPercentage)
 	err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni, coordinator, vrfkey, new(gasLanePrice.ToInt().Uint64()))
 	require.Eventually(t, func() bool {
 		for _, j := range app.JobSpawner().ActiveJobs() {
-			if j.Type == job.VRF && j.VRFSpec != nil && j.VRFSpec.GasOverhead != nil {
+			if j.Type == job.VRF && j.ExternalJobID == externalJobID {
 				return true
 			}
 		}
@@ -1362,6 +1370,14 @@ func testSingleConsumerWorstCaseGasFloor(
 
 	expectedFloor := v22.WorstCaseGasFloor(callBackGasLimit, v22.GasProofVerification)
 
+	// The reserved fee must cover the worst-case charge: the full callback gas
+	// limit at the gas lane maximum price including the premium.
+	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
+	require.True(t, ok)
+	gasPriceWei := chain.Config().EVM().GasEstimator().PriceMaxKey(key1.Address)
+	expectedReservation, resErr := v22.EstimateFeeJuels(callBackGasLimit, gasPriceWei.ToInt(), vrftesthelpers.WeiPerUnitLink.BigInt(), v22.DefaultPremiumPercentage)
+	require.NoError(t, resErr)
+
 	// Make the randomness request.
 	numWords := uint32(1)
 	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, callBackGasLimit, uni.rootContract, uni.backend, nativePayment)
@@ -1394,6 +1410,15 @@ func testSingleConsumerWorstCaseGasFloor(
 			found = true
 			t.Logf("fulfillment gas limit %d, floor %d", tx.FeeLimit, expectedFloor)
 			require.GreaterOrEqual(t, tx.FeeLimit, expectedFloor)
+			reserved := meta.MaxLink
+			if nativePayment {
+				reserved = meta.MaxEth
+			}
+			require.NotNil(t, reserved)
+			reservedFee, ok := new(big.Int).SetString(*reserved, 10)
+			require.True(t, ok)
+			t.Logf("reserved fee %s, worst-case cost %s", reservedFee, expectedReservation)
+			require.GreaterOrEqual(t, reservedFee.Cmp(expectedReservation), 0)
 		}
 	}
 	require.True(t, found, "no fulfillment transaction found for request %s", requestIDHash)
@@ -1401,10 +1426,10 @@ func testSingleConsumerWorstCaseGasFloor(
 	t.Log("Done!")
 }
 
-// testSingleConsumerWorstCaseGasFloorOverride checks that a gasOverride set in
-// the job spec raises the fulfillment gas floor. With a cheap callback the
-// estimate lands below even the default floor, so a gas limit at the override
-// floor can only come from the job spec override.
+// testSingleConsumerWorstCaseGasFloorOverride checks that overrides set in the
+// job spec raise the fulfillment gas floor and the reserved worst-case fee.
+// With a cheap callback the estimate lands below even the default floor, so a
+// gas limit at the override floor can only come from the job spec override.
 func testSingleConsumerWorstCaseGasFloorOverride(
 	t *testing.T,
 	ownerKey ethkey.KeyV2,
@@ -1415,7 +1440,8 @@ func testSingleConsumerWorstCaseGasFloorOverride(
 ) {
 	ctx := t.Context()
 	callBackGasLimit := uint32(100_000)
-	gasOverhead := uint32(250_000)
+	gasOverheadOverride := uint32(250_000)
+	premiumOverride := uint32(50)
 
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -1438,14 +1464,25 @@ func testSingleConsumerWorstCaseGasFloorOverride(
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	require.NoError(t, app.Start(ctx))
 
-	jb := createVRFJobWithGasOverhead(t, key1, app, uni.rootContract, uni.rootContractAddress, uni, vrfVersion, gasLanePriceWei, gasOverhead)
+	jb := createVRFJobWithOverrides(t, key1, app, uni.rootContract, uni.rootContractAddress, uni, vrfVersion, gasLanePriceWei, &gasOverheadOverride, &premiumOverride)
 	keyHash := jb.VRFSpec.PublicKey.MustHash()
 
-	expectedFloor := v22.WorstCaseGasFloor(callBackGasLimit, gasOverhead)
+	expectedFloor := v22.WorstCaseGasFloor(callBackGasLimit, gasOverheadOverride)
 	defaultFloor := v22.WorstCaseGasFloor(callBackGasLimit, v22.GasProofVerification)
 	// The override floor must exceed the default floor for this test to prove
 	// the override took effect.
 	require.Greater(t, expectedFloor, defaultFloor)
+
+	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
+	require.True(t, ok)
+	gasPriceWei := chain.Config().EVM().GasEstimator().PriceMaxKey(key1.Address)
+	expectedReservation, expErr := v22.EstimateFeeJuels(callBackGasLimit, gasPriceWei.ToInt(), vrftesthelpers.WeiPerUnitLink.BigInt(), premiumOverride)
+	require.NoError(t, expErr)
+	// The premium override differs from the default, so a reservation at the
+	// override value can only come from the job spec.
+	defaultReservation, defErr := v22.EstimateFeeJuels(callBackGasLimit, gasPriceWei.ToInt(), vrftesthelpers.WeiPerUnitLink.BigInt(), v22.DefaultPremiumPercentage)
+	require.NoError(t, defErr)
+	require.Negative(t, expectedReservation.Cmp(defaultReservation)) // override premium is lower than the default
 
 	numWords := uint32(1)
 	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, callBackGasLimit, uni.rootContract, uni.backend, nativePayment)
@@ -1474,9 +1511,95 @@ func testSingleConsumerWorstCaseGasFloorOverride(
 			found = true
 			t.Logf("fulfillment gas limit %d, override floor %d, default floor %d", tx.FeeLimit, expectedFloor, defaultFloor)
 			require.GreaterOrEqual(t, tx.FeeLimit, expectedFloor)
+			reserved := meta.MaxLink
+			if nativePayment {
+				reserved = meta.MaxEth
+			}
+			require.NotNil(t, reserved)
+			reservedFee, ok := new(big.Int).SetString(*reserved, 10)
+			require.True(t, ok)
+			t.Logf("reserved fee %s, premium-override cost %s, default cost %s", reservedFee, expectedReservation, defaultReservation)
+			require.GreaterOrEqual(t, reservedFee.Cmp(expectedReservation), 0)
+			require.Negative(t, reservedFee.Cmp(defaultReservation))
 		}
 	}
 	require.True(t, found, "no fulfillment transaction found for request %s", requestIDHash)
+
+	t.Log("Done!")
+}
+
+// testSingleConsumerWorstCaseReservation checks that the node does not process
+// a request whose subscription balance is below the worst-case fulfillment
+// cost, and that topping the subscription up unblocks it.
+func testSingleConsumerWorstCaseReservation(
+	t *testing.T,
+	ownerKey ethkey.KeyV2,
+	uni coordinatorV2UniverseCommon,
+	batchCoordinatorAddress common.Address,
+	vrfVersion vrfcommon.Version,
+	_ bool,
+) {
+	ctx := t.Context()
+	callBackGasLimit := uint32(100_000)
+
+	key1 := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
+	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			Key:          new(key1.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
+		c.Feature.LogPoller = new(true)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
+	})
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
+	consumer := uni.vrfConsumers[0]
+	consumerContract := uni.consumerContracts[0]
+	consumerContractAddress := uni.consumerContractAddresses[0]
+
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
+	require.NoError(t, app.Start(ctx))
+
+	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
+	require.True(t, ok)
+	gasPriceWei := chain.Config().EVM().GasEstimator().PriceMaxKey(key1.Address)
+	maxCost, err := v22.EstimateFeeJuels(callBackGasLimit, gasPriceWei.ToInt(), vrftesthelpers.WeiPerUnitLink.BigInt(), v22.DefaultPremiumPercentage)
+	require.NoError(t, err)
+
+	// Fund below the worst-case cost but above the simulated charge.
+	initialFund := new(big.Int).Mul(maxCost, big.NewInt(70))
+	initialFund.Div(initialFund, big.NewInt(100))
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, initialFund, uni.rootContract, uni.backend, false)
+
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni.rootContract, uni.rootContractAddress, batchCoordinatorAddress, uni, nil, vrfVersion, false, gasLanePriceWei)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	numWords := uint32(1)
+	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, callBackGasLimit, uni.rootContract, uni.backend, false)
+
+	// The request must not be fulfilled while the balance is below the
+	// worst-case cost.
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
+	allStates := []txmgrtypes.TxState{
+		txmgrcommon.TxUnstarted, txmgrcommon.TxInProgress, txmgrcommon.TxUnconfirmed,
+		txmgrcommon.TxConfirmed, txmgrcommon.TxFinalized,
+	}
+	require.Never(t, func() bool {
+		uni.backend.Commit()
+		txes, txErr := txstore.FindTxesByMetaFieldAndStates(ctx, "GlobalSubId", subID.String(), allStates, testutils.SimulatedChainID)
+		require.NoError(t, txErr)
+		return len(txes) > 0
+	}, 15*time.Second, 250*time.Millisecond)
+
+	// Top up to the worst-case cost; the request is fulfilled on the next pass.
+	_, err = consumerContract.TopUpSubscription(consumer, maxCost)
+	require.NoError(t, err)
+	uni.backend.Commit()
+	require.True(t, mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID))
+
+	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract, false)
+	assertNumRandomWords(t, consumerContract, numWords)
 
 	t.Log("Done!")
 }

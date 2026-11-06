@@ -727,6 +727,15 @@ func (r *VRFSpecResolver) GasOverhead() *int32 {
 	return &gasOverhead
 }
 
+// PremiumPercentage resolves the spec's premium percentage.
+func (r *VRFSpecResolver) PremiumPercentage() *int32 {
+	if r.spec.PremiumPercentage == nil {
+		return nil
+	}
+	premiumPercentage := int32(*r.spec.PremiumPercentage) //nolint:gosec // bound to 155 by validation
+	return &premiumPercentage
+}
+
 // VRFOwnerAddress resolves the spec's vrf owner address.
 func (r *VRFSpecResolver) VRFOwnerAddress() *string {
 	if r.spec.VRFOwnerAddress == nil {
