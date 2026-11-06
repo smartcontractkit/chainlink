@@ -1290,7 +1290,7 @@ func createVRFJobWithGasOverhead(
 	jb, err := vrfcommon.ValidatedVRFSpec(spec)
 	require.NoError(t, err)
 	require.NotNil(t, jb.VRFSpec.GasOverhead)
-	require.EqualValues(t, gasOverhead, *jb.VRFSpec.GasOverhead)
+	require.Equal(t, gasOverhead, *jb.VRFSpec.GasOverhead)
 	err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni, coordinator, vrfkey, new(gasLanePrice.ToInt().Uint64()))
