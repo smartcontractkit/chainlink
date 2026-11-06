@@ -127,11 +127,6 @@ type listenerV2 struct {
 	latestHeadMu     sync.RWMutex
 	latestHeadNumber uint64
 
-	// Cached coordinator gasAfterPaymentCalculation, used to size fulfillments.
-	gasAfterPaymentMu      sync.RWMutex
-	gasAfterPayment        uint32
-	gasAfterPaymentExpires time.Time
-
 	// Wait group to wait on all goroutines to shut down.
 	wg *sync.WaitGroup
 

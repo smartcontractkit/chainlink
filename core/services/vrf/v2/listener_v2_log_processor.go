@@ -600,7 +600,12 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 
 	l.Infow("Processing requests for subscription")
 
-	gasAfterPaymentCalculation := lsn.gasAfterPaymentCalculation(ctx, l)
+	// Gas reserved for coordinator verification and accounting when flooring
+	// the fulfillment gas limit; overridable per job for chain repricing events.
+	gasOverhead := GasProofVerification
+	if lsn.job.VRFSpec.GasOverhead != nil {
+		gasOverhead = *lsn.job.VRFSpec.GasOverhead
+	}
 
 	ready, expired := lsn.getReadyAndExpired(l, reqs)
 	for _, reqID := range expired {
@@ -710,7 +715,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 			// which can be cheaper than on-chain execution. Floor the gas limit at the
 			// worst case so the fulfillment completes even if the callback uses its
 			// entire allotment.
-			if floor := WorstCaseGasFloor(p.reqCommitment.CallbackGasLimit(), gasAfterPaymentCalculation); p.gasLimit < floor {
+			if floor := WorstCaseGasFloor(p.reqCommitment.CallbackGasLimit(), gasOverhead); p.gasLimit < floor {
 				ll.Infow("Estimated gas limit below worst-case floor, bumping",
 					"estimatedGasLimit", p.gasLimit,
 					"gasFloor", floor,

@@ -464,6 +464,20 @@ func TestVRFV2PlusIntegration_SingleConsumer_WorstCaseGasFloor(t *testing.T) {
 	)
 }
 
+func TestVRFV2PlusIntegration_SingleConsumer_WorstCaseGasFloorOverride(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	testSingleConsumerWorstCaseGasFloorOverride(
+		t,
+		ownerKey,
+		uni.coordinatorV2UniverseCommon,
+		uni.batchCoordinatorContractAddress,
+		vrfcommon.V2Plus,
+		false,
+	)
+}
+
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 	t.Parallel()
 	t.Run("link payment", func(tt *testing.T) {

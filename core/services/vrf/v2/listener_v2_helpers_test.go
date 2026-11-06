@@ -38,66 +38,39 @@ func TestListener_EstimateFeeJuels(t *testing.T) {
 
 func TestListener_WorstCaseGasFloor(t *testing.T) {
 	t.Parallel()
-	// gasAfterPaymentCalculation from the Ethereum mainnet VRFCoordinatorV2_5 config.
-	const mainnetGasAfterPaymentCalculation = uint32(38_900)
-
 	tests := []struct {
-		name                string
-		callbackGasLimit    uint32
-		gasAfterPaymentCalc uint32
+		name             string
+		callbackGasLimit uint32
+		gasOverhead      uint32
 	}{
-		{"zero callback gas limit", 0, mainnetGasAfterPaymentCalculation},
-		{"small callback gas limit", 20_000, mainnetGasAfterPaymentCalculation},
-		{"typical callback gas limit", 100_000, mainnetGasAfterPaymentCalculation},
-		{"larger callback gas limit", 250_000, mainnetGasAfterPaymentCalculation},
-		{"large callback gas limit", 900_000, mainnetGasAfterPaymentCalculation},
-		{"max gas limit", 2_500_000, mainnetGasAfterPaymentCalculation},
+		{"zero callback gas limit", 0, v2.GasProofVerification},
+		{"small callback gas limit", 20_000, v2.GasProofVerification},
+		{"typical callback gas limit", 100_000, v2.GasProofVerification},
+		{"larger callback gas limit", 250_000, v2.GasProofVerification},
+		{"large callback gas limit", 900_000, v2.GasProofVerification},
+		{"max gas limit", 2_500_000, v2.GasProofVerification},
+		{"job spec override", 100_000, 250_000},
 		{"extreme values must not overflow", math.MaxUint32, math.MaxUint32},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			floor := v2.WorstCaseGasFloor(tt.callbackGasLimit, tt.gasAfterPaymentCalc)
+			floor := v2.WorstCaseGasFloor(tt.callbackGasLimit, tt.gasOverhead)
 			require.GreaterOrEqual(t, floor,
-				uint64(tt.callbackGasLimit)+uint64(v2.GasProofVerification)+uint64(tt.gasAfterPaymentCalc))
+				uint64(tt.callbackGasLimit)*64/63+uint64(tt.gasOverhead))
 			if tt.callbackGasLimit > 0 {
-				require.Greater(t, floor, v2.WorstCaseGasFloor(tt.callbackGasLimit-1, tt.gasAfterPaymentCalc))
+				require.Greater(t, floor, v2.WorstCaseGasFloor(tt.callbackGasLimit-1, tt.gasOverhead))
 			}
 		})
 	}
 
+	// The default overhead must cover the highest coordinator overhead measured
+	// across chains at callbackGasLimit=0 (~165k gas), with headroom.
+	require.Greater(t, v2.GasProofVerification, uint32(165_000))
+
 	// A max-size request stays within the gas limit Start() treats as required,
 	// so correctly configured nodes are unaffected.
-	require.LessOrEqual(t, v2.WorstCaseGasFloor(2_500_000, mainnetGasAfterPaymentCalculation),
-		uint64(2_500_000)+uint64(v2.GasProofVerification)*2)
-}
-
-func TestListener_FallbackGasAfterPaymentCalculation(t *testing.T) {
-	t.Parallel()
-	// The fallback must exceed gasAfterPaymentCalculation on every coordinator we
-	// deploy to, so the floor it produces is never undersized.
-	deployedValues := map[string]uint32{
-		"ethereum":  38_900,
-		"base":      42_500,
-		"optimism":  42_500,
-		"soneium":   42_500,
-		"bsc":       48_500,
-		"polygon":   48_500,
-		"ronin":     48_500,
-		"arbitrum":  56_000,
-		"avalanche": 56_000,
-	}
-	for chain, gasAfterPaymentCalculation := range deployedValues {
-		require.Greater(t, v2.FallbackGasAfterPaymentCalculation, gasAfterPaymentCalculation,
-			"fallback must exceed the value deployed on %s", chain)
-		require.Greater(t,
-			v2.WorstCaseGasFloor(100_000, v2.FallbackGasAfterPaymentCalculation),
-			v2.WorstCaseGasFloor(100_000, gasAfterPaymentCalculation),
-			"fallback floor must be conservative relative to %s", chain)
-	}
-
-	// The fallback must not push fulfillments past the node's configured limit.
-	require.LessOrEqual(t, v2.WorstCaseGasFloor(2_500_000, v2.FallbackGasAfterPaymentCalculation),
+	require.LessOrEqual(t, v2.WorstCaseGasFloor(2_500_000, v2.GasProofVerification),
 		uint64(2_500_000)+uint64(v2.GasProofVerification)*2)
 }
 

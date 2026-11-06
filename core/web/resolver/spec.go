@@ -718,6 +718,15 @@ func (r *VRFSpecResolver) GasLanePrice() *string {
 	return &gasLanePriceGWei
 }
 
+// GasOverhead resolves the spec's gas overhead.
+func (r *VRFSpecResolver) GasOverhead() *int32 {
+	if r.spec.GasOverhead == nil {
+		return nil
+	}
+	gasOverhead := int32(*r.spec.GasOverhead) //nolint:gosec // uint32 fits in int32 for any sane overhead
+	return &gasOverhead
+}
+
 // VRFOwnerAddress resolves the spec's vrf owner address.
 func (r *VRFSpecResolver) VRFOwnerAddress() *string {
 	if r.spec.VRFOwnerAddress == nil {

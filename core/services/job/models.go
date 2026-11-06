@@ -580,6 +580,11 @@ type VRFSpec struct {
 	// to 20 if not provided.
 	ChunkSize uint32 `toml:"chunkSize"`
 
+	// GasOverhead overrides the gas reserved for coordinator verification and
+	// accounting when sizing fulfillments. Optional; defaults to a measured
+	// worst case across chains. Set this after a chain upgrade reprices opcodes.
+	GasOverhead *uint32 `toml:"gasOverhead" db:"gas_overhead"`
+
 	// BackoffInitialDelay is the amount of time to wait before retrying a failed request after the
 	// first failure. V2 only.
 	BackoffInitialDelay time.Duration `toml:"backoffInitialDelay"`
