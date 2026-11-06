@@ -1097,10 +1097,11 @@ func (lsn *listenerV2) simulateFulfillment(
 	// estimate how much funds are needed so that we can log it if the simulation fails.
 	res.fundsNeeded, err = lsn.estimateFee(ctx, req.req, maxGasPriceWei)
 	if err != nil {
-		// not critical, just log and continue
-		lg.Warnw("unable to estimate funds needed for request, continuing anyway",
-			"err", err)
+		// The worst-case request cost is needed to reserve subscription fees, so
+		// retry this request instead of enqueuing an under-reserved fulfillment.
+		res.err = fmt.Errorf("estimating funds needed for request: %w", err)
 		res.fundsNeeded = big.NewInt(0)
+		return res
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]any{
