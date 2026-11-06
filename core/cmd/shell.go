@@ -167,6 +167,7 @@ func newBeholderClient(
 		ChipIngressSendTimeout:         cfgTelemetry.ChipIngressSendTimeout(),
 		ChipIngressDrainTimeout:        cfgTelemetry.ChipIngressDrainTimeout(),
 		ChipIngressMaxGRPCRequestSize:  cfgTelemetry.ChipIngressMaxGRPCRequestSize(),
+		ChipIngressMaxBufferedBytes:    cfgTelemetry.ChipIngressMaxBufferedBytes(),
 		ChipIngressLogger:              lggr,
 		LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
 		LogLevel:                       cfgTelemetry.LogLevel(),

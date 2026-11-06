@@ -3032,6 +3032,7 @@ type Telemetry struct {
 	ChipIngressSendTimeout                 *commonconfig.Duration
 	ChipIngressDrainTimeout                *commonconfig.Duration
 	ChipIngressMaxGRPCRequestSize          *int
+	ChipIngressMaxBufferedBytes            *int64
 	DurableEmitterEnabled                  *bool
 	DurableEmitterRetransmitBatchSize      *int
 	DurableEmitterEventTTL                 *commonconfig.Duration
@@ -3108,6 +3109,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.ChipIngressMaxGRPCRequestSize; v != nil {
 		b.ChipIngressMaxGRPCRequestSize = v
+	}
+	if v := f.ChipIngressMaxBufferedBytes; v != nil {
+		b.ChipIngressMaxBufferedBytes = v
 	}
 	if v := f.DurableEmitterEnabled; v != nil {
 		b.DurableEmitterEnabled = v
@@ -3193,6 +3197,9 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	}
 	if v := b.ChipIngressMaxGRPCRequestSize; v != nil && *v <= 0 {
 		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressMaxGRPCRequestSize", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressMaxBufferedBytes; v != nil && *v < 0 {
+		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressMaxBufferedBytes", Value: *v, Msg: "must not be negative"})
 	}
 	return err
 }

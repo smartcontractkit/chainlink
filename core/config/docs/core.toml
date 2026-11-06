@@ -880,6 +880,8 @@ ChipIngressSendTimeout = '10s' # Default
 ChipIngressDrainTimeout = '30s' # Default
 # ChipIngressMaxGRPCRequestSize is the max serialized PublishBatch request size in bytes. Batches exceeding this are split before send (min 1 MiB enforced by batch client).
 ChipIngressMaxGRPCRequestSize = 10485760 # Default
+# ChipIngressMaxBufferedBytes caps the total serialized size in bytes of events the batch client has accepted but not yet sent and acknowledged. Events over the budget are dropped and counted in chip_ingress.events_dropped. 0 means unlimited.
+ChipIngressMaxBufferedBytes = 0 # Default
 # DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
 DurableEmitterEnabled = true # Default
 # DurableEmitterRetransmitBatchSize is the number of pending events the durable emitter replays per retransmit tick.

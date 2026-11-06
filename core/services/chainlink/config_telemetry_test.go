@@ -426,6 +426,26 @@ func TestTelemetryConfig_ChipIngressMaxGRPCRequestSize(t *testing.T) {
 	}
 }
 
+func TestTelemetryConfig_ChipIngressMaxBufferedBytes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  int64
+	}{
+		{"ChipIngressMaxBufferedBytesSet", toml.Telemetry{ChipIngressMaxBufferedBytes: new(int64(268435456))}, 268435456},
+		{"ChipIngressMaxBufferedBytesNil", toml.Telemetry{ChipIngressMaxBufferedBytes: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressMaxBufferedBytes())
+		})
+	}
+}
+
 func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
 	tests := []struct {
 		name      string

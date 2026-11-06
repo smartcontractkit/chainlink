@@ -174,6 +174,13 @@ func (b *telemetryConfig) ChipIngressMaxGRPCRequestSize() int {
 	return *b.s.ChipIngressMaxGRPCRequestSize
 }
 
+func (b *telemetryConfig) ChipIngressMaxBufferedBytes() int64 {
+	if b.s.ChipIngressMaxBufferedBytes == nil {
+		return 0
+	}
+	return *b.s.ChipIngressMaxBufferedBytes
+}
+
 func (b *telemetryConfig) DurableEmitterEnabled() bool {
 	if b.s.DurableEmitterEnabled == nil {
 		return true

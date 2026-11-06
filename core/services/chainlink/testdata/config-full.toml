@@ -362,6 +362,7 @@ ChipIngressSendInterval = '500ms'
 ChipIngressSendTimeout = '10s'
 ChipIngressDrainTimeout = '30s'
 ChipIngressMaxGRPCRequestSize = 10485760
+ChipIngressMaxBufferedBytes = 268435456
 DurableEmitterEnabled = false
 DurableEmitterRetransmitBatchSize = 500
 DurableEmitterEventTTL = '6h0m0s'
