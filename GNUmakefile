@@ -84,7 +84,11 @@ install-chainlink-dev: operator-ui ## Install the chainlink binary.
 
 .PHONY: install-chainlink-cover
 install-chainlink-cover: operator-ui ## Install the chainlink binary with cover flag.
-	go install -tags coverage -cover -covermode=atomic $(GOFLAGS) .
+	go install -tags "dev coverage" -cover -covermode=atomic $(GOFLAGS) .
+
+.PHONY: install-chainlink-debug
+install-chainlink-debug: operator-ui ## Install the chainlink binary with dev, coverage, and race instrumentation.
+	go install -tags "dev coverage" -cover -covermode=atomic -race $(GCFLAGS) $(GOFLAGS) .
 
 .PHONY: chainlink
 chainlink: ## Build the chainlink binary.

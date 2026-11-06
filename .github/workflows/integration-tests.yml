@@ -35,6 +35,11 @@ on:
         required: false
         type: boolean
         default: false
+      debug:
+        description: "Build the Chainlink image with dev + coverage + race instrumentation and use the -debug tag."
+        required: false
+        type: boolean
+        default: false
 
 # Only run 1 of this workflow at a time per PR, but don't cancel runs on develop
 concurrency:
@@ -47,6 +52,7 @@ env:
   CHAINLINK_REF: ${{ inputs.cl_ref || github.sha }}
   TEST_SUITE: smoke
   E2E_COVERAGE: ${{ (github.event_name == 'workflow_dispatch' && inputs.coverage) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-coverage')) }}
+  E2E_DEBUG: ${{ (github.event_name == 'workflow_dispatch' && inputs.debug) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-debug')) }}
 
 jobs:
   enforce-ctf-version:
@@ -318,7 +324,7 @@ jobs:
         uses: smartcontractkit/.github/actions/ecr-image-exists@ecr-image-exists/0.2.0
         with:
           repository: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
-          tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}${{ matrix.image.name == '' && env.E2E_COVERAGE && '-coverage' || '' }}
+          tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}${{ matrix.image.name == '' && (env.E2E_DEBUG && '-debug' || env.E2E_COVERAGE && '-coverage' || '') || '' }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
       - name: Explain build/no-build decision
@@ -365,7 +371,8 @@ jobs:
           docker-additional-build-args: |
             APT_CACHE_BUST=${{ steps.apt-cache-bust.outputs.key }}
             ${{ matrix.image.name == '' && format('GO_COVER_FLAG={0}', env.E2E_COVERAGE) || '' }}
-          image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}${{ matrix.image.name == '' && env.E2E_COVERAGE && '-coverage' || '' }}
+            ${{ matrix.image.name == '' && format('GO_DEBUG_FLAG={0}', env.E2E_DEBUG) || '' }}
+          image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}${{ matrix.image.name == '' && (env.E2E_DEBUG && '-debug' || env.E2E_COVERAGE && '-coverage' || '') || '' }}
           dockerfile: ${{ matrix.image.dockerfile }}
           docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
           docker-repository-name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
@@ -508,7 +515,7 @@ jobs:
       ecr: "sdlc"
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}${{ ((github.event_name == 'workflow_dispatch' && inputs.coverage) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-coverage'))) && '-coverage' || '' }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}${{ ((github.event_name == 'workflow_dispatch' && inputs.debug) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-debug'))) && '-debug' || (((github.event_name == 'workflow_dispatch' && inputs.coverage) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-coverage'))) && '-coverage' || '') }}
     secrets: inherit
 
   run-core-cre-e2e-regression-tests:
@@ -526,7 +533,7 @@ jobs:
       ecr: "sdlc"
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}${{ ((github.event_name == 'workflow_dispatch' && inputs.coverage) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-coverage'))) && '-coverage' || '' }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}${{ ((github.event_name == 'workflow_dispatch' && inputs.debug) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-debug'))) && '-debug' || (((github.event_name == 'workflow_dispatch' && inputs.coverage) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-coverage'))) && '-coverage' || '') }}
     secrets: inherit
 
   run-core-cre-mixed-env-tests:
@@ -544,7 +551,7 @@ jobs:
       ecr: "sdlc"
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}${{ ((github.event_name == 'workflow_dispatch' && inputs.coverage) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-coverage'))) && '-coverage' || '' }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}${{ ((github.event_name == 'workflow_dispatch' && inputs.debug) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-debug'))) && '-debug' || (((github.event_name == 'workflow_dispatch' && inputs.coverage) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-coverage'))) && '-coverage' || '') }}
       # Base-branch commit this PR is built on top of, so the mixed-env baseline is the exact
       # branch the PR image derives from (develop or a release branch) and the 2-2 split
       # isolates only the PR's changes. Empty for non-PR events; the workflow then falls back
@@ -852,7 +859,7 @@ jobs:
       ecr: "sdlc"
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}${{ ((github.event_name == 'workflow_dispatch' && inputs.coverage) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-coverage'))) && '-coverage' || '' }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}${{ ((github.event_name == 'workflow_dispatch' && inputs.debug) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-debug'))) && '-debug' || (((github.event_name == 'workflow_dispatch' && inputs.coverage) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-coverage'))) && '-coverage' || '') }}
       baseline_ref: ${{ github.event.pull_request.base.sha }}
       base_ref_name: ${{ github.event.pull_request.base.ref }}
     secrets: inherit
