@@ -3,6 +3,21 @@ name: Coverage Collector
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Commit SHA whose coverage artifacts should be collected
+        required: true
+        type: string
+      pr_number:
+        description: PR number to comment on (optional)
+        required: false
+        type: string
+      wait_for_runs:
+        description: Wait for the other watched workflows for this SHA
+        required: false
+        default: true
+        type: boolean
   workflow_run:
     workflows:
       - CI Core
@@ -25,13 +40,13 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: coverage-${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+  group: coverage-${{ inputs.target_sha || github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
   cancel-in-progress: true
 
 jobs:
   collect:
     name: Collect coverage
-    if: ${{ github.event_name == 'pull_request' || github.event.workflow_run.conclusion != 'skipped' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || github.event.workflow_run.conclusion != 'skipped' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -52,11 +67,11 @@ jobs:
       - name: Collect and publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TARGET_SHA: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
-          PR_NUMBER: ${{ github.event.pull_request.number || (github.event.workflow_run.pull_requests[0].number || '') }}
+          TARGET_SHA: ${{ inputs.target_sha || github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+          PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number || (github.event.workflow_run.pull_requests[0].number || '') }}
           PATCH_BASE: ""
           PATCH_HEAD: ""
-          WAIT_FOR_RUNS: "true"
+          WAIT_FOR_RUNS: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.wait_for_runs == true && 'true' || 'false') }}
           WAIT_TIMEOUT: "2700"
         run: ./tools/coverage/collect.sh
 
@@ -64,7 +79,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: coverage-report-${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}-${{ github.run_id }}
+          name: coverage-report-${{ inputs.target_sha || github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}-${{ github.run_id }}
           path: coverage-report
           retention-days: 30
           if-no-files-found: warn

@@ -65,7 +65,12 @@ fi
 runs="$(gh run list --repo "$REPO" --commit "$TARGET_SHA" -L 500 --json databaseId --jq '.[].databaseId' 2>/dev/null || true)"
 for run in $runs; do
   names="$(gh api "repos/${REPO}/actions/runs/${run}/artifacts?per_page=100" --jq '.artifacts[].name' 2>/dev/null \
-    | grep -E '^(coverage-(core|deployment|inmemory|tools|e2e)-|test-results-)' || true)"
+    | grep -E '^(coverage-(core|deployment|inmemory|tools|e2e)-|test-results-)' \
+    | grep -v '^coverage-core-go_core_race_tests-' || true)"
+  # Nightly race coverage is a separate 7-day artifact for race-instrumented
+  # inspection. It is intentionally excluded from the project and patch
+  # coverage calculation: -race changes runtime/timing and would make the
+  # normal coverage trend incomparable.
   while IFS= read -r name; do
     [[ -z "$name" ]] && continue
     dest="${ARTIFACTS}/${run}/${name}"
@@ -81,7 +86,7 @@ integration_dirs=""
 e2e_dirs=""
 while IFS= read -r dir; do
   case "$dir" in
-    */coverage-core-go_core_tests-*|*/coverage-core-go_core_race_tests-*|*/coverage-core-scripts-*|*/coverage-tools-*)
+    */coverage-core-go_core_tests-*|*/coverage-core-scripts-*|*/coverage-tools-*)
       unit_dirs="${unit_dirs}${unit_dirs:+,}${dir}" ;;
     */coverage-core-go_core_tests_integration-*|*/coverage-deployment-*|*/coverage-inmemory-*)
       integration_dirs="${integration_dirs}${integration_dirs:+,}${dir}" ;;
