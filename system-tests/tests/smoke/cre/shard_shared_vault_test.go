@@ -15,7 +15,7 @@ import (
 
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
@@ -105,7 +105,7 @@ func awaitSharedVaultWorkflowExecution(t *testing.T, testEnv *ttypes.TestEnviron
 	t.Helper()
 	testLogger := framework.L
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
@@ -146,8 +146,8 @@ func mustSharedVaultShardPair(t *testing.T, testEnv *ttypes.TestEnvironment, top
 		require.FailNowf(t, "wrong topology for the sharded shared-vault tests",
 			"expected at least 2 shard DONs, found %d. This test requires the topology pair %s: "+
 				"2 workflow shard DONs without the vault capability + 1 shared vault DON. If this fails in CI, the test is missing from the "+
-				"per-test topology mapping (.github/workflows/cre-system-tests.yaml PER_TEST_TOPOLOGIES_JSON and "+
-				"tools/ci/internal/matrix/system.go defaultCRESmokePerTestTopologies) and ran against the default config. "+
+				"per-test topology mapping (tools/ci/internal/matrix/system.go defaultCRESmokePerTestTopologies) "+
+				"and ran against the default config. "+
 				"Running DONs: %v", len(shardDONs), topologyHint, donNames(testEnv))
 	}
 

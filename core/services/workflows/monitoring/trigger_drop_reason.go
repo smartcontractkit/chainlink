@@ -21,7 +21,16 @@ const (
 	TriggerDropReasonTriggerIndexInvalid              = "trigger_index_invalid"
 	TriggerDropReasonExecutionResponseLimitReadFailed = "execution_response_limit_read_failed"
 	TriggerDropReasonExecutionResponseLimitInvalid    = "execution_response_limit_invalid"
-	TriggerDropReasonCentralQueueFull                 = "central_queue_full"
 	TriggerDropReasonUnregistered                     = "unregistered"
+	TriggerDropReasonEngineGone                       = "engine_gone"
+	TriggerDropReasonEngineNotCoordinated             = "engine_not_coordinated"
+	TriggerDropReasonObservedAtMissing                = "observed_at_missing"
 	TriggerDropReasonUnknown                          = "unknown"
+)
+
+// Reason values for platform_engine_trigger_event_shadow_failed_total (low cardinality).
+const (
+	ShadowFailReasonWindowCheckFailed = "window_check_failed"
+	ShadowFailReasonQueueFull         = "queue_full"
+	ShadowFailReasonPutFailed         = "put_failed"
 )

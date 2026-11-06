@@ -1,5 +1,41 @@
 # Changelog Chainlink Core
 
+## 2.72.0
+
+### Minor Changes
+
+- [#24095](https://github.com/smartcontractkit/chainlink/pull/24095) [`b420458`](https://github.com/smartcontractkit/chainlink/commit/b42045871838afb2ce2b26dc4627c43c695ccb0e) - Minor bump to start next version
+
+### Patch Changes
+
+- [#24144](https://github.com/smartcontractkit/chainlink/pull/24144) [`56c57fb`](https://github.com/smartcontractkit/chainlink/commit/56c57fbc826fe007304c004a5548c7903399c844) - Give the confidential relay request latency and confidential workflows enclave execution histograms explicit buckets up to 90s and 300s. The SDK default buckets stopped at 10s, which pinned their P99 at 10,000ms. #bugfix
+
+- [#24136](https://github.com/smartcontractkit/chainlink/pull/24136) [`3a0dcc2`](https://github.com/smartcontractkit/chainlink/commit/3a0dcc284fe29b45a378b03711a6dc9b5e82fba9) - Fix flaky TestDispatcher_DropsWhenReceiverBufferFull. #internal
+
+- [#23946](https://github.com/smartcontractkit/chainlink/pull/23946) [`7d31f23`](https://github.com/smartcontractkit/chainlink/commit/7d31f230e273b703821402aa5c4e87697e133b00) - Bump libocr to the October 30, 2026 release (199a6f17c59863999480e990c7c0b6ba7796ec92), replacing the alpha pin. The vault oracle now uses the released `OCR3_1OracleArgs3` (previously `OCR3_1OracleArgs109Alpha`).
+
+  #updated
+
+- [#24134](https://github.com/smartcontractkit/chainlink/pull/24134) [`f25542b`](https://github.com/smartcontractkit/chainlink/commit/f25542b1e814c7392f24cafc713517d510b58127) - Log user-origin vault errors in the confidential relay (e.g. a missing secret) at info instead of error, and the metering mode switch at debug. #internal
+
+- [#24115](https://github.com/smartcontractkit/chainlink/pull/24115) [`062e15e`](https://github.com/smartcontractkit/chainlink/commit/062e15efb6c1c5f37c4f29a903a35aa05b37674a) - Classify the per-execution secrets call limit as a user LimitExceeded error, so the confidential relay answers it with invalid params instead of an internal error. #bugfix
+
+## 2.71.0
+
+### Minor Changes
+
+- [#24025](https://github.com/smartcontractkit/chainlink/pull/24025) [`a660e1e`](https://github.com/smartcontractkit/chainlink/commit/a660e1e75bdd6ab98238a1857e8c030aa621282d) - Minor bump to start next version
+
+- [#24014](https://github.com/smartcontractkit/chainlink/pull/24014) [`a170ee9`](https://github.com/smartcontractkit/chainlink/commit/a170ee9f1085b5d7943d3321946c1028f9f5e433) - #added Offchain capability configs support `localOnly` (`local_only`) to disable Don2Don client/server shims while retaining local capability execution. The flag follows whole-capability source selection and participates in divergence telemetry.
+
+- [#24064](https://github.com/smartcontractkit/chainlink/pull/24064) [`fb2745b`](https://github.com/smartcontractkit/chainlink/commit/fb2745bd0f1e7eaccccb2a1a2bebd8f4bc5dc543) - Add `Capabilities.WorkflowRegistry.FetchMode` (`gateway` default, or `direct`), and `FetchAllowedHosts` so nodes can download workflow artifacts directly instead of through the Gateway. #added
+
+### Patch Changes
+
+- [#23858](https://github.com/smartcontractkit/chainlink/pull/23858) [`7052b8d`](https://github.com/smartcontractkit/chainlink/commit/7052b8d8cfe3706c44120f8b4a2520affd22ac54) - Emit a `cre:workflow:compute` usage MeterRecord per workflow execution when `[Metering].MeterRecordsEnabled` is on. The compute duration is reported by the module that ran the workflow (the guest run for WASM, the enclave-measured run for confidential workflows). #internal
+
+- [#24067](https://github.com/smartcontractkit/chainlink/pull/24067) [`103c5cc`](https://github.com/smartcontractkit/chainlink/commit/103c5cc178cecb988017f2d0bc8542555251beb9) - #bugfix Remote trigger fixes: the publisher forwards ACKs to the underlying trigger once per event, and the subscriber no longer panics or blocks when a trigger is unregistered while an event is being delivered.
+
 ## 2.70.0
 
 ### Minor Changes

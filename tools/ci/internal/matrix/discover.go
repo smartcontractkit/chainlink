@@ -14,18 +14,34 @@ import (
 
 // DiscoverOptions specifies filtering options when discovering test names.
 type DiscoverOptions struct {
-	IgnoredPatterns []string
+	// IncludedPatterns, when non-empty, restricts results to names matching at
+	// least one pattern. IgnoredPatterns still applies afterwards.
+	IncludedPatterns []string
+	IgnoredPatterns  []string
 }
 
 // DiscoverGoTestNames scans a directory for Go test and example function names.
 func DiscoverGoTestNames(dir string, opts DiscoverOptions) ([]string, error) {
-	var ignoredRegexes []*regexp.Regexp
-	for _, pattern := range opts.IgnoredPatterns {
-		re, err := regexp.Compile(pattern)
-		if err != nil {
-			return nil, fmt.Errorf("invalid ignore regex %q: %w", pattern, err)
+	compilePatterns := func(patterns []string, kind string) ([]*regexp.Regexp, error) {
+		regexes := make([]*regexp.Regexp, 0, len(patterns))
+		for _, pattern := range patterns {
+			re, err := regexp.Compile(pattern)
+			if err != nil {
+				return nil, fmt.Errorf("invalid %s regex %q: %w", kind, pattern, err)
+			}
+			regexes = append(regexes, re)
 		}
-		ignoredRegexes = append(ignoredRegexes, re)
+		return regexes, nil
+	}
+
+	includedRegexes, err := compilePatterns(opts.IncludedPatterns, "include")
+	if err != nil {
+		return nil, err
+	}
+
+	ignoredRegexes, err := compilePatterns(opts.IgnoredPatterns, "ignore")
+	if err != nil {
+		return nil, err
 	}
 
 	entries, err := os.ReadDir(dir)
@@ -58,6 +74,10 @@ func DiscoverGoTestNames(dir string, opts DiscoverOptions) ([]string, error) {
 				continue
 			}
 
+			if !matchesAny(includedRegexes, name) {
+				continue
+			}
+
 			ignored := false
 			for _, re := range ignoredRegexes {
 				if re.MatchString(name) {
@@ -78,4 +98,18 @@ func DiscoverGoTestNames(dir string, opts DiscoverOptions) ([]string, error) {
 	sort.Strings(result)
 
 	return result, nil
+}
+
+// matchesAny reports whether name matches at least one pattern. An empty
+// pattern list matches everything.
+func matchesAny(regexes []*regexp.Regexp, name string) bool {
+	if len(regexes) == 0 {
+		return true
+	}
+	for _, re := range regexes {
+		if re.MatchString(name) {
+			return true
+		}
+	}
+	return false
 }

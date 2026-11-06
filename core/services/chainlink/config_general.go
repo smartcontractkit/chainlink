@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -571,6 +572,16 @@ func (g *generalConfig) Tracing() coreconfig.Tracing {
 
 func (g *generalConfig) Telemetry() coreconfig.Telemetry {
 	return &telemetryConfig{s: g.c.Telemetry, sh: &shardingConfig{s: g.c.Sharding}}
+}
+
+func (g *generalConfig) ResourceAttributes() map[string]string {
+	attrs := g.Telemetry().ResourceAttributes()
+	if sharding := g.Sharding(); sharding != nil && sharding.ShardingEnabled() {
+		if _, ok := attrs["shardIndex"]; !ok {
+			attrs["shardIndex"] = strconv.FormatUint(uint64(sharding.ShardIndex()), 10)
+		}
+	}
+	return attrs
 }
 
 func (g *generalConfig) Metering() coreconfig.Metering {

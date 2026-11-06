@@ -88,6 +88,12 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 	"Test_CRE_V2_ShardedCapabilitiesManualEVMLogTrigger": {
 		{Topology: "workflow-sharded-capabilities", Configs: "configs/workflow-sharded-capabilities-don.toml"},
 	},
+	"Test_CRE_V2_ShardedCapabilitiesCallIsolation": {
+		{Topology: "workflow-sharded-capabilities", Configs: "configs/workflow-sharded-capabilities-don.toml"},
+	},
+	"Test_CRE_V2_ShardedCapabilitiesDon2DonDiscoveryRouting": {
+		{Topology: "workflow-sharded-capabilities", Configs: "configs/workflow-sharded-capabilities-don.toml"},
+	},
 	"Test_CRE_V2_ShardRingOCROverrides": {
 		{Topology: "workflow-gateway-sharded-ringocr-overrides", Configs: "configs/workflow-gateway-sharded-ringocr-overrides.toml"},
 	},
@@ -133,14 +139,17 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 }
 
 var defaultCRERegressionPerTestConfigs = map[string]string{
-	"Test_CRE_V2_Stellar_Regression": "configs/workflow-gateway-don-stellar.toml",
-	"Test_CRE_V2_Solana_Regression":  "configs/workflow-don-solana.toml",
+	"Test_CRE_V2_Stellar_Regression":           "configs/workflow-gateway-don-stellar.toml",
+	"Test_CRE_V2_Solana_Regression":            "configs/workflow-don-solana.toml",
+	"Test_CRE_V2_Solana_LogTrigger_Regression": "configs/workflow-don-solana.toml",
 }
 
 // BuildCRESmokeMatrix discovers tests in dir and constructs CRE smoke test matrix.
 func BuildCRESmokeMatrix(ctx context.Context, opts CRESmokeOptions) ([]CRESmokeEntry, error) {
 	testNames, err := DiscoverGoTestNames(opts.Dir, DiscoverOptions{
-		IgnoredPatterns: []string{"^Test_Upgrade", "^TestMain$"},
+		// Only Test_CRE_* tests are real E2E tests. Plain unit tests that live in
+		// the same package do not need a runner or a CRE environment.
+		IncludedPatterns: []string{"^Test_CRE_"},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed discovering tests in %s: %w", opts.Dir, err)

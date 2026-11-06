@@ -836,6 +836,7 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 	}
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
 	failoverEnabled := w.shardingFailoverGate != nil && w.shardingFailoverGate.AllowErr(ctx) == nil
+	shardFailoverMetrics().SetFailoverEnabled(ctx, failoverEnabled)
 	for _, wf := range workflows {
 		id := wf.WorkflowID.Hex()
 		if failoverEnabled {
@@ -867,6 +868,8 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) {
 	ticker := w.getTicker(w.syncTickInterval)
 	pendingEventsBySource := make(map[string]map[string]*reconciliationEvent)
+	// prevActiveIDsBySource holds each source's unfiltered active workflow IDs from the last successful tick.
+	prevActiveIDsBySource := make(map[string]map[string]struct{})
 	w.lggr.Debug("running readRegistryStateLoop")
 	for {
 		select {
@@ -963,6 +966,28 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 						"source", sourceName, "error", genErr)
 					continue
 				}
+
+				// Mark events caused only by a shard move so the handler skips the external lifecycle emit:
+				// a deletion of a workflow still active on-chain (moved away), or a fresh activation of a
+				// workflow already active on-chain last tick (moved in). Retries keep their original flag.
+				activeIDs := make(map[string]struct{}, len(workflows))
+				for _, wfMeta := range workflows {
+					if wfMeta.Status == WorkflowStatusActive {
+						activeIDs[wfMeta.WorkflowID.Hex()] = struct{}{}
+					}
+				}
+				for _, evt := range events {
+					if evt.retryCount > 0 {
+						continue
+					}
+					switch evt.Name {
+					case WorkflowDeleted:
+						_, evt.ShardTransition = activeIDs[evt.id]
+					case WorkflowActivated:
+						_, evt.ShardTransition = prevActiveIDsBySource[sourceIdentifier][evt.id]
+					}
+				}
+				prevActiveIDsBySource[sourceIdentifier] = activeIDs
 
 				w.lggr.Debugw("Generated events for source", "source", sourceName, "num", len(events))
 

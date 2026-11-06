@@ -305,6 +305,8 @@ MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 MaxConcurrency = 12
 MaxActivationRetries = 100
+FetchMode = 'gateway'
+FetchAllowedHosts = []
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 ArtifactStorageHost = ''
@@ -338,7 +340,7 @@ DonID = 'example_gateway_don'
 URL = 'wss://localhost:8081/node'
 
 [Capabilities.Local]
-RegistryBasedLaunchAllowlist = ['^cron@1\.0\.0$', '^http-action@.*$']
+RegistryBasedLaunchAllowlist = ['^cron@1\.0\.0$', '^http-actions@.*$']
 UseOffchainRegistry = true
 
 [Telemetry]

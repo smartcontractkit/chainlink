@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -32,10 +33,7 @@ type client struct {
 	cfg           atomic.Pointer[dynamicConfig]
 	lggr          logger.Logger
 
-	// durableEmit persists transmission schedule events emitted by requests
-	// created through this client. Nil falls back to durableemitter.GlobalEmit
-	// in the request constructor.
-	durableEmit func(ctx context.Context, body []byte, attrKVs ...any) error
+	aggregatorFactory request.AggregatorFactory
 
 	requestIDToCallerRequest map[string]*request.ClientRequest
 	mutex                    sync.Mutex
@@ -76,11 +74,11 @@ var (
 // ClientOption configures a client.
 type ClientOption func(*client)
 
-// WithDurableEmit sets the durable emit func for transmission schedule events
-// emitted by requests created through this client. Nil keeps the default,
-// durableemitter.GlobalEmit.
-func WithDurableEmit(fn func(ctx context.Context, body []byte, attrKVs ...any) error) ClientOption {
-	return func(c *client) { c.durableEmit = fn }
+// WithAggregatorFactory overrides the response aggregator used to decide the
+// outcome of requests created through this client. Nil keeps the default
+// quorum aggregator.
+func WithAggregatorFactory(f request.AggregatorFactory) ClientOption {
+	return func(c *client) { c.aggregatorFactory = f }
 }
 
 func NewClient(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger, opts ...ClientOption) *client {
@@ -113,15 +111,17 @@ func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localD
 		return errors.New("requestTimeout must be positive")
 	}
 
-	// always replace the whole dynamicConfig object to avoid inconsistent state
-	c.cfg.Store(&dynamicConfig{
+	newCfg := &dynamicConfig{
 		remoteCapabilityInfo:    remoteCapabilityInfo,
 		localDONInfo:            localDonInfo,
 		requestTimeout:          requestTimeout,
 		signers:                 signers,
 		minResponsesToAggregate: minResponsesToAggregate,
-	})
-	c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout)
+	}
+	// always replace the whole dynamicConfig object to avoid inconsistent state
+	if prev := c.cfg.Swap(newCfg); prev == nil || !reflect.DeepEqual(*prev, *newCfg) {
+		c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout, "minResponsesToAggregate", minResponsesToAggregate)
+	}
 	return nil
 }
 
@@ -255,9 +255,20 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 		return commoncap.CapabilityResponse{}, errors.New("config not set - call SetConfig() before Execute()")
 	}
 
-	req, err := request.NewClientExecuteRequest(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
-		cfg.requestTimeout, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate,
-		request.WithDurableEmit(c.durableEmit))
+	var agg request.ResponseAggregator
+	if c.aggregatorFactory != nil {
+		agg = c.aggregatorFactory(capReq, *cfg.remoteCapabilityInfo.DON)
+	}
+
+	var req *request.ClientRequest
+	var err error
+	if agg != nil {
+		req, err = request.NewClientExecuteRequestWithAggregator(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
+			cfg.requestTimeout, c.capMethodName, agg)
+	} else {
+		req, err = request.NewClientExecuteRequest(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
+			cfg.requestTimeout, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate)
+	}
 	if err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to create client request: %w", err)
 	}
@@ -266,6 +277,7 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	if err = c.storeRequest(req); err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to store request: %w", err)
 	}
+	req.Send()
 
 	var respResult []byte
 	var respErr error

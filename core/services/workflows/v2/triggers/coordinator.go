@@ -10,6 +10,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -24,6 +25,12 @@ import (
 // ErrWorkflowNotCoordinated is returned by UnregisterTriggers for
 // a workflowID the coordinator never registered.
 var ErrWorkflowNotCoordinated = errors.New("workflow not registered with the trigger coordinator")
+
+// ErrCapacityNotSupported is returned by AvailableCapacity when the coordinator's
+// ExecutionConcurrency limiter is not the 4-element [workflow, owner, org, global]
+// limits.MultiResourcePoolLimiter[int] shape NewLimiters builds in production (for
+// example, a test fixture using a single unscoped pool).
+var ErrCapacityNotSupported = errors.New("execution concurrency limiter does not report per-scope capacity")
 
 const (
 	defaultDrainTimeout = 10 * time.Minute
@@ -67,6 +74,15 @@ type Coordinator interface {
 	// Returns ErrWorkflowNotCoordinated if workflowID was never registered here.
 	// A failed capability unregistration is returned and retried on the next call.
 	UnregisterTriggers(ctx context.Context, workflowID string) error
+
+	// AvailableCapacity reports free execution-concurrency capacity at every
+	// scope. Each scope is read separately, with no lock across scopes, so an
+	// execution that starts or finishes during the call can make scopes
+	// disagree slightly. Treat the result as an approximate reading, not a
+	// reservation: capacity it reports as free can be taken before it is used.
+	// Returns ErrCapacityNotSupported if the shared ExecutionConcurrency
+	// limiter does not break down by scope.
+	AvailableCapacity(ctx context.Context) (Capacity, error)
 }
 
 // RegisteredEngine is what EngineRegistry.Get returns: a sink the coordinator
@@ -101,6 +117,19 @@ type AdmissionLimiters struct {
 	ExecutionConcurrency limits.ResourcePoolLimiter[int]
 }
 
+// Capacity is a snapshot of free execution-concurrency capacity, read from the
+// shared ExecutionConcurrency pool. PerOrg, PerOwner and PerWorkflow cover only
+// the tenants of workflows registered with this coordinator right now: neither
+// the pool nor the settings behind it expose a way to list every tenant ID that
+// has ever been seen or configured, so a tenant with no active registration
+// never appears here, even if it has a custom limit configured in settings.
+type Capacity struct {
+	Global      int
+	PerOrg      map[string]int
+	PerOwner    map[string]int
+	PerWorkflow map[string]int
+}
+
 // EngineRegistry is the coordinator's read-only view of running engines. It is
 // how the coordinator resolves a workflow's engine at delivery time; the
 // coordinator keeps no engine map of its own.
@@ -124,6 +153,11 @@ type coordinator struct {
 	clock          clockwork.Clock
 
 	drainTimeout time.Duration
+
+	// shadow is nil unless WithShadowMode is set.
+	shadow *shadowMode
+	// drainer is nil unless WithDrainer is set.
+	drainer services.Service
 
 	workflows *workflowRegistry
 
@@ -172,6 +206,7 @@ func NewCoordinator(
 	engineRegistry EngineRegistry,
 	workflowLimits limits.ResourceLimiter[int],
 	clock clockwork.Clock,
+	opts ...CoordinatorOption,
 ) Coordinator {
 	c := &coordinator{
 		lggr:           logger.Named(deps.Logger, "TriggerCoordinator"),
@@ -183,13 +218,50 @@ func NewCoordinator(
 		drainTimeout:   defaultDrainTimeout,
 		workflows:      newWorkflowRegistry(),
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
 
 	c.Service, c.eng = services.Config{
 		Name:  "TriggerCoordinator",
 		Close: c.close,
+		NewSubServices: func(logger.Logger) []services.Service {
+			if c.drainer == nil {
+				return nil
+			}
+			return []services.Service{c.drainer}
+		},
 	}.NewServiceEngine(c.lggr)
 
 	return c
+}
+
+// CoordinatorOption configures optional coordinator behaviour.
+type CoordinatorOption func(*coordinator)
+
+// WithShadowMode copies each event observed inside activePeriod to queue before the event enters its
+// workflow's own queue. The copy is best-effort. A full queue never delays or drops the event.
+//
+// The window has one-second resolution. An event is inside when the second it was observed in is inside
+// activePeriod, so both ends are inclusive and an event observed just under a second past the end is still
+// copied.
+func WithShadowMode(queue Queue, activePeriod limits.RangeLimiter[commonconfig.Timestamp]) CoordinatorOption {
+	return func(c *coordinator) {
+		c.shadow = &shadowMode{queue: queue, activePeriod: activePeriod}
+	}
+}
+
+// shadowMode is the central queue an event is copied to, and the window in which it is copied.
+type shadowMode struct {
+	queue        Queue
+	activePeriod limits.RangeLimiter[commonconfig.Timestamp]
+}
+
+// WithDrainer makes drainer a sub-service of the coordinator. It starts before the coordinator, closes after
+// it, and is part of the coordinator's readiness and health report. It is for the temporary drainer of the
+// central queue.
+func WithDrainer(drainer services.Service) CoordinatorOption {
+	return func(c *coordinator) { c.drainer = drainer }
 }
 
 func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscriber, params RegistrationParams) (triggerCapIDs []string, err error) {
@@ -207,6 +279,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		platform.KeyWorkflowOwner, params.WorkflowOwner,
 		platform.KeyWorkflowName, params.WorkflowName.String(),
 		platform.KeyOrganizationID, cre.Org,
+		platform.KeySDK, subscriber.SdkName(),
 	)
 
 	// Registration IDs derive from the workflowID, so a leftover registration
@@ -337,6 +410,57 @@ func (c *coordinator) UnregisterTriggers(ctx context.Context, workflowID string)
 	return nil
 }
 
+func (c *coordinator) AvailableCapacity(ctx context.Context) (Capacity, error) {
+	pools, ok := c.admission.ExecutionConcurrency.(limits.MultiResourcePoolLimiter[int])
+	if !ok || len(pools) != 4 {
+		return Capacity{}, ErrCapacityNotSupported
+	}
+	// Order fixed by NewLimiters (config.go): workflow, owner, org, global.
+	wfPool, ownerPool, orgPool, globalPool := pools[0], pools[1], pools[2], pools[3]
+
+	// Global has no tenant key: it is one pool shared by everyone, so it needs no
+	// per-workflow context and is read even with zero workflows registered.
+	global, err := globalPool.Available(ctx)
+	if err != nil {
+		return Capacity{}, fmt.Errorf("global scope: %w", err)
+	}
+
+	capacity := Capacity{
+		Global:      global,
+		PerOrg:      map[string]int{},
+		PerOwner:    map[string]int{},
+		PerWorkflow: map[string]int{},
+	}
+	for _, cw := range c.workflows.all() {
+		tenantCtx := contexts.WithCRE(ctx, cw.cre)
+
+		wf, err := wfPool.Available(tenantCtx)
+		if err != nil {
+			return Capacity{}, fmt.Errorf("workflow scope (%s): %w", cw.cre.Workflow, err)
+		}
+		capacity.PerWorkflow[cw.cre.Workflow] = wf
+
+		// Many workflows share an owner or org; its pool gives the same answer for
+		// each of them, so its read once.
+		if _, seen := capacity.PerOwner[cw.cre.Owner]; !seen {
+			owner, err := ownerPool.Available(tenantCtx)
+			if err != nil {
+				return Capacity{}, fmt.Errorf("owner scope (%s): %w", cw.cre.Owner, err)
+			}
+			capacity.PerOwner[cw.cre.Owner] = owner
+		}
+
+		if _, seen := capacity.PerOrg[cw.cre.Org]; !seen {
+			org, err := orgPool.Available(tenantCtx)
+			if err != nil {
+				return Capacity{}, fmt.Errorf("org scope (%s): %w", cw.cre.Org, err)
+			}
+			capacity.PerOrg[cw.cre.Org] = org
+		}
+	}
+	return capacity, nil
+}
+
 func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
 	workflowID, err := ParseWorkflowID(triggerRegistrationID)
 	if err != nil {
@@ -372,16 +496,21 @@ func (c *coordinator) close() error {
 }
 
 // buildEnqueueFn creates the readers' deliver function. It never waits for an
-// execution: it stamps the event's deadline, puts it on the registration's
-// queue for the admitter, and drops it if the queue is full.
+// execution: it runs the engine's admission check, stamps the event's deadline,
+// puts it on the registration's queue for the admitter, and drops it if the
+// queue is full.
 func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Context, CoordinatedEvent) {
 	return func(ctx context.Context, event CoordinatedEvent) {
 		tm := cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID)
 
+		if !c.admitEvent(ctx, cw, tm, event) {
+			return
+		}
+
 		// The deadline needs ObservedAt. Drop the event if it is missing.
 		if event.ObservedAt.IsZero() {
 			cw.lggr.Errorw("Trigger event missing ObservedAt, dropping", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
-			tm.IncrementTriggerEventDroppedTotal(ctx, "observed_at_missing")
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonObservedAtMissing)
 			return
 		}
 		queueTimeout, err := c.admission.TriggerEventQueueTimeout.Limit(ctx)
@@ -398,6 +527,10 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 		}
 		event.Deadline = event.ObservedAt.Add(queueTimeout)
 
+		// Events are copied to the central queue before being put to the workflow queue, so the central queue also
+		// sees events the engine path later drops.
+		c.putShadow(ctx, cw, tm, event)
+
 		if err := cw.queue.Put(ctx, event); err != nil {
 			tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
 			if _, isFull := errors.AsType[limits.ErrorQueueFull](err); isFull {
@@ -412,7 +545,74 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 			return
 		}
 		tm.IncrementTriggerEventEnqueuedCounter(ctx)
+		cw.lggr.Debugw("Enqueued trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
 	}
+}
+
+// putShadow copies event to the central queue when shadow mode is on for it. The window is checked for every
+// event and never cached, so a settings change applies to the next event. A read error counts as off. A
+// failed copy is never returned, because the event still runs on the engine path. Accepted and failed copies
+// are counted on tm, which carries the workflow labels. An event outside the window is not a failure.
+func (c *coordinator) putShadow(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) {
+	if c.shadow == nil {
+		return
+	}
+	if err := c.shadow.activePeriod.Check(ctx, commonconfig.NewTimestamp(event.ObservedAt)); err != nil {
+		if _, outside := errors.AsType[limits.ErrorRangeLimited[commonconfig.Timestamp]](err); !outside {
+			cw.lggr.Warnw("Failed to check shadow trigger mode, not copying the event to the central queue", "err", err)
+			tm.IncrementTriggerEventShadowFailedCounter(ctx, monitoring.ShadowFailReasonWindowCheckFailed)
+		}
+		return
+	}
+	// TODO(CRE-6181): stamp SequenceNumber before the put.
+	if err := c.shadow.queue.Put(ctx, event); err != nil {
+		cw.lggr.Debugw("Failed to copy trigger event to the central queue", "triggerID", event.TriggerCapID,
+			"eventID", event.Event.Event.ID, "err", err)
+		reason := monitoring.ShadowFailReasonPutFailed
+		if errors.Is(err, ErrQueueFull) {
+			reason = monitoring.ShadowFailReasonQueueFull
+		}
+		tm.IncrementTriggerEventShadowFailedCounter(ctx, reason)
+		return
+	}
+	tm.IncrementTriggerEventShadowedCounter(ctx)
+}
+
+// admitEvent runs the engine's admission check, if it has one, before the
+// event is queued. It uses the reader's context, so UnregisterTriggers
+// cancels a check that is stuck. It reports false if the event must not be queued.
+func (c *coordinator) admitEvent(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) bool {
+	engine, ok := c.coordinatedEngine(ctx, cw, tm, event)
+	if !ok {
+		return false
+	}
+	admitter, ok := engine.(Admitter)
+	if !ok {
+		return true
+	}
+
+	err := admitter.Admit(ctx, event)
+	switch {
+	case err == nil:
+		return true
+	case errors.Is(err, ErrAdmissionCached):
+		// Deliberately left un-ACKed so it can be replayed on failover. Checked
+		// before ctx.Err(), as in the legacy put, so an event cached just before
+		// an unregister is not counted as an unregistered drop.
+		cw.lggr.Infow("Trigger event cached for failover, not enqueuing", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
+	case ctx.Err() != nil:
+		// Unregistered during the check. Nothing was decided, so the event is not ACKed.
+		cw.lggr.Infow("Trigger admission cut short, dropping event without ACK", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonUnregistered)
+	case errors.Is(err, ErrAdmissionDenied):
+		cw.lggr.Infow("Trigger event denied admission, dropping", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+		// WithoutCancel: an unregister racing in must not stop the ACK of a decided denial.
+		c.dropDeniedEvent(context.WithoutCancel(ctx), cw, event, err)
+	default:
+		cw.lggr.Errorw("Trigger admission check failed, dropping event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonAdmissionDenied)
+	}
+	return false
 }
 
 // admit is the registration's admitter. It takes events off the registration's
@@ -430,6 +630,7 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 
 		now := c.clock.Now()
 		eventAge := now.Sub(event.ObservedAt)
+		cw.lggr.Debugw("Popped a trigger event from the queue", "eventID", event.Event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
 		tm.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
 		if now.After(event.Deadline) {
 			cw.lggr.Warnw("Trigger event is too old, skipping execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
@@ -438,7 +639,7 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 			continue
 		}
 
-		engine, ok := c.coordinatedEngine(cw, event)
+		engine, ok := c.coordinatedEngine(ctx, cw, tm, event)
 		if !ok {
 			continue
 		}
@@ -461,18 +662,16 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 		c.eng.Go(func(context.Context) {
 			defer cw.executions.Done()
 			defer free()
-			// WithoutCancel: unregistering stops ingress, it must not kill an execution already running,
-			// nor the ACK of an event that was denied.
-			execCtx := context.WithoutCancel(ctx)
-			if err := engine.ExecuteTrigger(execCtx, event); err != nil {
-				cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "err", err)
-				if errors.Is(err, ErrAdmissionCached) {
-					// A cached event (ErrAdmissionCached) is deliberately left un-ACKed.
-					return
-				}
-				if errors.Is(err, ErrAdmissionDenied) {
-					c.dropDeniedEvent(execCtx, cw, event)
-				}
+			// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
+			err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event)
+			switch {
+			case err == nil:
+			case errors.Is(err, ErrEngineDraining):
+				cw.lggr.Infow("Engine is draining, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
+			case errors.Is(err, ErrDuplicateExecution), errors.Is(err, ErrEngineClosed):
+				cw.lggr.Infow("Skipping trigger event execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+			default:
+				cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
 			}
 		})
 	}
@@ -480,31 +679,32 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 
 // coordinatedEngine looks up the workflow's engine fresh for every event
 // instead of caching it, since the engine for a workflow can change while the
-// registration is running. It reports false, after logging why, if there is no
-// engine to deliver to.
-func (c *coordinator) coordinatedEngine(cw *coordinatedWorkflow, event CoordinatedEvent) (RegisteredEngine, bool) {
+// registration is running. It reports false, after logging why and counting
+// the drop, if there is no engine to deliver to.
+func (c *coordinator) coordinatedEngine(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) (RegisteredEngine, bool) {
 	engine, found := c.engines.Get(cw.wid)
 	if !found {
-		cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
+		cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineGone)
 		return nil, false
 	}
 	if !engine.IsCoordinated() {
-		cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
+		cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineNotCoordinated)
 		return nil, false
 	}
 	return engine, true
 }
 
-// dropDeniedEvent handles an event the engine's admission check rejected. The event will never execute, so it is
-// ACKed and counted as dropped.
-func (c *coordinator) dropDeniedEvent(ctx context.Context, cw *coordinatedWorkflow, event CoordinatedEvent) {
+// dropDeniedEvent handles an event the engine's admission check rejected with err. The event will never execute, so
+// it is ACKed and counted as dropped.
+func (c *coordinator) dropDeniedEvent(ctx context.Context, cw *coordinatedWorkflow, event CoordinatedEvent, err error) {
 	eventID := event.Event.Event.ID
 	registrationID := RegistrationID(cw.wid.Hex(), event.TriggerIndex)
-	if err := Ack(ctx, cw.lggr, cw.metrics, event.TriggerCapID, registrationID, eventID, cw.handles[registrationID]); err != nil {
-		cw.lggr.Errorw("Failed to ACK trigger event after admission denial", "triggerID", event.TriggerCapID, "eventID", eventID, "err", err)
+	if ackErr := Ack(ctx, cw.lggr, cw.metrics, event.TriggerCapID, registrationID, eventID, cw.handles[registrationID]); ackErr != nil {
+		cw.lggr.Errorw("Failed to ACK trigger event after admission denial", "triggerID", event.TriggerCapID, "eventID", eventID, "err", ackErr)
 	}
-	cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID).
-		IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonAdmissionDenied)
+	CountAdmissionDenied(ctx, cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID), err)
 }
 
 // releaseWhenDrained drops the registration's handles and closes its queue
@@ -656,4 +856,15 @@ func (r *workflowRegistry) pending() map[string]*coordinatedWorkflow {
 		}
 	}
 	return pending
+}
+
+// all returns every currently registered workflow, a snapshot taken under the lock.
+func (r *workflowRegistry) all() []*coordinatedWorkflow {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	all := make([]*coordinatedWorkflow, 0, len(r.workflows))
+	for _, cw := range r.workflows {
+		all = append(all, cw)
+	}
+	return all
 }

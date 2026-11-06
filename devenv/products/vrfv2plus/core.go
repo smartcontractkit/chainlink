@@ -445,7 +445,6 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		bhsJob, bhsErr := cl[1].MustCreateJob(&BlockhashStoreJobSpec{
 			Name:                     "bhs-vrf-v2-plus",
 			ExternalJobID:            uuid.New().String(),
-			CoordinatorV2Address:     coord.Address(),
 			CoordinatorV2PlusAddress: coord.Address(),
 			BlockhashStoreAddress:    bhs.Address(),
 			FromAddresses:            []string{m.bhsKeyAddr},
@@ -472,7 +471,6 @@ func (m *Configurator) ConfigureJobsAndContracts(
 			Name:                       "bhf-vrf-v2-plus",
 			ExternalJobID:              uuid.New().String(),
 			ForwardingAllowed:          false,
-			CoordinatorV2Address:       coord.Address(),
 			CoordinatorV2PlusAddress:   coord.Address(),
 			BlockhashStoreAddress:      bhs.Address(),
 			BatchBlockhashStoreAddress: batchBHS.Address(),

@@ -14,16 +14,18 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -33,15 +35,17 @@ const (
 	testOwner        = "abcdef" // already normalized: contexts.WithCRE strips a 0x prefix
 	testOrg          = "org-1"
 	testDonID        = uint32(7)
+	testSdkName      = "javascript"
 )
 
 var testTenant = contexts.CRE{Org: testOrg, Owner: testOwner, Workflow: validWorkflowID}
 
 type fakeSubscriber struct {
-	tenant contexts.CRE
-	subs   []*sdkpb.TriggerSubscription
-	err    error
-	calls  int
+	tenant  contexts.CRE
+	sdkName string
+	subs    []*sdkpb.TriggerSubscription
+	err     error
+	calls   int
 }
 
 func (s *fakeSubscriber) Subscribe(context.Context) ([]*sdkpb.TriggerSubscription, error) {
@@ -51,16 +55,27 @@ func (s *fakeSubscriber) Subscribe(context.Context) ([]*sdkpb.TriggerSubscriptio
 
 func (s *fakeSubscriber) Tenant() contexts.CRE { return s.tenant }
 
+func (s *fakeSubscriber) SdkName() string { return s.sdkName }
+
 type fakeEngine struct {
 	coordinated bool
 	// execute, if set, runs inside ExecuteTrigger on the execution's goroutine.
 	execute func(ctx context.Context, event CoordinatedEvent)
 	// err is returned from every ExecuteTrigger call.
 	err error
+	// admit, if set, is the engine's admission check. Unset admits every event.
+	admit func(ctx context.Context, event CoordinatedEvent) error
 
 	mu      sync.Mutex
 	events  []CoordinatedEvent
 	tenants []contexts.CRE
+}
+
+func (e *fakeEngine) Admit(ctx context.Context, event CoordinatedEvent) error {
+	if e.admit == nil {
+		return nil
+	}
+	return e.admit(ctx, event)
 }
 
 func (e *fakeEngine) ExecuteTrigger(ctx context.Context, event CoordinatedEvent) error {
@@ -114,6 +129,14 @@ func (r *fakeEngineRegistry) set(wid types.WorkflowID, e RegisteredEngine) {
 	r.engines[wid] = e
 }
 
+// remove simulates the workflow's engine disappearing from the registry, e.g.
+// because the workflow was unregistered while events were still queued.
+func (r *fakeEngineRegistry) remove(wid types.WorkflowID) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.engines, wid)
+}
+
 // fakeWorkflowLimits counts slots, recording the tenant each call was scoped to.
 type fakeWorkflowLimits struct {
 	mu      sync.Mutex
@@ -165,32 +188,75 @@ type coordinatorFixture struct {
 	engine  *fakeEngine
 }
 
-// newCoordinatorFixture starts a coordinator with one coordinated engine
-// already in the registry for testTenant's workflow.
-func newCoordinatorFixture(t *testing.T) *coordinatorFixture {
-	t.Helper()
-	return newCoordinatorFixtureWithAdmission(t, newTestAdmission())
+// fixtureConfig holds the parts of a coordinatorFixture a test can replace with a fixtureOption.
+type fixtureConfig struct {
+	clock     *clockwork.FakeClock
+	admission AdmissionLimiters
+	metrics   *monitoring.WorkflowsMetricLabeler
+	lggr      logger.Logger
+	opts      []CoordinatorOption
 }
 
-// newCoordinatorFixtureWithAdmission is newCoordinatorFixture with the given admission limiters.
-func newCoordinatorFixtureWithAdmission(t *testing.T, admission AdmissionLimiters) *coordinatorFixture {
+// fixtureOption changes one part of a coordinatorFixture's setup.
+type fixtureOption func(*fixtureConfig)
+
+// withClock replaces the fixture's fake clock, which otherwise starts at clockwork's default time.
+func withClock(clock *clockwork.FakeClock) fixtureOption {
+	return func(c *fixtureConfig) { c.clock = clock }
+}
+
+// withAdmission replaces the default newTestAdmission limiters.
+func withAdmission(admission AdmissionLimiters) fixtureOption {
+	return func(c *fixtureConfig) { c.admission = admission }
+}
+
+// withMetrics replaces the coordinator metrics, e.g. with newTestMeterMetrics to read them back.
+func withMetrics(metrics *monitoring.WorkflowsMetricLabeler) fixtureOption {
+	return func(c *fixtureConfig) { c.metrics = metrics }
+}
+
+// withLogger replaces the plain test logger, for tests that assert on log output.
+func withLogger(lggr logger.Logger) fixtureOption {
+	return func(c *fixtureConfig) { c.lggr = lggr }
+}
+
+// withCoordinatorOptions passes opts to NewCoordinator.
+func withCoordinatorOptions(opts ...CoordinatorOption) fixtureOption {
+	return func(c *fixtureConfig) { c.opts = append(c.opts, opts...) }
+}
+
+// newCoordinatorFixture starts a coordinator with one coordinated engine already in the registry for
+// testTenant's workflow. opts replace parts of the default setup.
+func newCoordinatorFixture(t *testing.T, opts ...fixtureOption) *coordinatorFixture {
 	t.Helper()
+	cfg := fixtureConfig{
+		clock:     clockwork.NewFakeClock(),
+		admission: newTestAdmission(),
+		metrics:   newTestMetrics(t),
+		lggr:      logger.Test(t),
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	engines := newFakeEngineRegistry()
 	wfLimits := &fakeWorkflowLimits{}
-	clock := clockwork.NewFakeClock()
 
 	wid, err := types.WorkflowIDFromHex(validWorkflowID)
 	require.NoError(t, err)
 	engine := &fakeEngine{coordinated: true}
 	engines.set(wid, engine)
 
-	c := NewCoordinator(newRegisterDeps(t, capReg, limits.NewGateLimiter(true)), admission, engines, wfLimits, clock)
+	deps := newRegisterDeps(t, capReg, limits.NewGateLimiter(true))
+	deps.Metrics = cfg.metrics
+	deps.Logger = cfg.lggr
+	c := NewCoordinator(deps, cfg.admission, engines, wfLimits, cfg.clock, cfg.opts...)
 	servicetest.Run(t, c)
 
 	return &coordinatorFixture{
 		c: c.(*coordinator), capReg: capReg, engines: engines, limits: wfLimits,
-		clock: clock, wid: wid, engine: engine,
+		clock: cfg.clock, wid: wid, engine: engine,
 	}
 }
 
@@ -205,12 +271,15 @@ func (f *coordinatorFixture) expectTrigger(t *testing.T) (*capmocks.TriggerCapab
 	return trigger, eventCh
 }
 
+// testQueueTimeout is the TriggerEventQueueTimeout from newTestAdmission. It is long enough that no test
+// accidentally expires an event. Tests for expiry override it.
+const testQueueTimeout = time.Hour
+
 // newTestAdmission returns unscoped admission limiters with the production defaults.
 func newTestAdmission() AdmissionLimiters {
 	return AdmissionLimiters{
-		NewTriggerEventQueue: newTestQueue(50),
-		// Long enough that no test accidentally expires an event; tests for expiry override this.
-		TriggerEventQueueTimeout: limits.NewUpperBoundLimiter(time.Hour),
+		NewTriggerEventQueue:     newTestQueue(50),
+		TriggerEventQueueTimeout: limits.NewUpperBoundLimiter(testQueueTimeout),
 		ExecutionConcurrency:     limits.GlobalResourcePoolLimiter(5),
 	}
 }
@@ -274,8 +343,9 @@ func newTrackedAdmission() (AdmissionLimiters, *queueTracker) {
 
 func newTestSubscriber() *fakeSubscriber {
 	return &fakeSubscriber{
-		tenant: testTenant,
-		subs:   []*sdkpb.TriggerSubscription{{Id: testTriggerCapID, Method: testMethod}},
+		tenant:  testTenant,
+		sdkName: testSdkName,
+		subs:    []*sdkpb.TriggerSubscription{{Id: testTriggerCapID, Method: testMethod}},
 	}
 }
 
@@ -318,11 +388,12 @@ func (f *coordinatorFixture) holdExecutions(t *testing.T) (release func()) {
 	return release
 }
 
-// countingPool counts Wait calls on a ResourcePoolLimiter, so a test can tell
-// when the admitter has taken an event off the queue and waits for a slot.
+// countingPool counts Wait and Available calls on a ResourcePoolLimiter, so a
+// test can tell when the admitter waits for a slot, or how often a pool is read.
 type countingPool struct {
 	limits.ResourcePoolLimiter[int]
-	waits atomic.Int32
+	waits      atomic.Int32
+	availables atomic.Int32
 }
 
 func (p *countingPool) Wait(ctx context.Context, amount int) (func(), error) {
@@ -330,22 +401,25 @@ func (p *countingPool) Wait(ctx context.Context, amount int) (func(), error) {
 	return p.ResourcePoolLimiter.Wait(ctx, amount)
 }
 
-// useTestMeter points the global beholder meter at a manual reader, so workflow
-// metrics created after this call can be read back. It swaps a global, so a test
-// that uses it must not run in parallel.
-func useTestMeter(t *testing.T) *sdkmetric.ManualReader {
+func newCountingPool(limit int) *countingPool {
+	return &countingPool{ResourcePoolLimiter: limits.GlobalResourcePoolLimiter(limit)}
+}
+
+func (p *countingPool) Available(ctx context.Context) (int, error) {
+	p.availables.Add(1)
+	return p.ResourcePoolLimiter.Available(ctx)
+}
+
+// newTestMeterMetrics returns coordinator metrics on a private meter, and the reader to collect them. It never
+// touches the global beholder client, so a test that uses it can run in parallel.
+func newTestMeterMetrics(t *testing.T) (*monitoring.WorkflowsMetricLabeler, *sdkmetric.ManualReader) {
 	t.Helper()
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
-
-	prev := beholder.GetClient()
-	t.Cleanup(func() { beholder.SetClient(prev) })
-	client := beholder.NoopClientConfig{Lggr: logger.Test(t)}.New()
-	client.Meter = mp.Meter("beholder")
-	client.MeterProvider = mp
-	beholder.SetClient(client)
-	return reader
+	em, err := monitoring.InitMonitoringResourcesWithMeter(mp.Meter("beholder"))
+	require.NoError(t, err)
+	return monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em), reader
 }
 
 // counterTotal sums the named counter over the data points that carry every
@@ -376,6 +450,28 @@ func counterTotal(t *testing.T, reader *sdkmetric.ManualReader, name string, att
 		}
 	}
 	return total
+}
+
+// dropsByReason returns platform_engine_trigger_event_dropped_total by drop reason.
+func dropsByReason(t *testing.T, reader *sdkmetric.ManualReader) map[string]int64 {
+	t.Helper()
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(t.Context(), &rm))
+	got := map[string]int64{}
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != "platform_engine_trigger_event_dropped_total" {
+				continue
+			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok, "expected Sum[int64] for %s, got %T", m.Name, m.Data)
+			for _, dp := range sum.DataPoints {
+				reason, _ := dp.Attributes.Value(attribute.Key(platform.KeyTriggerDropReason))
+				got[reason.AsString()] += dp.Value
+			}
+		}
+	}
+	return got
 }
 
 // mutableTimeoutLimiter is a BoundLimiter[time.Duration] whose value a test can change while running.

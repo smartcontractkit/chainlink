@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -36,6 +38,8 @@ const timeoutBasedFailoverTick = time.Second
 
 const failoverAutoExecutionTotalMetric = "failover_auto_execution_total"
 
+var _ triggers.Admitter = (*ShardFailoverManager)(nil)
+
 // ShardFailoverManager wraps a workflow Engine and handles shard ownership
 // decisions externally, keeping the Engine oblivious to sharding. On the
 // primary shard it allows all trigger events through. On a secondary shard
@@ -45,9 +49,10 @@ const failoverAutoExecutionTotalMetric = "failover_auto_execution_total"
 // The ownership check runs wherever the wrapped engine receives events. A legacy
 // engine registers its own triggers and calls the OnTriggerAdmission hook before
 // enqueueing. A coordinated engine relies on the trigger coordinator, which
-// subscribes and delivers through this manager, so ExecuteTrigger runs the check
-// before delegating. Either way the manager only decides; whoever holds the
-// trigger handles acts on a denial (ACK and drop) or a cached event (no ACK).
+// subscribes through this manager and calls Admit before enqueueing. Either way
+// the check runs on the trigger reader's context, before any execution slot is
+// taken, and the manager only decides. Whoever holds the trigger handles acts on
+// a denial (ACK and drop) or a cached event (no ACK).
 //
 // Lifecycle:
 //   - NewShardFailoverManager(cfg) creates the manager (no engine yet).
@@ -89,6 +94,9 @@ type ShardFailoverManagerConfig struct {
 	ShardResolver           shardownership.ShardResolver
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardRoutingSteady      *shardownership.SteadySignal
+	// ShardOwnershipCheckTimeout bounds one shard ownership lookup. A nil
+	// limiter uses the cresettings default.
+	ShardOwnershipCheckTimeout limits.TimeLimiter
 
 	// ShardDonLookup resolves a DON ID to the current DON, e.g. via
 	// capRegistry.DONByID. ResolveAllShards always returns real DON IDs
@@ -173,25 +181,47 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 }
 
 func (m *ShardFailoverManager) close() error {
+	// Stop admitting first: close the engine and unregister the handler so no
+	// trigger can be cached after the cache is cleared below. A trigger admitted
+	// between clearing and engine stop would increment cachedEvents with nothing
+	// left to decrement it.
+	var err error
+	if m.engine != nil {
+		err = m.engine.Close()
+	}
 	if m.cfg.Failover.Communicator != nil {
 		m.cfg.Failover.Communicator.UnregisterHandler(m.cfg.WorkflowID)
 	}
-	if m.engine != nil {
-		return m.engine.Close()
+
+	// The cache dies with the engine (workflow paused or deleted): its events
+	// leave the funnel as one closed exit batch, or the node-wide cached-events
+	// total stays inflated for the life of the process.
+	m.mu.Lock()
+	cached := int64(len(m.cache))
+	clear(m.cache)
+	m.mu.Unlock()
+	if cached > 0 {
+		fm := shardFailoverMetrics()
+		fm.RecordCacheExit(context.Background(), monitoring.ShardFailoverCacheExitClosed, cached)
 	}
-	return nil
+	return err
 }
 
 // admissionCheck decides whether the engine should process a trigger event,
 // checking shard ownership dynamically per-trigger. It is wired as a legacy
-// engine's OnTriggerAdmission hook and called by ExecuteTrigger for a
-// coordinated engine.
+// engine's OnTriggerAdmission hook and called by Admit for a coordinated engine.
+//
+// If ctx ends during the check it returns ctx.Err(), not a denial: the lookup
+// failed only because the caller stopped waiting, so the event must not be ACKed.
 func (m *ShardFailoverManager) admissionCheck(ctx context.Context, event triggers.CoordinatedEvent) error {
 	if !m.cfg.ShardingEnabled {
 		return nil
 	}
 
 	verdict := m.checkShardOwnership(ctx)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	switch verdict {
 	case shardownership.Allow:
@@ -253,25 +283,33 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 		m.removeCachedEvent(msg.TriggerEventId)
 
 	case ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR:
-		event, ok := m.popCachedEvent(msg.TriggerEventId)
+		event, ok := m.popCachedEvent(msg.TriggerEventId, monitoring.ShardFailoverCacheExitReplayed)
 		if !ok {
 			m.cfg.Logger.Warnw("failover: no cached event for triggerEventID, cannot replay",
 				"triggerEventID", msg.TriggerEventId,
 				"workflowID", msg.WorkflowId,
 				"executionID", msg.ExecutionId)
+			shardFailoverMetrics().RecordReplay(context.Background(), monitoring.ShardFailoverReplayMiss)
 			return
 		}
 		m.cfg.Logger.Infow("failover: replaying cached trigger event after system error",
 			"triggerEventID", msg.TriggerEventId,
 			"workflowID", msg.WorkflowId,
 			"executionID", msg.ExecutionId)
-		if err := m.engine.ExecuteTrigger(m.replayExecCtx(context.Background()), event); err != nil {
+		replayStart := time.Now()
+		err := m.engine.ExecuteTrigger(m.replayExecCtx(context.Background()), event)
+		outcome := monitoring.ShardFailoverReplaySucceeded
+		if err != nil {
+			outcome = monitoring.ShardFailoverReplayFailed
 			m.cfg.Logger.Errorw("failover: failed to replay cached trigger event",
 				"triggerEventID", msg.TriggerEventId,
 				"workflowID", msg.WorkflowId,
 				"executionID", msg.ExecutionId,
 				"err", err)
 		}
+		fm := shardFailoverMetrics()
+		fm.RecordReplay(context.Background(), outcome)
+		fm.RecordReplayDuration(context.Background(), outcome, time.Since(replayStart))
 	}
 }
 
@@ -282,11 +320,16 @@ func (m *ShardFailoverManager) replayExecCtx(parent context.Context) context.Con
 }
 
 // checkShardOwnership performs a dynamic per-trigger shard ownership check.
+// The lookup is bounded by ShardOwnershipCheckTimeout, so an unresponsive
+// resolver is reported as an orchestrator error rather than stalling the reader.
 func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardownership.Verdict {
 	needShardOwnerCheck := m.cfg.ShardRoutingSteady == nil || !m.cfg.ShardRoutingSteady.SkipCommittedOwnerCheck()
 	if !needShardOwnerCheck {
 		return shardownership.Allow
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, m.shardOwnershipCheckTimeout(ctx))
+	defer cancel()
 
 	switch {
 	case m.cfg.ShardResolver != nil:
@@ -306,12 +349,48 @@ func (m *ShardFailoverManager) checkShardOwnership(ctx context.Context) shardown
 	}
 }
 
+// shardOwnershipCheckTimeout reads the lookup bound. It falls back to the
+// cresettings default if the limiter is unset or has no usable value, so a
+// lookup is never left unbounded.
+func (m *ShardFailoverManager) shardOwnershipCheckTimeout(ctx context.Context) time.Duration {
+	fallback := cresettings.Default.ShardOwnershipCheckTimeout.DefaultValue
+	if m.cfg.ShardOwnershipCheckTimeout == nil {
+		return fallback
+	}
+	timeout, err := m.cfg.ShardOwnershipCheckTimeout.Limit(ctx)
+	if err != nil {
+		if !limits.IsErrRecoverable(err) {
+			m.cfg.Logger.Warnw("Failed to read shard ownership check timeout, using the default", "default", fallback, "err", err)
+			return fallback
+		}
+		m.cfg.Logger.Errorw("Failed to read shard ownership check timeout; continuing with the value the limiter returned", "err", err)
+	}
+	if timeout <= 0 {
+		return fallback
+	}
+	return timeout
+}
+
+// shardFailoverMetrics returns the process-global failover instruments, or nil
+// when they failed to register (all methods are nil-receiver safe).
+func shardFailoverMetrics() *monitoring.ShardFailoverMetrics {
+	m, _ := monitoring.GlobalShardFailoverMetrics()
+	return m
+}
+
 func (m *ShardFailoverManager) cacheEvent(ctx context.Context, event triggers.CoordinatedEvent) {
 	eventID := event.Event.Event.ID
 	failoverAt := m.timeoutBasedFailoverDeadline(ctx)
 	m.mu.Lock()
+	_, alreadyCached := m.cache[eventID]
 	m.cache[eventID] = cachedEvent{event: event, cachedAt: time.Now(), failoverAt: failoverAt}
 	m.mu.Unlock()
+	// A redelivered event ID overwrites its own entry; recounting it would
+	// inflate the cached counter and the node-wide total.
+	if !alreadyCached {
+		fm := shardFailoverMetrics()
+		fm.RecordTriggerCached(ctx)
+	}
 	m.cfg.Logger.Infow("secondary shard: cached trigger event for failover",
 		"eventID", eventID,
 		"myShardIndex", m.cfg.MyShardIndex,
@@ -390,7 +469,7 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 
 		switch m.checkShardOwnership(ctx) {
 		case shardownership.DenyNotOwner:
-			event, ok := m.popCachedEvent(c.eventID)
+			event, ok := m.popCachedEvent(c.eventID, monitoring.ShardFailoverCacheExitReplayed)
 			if !ok {
 				continue
 			}
@@ -419,7 +498,7 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 				}
 			})
 		case shardownership.Allow:
-			if _, ok := m.popCachedEvent(c.eventID); ok {
+			if _, ok := m.popCachedEvent(c.eventID, monitoring.ShardFailoverCacheExitDrained); ok {
 				m.cfg.Logger.Infow("secondary shard: dropped cached trigger event, shard is owner again",
 					"eventID", c.eventID,
 					"workflowID", m.cfg.WorkflowID)
@@ -429,7 +508,9 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 	}
 }
 
-func (m *ShardFailoverManager) popCachedEvent(eventID string) (triggers.CoordinatedEvent, bool) {
+// popCachedEvent removes eventID from the cache for replay. exit is the
+// ShardFailoverCacheExit* constant describing why the entry left the cache.
+func (m *ShardFailoverManager) popCachedEvent(eventID string, exit string) (triggers.CoordinatedEvent, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ce, ok := m.cache[eventID]
@@ -437,13 +518,23 @@ func (m *ShardFailoverManager) popCachedEvent(eventID string) (triggers.Coordina
 		return triggers.CoordinatedEvent{}, false
 	}
 	delete(m.cache, eventID)
+	fm := shardFailoverMetrics()
+	fm.RecordCacheExit(context.Background(), exit, 1)
 	return ce.event, true
 }
 
 func (m *ShardFailoverManager) removeCachedEvent(eventID string) {
 	m.mu.Lock()
-	delete(m.cache, eventID)
+	_, cached := m.cache[eventID]
+	if cached {
+		delete(m.cache, eventID)
+	}
 	m.mu.Unlock()
+	if !cached {
+		return
+	}
+	fm := shardFailoverMetrics()
+	fm.RecordCacheExit(context.Background(), monitoring.ShardFailoverCacheExitDrained, 1)
 }
 
 func (m *ShardFailoverManager) pruneLoop(ctx context.Context) {
@@ -454,16 +545,29 @@ func (m *ShardFailoverManager) pruneLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			m.mu.Lock()
-			now := time.Now()
-			for id, ce := range m.cache {
-				if now.Sub(ce.cachedAt) > cachedExpiry {
-					delete(m.cache, id)
-				}
-			}
-			m.mu.Unlock()
+			m.pruneExpiredCachedEvents(ctx)
 		}
 	}
+}
+
+// pruneExpiredCachedEvents drops entries older than cachedExpiry: the primary
+// never delivered a verdict for them, so they exit the funnel as expired.
+func (m *ShardFailoverManager) pruneExpiredCachedEvents(ctx context.Context) {
+	m.mu.Lock()
+	now := time.Now()
+	expired := 0
+	for id, ce := range m.cache {
+		if now.Sub(ce.cachedAt) > cachedExpiry {
+			delete(m.cache, id)
+			expired++
+		}
+	}
+	m.mu.Unlock()
+	if expired == 0 {
+		return
+	}
+	fm := shardFailoverMetrics()
+	fm.RecordCacheExit(ctx, monitoring.ShardFailoverCacheExitExpired, int64(expired))
 }
 
 // wireFailover sets up the communicator for ExecutionStatusUpdate messages.
@@ -573,15 +677,16 @@ func (m *ShardFailoverManager) ActiveExecutions() int32 { return m.engine.Active
 // DrainStartedAt delegates to the wrapped engine.
 func (m *ShardFailoverManager) DrainStartedAt() (time.Time, bool) { return m.engine.DrainStartedAt() }
 
-// ExecuteTrigger is how the trigger coordinator delivers events to a
-// coordinated engine on a sharded node. The coordinated engine never calls
-// OnTriggerAdmission, so the shard ownership check runs here first. An
-// admission error (triggers.ErrAdmissionDenied or triggers.ErrAdmissionCached)
-// is returned for the coordinator to act on; otherwise the event is delegated.
+// Admit is the shard ownership check for a coordinated engine, which never
+// calls OnTriggerAdmission. The trigger coordinator calls it before enqueueing
+// and acts on the result (see triggers.Admitter).
+func (m *ShardFailoverManager) Admit(ctx context.Context, event triggers.CoordinatedEvent) error {
+	return m.admissionCheck(ctx, event)
+}
+
+// ExecuteTrigger delegates to the wrapped engine. On the coordinated path the
+// event already passed Admit before it was queued.
 func (m *ShardFailoverManager) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
-	if err := m.admissionCheck(ctx, event); err != nil {
-		return err
-	}
 	return m.engine.ExecuteTrigger(ctx, event)
 }
 
@@ -593,6 +698,9 @@ func (m *ShardFailoverManager) Subscribe(ctx context.Context) ([]*sdkpb.TriggerS
 
 // Tenant delegates to the wrapped engine.
 func (m *ShardFailoverManager) Tenant() contexts.CRE { return m.engine.Tenant() }
+
+// SdkName delegates to the wrapped engine, same reasoning as Tenant.
+func (m *ShardFailoverManager) SdkName() string { return m.engine.SdkName() }
 
 // IsCoordinated delegates to the wrapped engine, so the registry classifies the
 // manager as whichever engine it wraps.

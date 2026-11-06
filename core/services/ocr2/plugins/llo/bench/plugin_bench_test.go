@@ -28,6 +28,7 @@ var benchWorkloads = []workload{
 	{numChannels: 100, streamsPerChannel: 10},
 	{numChannels: 1000, streamsPerChannel: 1},
 	{numChannels: 1000, streamsPerChannel: 10},
+	{numChannels: 2000, streamsPerChannel: 1},
 }
 
 // ---------------------------------------------------------------------------
@@ -79,8 +80,11 @@ func TestParity(t *testing.T) {
 // Observation → (Outcome | StateTransition) → Reports. Besides ns/op and the
 // -benchmem allocation metrics, it reports per-round size characteristics:
 //   - v30: outcome_B (the re-serialized state blob), obs_B, report_B, reports
-//   - v31: precursor_B, obs_B, report_B, reports, and KeyValueState I/O volume
-//     (kvread_B, kvwrite_B, kvkeys) — the incremental state cost v30 lacks.
+//   - v31: precursor_B, obs_B, report_B, reports, blob_B, and KeyValueState I/O
+//     volume (kvread_B, kvwrite_B, kvkeys) — the incremental state cost v30 lacks.
+//
+// Bytes on the wire are not derived here: the bench runs one plugin in
+// process. TestIntegration_LLO_don_benchmark measures them on a DON.
 func BenchmarkFullRound(b *testing.B) {
 	for _, w := range benchWorkloads {
 		defs, _ := w.channelDefinitions()
@@ -314,11 +318,13 @@ func probeV31(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInfo],
 	cr := &countingReader{inner: rtx}
 	// v31 observations reference stream values by blob handle, so obs_B/op alone
 	// understates what a round puts on the wire; blobBytes captures the payload
-	// the blob broadcast for this round added.
-	blobBytesBefore := bbf.BroadcastBytes()
+	// the cycle this Observation kicks broadcasts, which lands on the pump
+	// goroutine after Observation returns.
+	broadcastsBefore, blobBytesBefore := bbf.Broadcasts(), bbf.BroadcastBytes()
 	obs, err := p.Observation(ctx, seqNr, ocrtypes.AttributedQuery{}, cr, bbf)
 	rtx.Discard()
 	require.NoError(tb, err)
+	waitForPump(tb, bbf, broadcastsBefore)
 
 	wtx, err := db.NewReadWriteTransaction()
 	require.NoError(tb, err)

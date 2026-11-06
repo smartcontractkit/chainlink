@@ -2,7 +2,9 @@ package executable_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -539,47 +541,133 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 	})
 }
 
-func Test_Client_Execute_InjectsDurableEmit(t *testing.T) {
+// uniqueResponseCapability returns a different payload per capability peer, like
+// vault direct GetSecrets responses, which carry a different share from each node.
+type uniqueResponseCapability struct {
+	abstractTestCapability
+	value string
+}
+
+func (u uniqueResponseCapability) Execute(ctx context.Context, req commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
+	response, err := values.NewMap(map[string]any{"response": u.value})
+	if err != nil {
+		return commoncap.CapabilityResponse{}, err
+	}
+	return commoncap.CapabilityResponse{Value: response}, nil
+}
+
+// collectAllAggregator resolves once every peer has replied, so it succeeds on
+// responses that are unique per peer, where the default identical-payload
+// quorum aggregator would fail.
+type collectAllAggregator struct {
+	required int
+
+	mu      sync.Mutex
+	replies int
+	first   *commoncap.CapabilityResponse
+}
+
+func (a *collectAllAggregator) OnUnmarshalable(_ p2ptypes.PeerID, _ error) (*commoncap.CapabilityResponse, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.replies++
+	return a.decide()
+}
+
+func (a *collectAllAggregator) OnError(_ p2ptypes.PeerID, _ remotetypes.Error, _ string) (*commoncap.CapabilityResponse, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.replies++
+	return a.decide()
+}
+
+func (a *collectAllAggregator) OnResponse(_ p2ptypes.PeerID, resp commoncap.CapabilityResponse) (*commoncap.CapabilityResponse, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.first == nil {
+		r := resp
+		a.first = &r
+	}
+	a.replies++
+	return a.decide()
+}
+
+func (a *collectAllAggregator) decide() (*commoncap.CapabilityResponse, error) {
+	if a.replies < a.required {
+		return nil, nil
+	}
+	return a.first, nil
+}
+
+// Test_Client_NewClientAppliesClientOptions guards against NewClient silently
+// dropping ClientOptions, which would route every request through the default
+// identical-payload quorum aggregator. Vault direct GetSecrets requests carry a
+// unique payload per peer and only succeed through the aggregator installed via
+// WithAggregatorFactory.
+func Test_Client_NewClientAppliesClientOptions(t *testing.T) {
 	t.Parallel()
 
-	capabilityID := "test_capability@1.0.0"
-	donInfo := commoncap.DON{ID: 1, Members: []p2ptypes.PeerID{NewP2PPeerID(t)}, F: 0}
-	capInfo := commoncap.CapabilityInfo{ID: capabilityID, CapabilityType: commoncap.CapabilityTypeAction, DON: &donInfo}
+	const numCapabilityPeers = 4
 
-	inputs, err := values.NewMap(map[string]any{"input": "value"})
+	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
+	for i := range capabilityPeers {
+		capabilityPeers[i] = NewP2PPeerID(t)
+	}
+	capDonInfo := commoncap.DON{
+		ID:      1,
+		Members: capabilityPeers,
+		F:       1,
+	}
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "cap_id@1.0.0",
+		CapabilityType: commoncap.CapabilityTypeAction,
+		Description:    "Remote Executable Capability",
+		DON:            &capDonInfo,
+	}
+
+	workflowPeer := NewP2PPeerID(t)
+	workflowDonInfo := commoncap.DON{
+		Members: []p2ptypes.PeerID{workflowPeer},
+		ID:      2,
+	}
+
+	broker := newTestAsyncMessageBroker(t, 100)
+
+	factoryCalled := atomic.Bool{}
+	factory := func(_ commoncap.CapabilityRequest, _ commoncap.DON) request.ResponseAggregator {
+		factoryCalled.Store(true)
+		return &collectAllAggregator{required: numCapabilityPeers}
+	}
+
+	for i := range capabilityPeers {
+		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeers[i])
+		receiver := newTestServer(capabilityPeers[i], capabilityDispatcher, workflowDonInfo, uniqueResponseCapability{value: fmt.Sprintf("peer-%d", i)})
+		broker.RegisterReceiverNode(capabilityPeers[i], receiver)
+	}
+
+	workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeer)
+	caller := executable.NewClient(capInfo.ID, "", workflowPeerDispatcher, logger.Test(t), executable.WithAggregatorFactory(factory))
+	require.NoError(t, caller.SetConfig(capInfo, workflowDonInfo, 10*time.Second, nil, 0))
+	servicetest.Run(t, caller)
+	broker.RegisterReceiverNode(workflowPeer, caller)
+
+	servicetest.Run(t, broker)
+
+	executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 	require.NoError(t, err)
 
-	var (
-		mu       sync.Mutex
-		gotAttrs []any
-	)
-	client := executable.NewClient(capabilityID, "execute", &noopDispatcher{}, logger.Test(t),
-		executable.WithDurableEmit(func(_ context.Context, _ []byte, attrKVs ...any) error {
-			mu.Lock()
-			defer mu.Unlock()
-			gotAttrs = attrKVs
-			return nil
-		}))
-	require.NoError(t, client.SetConfig(capInfo, donInfo, time.Minute, nil, 0))
-	servicetest.Run(t, client)
-
-	// Cancel up front: Execute emits the transmission schedule before it waits
-	// for a response quorum, so the durable sink must have been called by then.
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-
-	_, err = client.Execute(ctx, commoncap.CapabilityRequest{
+	response, err := caller.Execute(t.Context(), commoncap.CapabilityRequest{
 		Metadata: commoncap.RequestMetadata{
 			WorkflowID:          workflowID1,
 			WorkflowExecutionID: workflowExecutionID1,
-			ReferenceID:         stepReferenceID1,
+			WorkflowOwner:       workflowOwnerID,
 		},
-		Inputs: inputs,
+		Inputs: executeInputs,
 	})
-	require.ErrorIs(t, err, executable.ErrContextDoneBeforeResponseQuorum)
+	require.NoError(t, err)
+	assert.True(t, factoryCalled.Load(), "NewClient must apply WithAggregatorFactory")
 
-	entity := request.TransmissionEventProtoPkg + "." + request.TransmissionEventEntity
-	mu.Lock()
-	defer mu.Unlock()
-	assert.Equal(t, []any{"source", "platform", "type", entity}, gotAttrs)
+	mp, err := response.Value.Unwrap()
+	require.NoError(t, err)
+	assert.Contains(t, mp.(map[string]any)["response"], "peer-")
 }

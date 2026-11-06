@@ -7,12 +7,14 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
 const (
@@ -83,6 +85,11 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 		d.lggr.Infow("Updated capabilities registry config", "hash", spec.Hash, "offchainVersion", version)
 
 	case ConfigTypeShardAssignment:
+		// before Store: a resolve can only see the config after Store, so
+		// the arrival is always recorded by then
+		if m, err := wfmonitoring.GlobalShardAssignmentMetrics(); err == nil {
+			m.RecordSettingsArrival(spec.Settings, time.Now())
+		}
 		if err := d.shardAssignmentSettings.Store(core.SettingsUpdate{
 			Settings: spec.Settings,
 			Hash:     spec.Hash,

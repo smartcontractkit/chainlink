@@ -39,6 +39,7 @@ type LoopRegistry struct {
 	autoPPROF              coreconfig.AutoPprof
 	cfgTracing             coreconfig.Tracing
 	cfgTelemetry           coreconfig.Telemetry
+	cfgApp                 coreconfig.AppConfig
 	cfgMetering            coreconfig.Metering
 	telemetryAuthHeaders   map[string]string
 	telemetryAuthPubKeyHex string
@@ -46,7 +47,7 @@ type LoopRegistry struct {
 }
 
 func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, dbConfig coreconfig.Database,
-	mercury dataengine.Mercury, pyroscope coreconfig.Pyroscope, autoPPROF coreconfig.AutoPprof, tracing coreconfig.Tracing, telemetry coreconfig.Telemetry,
+	mercury dataengine.Mercury, pyroscope coreconfig.Pyroscope, autoPPROF coreconfig.AutoPprof, tracing coreconfig.Tracing, appConfig coreconfig.AppConfig,
 	metering coreconfig.Metering, telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string, looppCfg coreconfig.LOOPP,
 ) *LoopRegistry {
 	return &LoopRegistry{
@@ -59,7 +60,8 @@ func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, db
 		cfgPyroscope:           pyroscope,
 		autoPPROF:              autoPPROF,
 		cfgTracing:             tracing,
-		cfgTelemetry:           telemetry,
+		cfgTelemetry:           appConfig.Telemetry(),
+		cfgApp:                 appConfig,
 		cfgMetering:            metering,
 		telemetryAuthHeaders:   telemetryAuthHeaders,
 		telemetryAuthPubKeyHex: telemetryAuthPubKeyHex,
@@ -149,7 +151,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryEndpoint = m.cfgTelemetry.OtelExporterGRPCEndpoint()
 		envCfg.TelemetryInsecureConnection = m.cfgTelemetry.InsecureConnection()
 		envCfg.TelemetryCACertFile = m.cfgTelemetry.CACertFile()
-		envCfg.TelemetryAttributes = m.cfgTelemetry.ResourceAttributes()
+		envCfg.TelemetryAttributes = m.cfgApp.ResourceAttributes()
 		envCfg.TelemetryTraceSampleRatio = m.cfgTelemetry.TraceSampleRatio()
 		envCfg.TelemetryEmitterBatchProcessor = m.cfgTelemetry.EmitterBatchProcessor()
 		envCfg.TelemetryEmitterExportTimeout = m.cfgTelemetry.EmitterExportTimeout()
