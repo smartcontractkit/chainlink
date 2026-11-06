@@ -32,7 +32,7 @@ require (
 	github.com/smartcontractkit/chainlink/v2 v2.29.0
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/atomic v1.11.0
-	golang.org/x/sync v0.23.0
+	golang.org/x/sync v0.24.0
 )
 
 require (
@@ -474,7 +474,7 @@ require (
 	github.com/smartcontractkit/chainlink-canton/contracts/v2 v2.1.0 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/deployment v0.0.0-20260916222901-720a003dab50 // indirect
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20261001213322-a2d686f610ca // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.15.1-0.20261020204039-1a47492cdb37 // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.16.0 // indirect
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260923164324-86cd57d9fdbd // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261005132539-b7d63d5fd549 // indirect
 	github.com/smartcontractkit/chainlink-common/x/config v0.0.0-20260928140953-a9b0d3a04daa // indirect
@@ -624,16 +624,16 @@ require (
 	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
 	go4.org/netipx v0.0.0-20230125063823-8449b0a6169f // indirect
 	golang.org/x/arch v0.22.0 // indirect
-	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/mod v0.41.0 // indirect
-	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/term v0.46.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/term v0.47.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
-	golang.org/x/tools v0.50.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gonum.org/v1/gonum v0.17.0 // indirect
 	google.golang.org/api v0.287.1 // indirect
