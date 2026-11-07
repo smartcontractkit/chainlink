@@ -62,6 +62,12 @@ type ORM interface {
 
 type WorkflowRegistryDS = ORM
 
+// workflowSpecColumns is explicit so an older binary does not break on columns added by newer
+// migrations. Must match job.WorkflowSpec's db fields (enforced by a test).
+const workflowSpecColumns = `id, workflow, config, workflow_id, workflow_owner, workflow_name,
+	workflow_tag, status, binary_url, config_url, created_at, updated_at,
+	spec_type, attributes, registered_at, source, storage_bytes, trigger_subscriptions`
+
 type orm struct {
 	ds   sqlutil.DataSource
 	lggr logger.Logger
@@ -152,11 +158,7 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 }
 
 func (orm *orm) GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error) {
-	query := `
-		SELECT *
-		FROM workflow_specs_v2
-		WHERE workflow_id = $1
-	`
+	query := `SELECT ` + workflowSpecColumns + ` FROM workflow_specs_v2 WHERE workflow_id = $1`
 
 	var spec job.WorkflowSpec
 	// Note: "Get will return sql.ErrNoRows like row.Scan would" - sqlx@v1.4.0
@@ -187,9 +189,7 @@ func (orm *orm) ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, err
 
 func (orm *orm) DeleteWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error) {
 	query := `DELETE FROM workflow_specs_v2 WHERE workflow_id = $1
-		RETURNING id, workflow, config, workflow_id, workflow_owner, workflow_name,
-			workflow_tag, status, binary_url, config_url, created_at, updated_at,
-			spec_type, attributes, registered_at, source, storage_bytes`
+		RETURNING ` + workflowSpecColumns
 	var spec job.WorkflowSpec
 	err := orm.ds.GetContext(ctx, &spec, query, id)
 	if errors.Is(err, sql.ErrNoRows) {
