@@ -2309,6 +2309,7 @@ ChipIngressSendInterval = '500ms' # Default
 ChipIngressSendTimeout = '10s' # Default
 ChipIngressDrainTimeout = '30s' # Default
 ChipIngressMaxGRPCRequestSize = 10485760 # Default
+ChipIngressMaxBufferedBytes = 0 # Default
 DurableEmitterEnabled = true # Default
 DurableEmitterRetransmitBatchSize = 500 # Default
 DurableEmitterEventTTL = '6h0m0s' # Default
@@ -2440,6 +2441,12 @@ ChipIngressDrainTimeout is the max shutdown wait to flush queued events.
 ChipIngressMaxGRPCRequestSize = 10485760 # Default
 ```
 ChipIngressMaxGRPCRequestSize is the max serialized PublishBatch request size in bytes. Batches exceeding this are split before send (min 1 MiB enforced by batch client).
+
+### ChipIngressMaxBufferedBytes
+```toml
+ChipIngressMaxBufferedBytes = 0 # Default
+```
+ChipIngressMaxBufferedBytes caps the total serialized size in bytes of events the batch client has accepted but not yet sent and acknowledged. Events over the budget are dropped and counted in chip_ingress.events_dropped. 0 means unlimited.
 
 ### DurableEmitterEnabled
 ```toml
