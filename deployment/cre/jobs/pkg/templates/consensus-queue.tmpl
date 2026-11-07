@@ -1,0 +1,14 @@
+type = "offchainreporting2"
+schemaVersion = 1
+externalJobID = "{{ .ExternalJobID }}"
+name = "{{ .JobName }}"
+contractID = "{{ .ContractID }}"
+ocrKeyBundleID = "{{ .OCR2EVMKeyBundleID }}"
+p2pv2Bootstrappers = [
+{{ range .P2Pv2Bootstrappers }}  "{{ . }}",
+{{ end }}]
+pluginType = "consensus-queue"
+transmitterID = "{{ .TransmitterID }}"
+relay = "evm"
+[relayConfig]
+chainID = "{{ .ChainID }}"

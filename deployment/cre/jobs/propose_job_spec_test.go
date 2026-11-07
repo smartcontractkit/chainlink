@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
+// TODO add a subtest for ConsensusQueue
 func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 	j := jobs.ProposeJobSpec{}
 	var env cldf.Environment
@@ -508,6 +509,7 @@ func TestProposeJobSpec_VerifyPreconditions_Aptos(t *testing.T) {
 	}
 }
 
+// TODO add a subtest for ConsensusQueue
 func TestProposeJobSpec_Apply(t *testing.T) {
 	h := test.NewTestHarness(t)
 	env := new(h.Runtime.Environment())

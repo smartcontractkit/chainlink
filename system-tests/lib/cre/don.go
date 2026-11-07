@@ -946,7 +946,7 @@ func HasFlag(values []string, capability string) bool {
 	}
 
 	for _, value := range values {
-		if strings.HasPrefix(value, capability+"-") {
+		if strings.HasPrefix(value, capability+"-") { //TODO collisions?
 			return true
 		}
 	}

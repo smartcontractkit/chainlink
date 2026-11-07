@@ -288,6 +288,49 @@ func SetupTestEnvironment(
 	// allow to pass custom job spec factories for extensibility
 	jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, input.JobSpecFactoryFunctions...)
 
+	// ConsensusQueue
+	//TODO remove - replaced by feature
+	//jobSpecFactoryFunctions = append(jobSpecFactoryFunctions, func(input *cre.JobSpecInput) (cre.DonJobs, error) {
+	//	chainID, err := chainselectors.GetChainIDFromSelector(deployedBlockchains.RegistryChain().ChainSelector())
+	//	if err != nil {
+	//		return nil, fmt.Errorf("failed to get chain ID from selector: %w", err)
+	//	}
+	//	evmChainID, err := strconv.ParseUint(chainID, 10, 64)
+	//	if err != nil {
+	//		return nil, fmt.Errorf("non-integer chain ID: %s: %w", chainID, err)
+	//	}
+	//
+	//	don := dons.MustWorkflowDON()
+	//
+	//	bs, ok := dons.Bootstrap()
+	//	if !ok {
+	//		return nil, fmt.Errorf("failed to look up bootstrap node")
+	//	}
+	//	jobConfig := pkg.OCR3JobConfig{
+	//		JobName:            "consensus-queue-test",
+	//		ChainID:            chainID,
+	//		ContractID:         "0x0000000000000000000000000000000000000000", // TODO
+	//		P2Pv2Bootstrappers: []string{bs.Keys.P2PKey.PeerID.Raw() + "@" + bs.Host + ":" + strconv.Itoa(cre.OCRPeeringPort)},
+	//		ExternalJobID:      uuid.NewV4().String(), // TODO deterministic?
+	//		TemplateName:       "consensus-queue",
+	//	}
+	//
+	//	var donJobs cre.DonJobs
+	//	for _, node := range don.Nodes {
+	//		jobConfig.P2PID = node.PeerID()
+	//		jobConfig.OCR2EVMKeyBundleID = node.Keys.OCR2BundleIDs["evm"]
+	//		jobConfig.TransmitterID = node.Keys.EVM[evmChainID].PublicAddress.String()
+	//
+	//		jobSpec, err := jobConfig.ResolveJob()
+	//		if err != nil {
+	//			return nil, fmt.Errorf("failed to resolve OCR3 job spec: %w", err)
+	//		}
+	//		nodeID := node.JobDistributorDetails.NodeID
+	//		donJobs = append(donJobs, &job.ProposeJobRequest{NodeId: nodeID, Spec: jobSpec})
+	//	}
+	//	return donJobs, nil
+	//})
+
 	createJobsDeps := CreateJobsWithJdOpDeps{
 		Logger:                        testLogger,
 		SingleFileLogger:              singleFileLogger,

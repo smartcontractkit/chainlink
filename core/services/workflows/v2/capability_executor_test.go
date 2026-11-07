@@ -14,10 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	core "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/internal"
 )
 
 func TestExecutionHelper_SystemCapabilityBlocked(t *testing.T) {
@@ -157,8 +158,9 @@ func TestIsSystemCapability(t *testing.T) {
 		want  bool
 	}{
 		{"confidential-workflows registered ID", confidentialWorkflowsCapabilityID, true},
-		{"vault registered ID", vault.CapabilityID, true},
-		{"dontime registered ID", dontimeCapabilityID, true},
+		{"vault registered ID", internal.VaultCapabilityID, true},
+		{"dontime registered ID", internal.DontimeCapabilityID, true},
+		{"consensus queue registered ID", internal.ConsensusQueueCapabilityID, true},
 		{"confidential-workflows other version", "confidential-workflows@1.0.0", false},
 		{"vault other version", "vault@2.0.0", false},
 		{"vault unversioned", "vault", false},
