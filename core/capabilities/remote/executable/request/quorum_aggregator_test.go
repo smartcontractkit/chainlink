@@ -458,4 +458,61 @@ func Test_quorumAggregator_OnError(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "received 3 errors, last error")
 	})
+
+	t.Run("mixed OK and errors fail early once no quorum is reachable", func(t *testing.T) {
+		t.Parallel()
+		// n=4, F=1 → required=2.
+		a := newQuorumAggregator(logger.Test(t), nil, "weid", "ref", 4, 1, 0)
+
+		for _, v := range []string{"A", "B"} {
+			resp, err := a.OnResponse(p2ptypes.PeerID{}, testResponse(t, v))
+			require.Nil(t, resp)
+			require.NoError(t, err)
+		}
+
+		// OK quorum still possible: one more A or B with one peer pending.
+		resp, err := a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, "x")
+		require.Nil(t, resp)
+		require.NoError(t, err)
+
+		resp, err = a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, "y")
+		require.Nil(t, resp)
+		var capErr caperrors.Error
+		require.ErrorAs(t, err, &capErr)
+		assert.Equal(t, caperrors.ConsensusFailed, capErr.Code())
+		assert.Contains(t, err.Error(), "received 4/4 peer responses with 2 unique payloads")
+	})
+
+	t.Run("waits while an error quorum is still reachable", func(t *testing.T) {
+		t.Parallel()
+		// n=5, F=1, minResponsesToAggregate=3.
+		a := newQuorumAggregator(logger.Test(t), nil, "weid", "ref", 5, 1, 3)
+
+		for _, v := range []string{"A", "B"} {
+			resp, err := a.OnResponse(p2ptypes.PeerID{}, testResponse(t, v))
+			require.Nil(t, resp)
+			require.NoError(t, err)
+		}
+
+		// OK quorum unreachable (max 1 + 1 pending after the second error), but
+		// two "x" errors plus one pending can still reach 3.
+		for range 2 {
+			resp, err := a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, "x")
+			require.Nil(t, resp)
+			require.NoError(t, err)
+		}
+
+		resp, err := a.OnError(p2ptypes.PeerID{}, types.Error_INTERNAL_ERROR, "x")
+		require.Nil(t, resp)
+		require.Error(t, err)
+		assert.NotContains(t, err.Error(), "quorum unreachable")
+		assert.Contains(t, err.Error(), "x")
+	})
+}
+
+func testResponse(t *testing.T, v string) commoncap.CapabilityResponse {
+	t.Helper()
+	val, err := values.NewMap(map[string]any{"v": v})
+	require.NoError(t, err)
+	return commoncap.CapabilityResponse{Value: val}
 }

@@ -144,7 +144,20 @@ func (a *quorumAggregator) OnError(_ p2ptypes.PeerID, transportErr types.Error, 
 			errMsg,
 		)
 	}
-	return nil, nil
+	if a.errorQuorumStillPossible(a.pending()) {
+		return nil, nil
+	}
+	return nil, a.trySendQuorumUnreachableError()
+}
+
+// errorQuorumStillPossible reports whether requiredResponseConfirmations
+// identical errors can still be reached.
+func (a *quorumAggregator) errorQuorumStillPossible(pending int) bool {
+	maxCount := 0
+	for _, count := range a.errorCount { // counts per error message
+		maxCount = max(maxCount, count)
+	}
+	return maxCount+pending >= a.requiredResponseConfirmations
 }
 
 func (a *quorumAggregator) OnResponse(sender p2ptypes.PeerID, resp commoncap.CapabilityResponse) (*commoncap.CapabilityResponse, error) {
