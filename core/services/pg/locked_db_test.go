@@ -23,6 +23,7 @@ func lease(c *chainlink.Config, s *chainlink.Secrets) {
 }
 
 func TestLockedDB_HappyPath(t *testing.T) {
+	t.Parallel()
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
@@ -38,6 +39,7 @@ func TestLockedDB_HappyPath(t *testing.T) {
 }
 
 func TestLockedDB_ContextCancelled(t *testing.T) {
+	t.Parallel()
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
@@ -51,6 +53,7 @@ func TestLockedDB_ContextCancelled(t *testing.T) {
 }
 
 func TestLockedDB_OpenTwice(t *testing.T) {
+	t.Parallel()
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
@@ -64,6 +67,7 @@ func TestLockedDB_OpenTwice(t *testing.T) {
 }
 
 func TestLockedDB_TwoInstances(t *testing.T) {
+	t.Parallel()
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
@@ -85,6 +89,7 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 }
 
 func TestOpenUnlockedDB(t *testing.T) {
+	t.Parallel()
 	testutils.SkipShortDB(t)
 	ctx := t.Context()
 	config := configtest.NewGeneralConfig(t, nil)

@@ -30,15 +30,8 @@ func (c sessionReaperConfig) SessionReaperExpiration() commonconfig.Duration {
 func TestSessionReaper_ReapSessions(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
 	config := sessionReaperConfig{}
 	lggr := logger.TestSugared(t)
-	orm := localauth.NewORM(db, config.SessionTimeout().Duration(), lggr, audit.NoopLogger)
-
-	r := localauth.NewSessionReaper(db, config, lggr)
-	t.Cleanup(func() {
-		assert.NoError(t, r.Stop())
-	})
 
 	tests := []struct {
 		name     string
@@ -54,10 +47,16 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
+
+			// Each subtest gets its own database: the assertions below read the whole
+			// sessions table, so siblings must not share rows.
+			db := pgtest.NewSqlxDB(t)
+			orm := localauth.NewORM(db, config.SessionTimeout().Duration(), lggr, audit.NoopLogger)
+			r := localauth.NewSessionReaper(db, config, lggr)
 			t.Cleanup(func() {
-				_, err2 := db.Exec("DELETE FROM sessions where email = $1", cltest.APIEmailAdmin)
-				require.NoError(t, err2)
+				assert.NoError(t, r.Stop())
 			})
 
 			_, err := db.Exec("INSERT INTO sessions (last_used, email, id, created_at) VALUES ($1, $2, $3, now())", test.lastUsed, cltest.APIEmailAdmin, test.name)

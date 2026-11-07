@@ -22,6 +22,7 @@ import (
 )
 
 func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	ctx := t.Context()
 	lggr := logger.Test(t)

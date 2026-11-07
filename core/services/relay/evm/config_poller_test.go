@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+//nolint:paralleltest // subtests share one simulated chain and depend on ordered contract redeploys
 func TestConfigPoller(t *testing.T) {
 	lggr := logger.Test(t)
 	var ethClient *client.SimulatedBackendClient
