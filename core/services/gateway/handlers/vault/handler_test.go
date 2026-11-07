@@ -163,6 +163,7 @@ func (m *mockCapabilitiesRegistry) DONsForCapability(_ context.Context, _ string
 }
 
 func TestActiveRequest_SendResponse(t *testing.T) {
+	t.Parallel()
 	rm := json.RawMessage([]byte(`{}`))
 	cb := common.NewCallback()
 	activeRequest := &activeRequest{
@@ -220,6 +221,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	require.NoError(t, err2)
 
 	t.Run("happy path", func(t *testing.T) {
+		t.Parallel()
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -272,6 +274,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("sets authorized request_id on forwarded create", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.Test(t)
 		don := mocks.NewDON(t)
 		dons := shardedDONsForTest(t, "test_don_id", []config.NodeConfig{NodeOne}, don)
@@ -324,6 +327,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("rejects create when ciphertext label does not match identifier owner", func(t *testing.T) {
+		t.Parallel()
 		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
 		require.NoError(t, err)
 		encryptFor := "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -368,6 +372,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("forwards create secrets to DON when ciphertext matches identifier owner", func(t *testing.T) {
+		t.Parallel()
 		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
 		require.NoError(t, err)
 		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("test_secret", pk, ethcommon.HexToAddress(owner))
@@ -412,6 +417,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("rejects JWT create when ciphertext label does not match identifier owner", func(t *testing.T) {
+		t.Parallel()
 		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
 		require.NoError(t, err)
 		orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
@@ -461,6 +467,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("nil EncryptedSecrets inside CreateSecrets body", func(t *testing.T) {
+		t.Parallel()
 		var wg sync.WaitGroup
 		h, callback, _, _ := setupHandler(t)
 		emptyCreateSecretsRequest := &vaultcommon.CreateSecretsRequest{
@@ -508,6 +515,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("no id inside CreateSecrets.EncryptedSecrets body", func(t *testing.T) {
+		t.Parallel()
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
 		don.AssertNotCalled(t, "SendToNode")
@@ -554,6 +562,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("happy path - delete secrets", func(t *testing.T) {
+		t.Parallel()
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -620,6 +629,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("nil id in delete secrets", func(t *testing.T) {
+		t.Parallel()
 		var wg sync.WaitGroup
 		h, callback, _, _ := setupHandler(t)
 
@@ -660,6 +670,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("happy path - list secret identifiers", func(t *testing.T) {
+		t.Parallel()
 		h, callback, don, _ := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -713,6 +724,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("unhappy path - duplicate requestId", func(t *testing.T) {
+		t.Parallel()
 		h, callback, don, _ := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -770,6 +782,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("unhappy path - quorum unobtainable", func(t *testing.T) {
+		t.Parallel()
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
 		h.(*handler).aggregator = &mockAggregator{err: errQuorumUnobtainable}
@@ -823,6 +836,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("unsupported method", func(t *testing.T) {
+		t.Parallel()
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
 		don.AssertNotCalled(t, "SendToNode")
@@ -854,6 +868,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("empty params error", func(t *testing.T) {
+		t.Parallel()
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
 		// Don't expect SendToNode to be called for parse errors
@@ -886,6 +901,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("no request inside the batch request", func(t *testing.T) {
+		t.Parallel()
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
 		// Don't expect SendToNode to be called for invalid params
@@ -944,6 +960,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("invalid params error", func(t *testing.T) {
+		t.Parallel()
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
 		// Don't expect SendToNode to be called for invalid params
@@ -990,6 +1007,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("stale node response", func(t *testing.T) {
+		t.Parallel()
 		handler, callback, _, _ := setupHandler(t)
 
 		// Create a response for a request that was never sent or has already been processed
@@ -1067,6 +1085,7 @@ func TestVaultHandler_InvalidParamsDoesNotLogRawParams(t *testing.T) {
 }
 
 func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknownFields(t *testing.T) {
+	t.Parallel()
 	h, callback, _, _ := setupHandler(t)
 
 	// Same signer addresses, payload, context and signatures used by TestAggregator_Valid_Signatures,
@@ -1315,6 +1334,7 @@ func TestVaultHandler_fetchVaultPublicKey_BypassesCache(t *testing.T) {
 }
 
 func TestVaultHandler_PublicKeyGet(t *testing.T) {
+	t.Parallel()
 	h, callback, don, _ := setupHandler(t)
 	signers := []string{
 		"d6da96fe596705b32bc3a0e11cdefad77feaad79000000000000000000000000",

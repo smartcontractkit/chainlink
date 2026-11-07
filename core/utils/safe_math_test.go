@@ -9,6 +9,7 @@ import (
 )
 
 func Test_NonNegativeInt64ToUint64(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    int64
 		expected uint64

@@ -10,6 +10,7 @@ import (
 )
 
 func TestNewCCIPSpecToml(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		specArgs validate.SpecArgs
@@ -20,6 +21,7 @@ func TestNewCCIPSpecToml(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := validate.NewCCIPSpecToml(tt.specArgs)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -32,6 +34,7 @@ func TestNewCCIPSpecToml(t *testing.T) {
 }
 
 func TestValidatedCCIPSpec(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		tomlString string
 	}
@@ -45,6 +48,7 @@ func TestValidatedCCIPSpec(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			gotJb, err := validate.ValidatedCCIPSpec(tt.args.tomlString)
 			if tt.wantErr {
 				require.Error(t, err)

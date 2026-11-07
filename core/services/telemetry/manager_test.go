@@ -38,6 +38,7 @@ func setupMockConfig(t *testing.T, useBatchSend, chipIngressEnabled bool) *mocks
 }
 
 func TestManagerAgents(t *testing.T) {
+	t.Parallel()
 	tic := setupMockConfig(t, true, false)
 	te := mocks.NewTelemetryIngressEndpoint(t)
 	te.On("Network").Return("network-1")
@@ -65,6 +66,7 @@ func TestManagerAgents(t *testing.T) {
 }
 
 func TestNewManager(t *testing.T) {
+	t.Parallel()
 	type endpointTest struct {
 		network       string
 		chainID       string
@@ -197,6 +199,7 @@ func TestNewManager(t *testing.T) {
 }
 
 func TestCorrectEndpointRouting(t *testing.T) {
+	t.Parallel()
 	tic := setupMockConfig(t, true, false)
 	tic.On("Endpoints").Return(nil)
 
@@ -284,7 +287,9 @@ func TestCorrectEndpointRouting(t *testing.T) {
 }
 
 func TestManager_ChipIngressClient(t *testing.T) {
+	t.Parallel()
 	t.Run("disabled chip ingress", func(t *testing.T) {
+		t.Parallel()
 		tic := setupMockConfig(t, true, false)
 		tic.On("Endpoints").Return(nil)
 
@@ -295,6 +300,7 @@ func TestManager_ChipIngressClient(t *testing.T) {
 	})
 
 	t.Run("enabled chip ingress", func(t *testing.T) {
+		t.Parallel()
 		tic := setupMockConfig(t, true, true)
 		tic.On("Endpoints").Return(nil)
 
@@ -306,7 +312,9 @@ func TestManager_ChipIngressClient(t *testing.T) {
 }
 
 func TestManager_ChipIngressEndpoint(t *testing.T) {
+	t.Parallel()
 	t.Run("creates chip ingress endpoint when enabled", func(t *testing.T) {
+		t.Parallel()
 		tic := setupMockConfig(t, true, true)
 		te := mocks.NewTelemetryIngressEndpoint(t)
 		te.On("Network").Return("EVM")
@@ -326,6 +334,7 @@ func TestManager_ChipIngressEndpoint(t *testing.T) {
 	})
 
 	t.Run("creates traditional endpoint when chip ingress disabled", func(t *testing.T) {
+		t.Parallel()
 		tic := setupMockConfig(t, true, false)
 		te := mocks.NewTelemetryIngressEndpoint(t)
 		te.On("Network").Return("EVM")
@@ -349,7 +358,9 @@ func TestManager_ChipIngressEndpoint(t *testing.T) {
 }
 
 func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
+	t.Parallel()
 	t.Run("returns chip ingress agent when enabled", func(t *testing.T) {
+		t.Parallel()
 		tic := setupMockConfig(t, true, true)
 		te := mocks.NewTelemetryIngressEndpoint(t)
 		te.On("Network").Return("EVM")
@@ -368,6 +379,7 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 	})
 
 	t.Run("SendLog sends telemetry through chip ingress", func(t *testing.T) {
+		t.Parallel()
 		tic := setupMockConfig(t, true, true)
 		te := mocks.NewTelemetryIngressEndpoint(t)
 		te.On("Network").Return("EVM")
@@ -398,6 +410,7 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 	})
 
 	t.Run("returns noop agent for invalid chain when chip ingress enabled", func(t *testing.T) {
+		t.Parallel()
 		tic := setupMockConfig(t, true, true)
 		te := mocks.NewTelemetryIngressEndpoint(t)
 		te.On("Network").Return("INVALID")
@@ -430,6 +443,7 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 	})
 
 	t.Run("returns traditional agent when chip ingress disabled", func(t *testing.T) {
+		t.Parallel()
 		tic := setupMockConfig(t, true, false)
 		te := mocks.NewTelemetryIngressEndpoint(t)
 		te.On("Network").Return("EVM")
@@ -452,7 +466,9 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 }
 
 func TestManager_GenMultitypeMonitoringEndpoint_ChipIngress(t *testing.T) {
+	t.Parallel()
 	t.Run("returns chip ingress multitype agent when enabled", func(t *testing.T) {
+		t.Parallel()
 		tic := setupMockConfig(t, true, true)
 		te := mocks.NewTelemetryIngressEndpoint(t)
 		te.On("Network").Return("EVM")
@@ -471,6 +487,7 @@ func TestManager_GenMultitypeMonitoringEndpoint_ChipIngress(t *testing.T) {
 	})
 
 	t.Run("returns noop agent for invalid chain when chip ingress enabled", func(t *testing.T) {
+		t.Parallel()
 		tic := setupMockConfig(t, true, true)
 		te := mocks.NewTelemetryIngressEndpoint(t)
 		te.On("Network").Return("INVALID")
@@ -503,6 +520,7 @@ func TestManager_GenMultitypeMonitoringEndpoint_ChipIngress(t *testing.T) {
 	})
 
 	t.Run("returns traditional multitype agent when chip ingress disabled", func(t *testing.T) {
+		t.Parallel()
 		tic := setupMockConfig(t, true, false)
 		te := mocks.NewTelemetryIngressEndpoint(t)
 		te.On("Network").Return("EVM")

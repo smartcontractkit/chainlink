@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHandleShutdown(t *testing.T) {
+func TestHandleShutdown(t *testing.T) { //nolint:paralleltest // sends process-wide OS signals
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}

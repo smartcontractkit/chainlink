@@ -98,6 +98,7 @@ func (c mockConfig) GoroutineThreshold() int {
 }
 
 func TestNurse(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}

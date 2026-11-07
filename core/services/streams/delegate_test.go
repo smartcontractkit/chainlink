@@ -26,6 +26,7 @@ func (m *mockDelegateConfig) MaxSuccessfulRuns() uint64     { return 0 }
 func (m *mockDelegateConfig) ResultWriteQueueDepth() uint64 { return 0 }
 
 func Test_Delegate(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	registry := &mockRegistry{}
 	runner := &mockRunner{}
@@ -33,13 +34,16 @@ func Test_Delegate(t *testing.T) {
 	d := NewDelegate(lggr, registry, runner, cfg)
 
 	t.Run("ServicesForSpec", func(t *testing.T) {
+		t.Parallel()
 		jb := job.Job{PipelineSpec: &pipeline.Spec{ID: 1}}
 		t.Run("no error if job is missing streamID", func(t *testing.T) {
+			t.Parallel()
 			_, err := d.ServicesForSpec(t.Context(), jb)
 			require.NoError(t, err)
 		})
 		jb.StreamID = new(uint32(42))
 		t.Run("returns services", func(t *testing.T) {
+			t.Parallel()
 			srvs, err := d.ServicesForSpec(t.Context(), jb)
 			require.NoError(t, err)
 
@@ -56,6 +60,7 @@ func Test_Delegate(t *testing.T) {
 }
 
 func Test_ValidatedStreamSpec(t *testing.T) {
+	t.Parallel()
 	tt := []struct {
 		name      string
 		toml      string
@@ -173,6 +178,7 @@ answer1      [type=median index=0];
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			s, err := ValidatedStreamSpec(tc.toml)
 			tc.assertion(t, s, err)
 		})
