@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -53,6 +54,11 @@ type triggerPublisher struct {
 	registerExecutor *ParallelExecutor
 	lggr             logger.Logger
 	metrics          triggerPublisherMetrics
+
+	// Explicit unregisters in flight or failed, retried by CloseAndUnregister. Protected by mu.
+	pendingUnregs  map[registrationKey]*pubRegState
+	inflightUnregs sync.WaitGroup
+	releasing      bool // set by CloseAndUnregister; blocks new unregisters in Receive
 }
 
 type triggerPublisherMetrics struct {
@@ -103,6 +109,8 @@ type batchedResponse struct {
 type TriggerPublisher interface {
 	types.ReceiverService
 	SetConfig(config *commoncap.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON) error
+	// CloseAndUnregister closes the publisher and unregisters all of its triggers from the underlying capability.
+	CloseAndUnregister(ctx context.Context) error
 }
 
 var (
@@ -114,6 +122,9 @@ const (
 	minAllowedBatchCollectionPeriod = 10 * time.Millisecond
 	defaultMaxParallelAcks          = 100 // TODO: make this configurable https://smartcontract-it.atlassian.net/browse/PLEX-3266
 	defaultMaxParallelRegisters     = 100 // TODO: make this configurable https://smartcontract-it.atlassian.net/browse/PLEX-3266
+
+	// unregisterOnCloseTimeout bounds each UnregisterTrigger call in CloseAndUnregister.
+	unregisterOnCloseTimeout = 5 * time.Second
 )
 
 func NewTriggerPublisher(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
@@ -130,6 +141,7 @@ func NewTriggerPublisher(capabilityID, capMethodName string, dispatcher types.Di
 		ackCache:        messagecache.NewMessageCache[ackKey, p2ptypes.PeerID](),
 		unregisterCache: messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
 		registrations:   make(map[registrationKey]*pubRegState),
+		pendingUnregs:   make(map[registrationKey]*pubRegState),
 		batchingQueue:   make(map[[32]byte]*batchedResponse),
 		stopCh:          make(services.StopChan),
 		lggr:            logger.With(logger.Named(lggr, "TriggerPublisher"), "capabilityID", capabilityID, "capMethodName", capMethodName),
@@ -479,7 +491,8 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 
 		p.mu.Lock()
 		reg, exists := p.registrations[key]
-		if !exists {
+		// Once releasing, CloseAndUnregister owns unregistering everything left.
+		if !exists || p.releasing {
 			p.mu.Unlock()
 			return
 		}
@@ -505,6 +518,8 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.lggr.Debugw("unregister trigger", "workflowID", key.workflowID, "triggerID", key.triggerID,
 			"callerDonId", msg.CallerDonId, "minRequired", minRequired, "sender", sender)
 		delete(p.registrations, key)
+		p.pendingUnregs[key] = reg // retried by CloseAndUnregister if this call fails
+		p.inflightUnregs.Add(1)
 		p.unregisterCache.MarkDelivered(key)
 		p.unregisterCache.Delete(key)
 		p.messageCache.Delete(key)
@@ -512,6 +527,12 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 
 		unregisterCtx, cancel := p.stopCh.NewCtx()
 		err = p.cfg.Load().underlying.UnregisterTrigger(unregisterCtx, reg.request)
+		p.mu.Lock()
+		if err == nil {
+			delete(p.pendingUnregs, key)
+		}
+		p.mu.Unlock()
+		p.inflightUnregs.Done()
 		if err != nil {
 			unregisterOutcome = "error"
 			p.lggr.Errorw("failed to unregister trigger on underlying", "workflowID", key.workflowID, "triggerID", key.triggerID, "err", err)
@@ -963,6 +984,54 @@ func (p *triggerPublisher) Close() error {
 		p.lggr.Info("TriggerPublisher closed")
 	})
 	return err
+}
+
+// CloseAndUnregister is for removing the publisher while the underlying keeps running, e.g. when the capability moves to another DON on this node.
+func (p *triggerPublisher) CloseAndUnregister(ctx context.Context) error {
+	// Close waits for in-flight register tasks, so no registration is added after the snapshot.
+	closeErr := p.Close()
+
+	p.mu.Lock()
+	p.releasing = true
+	p.mu.Unlock()
+	// Close cancels in-flight explicit unregisters; wait, then retry the ones that failed.
+	p.inflightUnregs.Wait()
+
+	p.mu.Lock()
+	regs := p.registrations
+	maps.Copy(regs, p.pendingUnregs)
+	p.registrations = make(map[registrationKey]*pubRegState)
+	p.pendingUnregs = make(map[registrationKey]*pubRegState)
+	p.mu.Unlock()
+
+	cfg := p.cfg.Load()
+	if cfg == nil {
+		return closeErr
+	}
+
+	var unregErrs []error
+	attempted := 0
+	for key, reg := range regs {
+		if reg.registrationErr != nil {
+			continue // never registered on the underlying
+		}
+		attempted++
+		callCtx, cancel := context.WithTimeout(ctx, unregisterOnCloseTimeout)
+		err := cfg.underlying.UnregisterTrigger(callCtx, reg.request)
+		timedOut := callCtx.Err() != nil
+		cancel()
+		if err != nil {
+			unregErrs = append(unregErrs, fmt.Errorf("failed to unregister trigger (workflowID %s, triggerID %s): %w", key.workflowID, key.triggerID, err))
+			if timedOut {
+				// Underlying is unresponsive; don't wait out the timeout for every remaining registration.
+				unregErrs = append(unregErrs, fmt.Errorf("stopped unregistering after a timeout; up to %d registrations left on the underlying", len(regs)-attempted))
+				break
+			}
+			continue
+		}
+		p.lggr.Infow("unregistered trigger on publisher removal", "workflowID", key.workflowID, "triggerID", key.triggerID, "callerDonID", key.callerDonID)
+	}
+	return errors.Join(closeErr, errors.Join(unregErrs...))
 }
 
 func (p *triggerPublisher) Ready() error {
