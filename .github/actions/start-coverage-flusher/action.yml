@@ -1,0 +1,40 @@
+name: Start coverage flusher
+description: Periodically sends SIGUSR1 to coverage-instrumented containers so covcounters are written before teardown.
+
+inputs:
+  interval:
+    description: Seconds between flushes.
+    required: false
+    default: "15"
+  pidfile:
+    description: File used to record the background process ID.
+    required: false
+    default: /tmp/chainlink-coverage-flusher.pid
+
+runs:
+  using: composite
+  steps:
+    - name: Start flusher
+      shell: bash
+      env:
+        INTERVAL: ${{ inputs.interval }}
+        PIDFILE: ${{ inputs.pidfile }}
+      run: |
+        set -euo pipefail
+        cat > /tmp/chainlink-coverage-flusher.sh <<'EOF'
+        #!/usr/bin/env bash
+        set -u
+        interval="${INTERVAL:-15}"
+        while true; do
+          for container in $(docker ps -q 2>/dev/null || true); do
+            image="$(docker inspect -f '{{.Config.Image}}' "${container}" 2>/dev/null || true)"
+            if [[ "${image}" == *"-coverage"* ]]; then
+              docker kill --signal=SIGUSR1 "${container}" >/dev/null 2>&1 || true
+            fi
+          done
+          sleep "${interval}"
+        done
+        EOF
+        chmod +x /tmp/chainlink-coverage-flusher.sh
+        nohup env INTERVAL="${INTERVAL}" /tmp/chainlink-coverage-flusher.sh >/tmp/chainlink-coverage-flusher.log 2>&1 &
+        echo $! > "${PIDFILE}"
