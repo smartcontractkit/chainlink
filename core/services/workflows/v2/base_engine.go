@@ -361,8 +361,8 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute subscribe: %w", err)
 	}
-	if result.GetError() != "" {
-		return nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
+	if guestErr := truncateGuestError(result.GetError()); guestErr != "" {
+		return nil, fmt.Errorf("failed to execute subscribe: %s", guestErr)
 	}
 	subs := result.GetTriggerSubscriptions()
 	if subs == nil {
@@ -844,19 +844,20 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		return nil // not an error from the caller's perspective. Execution ran, just failed. This is already captured by the deferred lifecycle hook e.cfg.Hooks.OnExecutionError(execErr.Error())
 	}
 
+	guestErr := truncateGuestError(result.GetError())
 	if e.cfg.DebugMode {
-		lggr.Debugw("User workflow execution result", "result", result.GetValue(), "err", result.GetError())
+		lggr.Debugw("User workflow execution result", "result", result.GetValue(), "err", guestErr)
 	}
 
-	if len(result.GetError()) > 0 {
+	if guestErr != "" {
 		executionStatus = store.StatusErrored
-		execErr = errors.New(result.GetError())
+		execErr = errors.New(guestErr)
 		// The user's workflow ran and returned an error: a user failure.
 		execErrClass = events.ErrorClassificationUser
 		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, executionDuration.Seconds())
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
-		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
+		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", guestErr)
 		return nil // not an error from the caller's perspective. Execution ran, just returned an error. This is already captured by the deferred lifecycle hook e.cfg.Hooks.OnExecutionError(execErr.Error())
 	}
 
