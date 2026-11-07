@@ -38,6 +38,10 @@ type ConfigureCapabilitiesRegistryInput struct {
 	Nodes                       []CapabilitiesRegistryNodeParams   `json:"nodes,omitempty" yaml:"nodes,omitempty"`
 	DONs                        []CapabilitiesRegistryNewDONParams `json:"dons,omitempty" yaml:"dons,omitempty"`
 	Qualifier                   string                             `json:"qualifier,omitempty" yaml:"qualifier,omitempty"`
+
+	// SkipJobAcceptanceCheck disables the precondition check that every node in the new DONs has
+	// accepted all of its job proposals in JD. Use only for emergencies.
+	SkipJobAcceptanceCheck bool `json:"skipJobAcceptanceCheck,omitempty" yaml:"skipJobAcceptanceCheck,omitempty"`
 }
 
 type ConfigureCapabilitiesRegistryDeps struct {
@@ -53,6 +57,16 @@ func (l ConfigureCapabilitiesRegistry) VerifyPreconditions(e cldf.Environment, c
 	}
 	if _, ok := e.BlockChains.EVMChains()[config.ChainSelector]; !ok {
 		return fmt.Errorf("chain %d not found in environment", config.ChainSelector)
+	}
+
+	if !config.SkipJobAcceptanceCheck {
+		var p2pIDs []string
+		for _, don := range config.DONs {
+			p2pIDs = append(p2pIDs, don.Nodes...)
+		}
+		if err := verifyNoPendingJobProposals(e, p2pIDs); err != nil {
+			return fmt.Errorf("ConfigureCapabilitiesRegistry precondition failed: %w", err)
+		}
 	}
 
 	return nil
