@@ -34,11 +34,18 @@ type ProposeJobSpecInput struct {
 	// These will vary based on the template used, and will be validated differently
 	// for each template type.
 	Inputs job_types.JobSpecInput `json:"inputs" yaml:"inputs"`
+
+	// ExpectedSigners maps a node CSA key to the onchain signing address (EVM, 20 bytes, optionally 0x-prefixed
+	// and zero-padded to 32) its OCR2 key bundle must have in JD. When set, VerifyPreconditions rejects
+	// OCR-bearing templates whose target nodes have a missing or different bundle. Optional.
+	ExpectedSigners map[string]string `json:"expectedSigners,omitempty" yaml:"expectedSigners,omitempty"`
+	// SkipKeyringCheck bypasses the ExpectedSigners check for emergencies.
+	SkipKeyringCheck bool `json:"skipKeyringCheck,omitempty" yaml:"skipKeyringCheck,omitempty"`
 }
 
 type ProposeJobSpec struct{}
 
-func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJobSpecInput) error {
+func (u ProposeJobSpec) VerifyPreconditions(e cldf.Environment, config ProposeJobSpecInput) error {
 	if config.Environment == "" {
 		return errors.New("environment is required")
 	}
@@ -93,7 +100,7 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 		return errors.New("inputs are required")
 	}
 
-	return nil
+	return verifyOCRKeyrings(e, config)
 }
 
 func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cldf.ChangesetOutput, error) {
