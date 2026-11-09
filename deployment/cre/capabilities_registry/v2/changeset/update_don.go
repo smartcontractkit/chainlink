@@ -115,19 +115,12 @@ func updateDONTargetP2PIDs(e cldf.Environment, config UpdateDONInput) ([]string,
 	if err != nil {
 		return nil, err
 	}
-	for _, don := range dons {
-		if don.Name != config.DONName {
-			continue
-		}
-		ids := make([]string, len(don.NodeP2PIds))
-		for i, id := range don.NodeP2PIds {
-			ids[i] = p2pkey.PeerID(id).String()
-		}
-
-		return ids, nil
+	ids, ok := donNodeP2PIDs(dons, config.DONName)
+	if !ok {
+		return nil, fmt.Errorf("DON %q not found on-chain", config.DONName)
 	}
 
-	return nil, fmt.Errorf("DON %q not found on-chain", config.DONName)
+	return ids, nil
 }
 
 func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.ChangesetOutput, error) {

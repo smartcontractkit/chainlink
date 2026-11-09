@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
@@ -218,4 +219,22 @@ func TestUpdateNodesPreconditions_JobAcceptanceGate(t *testing.T) {
 
 	in.SkipJobAcceptanceCheck = true
 	require.NoError(t, UpdateNodes{}.VerifyPreconditions(cldf.Environment{}, in))
+}
+
+func TestDonNodeP2PIDs(t *testing.T) {
+	t.Parallel()
+
+	var id p2pkey.PeerID
+	id[0] = 7
+	dons := []capabilities_registry_v2.CapabilitiesRegistryDONInfo{
+		{Name: "a", NodeP2PIds: [][32]byte{id}},
+		{Name: "b"},
+	}
+
+	ids, ok := donNodeP2PIDs(dons, "a")
+	require.True(t, ok)
+	require.Equal(t, []string{id.String()}, ids)
+
+	_, ok = donNodeP2PIDs(dons, "missing")
+	require.False(t, ok)
 }

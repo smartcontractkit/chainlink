@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
@@ -88,6 +89,24 @@ func verifyNoPendingJobProposals(e cldf.Environment, p2pIDs []string) error {
 		"node(s) %s have job proposals that are pending or rejected; all NOPs must accept updated jobs before the capabilities registry change is applied (see INCIDENT-2694); set skipJobAcceptanceCheck to bypass",
 		strings.Join(names, ", "),
 	)
+}
+
+// donNodeP2PIDs returns the "p2p_" IDs of the on-chain nodes of the named DON, and false if the DON
+// does not exist.
+func donNodeP2PIDs(dons []capabilities_registry_v2.CapabilitiesRegistryDONInfo, name string) ([]string, bool) {
+	for _, don := range dons {
+		if don.Name != name {
+			continue
+		}
+		ids := make([]string, len(don.NodeP2PIds))
+		for i, id := range don.NodeP2PIds {
+			ids[i] = p2pkey.PeerID(id).String()
+		}
+
+		return ids, true
+	}
+
+	return nil, false
 }
 
 // blocksCapRegChange reports whether a latest-revision status means the node is not running the

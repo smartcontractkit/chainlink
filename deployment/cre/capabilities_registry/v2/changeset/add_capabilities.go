@@ -43,6 +43,10 @@ type AddCapabilitiesInput struct {
 	// SkipDuplicateCapabilityValidation disables the precondition check that rejects assigning
 	// the same capability to multiple DONs within a DON family.
 	SkipDuplicateCapabilityValidation bool `json:"skipDuplicateCapabilityValidation,omitempty" yaml:"skipDuplicateCapabilityValidation,omitempty"`
+
+	// SkipJobAcceptanceCheck disables the precondition check that every node in the target DONs has
+	// accepted all of its job proposals in JD. Use only for emergencies.
+	SkipJobAcceptanceCheck bool `json:"skipJobAcceptanceCheck,omitempty" yaml:"skipJobAcceptanceCheck,omitempty"`
 }
 
 type AddCapabilities struct{}
@@ -60,13 +64,29 @@ func (u AddCapabilities) VerifyPreconditions(e cldf.Environment, config AddCapab
 		}
 	}
 
-	if !config.SkipDuplicateCapabilityValidation {
-		existingDONs, err := getExistingDONsForPreconditionCheck(e, config.RegistryChainSel, config.RegistryQualifier)
-		if err != nil {
-			return err
-		}
+	if config.SkipDuplicateCapabilityValidation && config.SkipJobAcceptanceCheck {
+		return nil
+	}
 
+	existingDONs, err := getExistingDONsForPreconditionCheck(e, config.RegistryChainSel, config.RegistryQualifier)
+	if err != nil {
+		return err
+	}
+
+	if !config.SkipDuplicateCapabilityValidation {
 		if err := sequences.ValidateNoDuplicateCapabilitiesAcrossDONs(config.DonCapabilityConfigs, existingDONs); err != nil {
+			return fmt.Errorf("AddCapabilities precondition failed: %w", err)
+		}
+	}
+
+	if !config.SkipJobAcceptanceCheck {
+		var p2pIDs []string
+		for donName := range config.DonCapabilityConfigs {
+			// A missing DON fails later in Apply; the gate only covers DONs that exist.
+			ids, _ := donNodeP2PIDs(existingDONs, donName)
+			p2pIDs = append(p2pIDs, ids...)
+		}
+		if err := verifyNoPendingJobProposals(e, p2pIDs); err != nil {
 			return fmt.Errorf("AddCapabilities precondition failed: %w", err)
 		}
 	}
