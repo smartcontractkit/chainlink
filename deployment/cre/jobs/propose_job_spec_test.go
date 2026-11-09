@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
-// TODO add a subtest for ConsensusQueue
 func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 	j := jobs.ProposeJobSpec{}
 	var env cldf.Environment
@@ -231,6 +230,28 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 			},
 			expectError: true,
 			errorMsg:    "unsupported template",
+		},
+		{
+			name: "valid consensus-queue job",
+			input: jobs.ProposeJobSpecInput{
+				Environment: test.EnvironmentName,
+				JobName:     "consensus-queue-worker",
+				Domain:      "cre",
+				DONName:     "test-don",
+				DONFilters: []offchain.TargetDONFilter{
+					{Key: offchain.FilterKeyDONName, Value: "d"},
+					{Key: "environment", Value: "e"},
+					{Key: "product", Value: offchain.ProductLabel},
+				},
+				Template: job_types.OCR3,
+				Inputs: job_types.JobSpecInput{
+					"templateName":         "consensus-queue",
+					"contractQualifier":    "consensus-queue",
+					"chainSelectorEVM":     "3379446385462418246",
+					"bootstrapperOCR3Urls": []string{"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"},
+				},
+			},
+			expectError: false,
 		},
 		{
 			name: "missing inputs",
@@ -509,7 +530,6 @@ func TestProposeJobSpec_VerifyPreconditions_Aptos(t *testing.T) {
 	}
 }
 
-// TODO add a subtest for ConsensusQueue
 func TestProposeJobSpec_Apply(t *testing.T) {
 	h := test.NewTestHarness(t)
 	env := new(h.Runtime.Environment())
@@ -1386,6 +1406,70 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			assert.Contains(t, req.Spec, `audience = "https://vault.example.com"`)
 			assert.Contains(t, req.Spec, `tenantID = 3`)
 		}
+	})
+
+	t.Run("successful consensus-queue ocr3 job distribution", func(t *testing.T) {
+		h2 := test.NewTestHarness(t)
+		env2 := new(h2.Runtime.Environment())
+
+		chainSelector := h2.RegistrySelector
+		ds := datastore.NewMemoryDataStore()
+		err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(ocr3.OCR3Capability),
+			Version:       semver.MustParse("1.0.0"),
+			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			Qualifier:     "consensus-queue",
+		})
+		require.NoError(t, err)
+		env2.DataStore = ds.Seal()
+
+		input := jobs.ProposeJobSpecInput{
+			Environment: test.EnvironmentName,
+			Domain:      "cre",
+			JobName:     "consensus-queue-worker",
+			DONName:     test.DONName,
+			Template:    job_types.OCR3,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: test.EnvironmentName},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"templateName":      "consensus-queue",
+				"contractQualifier": "consensus-queue",
+				"chainSelectorEVM":  strconv.FormatUint(chainSelector, 10),
+				"bootstrapperOCR3Urls": []string{
+					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+				},
+			},
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env2, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := h2.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		found := 0
+		for _, req := range reqs {
+			if !strings.Contains(req.Spec, `pluginType = "consensus-queue"`) {
+				continue
+			}
+			found++
+			assert.Contains(t, req.Spec, `type = "offchainreporting2"`)
+			assert.Contains(t, req.Spec, `name = "consensus-queue-worker`)
+			assert.Contains(t, req.Spec, `contractID = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
+			assert.Contains(t, req.Spec, `p2pv2Bootstrappers = [
+  "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+]`)
+			assert.Contains(t, req.Spec, `relay = "evm"`)
+			assert.Contains(t, req.Spec, fmt.Sprintf(`chainID = "%d"`, chainsel.TEST_90000001.EvmChainID))
+			assert.Contains(t, req.Spec, `ocrKeyBundleID = "`)
+			assert.Contains(t, req.Spec, `transmitterID = "`)
+		}
+		require.Positive(t, found, "no consensus-queue job spec was proposed")
 	})
 
 	t.Run("successful consensus job distribution", func(t *testing.T) {
