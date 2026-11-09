@@ -20,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	settingsremote "github.com/smartcontractkit/chainlink-common/pkg/settings/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -30,7 +32,7 @@ func listenLocal(ctx context.Context) (net.Listener, error) {
 
 // V2 runs a capability built with capability.Run. The host supervises the
 // process as an empty LOOP, and gives it its dependencies in env vars. The process reaches the
-// capabilities registry through a gRPC server that the host serves for this LOOP only.
+// capabilities registry and CRE settings through a gRPC server that the host serves for this LOOP only.
 type V2 struct {
 	services.StateMachine
 	log              logger.Logger
@@ -40,6 +42,7 @@ type V2 struct {
 	capDonIDResolver CapDonIDResolver
 	pluginRegistrar  plugins.RegistrarConfig
 	registry         registry.CapabilitiesRegistry
+	creSettings      settings.Broadcaster
 
 	emptyLoop atomic.Pointer[loop.EmptyService]
 	loopID    string
@@ -64,6 +67,8 @@ type V2Params struct {
 	PluginRegistrar  plugins.RegistrarConfig
 	// Registry is served to the process. Nil serves no registry.
 	Registry registry.CapabilitiesRegistry
+	// CRESettings is served to the process. Nil serves no settings.
+	CRESettings settings.Broadcaster
 }
 
 func NewV2(p V2Params) (*V2, error) {
@@ -75,6 +80,7 @@ func NewV2(p V2Params) (*V2, error) {
 		capDonIDResolver: p.CapDonIDResolver,
 		pluginRegistrar:  p.PluginRegistrar,
 		registry:         p.Registry,
+		creSettings:      p.CRESettings,
 		stopChan:         make(services.StopChan),
 	}, nil
 }
@@ -105,6 +111,11 @@ func (s *V2) Start(ctx context.Context) error {
 
 			remote.RegisterCapabilitiesRegistryServer(srv.Server, s.log, s.registry, transport)
 			envVars = append(envVars, "CL_CAPABILITIES_PROXY_URL="+srv.addr())
+		}
+
+		if s.creSettings != nil {
+			settingsremote.RegisterSettingsServer(srv.Server, s.log, s.creSettings)
+			envVars = append(envVars, "CL_SETTINGS_URL="+srv.addr())
 		}
 
 		s.startGRPCServer(srv)

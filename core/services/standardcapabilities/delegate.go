@@ -426,6 +426,7 @@ func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command
 		CapDonIDResolver: idResolver,
 		PluginRegistrar:  d.cfg,
 		Registry:         d.registry,
+		CRESettings:      d.creSettings,
 	})
 	if err != nil {
 		return nil, err
