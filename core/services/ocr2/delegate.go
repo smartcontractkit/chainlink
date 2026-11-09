@@ -98,7 +98,6 @@ const (
 	vaultDiskMonitorTickInterval = time.Minute
 
 	consensusQueueCapabilityID            = internal.ConsensusQueueCapabilityID
-	consensusQueueOCRConfigKey            = "consensus-queue"
 	gaugeConsensusQueueBytes              = "platform_consensus_queue_usage_bytes"
 	consensusQueueDiskMonitorTickInterval = time.Minute
 )
@@ -864,7 +863,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		return nil, err
 	}
 
-	configTracker, configDigester, lc, err := d.maybeWrapConfigService(consensusQueueCapabilityID, consensusQueueOCRConfigKey, lggr, provider.ContractConfigTracker(), provider.OffchainConfigDigester(), lc)
+	configTracker, configDigester, lc, err := d.maybeWrapConfigService(consensusQueueCapabilityID, capabilitiespb.OCR3ConfigDefaultKey, lggr, provider.ContractConfigTracker(), provider.OffchainConfigDigester(), lc)
 	if err != nil {
 		return nil, err
 	}
