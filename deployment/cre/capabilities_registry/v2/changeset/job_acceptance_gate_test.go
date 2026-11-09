@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,6 +22,8 @@ type fakeJD struct {
 	nodes     []*nodev1.Node
 	jobs      []*jobv1.Job
 	proposals []*jobv1.Proposal
+	jobsErr   error
+	propsErr  error
 }
 
 func (f *fakeJD) ListNodes(context.Context, *nodev1.ListNodesRequest, ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
@@ -28,10 +31,18 @@ func (f *fakeJD) ListNodes(context.Context, *nodev1.ListNodesRequest, ...grpc.Ca
 }
 
 func (f *fakeJD) ListJobs(context.Context, *jobv1.ListJobsRequest, ...grpc.CallOption) (*jobv1.ListJobsResponse, error) {
+	if f.jobsErr != nil {
+		return nil, f.jobsErr
+	}
+
 	return &jobv1.ListJobsResponse{Jobs: f.jobs}, nil
 }
 
 func (f *fakeJD) ListProposals(context.Context, *jobv1.ListProposalsRequest, ...grpc.CallOption) (*jobv1.ListProposalsResponse, error) {
+	if f.propsErr != nil {
+		return nil, f.propsErr
+	}
+
 	return &jobv1.ListProposalsResponse{Proposals: f.proposals}, nil
 }
 
@@ -123,6 +134,44 @@ func TestVerifyNoPendingJobProposals(t *testing.T) {
 		require.NoError(t, verifyNoPendingJobProposals(envWith(jd), []string{"p2p_unknown"}))
 	})
 
+	t.Run("rejected latest revision blocks", func(t *testing.T) {
+		t.Parallel()
+		jd := base()
+		jd.proposals = []*jobv1.Proposal{
+			prop("j1", 1, jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED),
+			prop("j1", 2, jobv1.ProposalStatus_PROPOSAL_STATUS_REJECTED),
+		}
+		require.ErrorContains(t, verifyNoPendingJobProposals(envWith(jd), []string{"p2p_a"}), "node-1")
+	})
+
+	t.Run("cancelled and revoked latest revisions pass", func(t *testing.T) {
+		t.Parallel()
+		jd := base()
+		jd.proposals = []*jobv1.Proposal{
+			prop("j1", 1, jobv1.ProposalStatus_PROPOSAL_STATUS_CANCELLED),
+			prop("j2", 1, jobv1.ProposalStatus_PROPOSAL_STATUS_REVOKED),
+		}
+		require.NoError(t, verifyNoPendingJobProposals(envWith(jd), []string{"p2p_a", "p2p_b"}))
+	})
+
+	t.Run("unmatched p2p id is skipped", func(t *testing.T) {
+		t.Parallel()
+		jd := base()
+		jd.proposals = []*jobv1.Proposal{prop("j1", 1, jobv1.ProposalStatus_PROPOSAL_STATUS_PROPOSED)}
+		require.NoError(t, verifyNoPendingJobProposals(envWith(jd), []string{"p2p_unlabeled"}))
+	})
+
+	t.Run("JD list errors propagate", func(t *testing.T) {
+		t.Parallel()
+		jd := base()
+		jd.jobsErr = errors.New("boom")
+		require.ErrorContains(t, verifyNoPendingJobProposals(envWith(jd), []string{"p2p_a"}), "boom")
+
+		jd = base()
+		jd.propsErr = errors.New("bang")
+		require.ErrorContains(t, verifyNoPendingJobProposals(envWith(jd), []string{"p2p_a"}), "bang")
+	})
+
 	t.Run("bare hex p2p id still matches JD label", func(t *testing.T) {
 		t.Parallel()
 		var id p2pkey.PeerID
@@ -151,4 +200,22 @@ func TestUpdateDONPreconditions_JobAcceptanceGate(t *testing.T) {
 
 	base.SkipJobAcceptanceCheck = true
 	require.NoError(t, UpdateDON{}.VerifyPreconditions(e, base))
+}
+
+func TestUpdateNodesPreconditions_JobAcceptanceGate(t *testing.T) {
+	t.Parallel()
+
+	e := envWith(&fakeJD{
+		nodes:     []*nodev1.Node{jdNode("n1", "node-1", "p2p_a")},
+		jobs:      []*jobv1.Job{{Id: "j1", NodeId: "n1"}},
+		proposals: []*jobv1.Proposal{{JobId: "j1", Revision: 1, Status: jobv1.ProposalStatus_PROPOSAL_STATUS_PROPOSED}},
+	})
+	in := UpdateNodesInput{Nodes: []CapabilitiesRegistryNodeParams{{
+		P2pID: "p2p_a", NOP: "nop", Signer: "s", EncryptionPublicKey: "e", CsaKey: "c",
+	}}}
+
+	require.ErrorContains(t, UpdateNodes{}.VerifyPreconditions(e, in), "node-1")
+
+	in.SkipJobAcceptanceCheck = true
+	require.NoError(t, UpdateNodes{}.VerifyPreconditions(cldf.Environment{}, in))
 }

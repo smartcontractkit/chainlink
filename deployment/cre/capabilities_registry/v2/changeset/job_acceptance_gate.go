@@ -19,8 +19,10 @@ import (
 
 const jdP2PIDLabel = "p2p_id"
 
-// verifyNoPendingJobProposals fails if any node identified by p2pIDs still has a job proposal
-// awaiting acceptance in JD. Applying cap-reg config before NOPs accept updated job specs (e.g. new
+// verifyNoPendingJobProposals fails if any node identified by p2pIDs has a job whose latest proposal
+// in JD is undecided or rejected. It only sees proposals that already exist: a cap-reg change applied
+// before the job is proposed at all is not caught. Preconditions also run at proposal time, not MCMS
+// execution time. Applying cap-reg config before NOPs accept updated job specs (e.g. new
 // OCR key bundles) breaks OCR on those nodes (INCIDENT-2694).
 func verifyNoPendingJobProposals(e cldf.Environment, p2pIDs []string) error {
 	if len(p2pIDs) == 0 {
@@ -49,6 +51,7 @@ func verifyNoPendingJobProposals(e cldf.Environment, p2pIDs []string) error {
 	}
 
 	// Nodes JD does not know cannot have proposals there, so there is nothing to wait on.
+	var unmatched []string
 	nodeIDs := make([]string, 0, len(p2pIDs))
 	for _, p := range p2pIDs {
 		// Normalize so a bare-hex ID in the input still matches JD's "p2p_" label instead of being skipped.
@@ -58,7 +61,12 @@ func verifyNoPendingJobProposals(e cldf.Environment, p2pIDs []string) error {
 		}
 		if id, ok := nodeIDByP2P[key]; ok {
 			nodeIDs = append(nodeIDs, id)
+		} else {
+			unmatched = append(unmatched, p)
 		}
+	}
+	if len(unmatched) > 0 && e.Logger != nil {
+		e.Logger.Warnf("job acceptance check: no JD node with a %s label for %s; their jobs were not checked", jdP2PIDLabel, strings.Join(unmatched, ", "))
 	}
 	if len(nodeIDs) == 0 {
 		return nil
@@ -77,13 +85,26 @@ func verifyNoPendingJobProposals(e cldf.Environment, p2pIDs []string) error {
 	}
 
 	return fmt.Errorf(
-		"node(s) %s have job proposals not yet accepted; all NOPs must accept updated jobs before the capabilities registry change is applied (see INCIDENT-2694); set skipJobAcceptanceCheck to bypass",
+		"node(s) %s have job proposals that are pending or rejected; all NOPs must accept updated jobs before the capabilities registry change is applied (see INCIDENT-2694); set skipJobAcceptanceCheck to bypass",
 		strings.Join(names, ", "),
 	)
 }
 
+// blocksCapRegChange reports whether a latest-revision status means the node is not running the
+// intended spec: undecided, or refused by the NOP. CANCELLED and REVOKED are deliberate retractions.
+func blocksCapRegChange(st jobv1.ProposalStatus) bool {
+	switch st {
+	case jobv1.ProposalStatus_PROPOSAL_STATUS_PROPOSED,
+		jobv1.ProposalStatus_PROPOSAL_STATUS_PENDING,
+		jobv1.ProposalStatus_PROPOSAL_STATUS_REJECTED:
+		return true
+	default:
+		return false
+	}
+}
+
 // pendingProposalNodes returns the sorted IDs of nodes whose latest proposal for some live job is
-// still undecided.
+// undecided or rejected.
 func pendingProposalNodes(e cldf.Environment, nodeIDs []string) ([]string, error) {
 	const maxRecvSize = 50 * 1024 * 1024
 	jobsResp, err := e.Offchain.ListJobs(e.GetContext(), &jobv1.ListJobsRequest{
@@ -125,7 +146,7 @@ func pendingProposalNodes(e cldf.Environment, nodeIDs []string) ([]string, error
 
 	var pending []string
 	for jobID, p := range latest {
-		if p.Status != jobv1.ProposalStatus_PROPOSAL_STATUS_PROPOSED && p.Status != jobv1.ProposalStatus_PROPOSAL_STATUS_PENDING {
+		if !blocksCapRegChange(p.Status) {
 			continue
 		}
 		if node := nodeByJob[jobID]; !slices.Contains(pending, node) {

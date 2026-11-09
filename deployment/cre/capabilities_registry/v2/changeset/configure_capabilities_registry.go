@@ -39,7 +39,7 @@ type ConfigureCapabilitiesRegistryInput struct {
 	DONs                        []CapabilitiesRegistryNewDONParams `json:"dons,omitempty" yaml:"dons,omitempty"`
 	Qualifier                   string                             `json:"qualifier,omitempty" yaml:"qualifier,omitempty"`
 
-	// SkipJobAcceptanceCheck disables the precondition check that every node in the new DONs has
+	// SkipJobAcceptanceCheck disables the precondition check that every node in Nodes and the new DONs has
 	// accepted all of its job proposals in JD. Use only for emergencies.
 	SkipJobAcceptanceCheck bool `json:"skipJobAcceptanceCheck,omitempty" yaml:"skipJobAcceptanceCheck,omitempty"`
 }
@@ -61,6 +61,9 @@ func (l ConfigureCapabilitiesRegistry) VerifyPreconditions(e cldf.Environment, c
 
 	if !config.SkipJobAcceptanceCheck {
 		var p2pIDs []string
+		for _, node := range config.Nodes {
+			p2pIDs = append(p2pIDs, node.P2pID)
+		}
 		for _, don := range config.DONs {
 			p2pIDs = append(p2pIDs, don.Nodes...)
 		}

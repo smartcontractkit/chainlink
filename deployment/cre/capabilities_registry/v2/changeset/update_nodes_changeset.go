@@ -27,11 +27,15 @@ type UpdateNodesInput struct {
 	RegistryQualifier string                           `json:"registryQualifier" yaml:"registryQualifier"`
 	MCMSConfig        *crecontracts.MCMSConfig         `json:"mcmsConfig,omitempty" yaml:"mcmsConfig,omitempty"`
 	Nodes             []CapabilitiesRegistryNodeParams `json:"nodes" yaml:"nodes"`
+
+	// SkipJobAcceptanceCheck disables the precondition check that every node has accepted all of
+	// its job proposals in JD. Use only for emergencies.
+	SkipJobAcceptanceCheck bool `json:"skipJobAcceptanceCheck,omitempty" yaml:"skipJobAcceptanceCheck,omitempty"`
 }
 
 type UpdateNodes struct{}
 
-func (u UpdateNodes) VerifyPreconditions(_ cldf.Environment, config UpdateNodesInput) error {
+func (u UpdateNodes) VerifyPreconditions(e cldf.Environment, config UpdateNodesInput) error {
 	if len(config.Nodes) == 0 {
 		return errors.New("nodes list cannot be empty")
 	}
@@ -50,6 +54,15 @@ func (u UpdateNodes) VerifyPreconditions(_ cldf.Environment, config UpdateNodesI
 		}
 		if node.CsaKey == "" {
 			return fmt.Errorf("node at index %d (%s) has empty CsaKey", i, node.P2pID)
+		}
+	}
+	if !config.SkipJobAcceptanceCheck {
+		p2pIDs := make([]string, len(config.Nodes))
+		for i, node := range config.Nodes {
+			p2pIDs[i] = node.P2pID
+		}
+		if err := verifyNoPendingJobProposals(e, p2pIDs); err != nil {
+			return fmt.Errorf("UpdateNodes precondition failed: %w", err)
 		}
 	}
 	return nil
