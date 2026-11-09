@@ -148,20 +148,17 @@ type CoordinatedEvent struct {
 	// A settings change after dispatch does not affect already-queued events
 	Deadline time.Time
 
-	// SequenceNumber determines the execution order of trigger events across the DON.
-	SequenceNumber uint64
-	Event          capabilities.TriggerResponse
+	Event capabilities.TriggerResponse
 }
 
 func (e *CoordinatedEvent) ToProto() *pb.CoordinatedEvent {
 	return &pb.CoordinatedEvent{
-		WorkflowID:     e.WorkflowID,
-		TriggerCapID:   e.TriggerCapID,
-		TriggerIndex:   int64(e.TriggerIndex),
-		ObservedAt:     timestamppb.New(e.ObservedAt),
-		Deadline:       timestamppb.New(e.Deadline),
-		SequenceNumber: e.SequenceNumber,
-		Event:          pb.TriggerResponseToProto(e.Event),
+		WorkflowID:   e.WorkflowID,
+		TriggerCapID: e.TriggerCapID,
+		TriggerIndex: int64(e.TriggerIndex),
+		ObservedAt:   timestamppb.New(e.ObservedAt),
+		Deadline:     timestamppb.New(e.Deadline),
+		Event:        pb.TriggerResponseToProto(e.Event),
 	}
 }
 
@@ -171,7 +168,6 @@ func (e *CoordinatedEvent) FromProto(p *pb.CoordinatedEvent) (err error) {
 	e.TriggerIndex = int(p.TriggerIndex)
 	e.ObservedAt = p.ObservedAt.AsTime()
 	e.Deadline = p.Deadline.AsTime()
-	e.SequenceNumber = p.SequenceNumber
 	e.Event, err = pb.TriggerResponseFromProto(p.Event)
 	return
 }

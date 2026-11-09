@@ -5,8 +5,10 @@ import (
 	"container/heap"
 	"fmt"
 	"slices"
+	"time"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
@@ -15,21 +17,21 @@ import (
 
 // KV store Keys
 const (
-	proposedEventsKey  = "proposed_events::index"  // proposed events waiting for consensus (<f+1 observers)
+	observedEventsKey  = "observed_events::index"  // observed events waiting for consensus (<f+1 observers)
 	priorityQueueKey   = "priority_queue::index"   // priority queue of events waiting for capacity
 	consensusEventsKey = "consensus_events::index" // events the plugin committed to sending to nodes
 )
 
-func (s stateReader) readProposedEvents() (*pb.ConsensusQueueProposals, error) {
-	return s.readValue[*pb.ConsensusQueueProposals](proposedEventsKey)
+func (s stateReader) readObservedEvents() (*pb.ConsensusQueueObservedEvents, error) {
+	return s.readValue[*pb.ConsensusQueueObservedEvents](observedEventsKey)
 }
 
-func (s stateReadWriter) writeProposedEvents(events *pb.ConsensusQueueProposals) error {
-	return s.writeValue(proposedEventsKey, events)
+func (s stateReadWriter) writeObservedEvents(events *pb.ConsensusQueueObservedEvents) error {
+	return s.writeValue(observedEventsKey, events)
 }
 
 func (s stateReader) readPriorityQueue() (priorityQueue, error) {
-	list, err := s.readValue[*pb.CoordinatedEventList](priorityQueueKey)
+	list, err := s.readValue[*pb.ConsensusQueueEventList](priorityQueueKey)
 	if err != nil {
 		return nil, err
 	}
@@ -37,14 +39,14 @@ func (s stateReader) readPriorityQueue() (priorityQueue, error) {
 }
 
 func (s stateReadWriter) writePriorityQueue(queue priorityQueue) error {
-	return s.writeValue(priorityQueueKey, &pb.CoordinatedEventList{Events: queue})
+	return s.writeValue(priorityQueueKey, &pb.ConsensusQueueEventList{Events: queue})
 }
 
-func (s stateReader) readConsensusEvents() (*pb.CoordinatedEventList, error) {
-	return s.readValue[*pb.CoordinatedEventList](consensusEventsKey)
+func (s stateReader) readConsensusEvents() (*pb.ConsensusQueueEventList, error) {
+	return s.readValue[*pb.ConsensusQueueEventList](consensusEventsKey)
 }
 
-func (s stateReadWriter) writeConsensusEvents(events *pb.CoordinatedEventList) error {
+func (s stateReadWriter) writeConsensusEvents(events *pb.ConsensusQueueEventList) error {
 	return s.writeValue(consensusEventsKey, events)
 }
 
@@ -72,7 +74,7 @@ func newStateReadWriter(kv ocr3_1types.KeyValueStateReadWriter) stateReadWriter 
 }
 
 func (s stateReadWriter) writeValue[M proto.Message](key string, m M) error {
-	val, err := proto.Marshal(m)
+	val, err := proto.MarshalOptions{Deterministic: true}.Marshal(m)
 	if err != nil {
 		return err
 	}
@@ -81,15 +83,17 @@ func (s stateReadWriter) writeValue[M proto.Message](key string, m M) error {
 
 var _ heap.Interface = (*priorityQueue)(nil)
 
-// priorityQueue is a heap of coordinated events.
-type priorityQueue []*pb.CoordinatedEvent
+// priorityQueue is a heap of coordinated events, ordered by deadline and then event ID.
+type priorityQueue []*pb.ConsensusQueueEvent
 
 func (p *priorityQueue) Len() int { return len(*p) }
 
 func (p *priorityQueue) Less(i, j int) bool {
 	a, b := (*p)[i], (*p)[j]
+
 	return cmp.Or(cmp.Compare(a.Deadline.Seconds, b.Deadline.Seconds),
-		cmp.Compare(a.Deadline.Nanos, b.Deadline.Nanos)) < 0
+		cmp.Compare(a.Deadline.Nanos, b.Deadline.Nanos),
+		cmp.Compare(a.TriggerEventID, b.TriggerEventID)) < 0
 }
 
 func (p *priorityQueue) Swap(i, j int) {
@@ -97,7 +101,7 @@ func (p *priorityQueue) Swap(i, j int) {
 }
 
 func (p *priorityQueue) Push(x any) {
-	*p = append(*p, x.(*pb.CoordinatedEvent))
+	*p = append(*p, x.(*pb.ConsensusQueueEvent))
 }
 
 func (p *priorityQueue) Pop() any {
@@ -105,14 +109,14 @@ func (p *priorityQueue) Pop() any {
 }
 
 // PopCap pops up to capacity events from the queue, each of which must have wf capacity. Mutates capPerWF.
-func (p *priorityQueue) PopCap(capacity uint32, capPerWF map[string]uint32) ([]*pb.CoordinatedEvent, error) {
-	var events []*pb.CoordinatedEvent
-	var wfLimited []*pb.CoordinatedEvent // omitted due to workflow limit
+func (p *priorityQueue) PopCap(capacity uint32, capPerWF map[string]uint32) ([]*pb.ConsensusQueueEvent, error) {
+	var events []*pb.ConsensusQueueEvent
+	var wfLimited []*pb.ConsensusQueueEvent // omitted due to workflow limit
 	for len(events) < int(capacity) {
 		if len(*p) == 0 {
 			break
 		}
-		next, ok := heap.Pop(p).(*pb.CoordinatedEvent)
+		next, ok := heap.Pop(p).(*pb.ConsensusQueueEvent)
 		if !ok {
 			return nil, fmt.Errorf("failed to cast *pb.CoordinatedEvent: got type %T", next)
 		}
@@ -130,37 +134,57 @@ func (p *priorityQueue) PopCap(capacity uint32, capPerWF map[string]uint32) ([]*
 	return events, nil
 }
 
-type proposedAndQueued struct {
-	proposedEvents *pb.ConsensusQueueProposals
+type observedAndQueued struct {
+	observedEvents *pb.ConsensusQueueObservedEvents
 	queuedEvents   *priorityQueue
 }
 
-func (s proposedAndQueued) processObserved(f int, observedProposals map[string][]uint8, observedEvents map[string]*pb.CoordinatedEvent) {
-	for id, nodes := range observedProposals {
-		if observers, ok := s.proposedEvents.Observers[id]; !ok && len(nodes) >= f+1 {
+func (s observedAndQueued) addObservedEvents(f int, observedEvents map[string]*pb.ConsensusQueueObservedEvent) {
+	for id, event := range observedEvents {
+		obs, ok := s.observedEvents.Observations[id]
+		if !ok && len(event.NodeIds) >= f+1 {
 			// new proposal straight to priority queue
-			heap.Push(s.queuedEvents, s.proposedEvents.Events[id])
-			continue
+			heap.Push(s.queuedEvents, &pb.ConsensusQueueEvent{
+				WorkflowID:     "", //TODO parse?
+				TriggerEventID: "", //TODO parse?
+				Deadline:       medianTimestamp(event.Deadlines),
+				Blobs:          event.Blobs,
+			})
 		} else if !ok {
 			// new proposal < f + 1
-			s.proposedEvents.Observers[id] = &pb.NodeIDList{Ids: nodes}
-			s.proposedEvents.Events[id] = observedEvents[id]
-			continue
-		} else if len(nodes) < f+1 {
+			s.observedEvents.Observations[id] = event
+		} else {
 			// update proposal
-			// TODO opt: build a map to avoid n^2? or nbd since n < f+1
-			for _, node := range nodes {
-				if !slices.Contains(observers.Ids, node) {
-					observers.Ids = append(observers.Ids, node)
-				}
+			// TODO opt: build a map to avoid n^2?
+			for i, node := range event.NodeIds {
+				if !slices.Contains(obs.NodeIds, node) {
+					obs.NodeIds = append(obs.NodeIds, node)
+					obs.Deadlines = append(obs.Deadlines, event.Deadlines[i])
+					obs.Blobs = append(obs.Blobs, event.Blobs[i])
+				} //TODO what if a node reports twice with different deadline or nodeID? do we need to overwrite?
 			}
-			if len(observers.Ids) < f+1 {
-				continue
+			if len(obs.NodeIds) >= f+1 {
+				// promote proposal to priority queue
+				delete(s.observedEvents.Observations, id)
+				heap.Push(s.queuedEvents, &pb.ConsensusQueueEvent{
+					WorkflowID:     "", //TODO
+					TriggerEventID: "", //TODO
+					Deadline:       medianTimestamp(event.Deadlines),
+					Blobs:          event.Blobs,
+				})
 			}
 		}
-		// f+1 - promote proposal to priority queue
-		delete(s.proposedEvents.Observers, id)
-		delete(s.proposedEvents.Events, id)
-		heap.Push(s.queuedEvents, s.proposedEvents.Events[id])
 	}
+}
+
+func medianTimestamp(s []*timestamppb.Timestamp) *timestamppb.Timestamp {
+	var times []time.Time
+	for _, t := range s {
+		times = append(times, time.Unix(t.Seconds, int64(t.Nanos)))
+	}
+	slices.SortFunc(times, time.Time.Compare)
+
+	a, b := times[len(times)/2], times[len(times)/2-1]
+	diff := a.Sub(b)
+	return timestamppb.New(a.Add(diff / 2))
 }
