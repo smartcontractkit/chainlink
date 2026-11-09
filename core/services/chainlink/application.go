@@ -776,6 +776,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		safeExternalRegistryAddress(cfg),
 		safeExternalRegistryChainID(cfg),
 		localShardIndex(cfg.Sharding()),
+		limitsFactory,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create standard capabilities delegate: %w", err)
