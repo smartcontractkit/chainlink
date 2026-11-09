@@ -2,9 +2,12 @@ package v2
 
 import (
 	"database/sql"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -486,4 +489,30 @@ func Test_SaveTriggerSubscriptions(t *testing.T) {
 
 		require.NoError(t, orm.SaveTriggerSubscriptions(ctx, "inexistent-workflow-id", []byte("payload")))
 	})
+}
+
+func Test_WorkflowSpecColumnsMatchStruct(t *testing.T) {
+	t.Parallel()
+
+	// secrets_id is not a column of workflow_specs_v2.
+	notColumns := map[string]bool{"secrets_id": true}
+
+	want := map[string]bool{}
+	rt := reflect.TypeFor[job.WorkflowSpec]()
+	for f := range rt.Fields() {
+		name := f.Tag.Get("db")
+		if name == "" {
+			name = reflectx.CamelToSnakeASCII(f.Name)
+		}
+		if name != "-" && !notColumns[name] {
+			want[name] = true
+		}
+	}
+
+	got := map[string]bool{}
+	for c := range strings.SplitSeq(workflowSpecColumns, ",") {
+		got[strings.TrimSpace(c)] = true
+	}
+
+	assert.Equal(t, want, got, "workflowSpecColumns must list every job.WorkflowSpec db field, or the field is silently left zero")
 }
