@@ -47,8 +47,7 @@ type consensusQueuePlugin struct {
 func newConsensusQueuePlugin(lggr logger.Logger, onchainCfg ocr3types.ReportingPluginConfig) *consensusQueuePlugin {
 	c := &consensusQueuePlugin{lggr: logger.Named(lggr, "ConsensusQueuePlugin"), onchainCfg: onchainCfg}
 	c.Service, c.eng = services.Config{
-		Name:  "ConsensusQueueReportingPlugin",
-		Close: c.Close,
+		Name: "ConsensusQueueReportingPlugin",
 	}.NewServiceEngine(lggr)
 
 	return c
