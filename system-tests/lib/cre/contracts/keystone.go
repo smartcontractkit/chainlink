@@ -29,6 +29,7 @@ import (
 	cap_reg_v2_seq "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	cre_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
@@ -126,14 +127,9 @@ func (d *dons) donsOrderedByID() []donConfig {
 func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don donConfig, registryChainSelector uint64, oracleConfig *ocr3.OracleConfig, extraSignerFamilies []string) error {
 	oracleConfig.TransmissionSchedule = []int{len(don.Nops[0].Nodes)}
 
-	var allNodeIDs []string
-	for _, nop := range don.Nops {
-		allNodeIDs = append(allNodeIDs, nop.Nodes...)
-	}
-
-	nodes, err := deployment.NodeInfo(allNodeIDs, d.offChain)
+	nodes, err := d.donNodeInfo(don)
 	if err != nil {
-		return fmt.Errorf("failed to get node info: %w", err)
+		return err
 	}
 
 	ocrConfig, err := ocr3.GenerateOCR3ConfigFromNodes(*oracleConfig, nodes, registryChainSelector, d.env.OCRSecrets, nil, extraSignerFamilies)
@@ -141,12 +137,63 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 		return fmt.Errorf("failed to generate OCR3 config: %w", err)
 	}
 
+	setDefaultOCR3ConfigProto(capConfig, ocrConfig)
+	return nil
+}
+
+// embedOCR3_1Config is the OCR 3.1 version of embedOCR3Config.
+// The node's OCR 3.1 oracle only accepts offchain config version 310, which is
+// what GenerateOCR3_1ConfigFromNodes writes.
+func (d *dons) embedOCR3_1Config(capConfig *capabilitiespb.CapabilityConfig, don donConfig, registryChainSelector uint64, oracleConfig *ocr3_1.V3_1OracleConfig, extraSignerFamilies []string) error {
+	oracleConfig.TransmissionSchedule = []int{len(don.Nops[0].Nodes)}
+
+	nodes, err := d.donNodeInfo(don)
+	if err != nil {
+		return err
+	}
+
+	// Vault and DKG carry their plugin config in the OCR offchain config.
+	// Other OCR 3.1 plugins read it from the job spec, so it stays empty here.
+	// Empty but not nil, because nil makes the generator ask for a Vault or DKG config.
+	var pluginConfig []byte
+	if oracleConfig.VaultOffchainConfig == nil && oracleConfig.DKGOffchainConfig == nil {
+		pluginConfig = []byte{}
+	}
+
+	ocrConfig, err := ocr3_1.GenerateOCR3_1ConfigFromNodes(*oracleConfig, nodes, registryChainSelector, d.env.OCRSecrets, pluginConfig, extraSignerFamilies)
+	if err != nil {
+		return fmt.Errorf("failed to generate OCR3_1 config: %w", err)
+	}
+
+	setDefaultOCR3ConfigProto(capConfig, ocrConfig)
+	return nil
+}
+
+func (d *dons) donNodeInfo(don donConfig) ([]deployment.Node, error) {
+	var allNodeIDs []string
+	for _, nop := range don.Nops {
+		allNodeIDs = append(allNodeIDs, nop.Nodes...)
+	}
+
+	nodes, err := deployment.NodeInfo(allNodeIDs, d.offChain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node info: %w", err)
+	}
+	return nodes, nil
+}
+
+// setDefaultOCR3ConfigProto writes ocrConfig under the default key, which is the
+// key the node reads for single-instance capabilities.
+func setDefaultOCR3ConfigProto(capConfig *capabilitiespb.CapabilityConfig, ocrConfig ocr3.OCR2OracleConfig) {
 	transmitterBytes := make([][]byte, len(ocrConfig.Transmitters))
 	for i, t := range ocrConfig.Transmitters {
 		transmitterBytes[i] = t.Bytes()
 	}
 
-	ocr3Proto := &capabilitiespb.OCR3Config{
+	if capConfig.Ocr3Configs == nil {
+		capConfig.Ocr3Configs = make(map[string]*capabilitiespb.OCR3Config)
+	}
+	capConfig.Ocr3Configs[capabilitiespb.OCR3ConfigDefaultKey] = &capabilitiespb.OCR3Config{
 		Signers:               ocrConfig.Signers,
 		Transmitters:          transmitterBytes,
 		F:                     uint32(ocrConfig.F),
@@ -155,16 +202,9 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 		OffchainConfig:        ocrConfig.OffchainConfig,
 		ConfigCount:           1,
 	}
-
-	if capConfig.Ocr3Configs == nil {
-		capConfig.Ocr3Configs = make(map[string]*capabilitiespb.OCR3Config)
-	}
-	capConfig.Ocr3Configs[capabilitiespb.OCR3ConfigDefaultKey] = ocr3Proto
-
-	return nil
 }
 
-func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string, capabilityToOCR3Config map[string]*ocr3.OracleConfig, capabilityToExtraSignerFamilies map[string][]string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
+func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string, capabilityToOCR3Config map[string]*ocr3.OracleConfig, capabilityToOCR3_1Config map[string]*ocr3_1.V3_1OracleConfig, capabilityToExtraSignerFamilies map[string][]string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
 	nodes := make([]contracts.NodesInput, 0)
 	orderedDons := d.donsOrderedByID()
 	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, len(orderedDons))
@@ -253,12 +293,21 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 				}
 				shouldMarshalProtoConfig = true
 
-				ocrConfig := capabilityToOCR3Config[cap.Capability.LabelledName]
-				if ocrConfig == nil {
-					panic("no OCR3 config found for capability " + cap.Capability.LabelledName)
-				}
-				if err := d.embedOCR3Config(capConfig, don, chainSelector, ocrConfig, capabilityToExtraSignerFamilies[cap.Capability.LabelledName]); err != nil {
-					panic(fmt.Sprintf("failed to embed OCR3 config for capability %s: %s", cap.Capability.LabelledName, err))
+				name := cap.Capability.LabelledName
+				extraSignerFamilies := capabilityToExtraSignerFamilies[name]
+				ocr3_1Config := capabilityToOCR3_1Config[name]
+				ocrConfig := capabilityToOCR3Config[name]
+				switch {
+				case ocr3_1Config != nil:
+					if err := d.embedOCR3_1Config(capConfig, don, chainSelector, ocr3_1Config, extraSignerFamilies); err != nil {
+						panic(fmt.Sprintf("failed to embed OCR3_1 config for capability %s: %s", name, err))
+					}
+				case ocrConfig != nil:
+					if err := d.embedOCR3Config(capConfig, don, chainSelector, ocrConfig, extraSignerFamilies); err != nil {
+						panic(fmt.Sprintf("failed to embed OCR3 config for capability %s: %s", name, err))
+					}
+				default:
+					panic("no OCR3 or OCR3_1 config found for capability " + name)
 				}
 			}
 
@@ -467,7 +516,7 @@ func ExecuteConfigureCapabilitiesRegistry(input cre.ConfigureCapabilityRegistryI
 	if dErr != nil {
 		return nil, errors.Wrap(dErr, "failed to map input to dons")
 	}
-	contractInput := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex(), input.CapabilityToOCR3Config, input.CapabilityToExtraSignerFamilies)
+	contractInput := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex(), input.CapabilityToOCR3Config, input.CapabilityToOCR3_1Config, input.CapabilityToExtraSignerFamilies)
 	_, seqErr := operations.ExecuteSequence(
 		input.CldEnv.OperationsBundle,
 		cap_reg_v2_seq.ConfigureCapabilitiesRegistry,

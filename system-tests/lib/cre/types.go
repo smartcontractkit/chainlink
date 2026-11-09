@@ -31,6 +31,7 @@ import (
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
 	ks_stellar "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -366,6 +367,10 @@ type ConfigureCapabilityRegistryInput struct {
 
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+
+	// keyed by LabelledName. For capabilities that run an OCR 3.1 plugin.
+	// An entry here is used instead of CapabilityToOCR3Config.
+	CapabilityToOCR3_1Config map[string]*ocr3_1.V3_1OracleConfig
 
 	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
 	// included in OCR3 config signers for that capability (e.g. ["solana"]).
@@ -1745,6 +1750,8 @@ type PreEnvStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+	// keyed by LabelledName. For capabilities that run an OCR 3.1 plugin.
+	CapabilityToOCR3_1Config map[string]*ocr3_1.V3_1OracleConfig
 	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
 	// included in OCR3 config signers for that capability (e.g. ["solana"]).
 	// EVM is always included.

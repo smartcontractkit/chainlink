@@ -14,9 +14,9 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
-	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	ocr3_changeset "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -43,6 +43,11 @@ func (o *ConsensusQueue) PreEnvStartup(
 		return nil, nil
 	}
 
+	workers, err := don.Workers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workers for DON %s: %w", don.Name, err)
+	}
+
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: []keystone_changeset.DONCapabilityWithConfig{{
 			Capability: kcr.CapabilitiesRegistryCapability{
@@ -56,9 +61,9 @@ func (o *ConsensusQueue) PreEnvStartup(
 			},
 			UseCapRegOCRConfig: true,
 		}},
-		CapabilityToOCR3Config: map[string]*ocr3.OracleConfig{
-			//TODO don't we need DefaultOCR3_1Config?
-			consensusQueueLabelledName: contracts.DefaultOCR3Config(),
+		// The plugin runs on the OCR 3.1 oracle, which rejects OCR3 (version 30) offchain configs.
+		CapabilityToOCR3_1Config: map[string]*ocr3_1.V3_1OracleConfig{
+			consensusQueueLabelledName: contracts.DefaultOCR3_1Config(len(workers)),
 		},
 	}, nil
 }
