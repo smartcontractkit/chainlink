@@ -873,7 +873,8 @@ func TestShardFailoverManager_TimeoutBasedFailover_ExecutesCachedEventAfterWindo
 
 	eng := &recordingEngine{}
 	gate := &fakeGateLimiter{open: true}
-	window := &fakeWindowLimiter{window: 50 * time.Millisecond}
+	// Wide enough that a slow runner cannot reach the deadline before the first pass.
+	window := &fakeWindowLimiter{window: 2 * time.Second}
 	resolver := &switchableShardResolver{ownerDON: 1, found: true}
 	m := newTimeoutBasedFailoverManager(t, eng, gate, window, resolver)
 
@@ -883,19 +884,17 @@ func TestShardFailoverManager_TimeoutBasedFailover_ExecutesCachedEventAfterWindo
 	m.executeDueTimeoutBasedFailovers(t.Context())
 	assert.Empty(t, eng.executedIDs(), "cached event executed before the failover window elapsed")
 
-	time.Sleep(60 * time.Millisecond)
-	m.executeDueTimeoutBasedFailovers(t.Context())
-
-	// The pass spawns the execution asynchronously, so wait for it to land.
+	// Run a pass per tick until the window elapses; execution is async.
 	wantTenant := contexts.CREValue(contexts.WithCRE(context.Background(), eng.Tenant()))
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
+		m.executeDueTimeoutBasedFailovers(t.Context())
 		ids := eng.executedIDs()
 		if len(ids) != 1 || ids[0] != "evt-1" {
 			return false
 		}
 		tenants := eng.executionTenants()
 		return len(tenants) == 1 && tenants[0] == wantTenant
-	}, 5*time.Second, 10*time.Millisecond, "cached event was not auto-executed with the workflow tenant after the failover window elapsed")
+	}, 10*time.Second, 50*time.Millisecond, "cached event was not auto-executed with the workflow tenant after the failover window elapsed")
 
 	m.executeDueTimeoutBasedFailovers(t.Context())
 	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "auto-executed event was executed twice")
