@@ -111,14 +111,16 @@ func updateDONTargetP2PIDs(e cldf.Environment, config UpdateDONInput) ([]string,
 	if len(config.Nodes) > 0 {
 		return config.Nodes, nil
 	}
-	dons, err := getExistingDONsForPreconditionCheck(e, config.RegistryChainSel, config.RegistryQualifier)
+	capReg, err := capRegForPreconditionCheck(e, config.RegistryChainSel, config.RegistryQualifier)
 	if err != nil {
 		return nil, err
 	}
-	ids, ok := donNodeP2PIDs(dons, config.DONName)
-	if !ok {
-		return nil, fmt.Errorf("DON %q not found on-chain", config.DONName)
+	// By name, not the first-32 DON list, so DONs beyond that window resolve.
+	don, _, err := sequences.GetDonNodes(config.DONName, capReg)
+	if err != nil {
+		return nil, fmt.Errorf("DON %q not found on-chain: %w", config.DONName, err)
 	}
+	ids, _ := donNodeP2PIDs([]capabilities_registry_v2.CapabilitiesRegistryDONInfo{*don}, config.DONName)
 
 	return ids, nil
 }

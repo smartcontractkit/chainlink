@@ -173,6 +173,30 @@ func TestVerifyNoPendingJobProposals(t *testing.T) {
 		require.ErrorContains(t, verifyNoPendingJobProposals(envWith(jd), []string{"p2p_a"}), "bang")
 	})
 
+	t.Run("every JD record sharing a p2p id is checked", func(t *testing.T) {
+		t.Parallel()
+		jd := &fakeJD{
+			nodes: []*nodev1.Node{jdNode("n1", "old-record", "p2p_a"), jdNode("n2", "new-record", "p2p_a")},
+			jobs:  []*jobv1.Job{{Id: "j1", NodeId: "n1"}},
+			proposals: []*jobv1.Proposal{
+				prop("j1", 1, jobv1.ProposalStatus_PROPOSAL_STATUS_PROPOSED),
+			},
+		}
+		require.ErrorContains(t, verifyNoPendingJobProposals(envWith(jd), []string{"p2p_a"}), "old-record")
+	})
+
+	t.Run("bare hex JD label still matches prefixed target", func(t *testing.T) {
+		t.Parallel()
+		var id p2pkey.PeerID
+		id[0] = 2
+		jd := &fakeJD{
+			nodes:     []*nodev1.Node{jdNode("n1", "node-1", id.Raw())},
+			jobs:      []*jobv1.Job{{Id: "j1", NodeId: "n1"}},
+			proposals: []*jobv1.Proposal{prop("j1", 1, jobv1.ProposalStatus_PROPOSAL_STATUS_PROPOSED)},
+		}
+		require.ErrorContains(t, verifyNoPendingJobProposals(envWith(jd), []string{id.String()}), "node-1")
+	})
+
 	t.Run("bare hex p2p id still matches JD label", func(t *testing.T) {
 		t.Parallel()
 		var id p2pkey.PeerID

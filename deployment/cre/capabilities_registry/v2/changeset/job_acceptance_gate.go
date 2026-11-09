@@ -40,12 +40,17 @@ func verifyNoPendingJobProposals(e cldf.Environment, p2pIDs []string) error {
 		return fmt.Errorf("job acceptance check: %w", err)
 	}
 
-	nodeIDByP2P := make(map[string]string, len(jdNodes))
+	nodeIDsByP2P := make(map[string][]string, len(jdNodes))
 	nodeNameByID := make(map[string]string, len(jdNodes))
 	for _, n := range jdNodes {
 		for _, l := range n.Labels {
 			if l.Key == jdP2PIDLabel && l.Value != nil {
-				nodeIDByP2P[*l.Value] = n.Id
+				// Normalize labels too: JD registration may store a bare-hex ID, and one peer can have several records.
+				key := *l.Value
+				if id, err := p2pkey.MakePeerID(key); err == nil {
+					key = id.String()
+				}
+				nodeIDsByP2P[key] = append(nodeIDsByP2P[key], n.Id)
 				nodeNameByID[n.Id] = n.Name
 			}
 		}
@@ -60,8 +65,8 @@ func verifyNoPendingJobProposals(e cldf.Environment, p2pIDs []string) error {
 		if id, err := p2pkey.MakePeerID(p); err == nil {
 			key = id.String()
 		}
-		if id, ok := nodeIDByP2P[key]; ok {
-			nodeIDs = append(nodeIDs, id)
+		if ids, ok := nodeIDsByP2P[key]; ok {
+			nodeIDs = append(nodeIDs, ids...)
 		} else {
 			unmatched = append(unmatched, p)
 		}

@@ -182,12 +182,9 @@ func (don CapabilitiesRegistryNewDONParams) applyModifiersToCapabilityConfigs(e 
 	return capabilityConfigurations, nil
 }
 
-// getExistingDONsForPreconditionCheck reads the current on-chain DONs for the capabilities
-// registry identified by chainSel/qualifier, so preconditions can check a proposed capability
-// assignment against what other DONs already have configured.
-func getExistingDONsForPreconditionCheck(
+func capRegForPreconditionCheck(
 	e cldf.Environment, chainSel uint64, qualifier string,
-) ([]capabilities_registry_v2.CapabilitiesRegistryDONInfo, error) {
+) (*capabilities_registry_v2.CapabilitiesRegistry, error) {
 	chain, ok := e.BlockChains.EVMChains()[chainSel]
 	if !ok {
 		return nil, fmt.Errorf("chain not found for selector %d", chainSel)
@@ -203,6 +200,20 @@ func getExistingDONsForPreconditionCheck(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
+	}
+
+	return capReg, nil
+}
+
+// getExistingDONsForPreconditionCheck reads the current on-chain DONs for the capabilities
+// registry identified by chainSel/qualifier, so preconditions can check a proposed capability
+// assignment against what other DONs already have configured.
+func getExistingDONsForPreconditionCheck(
+	e cldf.Environment, chainSel uint64, qualifier string,
+) ([]capabilities_registry_v2.CapabilitiesRegistryDONInfo, error) {
+	capReg, err := capRegForPreconditionCheck(e, chainSel, qualifier)
+	if err != nil {
+		return nil, err
 	}
 
 	existingDONs, err := pkg.GetDONs(&bind.CallOpts{}, capReg)
