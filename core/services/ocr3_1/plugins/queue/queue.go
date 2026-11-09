@@ -68,7 +68,7 @@ func (c *consensusQueuePlugin) ValidateObservation(
 	ctx context.Context, seqNr uint64, _ ocrtypes.AttributedQuery, ao ocrtypes.AttributedObservation,
 	_ ocr3_1types.KeyValueStateReader, _ ocr3_1types.BlobFetcher,
 ) error {
-	//TODO validate
+	// TODO validate
 	return nil
 }
 
