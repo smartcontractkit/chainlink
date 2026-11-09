@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/storage"
@@ -111,7 +112,7 @@ type Opts struct {
 
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 
-	ShardAssignmentSettings *loop.AtomicSettings
+	ShardAssignmentSettings *settings.Atomic
 
 	// OffchainCapabilitiesRegistry holds the offchain capabilities registry config delivered
 	// via the cresettings job (config_type=capabilities_registry). Read by the Launcher.

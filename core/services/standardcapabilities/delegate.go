@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -61,7 +62,7 @@ type Delegate struct {
 	ocrPeerWrapper          *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
 	orgResolver             orgresolver.OrgResolver
-	creSettings             core.SettingsBroadcaster
+	creSettings             settings.Broadcaster
 	ocrConfigService        capregconfig.OCRConfigService
 	localCfg                coreconfig.LocalCapabilities
 	defaultBootstrappers    []ocrcommontypes.BootstrapperLocator
@@ -88,7 +89,7 @@ func NewDelegate(
 	ocrPeerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
 	orgResolver orgresolver.OrgResolver,
-	creSettings core.SettingsBroadcaster,
+	creSettings settings.Broadcaster,
 	ocrConfigService capregconfig.OCRConfigService,
 	localCfg coreconfig.LocalCapabilities,
 	defaultBootstrappers []ocrcommontypes.BootstrapperLocator,
