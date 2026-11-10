@@ -537,6 +537,12 @@ func buildCREMetadataV2(kvs map[string]string) *eventsv2.CreInfo {
 	if idx, err := strconv.ParseUint(kvs[platform.KeyShardIndex], 10, 32); err == nil {
 		m.ShardIndex = uint32(idx)
 	}
+	if id, err := strconv.ParseUint(kvs[platform.KeyPrimaryDonID], 10, 32); err == nil {
+		m.PrimaryDonID = uint32(id)
+	}
+	if id, err := strconv.ParseUint(kvs[platform.KeySecondaryDonID], 10, 32); err == nil {
+		m.SecondaryDonID = uint32(id)
+	}
 
 	m.P2PID = kvs[platform.KeyP2PID]
 

@@ -473,6 +473,26 @@ func (h *eventHandler) myDonIDLabel() string {
 	return strconv.FormatUint(uint64(h.myDonID), 10)
 }
 
+// assignmentDonIDLabels resolves the workflow's shard assignment for the
+// lifecycle event labels: position 0 of the assignment list is the primary
+// DON, position 1 the secondary. Any other outcome — no resolver, a resolver
+// without an assignment list (ring or hashed assignment), an error, not-found,
+// or a list missing either slot — reports 0, the unknown value. Shard index is
+// an identifier, not a priority, so it must never stand in for a missing claim.
+func (h *eventHandler) assignmentDonIDLabels(ctx context.Context, workflowID, owner string) (string, string) {
+	allResolver, ok := h.shardResolver.(shardownership.AllShardsResolver)
+	if !ok {
+		return "0", "0"
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	shards, found, err := allResolver.ResolveAllShards(ctx, workflowID, owner)
+	if err != nil || !found || len(shards) < 2 {
+		return "0", "0"
+	}
+	return strconv.FormatUint(uint64(shards[0]), 10), strconv.FormatUint(uint64(shards[1]), 10)
+}
+
 func (h *eventHandler) close() error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Close()
@@ -530,6 +550,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
 
+		primaryDonID, secondaryDonID := h.assignmentDonIDLabels(ctx, wfID, wfOwner)
 		h.emitterMu.RLock()
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
@@ -543,6 +564,8 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyDonID, h.myDonIDLabel(),
 			platform.KeyWorkflowDonID, h.myDonIDLabel(),
 			platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
+			platform.KeyPrimaryDonID, primaryDonID,
+			platform.KeySecondaryDonID, secondaryDonID,
 		)
 		h.emitterMu.RUnlock()
 
@@ -581,6 +604,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
 
+		primaryDonID, secondaryDonID := h.assignmentDonIDLabels(ctx, wfID, wfOwner)
 		h.emitterMu.RLock()
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
@@ -594,6 +618,8 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyDonID, h.myDonIDLabel(),
 			platform.KeyWorkflowDonID, h.myDonIDLabel(),
 			platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
+			platform.KeyPrimaryDonID, primaryDonID,
+			platform.KeySecondaryDonID, secondaryDonID,
 		)
 		h.emitterMu.RUnlock()
 
@@ -645,6 +671,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
 
+		primaryDonID, secondaryDonID := h.assignmentDonIDLabels(ctx, wfID, wfOwner)
 		h.emitterMu.RLock()
 		cma := h.emitter.With(
 			platform.KeyWorkflowID, wfID,
@@ -657,6 +684,8 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyDonID, h.myDonIDLabel(),
 			platform.KeyWorkflowDonID, h.myDonIDLabel(),
 			platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
+			platform.KeyPrimaryDonID, primaryDonID,
+			platform.KeySecondaryDonID, secondaryDonID,
 		)
 		h.emitterMu.RUnlock()
 
@@ -1706,6 +1735,7 @@ func (h *eventHandler) EmitActivationAbandoned(
 		h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", ferr)
 	}
 
+	primaryDonID, secondaryDonID := h.assignmentDonIDLabels(ctx, wfID, wfOwner)
 	h.emitterMu.RLock()
 	cma := h.emitter.With(
 		platform.KeyWorkflowID, wfID,
@@ -1719,6 +1749,8 @@ func (h *eventHandler) EmitActivationAbandoned(
 		platform.KeyDonID, h.myDonIDLabel(),
 		platform.KeyWorkflowDonID, h.myDonIDLabel(),
 		platform.KeyShardIndex, strconv.FormatUint(uint64(h.myShardIndex), 10),
+		platform.KeyPrimaryDonID, primaryDonID,
+		platform.KeySecondaryDonID, secondaryDonID,
 	)
 	h.emitterMu.RUnlock()
 

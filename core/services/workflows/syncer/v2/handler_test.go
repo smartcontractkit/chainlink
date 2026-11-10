@@ -61,6 +61,7 @@ import (
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -2138,6 +2139,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		WithOrgResolver(orgResolver),
 		WithEventEmitter(events.NewEmitter(rec, events.WithNoDurableEmit())),
 		WithShardIndex(3),
+		WithShardResolver(&fakeShardResolver{shards: []uint32{11, 12}}),
 	)
 	require.NoError(t, err)
 	h.SetWorkflowDon(commoncap.DON{ID: 7})
@@ -2178,6 +2180,8 @@ func Test_Handler_OrganizationID(t *testing.T) {
 			require.Equal(t, int32(7), payload.CreInfo.DonID)
 			require.Equal(t, int32(7), payload.CreInfo.WorkflowDonID)
 			require.Equal(t, uint32(3), payload.CreInfo.ShardIndex)
+			require.Equal(t, uint32(11), payload.CreInfo.PrimaryDonID)
+			require.Equal(t, uint32(12), payload.CreInfo.SecondaryDonID)
 			break
 		}
 	}
@@ -2211,6 +2215,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
 			WithOrgResolver(orgResolver),
 			WithEventEmitter(events.NewEmitter(deleteRec, events.WithNoDurableEmit())),
 			WithShardIndex(3),
+			WithShardResolver(&fakeShardResolver{shards: []uint32{11, 12}}),
 		)
 		require.NoError(t, err)
 		hDelete.SetWorkflowDon(commoncap.DON{ID: 7})
@@ -2238,11 +2243,100 @@ func Test_Handler_OrganizationID(t *testing.T) {
 				require.Equal(t, int32(7), payload.CreInfo.DonID)
 				require.Equal(t, int32(7), payload.CreInfo.WorkflowDonID)
 				require.Equal(t, uint32(3), payload.CreInfo.ShardIndex)
+				require.Equal(t, uint32(11), payload.CreInfo.PrimaryDonID)
+				require.Equal(t, uint32(12), payload.CreInfo.SecondaryDonID)
 				break
 			}
 		}
 		require.True(t, deleteOrgIDFound, "Expected WorkflowDeleted message with orgID to be emitted")
 	})
+}
+
+// allShardsErroringResolver satisfies AllShardsResolver but fails every
+// lookup, as an unparseable assignment settings blob would.
+type allShardsErroringResolver struct{ erroringShardResolver }
+
+func (allShardsErroringResolver) ResolveAllShards(context.Context, string, string) ([]uint32, bool, error) {
+	return nil, false, errors.New("shard assignment unavailable")
+}
+
+func Test_Handler_EmitActivationAbandoned_AssignmentDonIDs(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	lf := limits.Factory{Logger: lggr}
+	ctx := t.Context()
+
+	wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+	registry := capreg.NewRegistry(lggr)
+	registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
+	limiters, err := v2.NewLimiters(lf, nil)
+	require.NoError(t, err)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+	require.NoError(t, err)
+	featureFlags, err := v2.NewFeatureFlags(lf, nil)
+	require.NoError(t, err)
+
+	retriever := func(_ context.Context, _ *storage_service.DownloadArtifactRequest) (string, error) {
+		return "", nil
+	}
+	fetcher := func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
+		return []byte("contents"), nil
+	}
+	artifactStore, err := artifacts.NewStore(lggr, mocks.NewORM(t), fetcher, retriever, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+		ArtifactStorageHost: "example.com",
+	}))
+	require.NoError(t, err)
+
+	tests := []struct {
+		name          string
+		resolver      shardownership.ShardResolver
+		wantPrimary   uint32
+		wantSecondary uint32
+	}{
+		{"two-don assignment", &fakeShardResolver{shards: []uint32{11, 12}}, 11, 12},
+		{"assignment list missing the secondary slot", &fakeShardResolver{shards: []uint32{11}}, 0, 0},
+		{"assignment not found", &fakeShardResolver{}, 0, 0},
+		{"resolver error", allShardsErroringResolver{}, 0, 0},
+		{"ring resolver has no assignment list", shardownership.NewRingOCRShardResolver(nil, lggr), 0, 0},
+		{"no resolver wired", nil, 0, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rec := beholdertest.NewRecorder()
+			h, err := NewEventHandler(lggr, wfStore, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, NewEngineRegistry(), custmsg.NewLabeler(), limiters, featureFlags, rl, workflowLimits, artifactStore, workflowkey.MustNewXXXTestingOnly(big.NewInt(1)), &testDonNotifier{},
+				WithEventEmitter(events.NewEmitter(rec, events.WithNoDurableEmit())),
+				WithShardResolver(tt.resolver),
+			)
+			require.NoError(t, err)
+
+			event := Event{
+				Name: WorkflowActivated,
+				Data: WorkflowActivatedEvent{
+					WorkflowID:    types.WorkflowID{1},
+					WorkflowOwner: testutils.NewAddress().Bytes(),
+					WorkflowName:  "assignment-claims",
+				},
+				Head: Head{
+					Hash:      "0x123",
+					Height:    "123",
+					Timestamp: 1234567890,
+				},
+			}
+			require.NoError(t, h.EmitActivationAbandoned(ctx, event, eventsv2.ActivationAbandonReason_ACTIVATION_ABANDON_REASON_NON_RETRYABLE, nil, 1))
+
+			msgs := rec.Messages(t, "beholder_entity", "workflows.v2.WorkflowActivationAbandoned")
+			require.Len(t, msgs, 1)
+			var payload eventsv2.WorkflowActivationAbandoned
+			require.NoError(t, proto.Unmarshal(msgs[0].Body, &payload))
+			require.Equal(t, tt.wantPrimary, payload.CreInfo.PrimaryDonID)
+			require.Equal(t, tt.wantSecondary, payload.CreInfo.SecondaryDonID)
+		})
+	}
 }
 
 type testActionBase struct {

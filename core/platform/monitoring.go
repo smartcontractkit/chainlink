@@ -23,6 +23,8 @@ const (
 	KeyDonID               = "DonID"
 	KeyWorkflowDonID       = "workflowDonID"
 	KeyShardIndex          = "shardIndex"
+	KeyPrimaryDonID        = "primaryDonID"
+	KeySecondaryDonID      = "secondaryDonID"
 	KeyDonF                = "F"
 	KeyDonN                = "N"
 	KeyDonQ                = "Q"
