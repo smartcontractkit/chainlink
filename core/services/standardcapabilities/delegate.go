@@ -188,7 +188,7 @@ func (d *Delegate) NewServices(
 
 	if filepath.Base(command) == conversions.CronCmd && d.cronV2Active(ctx) {
 		v2cmd := filepath.Join(filepath.Dir(command), conversions.CronV2Cmd)
-		return d.newServicesV2(ctx, log, v2cmd, conversions.CronV2Cmd, configJSON, capabilityDonID)
+		return d.newServicesV2(ctx, log, v2cmd, conversions.CronCmd, configJSON, capabilityDonID, nil)
 	}
 
 	// Warn when neither the job spec nor the TOML config provide bootstrap peers.
@@ -387,6 +387,50 @@ func (d *Delegate) NewServices(
 			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
 		}
 	}
+
+	if filepath.Base(command) == conversions.ConsensusCmd && d.consensusV2Active(ctx) {
+		if !oracleFactoryCfg.Enabled || d.ocrPeerWrapper == nil || d.capRegistryAddress == "" {
+			return nil, errors.New("consensus v2 needs the oracle factory enabled, a P2P stack, and the capabilities registry")
+		}
+
+		node, err := generic.NewOCRNode(generic.OCRNodeParams{
+			Logger:                 log,
+			KB:                     offchainKB,
+			OnchainSigningStrategy: resolvedSigning,
+			PeerWrapper:            d.ocrPeerWrapper,
+			OcrKeystore:            d.ks.OCR2(),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create the node's OCR: %w", err)
+		}
+
+		peerID, err := d.getPeerID()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get the node's peer ID: %w", err)
+		}
+
+		bootstrappers, err := ocrcommon.ParseBootstrapPeers(oracleFactoryCfg.BootstrapPeers)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse bootstrap peers: %w", err)
+		}
+
+		if len(bootstrappers) == 0 {
+			bootstrappers = d.defaultBootstrappers
+		}
+
+		ocr := &OCR{
+			Node:            node,
+			PeerID:          peerID.String(),
+			TransmitAccount: oracleFactoryCfg.TransmitterID,
+			Bootstrappers:   bootstrappers,
+			RegistryChainID: d.capRegistryChainID,
+			RegistryAddress: d.capRegistryAddress,
+		}
+
+		v2cmd := filepath.Join(filepath.Dir(command), conversions.ConsensusV2Cmd)
+		return d.newServicesV2(ctx, log, v2cmd, conversions.ConsensusCmd, configJSON, capabilityDonID, ocr)
+	}
+
 	var cntor connector.GatewayConnector
 	if d.gatewayConnectorWrapper != nil {
 		cntor = d.gatewayConnectorWrapper.GetGatewayConnector()
@@ -412,7 +456,8 @@ func (d *Delegate) NewServices(
 	return []job.ServiceCtx{standardCapability}, nil
 }
 
-func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command, app, configJSON string, capabilityDonID uint32) ([]job.ServiceCtx, error) {
+func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command, app, configJSON string, capabilityDonID uint32,
+	ocr *OCR) ([]job.ServiceCtx, error) {
 	// The capability ID depends on the capability, not on how it runs, so look it up by app name.
 	capabilityID := conversions.GetCapabilityIDFromCommand(app, configJSON)
 
@@ -427,6 +472,7 @@ func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command
 		PluginRegistrar:  d.cfg,
 		Registry:         d.registry,
 		CRESettings:      d.creSettings,
+		OCR:              ocr,
 	})
 	if err != nil {
 		return nil, err
@@ -447,9 +493,17 @@ func (d *Delegate) newCapDonIDResolver(log logger.Logger, capabilityID string, c
 }
 
 func (d *Delegate) cronV2Active(ctx context.Context) bool {
-	flag, err := limits.MakeRangeLimiter(d.limitsFactory, cresettings.Default.CRONV2ActivePeriod)
+	return d.v2Active(ctx, "cron", cresettings.Default.CRONV2ActivePeriod)
+}
+
+func (d *Delegate) consensusV2Active(ctx context.Context) bool {
+	return d.v2Active(ctx, "consensus", cresettings.Default.ConsensusV2ActivePeriod)
+}
+
+func (d *Delegate) v2Active(ctx context.Context, name string, period settings.IsSetting[settings.Range[commonconfig.Timestamp]]) bool {
+	flag, err := limits.MakeRangeLimiter(d.limitsFactory, period)
 	if err != nil {
-		d.logger.Errorw("Failed to create cron v2 flag; using cron v1", "err", err)
+		d.logger.Errorw("Failed to create "+name+" v2 flag; using "+name+" v1", "err", err)
 		return false
 	}
 	defer flag.Close()

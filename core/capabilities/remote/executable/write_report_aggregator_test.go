@@ -93,7 +93,7 @@ func newWRFixture(t *testing.T, family wrFamily, n int, f uint8) wrFixture {
 			require.NoError(t, err)
 			keys[string(fam.chainType)] = kb
 		}
-		signer, err := ocrcommon.MarshalMultichainKeyBundle(keys)
+		signer, err := ocr2key.MarshalMultichainKeyBundle(keys)
 		require.NoError(t, err)
 		fx.keys = append(fx.keys, keys)
 		fx.signers = append(fx.signers, signer)
@@ -387,7 +387,7 @@ func TestWriteReportSignatureAggregator(t *testing.T) {
 		signers := make([]ocrtypes.OnchainPublicKey, len(fx.keys))
 		for i, keys := range fx.keys {
 			var err error
-			signers[i], err = ocrcommon.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{string(corekeys.EVM): keys[string(corekeys.EVM)]})
+			signers[i], err = ocr2key.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{string(corekeys.EVM): keys[string(corekeys.EVM)]})
 			require.NoError(t, err)
 		}
 		acc := fx.newAccumulatorWithSigners(t, map[uint32][]ocrtypes.OnchainPublicKey{wrDonID: signers})

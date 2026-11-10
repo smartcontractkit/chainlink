@@ -12,7 +12,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	commonocr "github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/remote"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -98,6 +103,7 @@ func TestStandardCapabilitiesV2_NoServers(t *testing.T) {
 
 	assert.NotContains(t, env, "CL_CAPABILITIES_PROXY_URL")
 	assert.NotContains(t, env, "CL_SETTINGS_URL")
+	assert.NotContains(t, env, "CL_OCR_PROXY_URL")
 	assert.NotContains(t, env, "CL_CAPABILITIES_CAPABILITY_DON_ID")
 }
 
@@ -105,7 +111,7 @@ func TestDelegate_NewServicesV2_ForwardsCRESettings(t *testing.T) {
 	t.Parallel()
 	creSettings := &settings.Atomic{}
 	d := &Delegate{logger: logger.Test(t), creSettings: creSettings}
-	svcs, err := d.newServicesV2(t.Context(), logger.Test(t), "cronv2", "cron", "", 7)
+	svcs, err := d.newServicesV2(t.Context(), logger.Test(t), "cronv2", "cron", "", 7, nil)
 	require.NoError(t, err)
 	require.Len(t, svcs, 1)
 	v2, ok := svcs[0].(*V2)
@@ -122,6 +128,84 @@ func requireSnapshot(t *testing.T, updates <-chan settings.Snapshot, want settin
 		t.Fatalf("timed out waiting for settings %q", want.Hash)
 	}
 }
+
+func TestStandardCapabilitiesV2_OCR(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	var env map[string]string
+	var node commonocr.Node
+	registrar := &capturingRegistrar{onRegister: func(cfg plugins.CmdConfig) {
+		env = envMap(cfg.Env)
+		var err error
+		node, err = commonocr.Connect(t.Context(), lggr, dial(t, env["CL_OCR_PROXY_URL"]), env["CL_OCR_PEER_ID"],
+			commonocr.Config{}, staticOCR{}.Verify)
+		require.NoError(t, err)
+	}}
+
+	s, err := NewV2(V2Params{
+		Log:              lggr,
+		Command:          "consensusv2",
+		App:              "consensus",
+		CapDonIDResolver: &staticCapDonIDResolver{},
+		PluginRegistrar:  registrar,
+		OCR: &OCR{
+			Node: func(context.Context) (commonocr.Node, error) {
+				return commonocr.Node{BinaryNetworkEndpointFactory: staticOCR{}, OffchainKeyring: staticOCR{}, OnchainKeyring: staticOCR{}}, nil
+			},
+			PeerID:          "12D3KooWPeer",
+			TransmitAccount: "0xabc",
+			Bootstrappers: []ocrcommontypes.BootstrapperLocator{
+				{PeerID: "12D3KooWBoot", Addrs: []string{"127.0.0.1:6690"}},
+				{PeerID: "12D3KooWOther", Addrs: []string{"127.0.0.1:6691", "127.0.0.1:6692"}},
+			},
+			RegistryChainID: "1337",
+			RegistryAddress: "0xregistry",
+		},
+	})
+	require.NoError(t, err)
+	require.NoError(t, s.Start(t.Context()))
+	s.launchWG.Wait()
+	require.NoError(t, s.Close())
+
+	assert.Equal(t, "12D3KooWPeer", env["CL_OCR_PEER_ID"])
+	assert.Equal(t, "0xabc", env["CL_OCR_TRANSMIT_ACCOUNT"])
+	assert.Equal(t, "12D3KooWBoot@127.0.0.1:6690,12D3KooWOther@127.0.0.1:6691/127.0.0.1:6692", env["CL_OCR_BOOTSTRAPPERS"])
+	assert.Equal(t, "1337", env["CL_OCR_REGISTRY_CHAIN_ID"])
+	assert.Equal(t, "0xregistry", env["CL_OCR_REGISTRY_ADDRESS"])
+	assert.Equal(t, "12D3KooWPeer", node.BinaryNetworkEndpointFactory.PeerID())
+}
+
+type staticOCR struct{}
+
+func (staticOCR) PeerID() string { return "12D3KooWPeer" }
+
+func (staticOCR) NewEndpoint(ocrtypes.ConfigDigest, []string, []ocrcommontypes.BootstrapperLocator, int,
+	ocrtypes.BinaryNetworkEndpointLimits) (ocrcommontypes.BinaryNetworkEndpoint, error) {
+	return nil, nil
+}
+
+func (staticOCR) OffchainSign([]byte) ([]byte, error) { return nil, nil }
+
+func (staticOCR) ConfigDiffieHellman(p [32]byte) ([32]byte, error) { return p, nil }
+
+func (staticOCR) OffchainPublicKey() ocrtypes.OffchainPublicKey { return ocrtypes.OffchainPublicKey{} }
+
+func (staticOCR) ConfigEncryptionPublicKey() ocrtypes.ConfigEncryptionPublicKey {
+	return ocrtypes.ConfigEncryptionPublicKey{}
+}
+
+func (staticOCR) PublicKey() ocrtypes.OnchainPublicKey { return nil }
+
+func (staticOCR) Sign(ocrtypes.ConfigDigest, uint64, ocr3types.ReportWithInfo[string]) ([]byte, error) {
+	return nil, nil
+}
+
+func (staticOCR) Verify(ocrtypes.OnchainPublicKey, ocrtypes.ConfigDigest, uint64, ocr3types.ReportWithInfo[string],
+	[]byte) bool {
+	return false
+}
+
+func (staticOCR) MaxSignatureLength() int { return 0 }
 
 // chanCapDonIDResolver blocks until a DON ID is sent, so tests control when it resolves.
 type chanCapDonIDResolver chan uint32
@@ -227,7 +311,7 @@ func (c *trigger) UnregisterTrigger(context.Context, capabilities.TriggerRegistr
 
 func (c *trigger) AckEvent(context.Context, string, string, string) error { return nil }
 
-func TestDelegate_CronV2Active(t *testing.T) {
+func TestDelegate_V2Active(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
 	for name, tc := range map[string]struct {
@@ -248,6 +332,7 @@ func TestDelegate_CronV2Active(t *testing.T) {
 			t.Parallel()
 			d := &Delegate{logger: logger.Test(t), limitsFactory: limits.Factory{Settings: tc.settings}}
 			assert.Equal(t, tc.want, d.cronV2Active(t.Context()))
+			assert.Equal(t, tc.want, d.consensusV2Active(t.Context()))
 		})
 	}
 }
@@ -302,7 +387,8 @@ func TestEnvName(t *testing.T) {
 		"cron":                           "CRON",
 		"fastestScheduleIntervalSeconds": "FASTEST_SCHEDULE_INTERVAL_SECONDS",
 		"chainID":                        "CHAIN_ID",
-		"v2Value":                        "V2_VALUE",
+		"v2Value":                        "V_2_VALUE",
+		"KeyBundleIDForValueConsensus":   "KEY_BUNDLE_ID_FOR_VALUE_CONSENSUS",
 		"fastest-schedule.interval":      "FASTEST_SCHEDULE_INTERVAL",
 	} {
 		assert.Equal(t, want, envName(in), in)

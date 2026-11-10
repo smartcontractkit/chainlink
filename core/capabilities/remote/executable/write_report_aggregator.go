@@ -79,7 +79,7 @@ func NewWriteReportSignatureAggregator(workflowDONSigners map[uint32][]ocrtypes.
 	for donID, donSigners := range workflowDONSigners {
 		keys := make([]map[string]ocrtypes.OnchainPublicKey, len(donSigners))
 		for i, s := range donSigners {
-			decoded, err := ocrcommon.UnmarshalMultichainPublicKey(s)
+			decoded, err := ocr2key.UnmarshalMultichainPublicKey(s)
 			if err != nil {
 				lggr.Warnw("failed to decode workflow DON signer, its signatures will be dropped", "workflowDonID", donID, "signerID", i, "err", err)
 				continue

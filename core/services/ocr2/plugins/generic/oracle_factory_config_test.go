@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 func TestResolveOracleFactoryConfig_fromCapRegistry(t *testing.T) {
@@ -72,7 +71,7 @@ func TestResolveOracleFactoryConfig_transmitterFromOCRConfig(t *testing.T) {
 
 	kb, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
-	signer, err := ocrcommon.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{string(corekeys.EVM): kb})
+	signer, err := ocr2key.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{string(corekeys.EVM): kb})
 	require.NoError(t, err)
 
 	cc := &ocrtypes.ContractConfig{
@@ -171,7 +170,7 @@ func TestSelectOCRKeyBundlesForConfig(t *testing.T) {
 	bundles := []ocr2key.KeyBundle{evm1, evm2, sol, aptos}
 
 	multichain := func(kbs map[string]ocr2key.KeyBundle) ocrtypes.OnchainPublicKey {
-		pk, mErr := ocrcommon.MarshalMultichainKeyBundle(kbs)
+		pk, mErr := ocr2key.MarshalMultichainKeyBundle(kbs)
 		require.NoError(t, mErr)
 		return pk
 	}

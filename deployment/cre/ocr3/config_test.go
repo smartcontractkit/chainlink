@@ -9,17 +9,18 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 var wantOCR3Config = `{
@@ -134,7 +135,7 @@ func TestMakeIdentities_Stellar(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, identities, 1)
 
-		keys, err := ocrcommon.UnmarshalMultichainPublicKey(identities[0].OnchainPublicKey)
+		keys, err := ocr2key.UnmarshalMultichainPublicKey(identities[0].OnchainPublicKey)
 		require.NoError(t, err)
 
 		stellarBytes, err := hex.DecodeString(stellarHex)
@@ -147,7 +148,7 @@ func TestMakeIdentities_Stellar(t *testing.T) {
 		identities, err := MakeIdentities([]NodeKeys{baseNode()})
 		require.NoError(t, err)
 
-		keys, err := ocrcommon.UnmarshalMultichainPublicKey(identities[0].OnchainPublicKey)
+		keys, err := ocr2key.UnmarshalMultichainPublicKey(identities[0].OnchainPublicKey)
 		require.NoError(t, err)
 		_, ok := keys[string(corekeys.Stellar)]
 		require.False(t, ok, "stellar key must be absent when StellarOnchainPublicKey is unset")

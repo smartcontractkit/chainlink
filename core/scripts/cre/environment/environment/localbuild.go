@@ -61,20 +61,30 @@ type capBuildSpec struct {
 	dir    string
 	binary string
 	flags  []string
+
+	// pkg is what to build inside dir, for a module that produces more than one
+	// binary. Empty builds the module itself.
+	pkg string
 }
 
 // knownCapabilities is the set of CRE capability plugins that can be built from
 // the local capabilities repo. Keys accept both dash and underscore forms.
+//
+// cron and consensus each build two binaries from one module: the legacy LOOP the
+// job spec names, and the v2 binary the node runs next to it instead when the
+// capability's V2ActivePeriod CRE setting is active.
 var knownCapabilities = map[string]capBuildSpec{
-	"cron":         {dir: "cron", binary: "cron", flags: []string{"-tags", "timetzdata"}},
-	"consensus":    {dir: "consensus", binary: "consensus"},
+	"cron":         {dir: "scheduler/cron", binary: "cron", pkg: "./legacy", flags: []string{"-tags", "timetzdata"}},
+	"cronv2":       {dir: "scheduler/cron", binary: "cronv2", flags: []string{"-tags", "timetzdata"}},
+	"consensus":    {dir: "internal/consensus", binary: "consensus", pkg: "./legacy"},
+	"consensusv2":  {dir: "internal/consensus", binary: "consensusv2"},
 	"http-action":  {dir: "http_action", binary: "http_action"},
 	"http-trigger": {dir: "http_trigger", binary: "http_trigger"},
 	"evm":          {dir: "chain_capabilities/evm", binary: "evm"},
 }
 
 // allCapabilities is the default set built when "all" is requested.
-var allCapabilities = []string{"cron", "consensus", "http-action", "http-trigger", "evm"}
+var allCapabilities = []string{"cron", "cronv2", "consensus", "consensusv2", "http-action", "http-trigger", "evm"}
 
 const localBuildContainerCapDir = "/usr/local/bin"
 
@@ -243,7 +253,12 @@ func (c *LocalBuildConfig) buildCapabilities(ctx context.Context, specs []capBui
 		binPath := filepath.Join(outDir, s.binary)
 		framework.L.Info().Msgf("Building capability %q (from %s)", s.binary, s.dir)
 		args := append([]string{"build"}, s.flags...)
-		args = append(args, "-o", binPath, ".")
+		pkg := s.pkg
+		if pkg == "" {
+			pkg = "."
+		}
+
+		args = append(args, "-o", binPath, pkg)
 		cmd := exec.CommandContext(ctx, "go", args...)
 		cmd.Dir = modDir
 		cmd.Env = append(os.Environ(), append([]string{"CGO_ENABLED=0"}, c.goEnv()...)...)

@@ -11,10 +11,13 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"unicode"
 
+	"github.com/iancoleman/strcase"
 	"google.golang.org/grpc"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+
+	commonocr "github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/remote"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -43,6 +46,7 @@ type V2 struct {
 	pluginRegistrar  plugins.RegistrarConfig
 	registry         registry.CapabilitiesRegistry
 	creSettings      settings.Broadcaster
+	ocr              *OCR
 
 	emptyLoop atomic.Pointer[loop.EmptyService]
 	loopID    string
@@ -69,6 +73,40 @@ type V2Params struct {
 	Registry registry.CapabilitiesRegistry
 	// CRESettings is served to the process. Nil serves no settings.
 	CRESettings settings.Broadcaster
+	// OCR is lent to the process. Nil lends no OCR.
+	OCR *OCR
+}
+
+// OCR is what the node lends a process that runs its own OCR oracle, and where the oracle finds itself in the DON.
+type OCR struct {
+	Node            func(context.Context) (commonocr.Node, error)
+	PeerID          string
+	TransmitAccount string
+	Bootstrappers   []commontypes.BootstrapperLocator
+	RegistryChainID string
+	RegistryAddress string
+}
+
+// envVars are the env vars the process reads its OCR config from, with the node serving its OCR at proxyURL.
+func (o *OCR) envVars(proxyURL string) ([]string, error) {
+	bootstrappers := make([]string, len(o.Bootstrappers))
+	for i, b := range o.Bootstrappers {
+		text, err := b.MarshalText()
+		if err != nil {
+			return nil, err
+		}
+
+		bootstrappers[i] = string(text)
+	}
+
+	return []string{
+		"CL_OCR_PROXY_URL=" + proxyURL,
+		"CL_OCR_PEER_ID=" + o.PeerID,
+		"CL_OCR_TRANSMIT_ACCOUNT=" + o.TransmitAccount,
+		"CL_OCR_BOOTSTRAPPERS=" + strings.Join(bootstrappers, ","),
+		"CL_OCR_REGISTRY_CHAIN_ID=" + o.RegistryChainID,
+		"CL_OCR_REGISTRY_ADDRESS=" + o.RegistryAddress,
+	}, nil
 }
 
 func NewV2(p V2Params) (*V2, error) {
@@ -81,6 +119,7 @@ func NewV2(p V2Params) (*V2, error) {
 		pluginRegistrar:  p.PluginRegistrar,
 		registry:         p.Registry,
 		creSettings:      p.CRESettings,
+		ocr:              p.OCR,
 		stopChan:         make(services.StopChan),
 	}, nil
 }
@@ -116,6 +155,17 @@ func (s *V2) Start(ctx context.Context) error {
 		if s.creSettings != nil {
 			settingsremote.RegisterSettingsServer(srv.Server, s.log, s.creSettings)
 			envVars = append(envVars, "CL_SETTINGS_URL="+srv.addr())
+		}
+
+		if s.ocr != nil {
+			ocrEnv, err := s.ocr.envVars(srv.addr())
+			if err != nil {
+				srv.close()
+				return fmt.Errorf("failed to prepare OCR env vars: %w", err)
+			}
+
+			commonocr.RegisterServer(srv.Server, s.log, s.ocr.Node)
+			envVars = append(envVars, ocrEnv...)
 		}
 
 		s.startGRPCServer(srv)
@@ -199,7 +249,7 @@ func (s *V2) newGRPCServer(ctx context.Context) (*server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen for the server: %w", err)
 	}
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(commonocr.ServerOptions()...)
 	return &server{listener: listener, Server: srv}, nil
 }
 
@@ -280,18 +330,7 @@ func envVarsFromConfigJSON(app, configJSON string) ([]string, error) {
 	return cfgEnv, nil
 }
 
+// envName is the env var name capability.Run reads key under, which its config binder makes with strcase.
 func envName(key string) string {
-	var b strings.Builder
-	var prev rune
-	for i, r := range key {
-		switch {
-		case r == '-' || r == '.':
-			r = '_'
-		case unicode.IsUpper(r) && i > 0 && (unicode.IsLower(prev) || unicode.IsDigit(prev)):
-			b.WriteRune('_')
-		}
-		b.WriteRune(unicode.ToUpper(r))
-		prev = r
-	}
-	return b.String()
+	return strcase.ToScreamingSnake(key)
 }

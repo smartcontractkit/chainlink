@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
@@ -246,9 +245,9 @@ func TestNewServices_MultiFamilyOCRSigner(t *testing.T) {
 	require.NoError(t, err)
 
 	nodeBundles := map[string]ocr2key.KeyBundle{"evm": evm, "solana": sol, "aptos": aptos}
-	signer, err := ocrcommon.MarshalMultichainKeyBundle(nodeBundles)
+	signer, err := ocr2key.MarshalMultichainKeyBundle(nodeBundles)
 	require.NoError(t, err)
-	otherSigner, err := ocrcommon.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{"evm": foreign})
+	otherSigner, err := ocr2key.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{"evm": foreign})
 	require.NoError(t, err)
 	cc := &ocrtypes.ContractConfig{
 		Signers:      []ocrtypes.OnchainPublicKey{otherSigner, signer},
@@ -291,7 +290,7 @@ func TestNewServices_NoMatchingOCRSigner(t *testing.T) {
 	require.NoError(t, err)
 	foreign, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
-	otherSigner, err := ocrcommon.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{"evm": foreign})
+	otherSigner, err := ocr2key.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{"evm": foreign})
 	require.NoError(t, err)
 	cc := &ocrtypes.ContractConfig{
 		Signers:      []ocrtypes.OnchainPublicKey{otherSigner},

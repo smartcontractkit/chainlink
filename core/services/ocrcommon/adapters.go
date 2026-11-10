@@ -2,13 +2,8 @@ package ocrcommon
 
 import (
 	"bytes"
-	"cmp"
 	"context"
-	"encoding/binary"
 	"fmt"
-	"io"
-	"math"
-	"slices"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -17,7 +12,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -92,82 +86,6 @@ var (
 	_ ocr3types.OnchainKeyring2[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
 )
 
-func MarshalMultichainKeyBundle(ost map[string]ocr2key.KeyBundle) (ocrtypes.OnchainPublicKey, error) {
-	pubKeys := map[string]ocrtypes.OnchainPublicKey{}
-	for k, b := range ost {
-		pubKeys[k] = []byte(b.PublicKey())
-	}
-	return MarshalMultichainPublicKey(pubKeys)
-}
-
-func MarshalMultichainPublicKey(ost map[string]ocrtypes.OnchainPublicKey) (ocrtypes.OnchainPublicKey, error) {
-	var pubKeys [][]byte
-	for k, pubKey := range ost {
-		typ, err := corekeys.ChainType(k).Type()
-		if err != nil {
-			// skipping unknown key type
-			continue
-		}
-		buf := new(bytes.Buffer)
-		if err = binary.Write(buf, binary.LittleEndian, typ); err != nil {
-			return nil, err
-		}
-		length := len(pubKey)
-		if length < 0 || length > math.MaxUint16 {
-			return nil, errors.New("pubKey doesn't fit into uint16")
-		}
-		if err = binary.Write(buf, binary.LittleEndian, uint16(length)); err != nil {
-			return nil, err
-		}
-		_, _ = buf.Write(pubKey)
-		pubKeys = append(pubKeys, buf.Bytes())
-	}
-	// sort keys based on encoded type to make encoding deterministic
-	slices.SortFunc(pubKeys, func(a, b []byte) int { return cmp.Compare(a[0], b[0]) })
-	return bytes.Join(pubKeys, nil), nil
-}
-
-func UnmarshalMultichainPublicKey(d []byte) (map[string]ocrtypes.OnchainPublicKey, error) {
-	m := map[string]ocrtypes.OnchainPublicKey{}
-	buf := bytes.NewReader(d)
-
-	for {
-		// type
-		typ, err := buf.ReadByte()
-		if err != nil {
-			return nil, err
-		}
-		// length
-		var length uint16
-		err = binary.Read(buf, binary.LittleEndian, &length)
-		if err != nil {
-			return nil, err
-		}
-		// value
-		pubKey := make([]byte, length)
-		n, err := buf.Read(pubKey)
-		if err != nil {
-			return nil, err
-		}
-		if n != int(length) {
-			return nil, io.EOF
-		}
-
-		k, err := corekeys.NewChainType(typ)
-		if err != nil {
-			// skipping unknown key type
-			continue
-		}
-		m[string(k)] = pubKey
-
-		if buf.Len() == 0 {
-			break
-		}
-	}
-
-	return m, nil
-}
-
 type OCR3OnchainKeyringMultiChainAdapter struct {
 	keyBundles map[string]ocr2key.KeyBundle
 	publicKey  ocrtypes.OnchainPublicKey
@@ -178,7 +96,7 @@ func NewOCR3OnchainKeyringMultiChainAdapter(ost map[string]ocr2key.KeyBundle, lg
 	if len(ost) == 0 {
 		return nil, errors.New("no key bundles provided")
 	}
-	publicKey, err := MarshalMultichainKeyBundle(ost)
+	publicKey, err := ocr2key.MarshalMultichainKeyBundle(ost)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +112,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Has(k ocrtypes.OnchainPublicKey) b
 	if len(k) == 0 {
 		return false
 	}
-	keys, err := UnmarshalMultichainPublicKey(k)
+	keys, err := ocr2key.UnmarshalMultichainPublicKey(k)
 	if err != nil {
 		return bytes.Equal(k, a.publicKey)
 	}
@@ -244,40 +162,16 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 	if err != nil {
 		return nil, fmt.Errorf("sign: failed to get key bundle from report info: %w", err)
 	}
-	return kb.Sign(ocrtypes.ReportContext{
-		ReportTimestamp: ocrtypes.ReportTimestamp{
-			ConfigDigest: digest,
-			Epoch:        uint32(seqNr), //nolint:gosec // seqNr maps to the uint32 epoch field
-			Round:        0,
-		},
-		ExtraHash: [32]byte(make([]byte, 32)),
-	}, r.Report)
+	return kb.Sign(ocr2key.OCR3ReportContext(digest, seqNr), r.Report)
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[[]byte], signature []byte) bool {
-	kbName, kb, err := a.getKeyBundleFromInfo(ri.Info)
+	kbName, _, err := a.getKeyBundleFromInfo(ri.Info)
 	if err != nil {
 		a.lggr.Warnf("verify: failed to get key bundle from report info: %v", err)
 		return false
 	}
-	keys, err := UnmarshalMultichainPublicKey(opk)
-	if err != nil {
-		a.lggr.Warnf("verify: failed to unmarshal public keys: %v", err)
-		return false
-	}
-	publicKey, ok := keys[kbName]
-	if !ok {
-		a.lggr.Warnf("verify: publicKey not found: %v", kbName)
-		return false
-	}
-	return kb.Verify(publicKey, ocrtypes.ReportContext{
-		ReportTimestamp: ocrtypes.ReportTimestamp{
-			ConfigDigest: digest,
-			Epoch:        uint32(seqNr), //nolint:gosec // seqNr maps to the uint32 epoch field
-			Round:        0,
-		},
-		ExtraHash: [32]byte(make([]byte, 32)),
-	}, ri.Report, signature)
+	return ocr2key.VerifyOCR3(kbName, opk, digest, seqNr, ri.Report, signature)
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) MaxSignatureLength() int {
