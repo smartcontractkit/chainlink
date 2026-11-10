@@ -123,8 +123,8 @@ func TestNewLimiters_CentralTriggerQueue(t *testing.T) {
 	})
 }
 
-// TestNewLimiters_ExecutionResponseEnforced asserts response size enforcement is off by default and follows its setting.
-func TestNewLimiters_ExecutionResponseEnforced(t *testing.T) {
+// TestNewLimiters_ExecutionResponseSizeEnforced asserts response size enforcement is off by default and follows its setting.
+func TestNewLimiters_ExecutionResponseSizeEnforced(t *testing.T) {
 	t.Parallel()
 	ctx := contexts.WithCRE(t.Context(), contexts.CRE{Org: "org-1", Owner: testWorkflowOwnerA, Workflow: testWorkflowID})
 	for _, enforced := range []bool{false, true} {
@@ -135,8 +135,8 @@ func TestNewLimiters_ExecutionResponseEnforced(t *testing.T) {
 		})
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, l.Close()) })
-		require.NotNil(t, l.ExecutionResponseEnforced)
-		open, err := l.ExecutionResponseEnforced.IsOpen(ctx)
+		require.NotNil(t, l.ExecutionResponseSizeEnforced)
+		open, err := l.ExecutionResponseSizeEnforced.IsOpen(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, enforced, open)
 	}

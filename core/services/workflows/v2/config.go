@@ -112,7 +112,7 @@ type EngineLimiters struct {
 	Settings settings.Getter
 
 	ExecutionResponse         limits.BoundLimiter[commonconfig.Size]
-	ExecutionResponseEnforced limits.GateLimiter
+	ExecutionResponseSizeEnforced limits.GateLimiter
 	TriggerSubscriptionTime   limits.TimeLimiter
 	TriggerRegistrationsTime  limits.TimeLimiter
 	TriggerSubscription       limits.BoundLimiter[int]
@@ -187,7 +187,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
-	l.ExecutionResponseEnforced, err = limits.MakeGateLimiter(lf, cfg.ExecutionResponseLimitEnforced)
+	l.ExecutionResponseSizeEnforced, err = limits.MakeGateLimiter(lf, cfg.ExecutionResponseLimitEnforced)
 	if err != nil {
 		return err
 	}
@@ -383,7 +383,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 	evictables := []any{
 		l.ExecutionResponse,
-		l.ExecutionResponseEnforced,
+		l.ExecutionResponseSizeEnforced,
 		l.TriggerSubscriptionTime,
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,
@@ -430,7 +430,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 func (l *EngineLimiters) Close() error {
 	return services.CloseAll(
 		l.ExecutionResponse,
-		l.ExecutionResponseEnforced,
+		l.ExecutionResponseSizeEnforced,
 		l.TriggerSubscriptionTime,
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,

@@ -998,7 +998,7 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 		MaxCompressedBinaryLimiter:           h.engineLimiters.WASMCompressedBinarySize,
 		MaxDecompressedBinaryLimiter:         h.engineLimiters.WASMBinarySize,
 		MaxResponseSizeLimiter:               h.engineLimiters.ExecutionResponse,
-		EnforceResponseSizeLimiter:           h.engineLimiters.ExecutionResponseEnforced,
+		EnforceResponseSizeLimiter:           h.engineLimiters.ExecutionResponseSizeEnforced,
 		PendingCallsLimiter:                  h.engineLimiters.WASMModulePendingCalls,
 		EnableUserMetricsLimiter:             h.engineLimiters.UserMetricEnabled,
 		MaxUserMetricPayloadLimiter:          h.engineLimiters.UserMetricPayload,
