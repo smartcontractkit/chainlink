@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/beholderhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/otelhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/promhealth"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	commoncresettings "github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -326,9 +327,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to marshal cre settings TOML: %w", err)
 	}
 	globalLogger.Debugf("# CRESettings defaults: \n%s", creSettingsTOML)
-	atomicSettings := &loop.AtomicSettings{}
+	atomicSettings := &settings.Atomic{}
 	atomicSettings.SetGetter(commoncresettings.DefaultGetter)
-	shardAssignmentSettings := &loop.AtomicSettings{}
+	shardAssignmentSettings := &settings.Atomic{}
 	offchainCapRegistry := globalconfig.New()
 	limitsFactory := limits.Factory{
 		Meter:    meter,

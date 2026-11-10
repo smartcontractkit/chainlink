@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -43,7 +44,7 @@ type StandardCapabilities struct {
 	oracleFactory        core.OracleFactory
 	gatewayConnector     core.GatewayConnector
 	orgResolver          orgresolver.OrgResolver
-	creSettings          core.SettingsBroadcaster
+	creSettings          settings.Broadcaster
 	triggerEventStore    capabilities.EventStore
 	capDonIDResolver     CapDonIDResolver
 	// shardIndex is this node's shard from the [Sharding] config, plumbed to the LOOP at Initialise.

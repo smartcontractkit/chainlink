@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -30,7 +30,7 @@ static_default_assignment = [0, 1]
 
 func newTestDelegate(t *testing.T) *delegate {
 	t.Helper()
-	return NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New())
+	return NewDelegate(logger.TestLogger(t), &settings.Atomic{}, &settings.Atomic{}, globalconfig.New())
 }
 
 var shardAssignmentReader *sdkmetric.ManualReader
@@ -56,8 +56,8 @@ var arrivalTestHashCounter atomic.Uint32
 // arrival→in-effect staleness sample.
 func TestServicesForSpecShardAssignmentArrivalRecorded(t *testing.T) { //nolint:paralleltest // uses the process-global metrics singleton
 	ctx := context.Background()
-	shardSettings := &loop.AtomicSettings{}
-	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, shardSettings, globalconfig.New())
+	shardSettings := &settings.Atomic{}
+	d := NewDelegate(logger.TestLogger(t), &settings.Atomic{}, shardSettings, globalconfig.New())
 
 	_, err := d.ServicesForSpec(ctx, cresettingsJob(1, shardAssignmentToml))
 	require.NoError(t, err)
@@ -220,7 +220,7 @@ func TestServicesForSpecCapRegistry(t *testing.T) {
 
 	ctx := context.Background()
 	gc := globalconfig.New()
-	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, gc)
+	d := NewDelegate(logger.TestLogger(t), &settings.Atomic{}, &settings.Atomic{}, gc)
 	capRegJob := func(id int32, payload string) job.Job {
 		jb := cresettingsJob(id, capRegSettings(payload))
 		jb.CRESettingsSpec.Hash = payload
@@ -254,7 +254,7 @@ func TestServicesForSpecCapRegistryInvalidPayloadFreesSlot(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	d := NewDelegate(logger.TestLogger(t), &loop.AtomicSettings{}, &loop.AtomicSettings{}, globalconfig.New())
+	d := NewDelegate(logger.TestLogger(t), &settings.Atomic{}, &settings.Atomic{}, globalconfig.New())
 
 	_, err := d.ServicesForSpec(ctx, cresettingsJob(1, "config_type = \"capabilities_registry\"\n"))
 	require.Error(t, err)
