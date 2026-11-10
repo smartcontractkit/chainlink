@@ -475,10 +475,13 @@ func (h *eventHandler) myDonIDLabel() string {
 
 // assignmentDonIDLabels resolves the workflow's shard assignment for the
 // lifecycle event labels: position 0 of the assignment list is the primary
-// DON, position 1 the secondary. Any other outcome — no resolver, a resolver
-// without an assignment list (ring or hashed assignment), an error, not-found,
-// or a list missing either slot — reports 0, the unknown value. Shard index is
-// an identifier, not a priority, so it must never stand in for a missing claim.
+// DON, position 1 the secondary. The values are DON IDs — the resolver
+// translates the configured shard indices to DON IDs (via ShardIndexMapper)
+// before returning them, so they compare directly against don_id downstream.
+// Any other outcome — no resolver, a resolver without an assignment list
+// (ring or hashed assignment), an error, not-found, or a list missing either
+// slot — reports 0, the unknown value. Shard index is an identifier, not a
+// priority, so it must never stand in for a missing claim.
 func (h *eventHandler) assignmentDonIDLabels(ctx context.Context, workflowID, owner string) (string, string) {
 	allResolver, ok := h.shardResolver.(shardownership.AllShardsResolver)
 	if !ok {
