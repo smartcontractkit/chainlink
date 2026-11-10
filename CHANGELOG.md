@@ -1,5 +1,21 @@
 # Changelog Chainlink Core
 
+## 2.73.0
+
+### Minor Changes
+
+- [#24150](https://github.com/smartcontractkit/chainlink/pull/24150) [`66f34a7`](https://github.com/smartcontractkit/chainlink/commit/66f34a78b49e2de3168aaa8ec7e0a103e0c28205) - Minor bump to start next version
+
+### Patch Changes
+
+- [#24170](https://github.com/smartcontractkit/chainlink/pull/24170) [`2f4ae42`](https://github.com/smartcontractkit/chainlink/commit/2f4ae428b4e4e9c306607401d4948db9437c329d) - #internal CRE OrgResolver no longer depends on workflow registry config; the linking service uses its own configured registry
+
+- [#24169](https://github.com/smartcontractkit/chainlink/pull/24169) [`8fb3422`](https://github.com/smartcontractkit/chainlink/commit/8fb3422526b3ce5c2003cd65f69dc4702b916027) - #bugfix Remote executable client fails a request early when a mix of OK and error responses makes every quorum unreachable, instead of waiting for the request to expire.
+
+- [#24129](https://github.com/smartcontractkit/chainlink/pull/24129) [`774baaa`](https://github.com/smartcontractkit/chainlink/commit/774baaaf33e96b5b0d780313e50423c890575fa8) - #bugfix Remote trigger subscriber no longer leaves its mutex held when an event arrives for a trigger that was unregistered between the workflow and registration lookups, which blocked all later events, registrations and shutdown for that capability on the node.
+
+- [#23954](https://github.com/smartcontractkit/chainlink/pull/23954) [`16821d0`](https://github.com/smartcontractkit/chainlink/commit/16821d0f4aaf99facc74432e3ea10802733731f1) - #bugfix Restore VRF v2/v2.5 retry backoff state across log poller ticks so unfulfillable requests are no longer re-simulated every poll
+
 ## 2.72.0
 
 ### Minor Changes
