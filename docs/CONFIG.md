@@ -2324,6 +2324,7 @@ LogExportInterval = '1s' # Default
 LogMaxQueueSize = 2048 # Default
 MetricViewsDenyAttributes = ['event_id'] # Default
 MetricCardinalityLimit = 100000 # Default
+LoopIDEnabled = false # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2533,6 +2534,14 @@ Empty disables default Beholder metric attribute deny views.
 MetricCardinalityLimit = 100000 # Default
 ```
 MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
+
+### LoopIDEnabled
+```toml
+LoopIDEnabled = false # Default
+```
+LoopIDEnabled sends each LOOP plugin a telemetry-only identity (CL_TELEMETRY_LOOP_ID), exported as the
+chainlink.loop.id resource attribute, e.g. Relayer.evm.1 or StandardCapabilities.<jobID>.<jobName>.
+It keeps series from different LOOPs on the same node distinct. Bounded: one value per LOOP, stable across restarts.
 
 ## Telemetry.ResourceAttributes
 ```toml

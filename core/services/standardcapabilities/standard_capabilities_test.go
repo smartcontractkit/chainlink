@@ -177,6 +177,19 @@ func TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP(t *testing.T) {
 	})
 }
 
+func TestStandardCapabilities_TelemetryLoopIDForwarded(t *testing.T) {
+	t.Setenv(string(env.CapabilitiesPlugin.Env), "")
+	var captured plugins.CmdConfig
+	std := NewStandardCapabilities(logger.TestLogger(t), "not/found/path/to/binary", "{}",
+		&capturingRegistrar{onRegister: func(cfg plugins.CmdConfig) { captured = cfg }},
+		core.StandardCapabilitiesDependencies{})
+	std.telemetryLoopID = "StandardCapabilities.12.cron-trigger"
+
+	err := std.Start(t.Context())
+	require.ErrorContains(t, err, capturingRegistrarErr)
+	require.Equal(t, "StandardCapabilities.12.cron-trigger", captured.TelemetryLoopID)
+}
+
 const capturingRegistrarErr = "capturingRegistrar: stop after capture"
 
 // capturingRegistrar records the CmdConfig handed to RegisterLOOP and then

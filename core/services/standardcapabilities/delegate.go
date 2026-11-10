@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	looptelemetry "github.com/smartcontractkit/chainlink-common/pkg/loop/telemetry"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -398,6 +399,7 @@ func (d *Delegate) NewServices(
 		ShardIndex:         d.shardIndex,
 	}
 	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, dependencies)
+	standardCapability.telemetryLoopID = looptelemetry.NewLoopID("StandardCapabilities", strconv.Itoa(int(jobID)), jobName)
 
 	return []job.ServiceCtx{standardCapability}, nil
 }

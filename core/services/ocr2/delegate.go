@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
+	looptelemetry "github.com/smartcontractkit/chainlink-common/pkg/loop/telemetry"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -1525,9 +1526,10 @@ func (d *Delegate) newServicesGenericPlugin(
 
 	pluginLggr := lggr.Named(pCfg.PluginName).Named(spec.ContractID).Named(spec.GetID())
 	cmdFn, grpcOpts, err := d.cfg.RegisterLOOP(plugins.CmdConfig{
-		ID:  fmt.Sprintf("%s-%s-%s", pCfg.PluginName, spec.ContractID, spec.GetID()),
-		Cmd: command,
-		Env: envVars,
+		ID:              fmt.Sprintf("%s-%s-%s", pCfg.PluginName, spec.ContractID, spec.GetID()),
+		Cmd:             command,
+		Env:             envVars,
+		TelemetryLoopID: looptelemetry.NewLoopID(pCfg.PluginName, spec.ContractID, spec.GetID()),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to register loop: %w", err)
