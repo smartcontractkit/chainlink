@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto"
 	"fmt"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
@@ -18,10 +20,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	looptelemetry "github.com/smartcontractkit/chainlink-common/pkg/loop/telemetry"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -57,13 +63,14 @@ type Delegate struct {
 	ocrPeerWrapper          *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
 	orgResolver             orgresolver.OrgResolver
-	creSettings             core.SettingsBroadcaster
+	creSettings             settings.Broadcaster
 	ocrConfigService        capregconfig.OCRConfigService
 	localCfg                coreconfig.LocalCapabilities
 	defaultBootstrappers    []ocrcommontypes.BootstrapperLocator
 	capRegistryAddress      string
 	capRegistryChainID      string
 	shardIndex              uint32
+	limitsFactory           limits.Factory
 
 	isNewlyCreatedJob bool
 }
@@ -83,14 +90,21 @@ func NewDelegate(
 	ocrPeerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
 	orgResolver orgresolver.OrgResolver,
-	creSettings core.SettingsBroadcaster,
+	creSettings settings.Broadcaster,
 	ocrConfigService capregconfig.OCRConfigService,
 	localCfg coreconfig.LocalCapabilities,
 	defaultBootstrappers []ocrcommontypes.BootstrapperLocator,
 	capRegistryAddress string,
 	capRegistryChainID string,
 	shardIndex uint32,
-) *Delegate {
+	limitsFactory limits.Factory,
+) (*Delegate, error) {
+	if registry == nil {
+		return nil, errors.New("capabilities registry must not be nil")
+	}
+	if getPeerID == nil {
+		return nil, errors.New("getPeerID must not be nil")
+	}
 	return &Delegate{
 		logger:                  logger,
 		ds:                      ds,
@@ -112,7 +126,8 @@ func NewDelegate(
 		capRegistryAddress:      capRegistryAddress,
 		capRegistryChainID:      capRegistryChainID,
 		shardIndex:              shardIndex,
-	}
+		limitsFactory:           limitsFactory,
+	}, nil
 }
 
 func (d *Delegate) JobType() job.Type {
@@ -171,6 +186,12 @@ func (d *Delegate) NewServices(
 	registryOCRConfig *ocrtypes.ContractConfig,
 ) ([]job.ServiceCtx, error) {
 	log := logger.Sugared(logger.Named(d.logger, "StandardCapabilities")).Named(strconv.Itoa(int(jobID))).Named(jobName)
+	telemetryLoopID := looptelemetry.NewLoopID("StandardCapabilities", strconv.Itoa(int(jobID)), jobName)
+
+	if filepath.Base(command) == conversions.CronCmd && d.cronV2Active(ctx) {
+		v2cmd := filepath.Join(filepath.Dir(command), conversions.CronV2Cmd)
+		return d.newServicesV2(ctx, log, v2cmd, conversions.CronV2Cmd, configJSON, capabilityDonID, telemetryLoopID)
+	}
 
 	// Warn when neither the job spec nor the TOML config provide bootstrap peers.
 	// The oracle factory will fail at startup if it can't find peers, so the error
@@ -276,17 +297,6 @@ func (d *Delegate) NewServices(
 			offchainKB = ocrEvmKeyBundles[0]
 		}
 		ocrKeyBundles = map[string]ocr2key.KeyBundle{string(corekeys.EVM): offchainKB}
-	}
-
-	// Best-effort resolve the authoritative capability DON ID for this plugin
-	// process when the caller did not provide one (job-spec boot path). The LOOP
-	// uses this to label emitted events with the sending DON ID rather than the
-	// consumer workflow's DON. Resolution can return 0 (e.g. on a node that
-	// belongs to multiple DONs for this capability); in that case the plugin
-	// falls back to the workflow DON ID. See CRE-4409.
-	if capabilityDonID == 0 && capabilityID != "" {
-		capabilityDonID = resolveCapabilityDonID(ctx, log, d.registry, d.getPeerID, capabilityID)
-		log.Debugw("Resolved capability DON ID from registry", "capabilityID", capabilityID, "donID", capabilityDonID)
 	}
 
 	// Extract the transmitter paired with this node's signer from the on-chain OCR config.
@@ -398,60 +408,56 @@ func (d *Delegate) NewServices(
 		CapabilityDonID:    capabilityDonID,
 		ShardIndex:         d.shardIndex,
 	}
-	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, dependencies)
-	standardCapability.telemetryLoopID = looptelemetry.NewLoopID("StandardCapabilities", strconv.Itoa(int(jobID)), jobName)
+	idResolver := d.newCapDonIDResolver(log, capabilityID, capabilityDonID)
+	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, idResolver, dependencies)
+	standardCapability.telemetryLoopID = telemetryLoopID
 
 	return []job.ServiceCtx{standardCapability}, nil
 }
 
-// resolveCapabilityDonID best-effort resolves the on-chain DON ID this node is
-// running the given capability for, by looking up DONsForCapability and filtering
-// by the local node's PeerID.
-//
-// This is always best-effort: it never returns an error. Any failure — including
-// infrastructure issues like getPeerID failing or the registry being unavailable —
-// results in returning 0 with a warning logged. The caller then falls back to
-// labeling events with the consumer workflow's DON ID. See CRE-4409.
-func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry registry.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) uint32 {
-	if registry == nil {
-		lggr.Warnw("Capabilities registry is nil; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID)
-		return 0
-	}
-	if getPeerID == nil {
-		lggr.Warnw("getPeerID is nil; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID)
-		return 0
-	}
-	peerID, err := getPeerID()
+func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command, app, configJSON string, capabilityDonID uint32, telemetryLoopID string) ([]job.ServiceCtx, error) {
+	// The capability ID depends on the capability, not on how it runs, so look it up by app name.
+	capabilityID := conversions.GetCapabilityIDFromCommand(app, configJSON)
+
+	idResolver := d.newCapDonIDResolver(log, capabilityID, capabilityDonID)
+
+	s, err := NewV2(V2Params{
+		Log:              log,
+		Command:          command,
+		App:              app,
+		ConfigJSON:       configJSON,
+		CapDonIDResolver: idResolver,
+		PluginRegistrar:  d.cfg,
+		Registry:         d.registry,
+		CRESettings:      d.creSettings,
+		TelemetryLoopID:  telemetryLoopID,
+	})
 	if err != nil {
-		lggr.Warnw("Failed to get local peer ID; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID, "err", err)
-		return 0
+		return nil, err
 	}
-	dwns, err := registry.DONsForCapability(ctx, capabilityID)
+	return []job.ServiceCtx{s}, nil
+}
+
+// newCapDonIDResolver picks how the capability DON ID is obtained. On the job-spec
+// boot path it is resolved at Start rather than here, since the registry may not
+// have synced yet right after node start. Resolution is skipped without an
+// external registry, which would never sync, or without a known capability ID.
+// See CRE-4409.
+func (d *Delegate) newCapDonIDResolver(log logger.Logger, capabilityID string, capabilityDonID uint32) CapDonIDResolver {
+	if capabilityDonID != 0 || capabilityID == "" || d.capRegistryAddress == "" {
+		return &staticCapDonIDResolver{donID: capabilityDonID}
+	}
+	return newDynamicCapDonIDResolver(capabilityID, d.registry, d.getPeerID, log)
+}
+
+func (d *Delegate) cronV2Active(ctx context.Context) bool {
+	flag, err := limits.MakeRangeLimiter(d.limitsFactory, cresettings.Default.CRONV2ActivePeriod)
 	if err != nil {
-		lggr.Warnw("DONsForCapability failed; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID, "err", err)
-		return 0
+		d.logger.Errorw("Failed to create cron v2 flag; using cron v1", "err", err)
+		return false
 	}
-	var matched []uint32
-	for _, d := range dwns {
-		for _, n := range d.Nodes {
-			if n.PeerID != nil && *n.PeerID == peerID {
-				matched = append(matched, d.DON.ID)
-				break
-			}
-		}
-	}
-	switch len(matched) {
-	case 1:
-		return matched[0]
-	case 0:
-		lggr.Warnw("No DON found for local peer on capability; falling back to workflow DON ID for event labeling",
-			"peerID", peerID, "capabilityID", capabilityID)
-		return 0
-	default:
-		lggr.Warnw("Local peer belongs to multiple DONs for capability; cannot disambiguate, falling back to workflow DON ID for event labeling",
-			"peerID", peerID, "capabilityID", capabilityID, "matched", matched)
-		return 0
-	}
+	defer flag.Close()
+	return flag.Check(ctx, commonconfig.Timestamp(time.Now().Unix())) == nil
 }
 
 func (d *Delegate) AfterJobCreated(job job.Job) {}

@@ -151,9 +151,9 @@ func TestShardFailoverManager_CacheExitFunnel(t *testing.T) {
 	cachedBaseline, _ := failoverGauge(t, "platform_shard_failover_cached_events")
 
 	for _, id := range []string{"evt-drain", "evt-replay", "evt-expire", "evt-keep"} {
-		require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent(id)), triggers.ErrAdmissionCached)
+		require.ErrorIs(t, m.Admit(ctx, testCoordinatedEvent(id)), triggers.ErrAdmissionCached)
 	}
-	require.ErrorIs(t, failing.ExecuteTrigger(ctx, testCoordinatedEvent("evt-fail")), triggers.ErrAdmissionCached)
+	require.ErrorIs(t, failing.Admit(ctx, testCoordinatedEvent("evt-fail")), triggers.ErrAdmissionCached)
 
 	// A SUCCESS verdict drains one cached event; a verdict for an event that was
 	// never cached must not count as an exit.
@@ -242,8 +242,8 @@ func TestShardFailoverManager_PruneExpiresCachedEvents(t *testing.T) {
 	before := collectFailoverTotals(t)
 	cachedBaseline, _ := failoverGauge(t, "platform_shard_failover_cached_events")
 
-	require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent("evt-1")), triggers.ErrAdmissionCached)
-	require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent("evt-2")), triggers.ErrAdmissionCached)
+	require.ErrorIs(t, m.Admit(ctx, testCoordinatedEvent("evt-1")), triggers.ErrAdmissionCached)
+	require.ErrorIs(t, m.Admit(ctx, testCoordinatedEvent("evt-2")), triggers.ErrAdmissionCached)
 
 	m.mu.Lock()
 	for id, ce := range m.cache {
@@ -276,8 +276,8 @@ func TestShardFailoverManager_CloseExitsCachedEvents(t *testing.T) {
 	before := collectFailoverTotals(t)
 	cachedBaseline, _ := failoverGauge(t, "platform_shard_failover_cached_events")
 
-	require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent("evt-close-1")), triggers.ErrAdmissionCached)
-	require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent("evt-close-2")), triggers.ErrAdmissionCached)
+	require.ErrorIs(t, m.Admit(ctx, testCoordinatedEvent("evt-close-1")), triggers.ErrAdmissionCached)
+	require.ErrorIs(t, m.Admit(ctx, testCoordinatedEvent("evt-close-2")), triggers.ErrAdmissionCached)
 
 	require.NoError(t, m.close())
 
@@ -302,8 +302,8 @@ func TestShardFailoverManager_RedeliveredEventIDNotRecounted(t *testing.T) {
 	before := collectFailoverTotals(t)
 	cachedBaseline, _ := failoverGauge(t, "platform_shard_failover_cached_events")
 
-	require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent("evt-redeliver")), triggers.ErrAdmissionCached)
-	require.ErrorIs(t, m.ExecuteTrigger(ctx, testCoordinatedEvent("evt-redeliver")), triggers.ErrAdmissionCached)
+	require.ErrorIs(t, m.Admit(ctx, testCoordinatedEvent("evt-redeliver")), triggers.ErrAdmissionCached)
+	require.ErrorIs(t, m.Admit(ctx, testCoordinatedEvent("evt-redeliver")), triggers.ErrAdmissionCached)
 
 	after := collectFailoverTotals(t)
 	cachedNow, ok := failoverGauge(t, "platform_shard_failover_cached_events")

@@ -14,12 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
@@ -2036,12 +2035,12 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 
 	t.Run("manual-only: nil client does not auto-wire; explicit resolver used", func(t *testing.T) {
 		t.Parallel()
-		settings := &loop.AtomicSettings{}
-		require.NoError(t, settings.Store(core.SettingsUpdate{
+		shardSettings := &settings.Atomic{}
+		require.NoError(t, shardSettings.Store(settings.Snapshot{
 			Settings: manualConfigTOML,
 			Hash:     "test",
 		}))
-		manual := shardownership.NewManualShardResolver(settings, nil, nil, logger.TestLogger(t))
+		manual := shardownership.NewManualShardResolver(shardSettings, nil, nil, logger.TestLogger(t))
 		wr := newReg(t,
 			WithShardEnabled(true),
 			WithShardOrchestratorClient(nil),
@@ -2058,8 +2057,8 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 
 	t.Run("ringocr-with-overrides: explicit resolver not overwritten by auto-wire", func(t *testing.T) {
 		t.Parallel()
-		settings := &loop.AtomicSettings{}
-		require.NoError(t, settings.Store(core.SettingsUpdate{
+		shardSettings := &settings.Atomic{}
+		require.NoError(t, shardSettings.Store(settings.Snapshot{
 			Settings: manualConfigTOML,
 			Hash:     "test",
 		}))
@@ -2067,7 +2066,7 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 			wf1.Hex(): 0,
 			wf2.Hex(): 1,
 		}}
-		override := shardownership.NewOverrideShardResolver(settings, nil, nil,
+		override := shardownership.NewOverrideShardResolver(shardSettings, nil, nil,
 			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
 			logger.TestLogger(t))
 		wr := newReg(t,
@@ -2087,15 +2086,15 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 
 	t.Run("explicit resolver before WithShardOrchestratorClient is preserved", func(t *testing.T) {
 		t.Parallel()
-		settings := &loop.AtomicSettings{}
-		require.NoError(t, settings.Store(core.SettingsUpdate{
+		shardSettings := &settings.Atomic{}
+		require.NoError(t, shardSettings.Store(settings.Snapshot{
 			Settings: manualConfigTOML,
 			Hash:     "test",
 		}))
 		ringClient := &mockShardMappingClient{mappings: map[string]uint32{
 			wf1.Hex(): 0,
 		}}
-		override := shardownership.NewOverrideShardResolver(settings, nil, nil,
+		override := shardownership.NewOverrideShardResolver(shardSettings, nil, nil,
 			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
 			logger.TestLogger(t))
 		wr := newReg(t,
@@ -2451,4 +2450,212 @@ func Test_syncLoop_OrphanedSpecs(t *testing.T) {
 			assert.Equal(t, movedID.Hex(), id, "only the moved workflow is released")
 		}
 	})
+}
+
+// phasedMetadataSource returns metadata[i] on the i-th fetch (repeating the last
+// entry) and exposes the current phase so a shard mapping can follow it. The
+// loop fetches each source exactly once per tick, so phase == tick index.
+type phasedMetadataSource struct {
+	mu       sync.Mutex
+	name     string
+	metadata [][]WorkflowMetadataView
+	calls    int
+}
+
+func (s *phasedMetadataSource) ListWorkflowMetadata(context.Context, commonCap.DON) ([]WorkflowMetadataView, *types.Head, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	md := s.metadata[min(s.calls, len(s.metadata)-1)]
+	s.calls++
+	return md, &types.Head{Height: "1"}, nil
+}
+func (s *phasedMetadataSource) Name() string             { return s.name }
+func (s *phasedMetadataSource) SourceIdentifier() string { return s.name }
+func (s *phasedMetadataSource) Ready() error             { return nil }
+
+// phase is the index of the most recent fetch.
+func (s *phasedMetadataSource) phase() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return min(s.calls, len(s.metadata)) - 1
+}
+
+// phasedShardMappingClient serves mappings[phase] for the source's current phase.
+type phasedShardMappingClient struct {
+	source   *phasedMetadataSource
+	mappings []map[string]uint32
+}
+
+func (m *phasedShardMappingClient) GetWorkflowShardMapping(_ context.Context, workflowIDs []string) (*ringpb.GetWorkflowShardMappingResponse, error) {
+	phaseMappings := m.mappings[min(m.source.phase(), len(m.mappings)-1)]
+	out := make(map[string]uint32)
+	for _, id := range workflowIDs {
+		if shard, ok := phaseMappings[id]; ok {
+			out[id] = shard
+		}
+	}
+	return &ringpb.GetWorkflowShardMappingResponse{Mappings: out, MappingVersion: 1}, nil
+}
+
+func (m *phasedShardMappingClient) ReportWorkflowTriggerRegistration(context.Context, *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
+	return &ringpb.ReportWorkflowTriggerRegistrationResponse{Success: true}, nil
+}
+
+func (m *phasedShardMappingClient) Close() error { return nil }
+
+var _ shardorchestrator.ClientInterface = (*phasedShardMappingClient)(nil)
+
+// engineTrackingFakeHandler mirrors the real handler's effect on the engine
+// registry (activate adds, delete pops) and records every handled event.
+// Activations listed in failOnce fail on their first attempt.
+type engineTrackingFakeHandler struct {
+	orphanSweepFakeHandler
+	er       *EngineRegistry
+	failOnce map[string]bool
+}
+
+func (h *engineTrackingFakeHandler) Handle(_ context.Context, event Event) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.handled = append(h.handled, event)
+	switch payload := event.Data.(type) {
+	case WorkflowActivatedEvent:
+		if h.failOnce[payload.WorkflowID.Hex()] {
+			delete(h.failOnce, payload.WorkflowID.Hex())
+			return assert.AnError
+		}
+		return h.er.Add(payload.WorkflowID, payload.Source, &mockService{})
+	case WorkflowDeletedEvent:
+		_, err := h.er.Pop(payload.WorkflowID)
+		return err
+	}
+	return nil
+}
+
+// Test_syncLoop_ShardTransitionSuppressesLifecycleEmit drives the reconciliation
+// loop across a shard reassignment. Engines must follow the shard filter, but
+// events caused only by a workflow moving between shards are marked
+// ShardTransition so the handler does not emit external lifecycle events.
+func Test_syncLoop_ShardTransitionSuppressesLifecycleEmit(t *testing.T) {
+	t.Parallel()
+
+	const source = "source-a"
+	const myShard, otherShard = uint32(0), uint32(1) // myDonID is 0 when the loop is driven directly
+
+	movedOut := wfTypes.WorkflowID{1}       // active throughout, reassigned away from this shard
+	movedIn := wfTypes.WorkflowID{2}        // active throughout, reassigned onto this shard
+	registered := wfTypes.WorkflowID{3}     // appears on-chain at tick 2; first activation fails
+	deleted := wfTypes.WorkflowID{4}        // removed on-chain at tick 2
+	unpaused := wfTypes.WorkflowID{5}       // paused at tick 1, activated at tick 2
+	pausedMovedOut := wfTypes.WorkflowID{6} // paused on-chain and reassigned away at tick 2
+
+	meta := func(id wfTypes.WorkflowID, status uint8) WorkflowMetadataView {
+		return WorkflowMetadataView{
+			WorkflowID:   id,
+			Owner:        []byte{0xaa, 0xbb, 0xcc, 0xdd},
+			Status:       status,
+			WorkflowName: fmt.Sprintf("wf-%x", id[0]),
+			Source:       source,
+		}
+	}
+
+	src := &phasedMetadataSource{name: source, metadata: [][]WorkflowMetadataView{
+		{ // tick 1
+			meta(movedOut, WorkflowStatusActive),
+			meta(movedIn, WorkflowStatusActive),
+			meta(deleted, WorkflowStatusActive),
+			meta(unpaused, WorkflowStatusPaused),
+			meta(pausedMovedOut, WorkflowStatusActive),
+		},
+		{ // tick 2 onwards
+			meta(movedOut, WorkflowStatusActive),
+			meta(movedIn, WorkflowStatusActive),
+			meta(registered, WorkflowStatusActive),
+			meta(unpaused, WorkflowStatusActive),
+			meta(pausedMovedOut, WorkflowStatusPaused),
+		},
+	}}
+	shardClient := &phasedShardMappingClient{source: src, mappings: []map[string]uint32{
+		{ // tick 1
+			movedOut.Hex():       myShard,
+			movedIn.Hex():        otherShard,
+			deleted.Hex():        myShard,
+			unpaused.Hex():       myShard,
+			pausedMovedOut.Hex(): myShard,
+		},
+		{ // tick 2 onwards
+			movedOut.Hex():       otherShard,
+			movedIn.Hex():        myShard,
+			registered.Hex():     myShard,
+			unpaused.Hex():       myShard,
+			pausedMovedOut.Hex(): otherShard,
+		},
+	}}
+
+	er := NewEngineRegistry()
+	h := &engineTrackingFakeHandler{er: er, failOnce: map[string]bool{registered.Hex(): true}}
+	wr, tick := newSweepLoopRegistry(t, h, er, []WorkflowMetadataSource{src},
+		WithShardEnabled(true),
+		WithShardOrchestratorClient(shardClient),
+		WithRetryInterval(time.Nanosecond), // the failed activation is retried on the next tick
+	)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wr.syncUsingReconciliationStrategy(ctx)
+	}()
+	// Tick 1: initial state. Tick 2: reassignment. Tick 3: retry of the failed
+	// activation. Tick 4 is a barrier that only lands once tick 3 has finished.
+	for range 4 {
+		tick <- time.Now()
+	}
+	cancel()
+	<-done
+
+	type key struct {
+		name WorkflowRegistryEventName
+		id   string
+	}
+	got := make(map[key][]bool)
+	for _, evt := range h.Handled() {
+		var id string
+		switch payload := evt.Data.(type) {
+		case WorkflowActivatedEvent:
+			id = payload.WorkflowID.Hex()
+		case WorkflowDeletedEvent:
+			id = payload.WorkflowID.Hex()
+		case WorkflowPausedEvent:
+			id = payload.WorkflowID.Hex()
+		}
+		got[key{evt.Name, id}] = append(got[key{evt.Name, id}], evt.ShardTransition)
+	}
+
+	assert.Equal(t, map[key][]bool{
+		// Tick 1: no previous tick to compare against (as after a node restart), so activations emit.
+		{WorkflowActivated, movedOut.Hex()}:       {false},
+		{WorkflowActivated, deleted.Hex()}:        {false},
+		{WorkflowActivated, pausedMovedOut.Hex()}: {false},
+		// Tick 2: pure shard moves are suppressed.
+		{WorkflowDeleted, movedOut.Hex()}:  {true},
+		{WorkflowActivated, movedIn.Hex()}: {true},
+		// Tick 2: real lifecycle changes still emit.
+		{WorkflowDeleted, deleted.Hex()}:        {false},
+		{WorkflowActivated, unpaused.Hex()}:     {false},
+		{WorkflowDeleted, pausedMovedOut.Hex()}: {false}, // paused on-chain, so not a pure move
+		// Ticks 2 and 3: the failed new registration keeps its flag on retry, even though
+		// it was already active on-chain in the previous tick by then.
+		{WorkflowActivated, registered.Hex()}: {false, false},
+	}, got)
+
+	// Engines follow the shard filter.
+	for _, id := range []wfTypes.WorkflowID{movedIn, registered, unpaused} {
+		_, ok := er.Get(id)
+		assert.True(t, ok, "engine for %s should run on this shard", id.Hex())
+	}
+	for _, id := range []wfTypes.WorkflowID{movedOut, deleted, pausedMovedOut} {
+		_, ok := er.Get(id)
+		assert.False(t, ok, "engine for %s should not run on this shard", id.Hex())
+	}
 }

@@ -111,13 +111,14 @@ type EngineLimiters struct {
 	// Settings is the CRE dynamic settings getter from [limits.Factory.Settings] (optional).
 	Settings settings.Getter
 
-	ExecutionResponse        limits.BoundLimiter[commonconfig.Size]
-	TriggerSubscriptionTime  limits.TimeLimiter
-	TriggerRegistrationsTime limits.TimeLimiter
-	TriggerSubscription      limits.BoundLimiter[int]
-	TriggerEventQueue        limits.QueueLimiter[triggers.CoordinatedEvent]
-	TriggerEventQueueTimeout limits.BoundLimiter[time.Duration]
-	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
+	ExecutionResponse             limits.BoundLimiter[commonconfig.Size]
+	ExecutionResponseSizeEnforced limits.GateLimiter
+	TriggerSubscriptionTime       limits.TimeLimiter
+	TriggerRegistrationsTime      limits.TimeLimiter
+	TriggerSubscription           limits.BoundLimiter[int]
+	TriggerEventQueue             limits.QueueLimiter[triggers.CoordinatedEvent]
+	TriggerEventQueueTimeout      limits.BoundLimiter[time.Duration]
+	ExecutionConcurrency          limits.ResourcePoolLimiter[int]
 
 	WASMBinarySize           limits.BoundLimiter[commonconfig.Size]
 	WASMCompressedBinarySize limits.BoundLimiter[commonconfig.Size]
@@ -130,6 +131,8 @@ type EngineLimiters struct {
 	LogEvent              limits.BoundLimiter[int]
 	LogLine               limits.BoundLimiter[commonconfig.Size]
 	ChainAllowed          limits.GateLimiter
+
+	WASMModulePendingCalls limits.ResourcePoolLimiter[int]
 
 	ChainWriteTargets     limits.BoundLimiter[int]
 	ChainReadCalls        limits.BoundLimiter[int]
@@ -150,6 +153,7 @@ type EngineLimiters struct {
 	ShardingFailoverEnabled                     limits.GateLimiter
 	TimeoutBasedFailover                        limits.GateLimiter
 	TimeoutBasedFailoverWindow                  limits.TimeLimiter
+	ShardOwnershipCheckTimeout                  limits.TimeLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
 
 	// ShadowTriggerMode is open while a coordinated trigger event's observed time is inside the
@@ -180,6 +184,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 		cfgFn(&cfg)
 	}
 	l.ExecutionResponse, err = limits.MakeUpperBoundLimiter(lf, cfg.ExecutionResponseLimit)
+	if err != nil {
+		return err
+	}
+	l.ExecutionResponseSizeEnforced, err = limits.MakeGateLimiter(lf, cfg.ExecutionResponseLimitEnforced)
 	if err != nil {
 		return err
 	}
@@ -237,7 +245,18 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
+
+	// Capability call concurrency is enforced both in the WASM module and in the Engine.
+	// Each uses its own pool so that a single call takes one slot from each, not two from the same pool.
 	l.CapabilityConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.CapabilityConcurrencyLimit)
+	if err != nil {
+		return err
+	}
+
+	// No meter: the same setting key would duplicate CapabilityConcurrency's gauges.
+	lfNoMetrics := lf
+	lfNoMetrics.Meter = nil
+	l.WASMModulePendingCalls, err = limits.MakeResourcePoolLimiter(lfNoMetrics, cfg.CapabilityConcurrencyLimit)
 	if err != nil {
 		return err
 	}
@@ -333,6 +352,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
+	l.ShardOwnershipCheckTimeout, err = lf.MakeTimeLimiter(cresettings.Default.ShardOwnershipCheckTimeout)
+	if err != nil {
+		return err
+	}
 	l.DONTimeRequestTimeout, err = lf.MakeTimeLimiter(cfg.DONTime.RequestTimeout)
 	if err != nil {
 		return err
@@ -360,6 +383,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 	evictables := []any{
 		l.ExecutionResponse,
+		l.ExecutionResponseSizeEnforced,
 		l.TriggerSubscriptionTime,
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,
@@ -370,6 +394,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.WASMMemorySize,
 		l.WASMCompressedBinarySize,
 		l.CapabilityConcurrency,
+		l.WASMModulePendingCalls,
 		l.SecretsConcurrency,
 		l.ExecutionTime,
 		l.CapabilityCallTime,
@@ -405,6 +430,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 func (l *EngineLimiters) Close() error {
 	return services.CloseAll(
 		l.ExecutionResponse,
+		l.ExecutionResponseSizeEnforced,
 		l.TriggerSubscriptionTime,
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,
@@ -415,6 +441,7 @@ func (l *EngineLimiters) Close() error {
 		l.WASMMemorySize,
 		l.WASMCompressedBinarySize,
 		l.CapabilityConcurrency,
+		l.WASMModulePendingCalls,
 		l.SecretsConcurrency,
 		l.ExecutionTime,
 		l.CapabilityCallTime,
@@ -568,7 +595,10 @@ type LifecycleHooks struct {
 	//   - nil: the event is allowed; the engine enqueues and executes it.
 	//   - ErrAdmissionCache: the event was cached by the admission layer;
 	//     the engine drops it without ACKing.
-	//   - any other error: the event is denied; the engine ACKs and drops it.
+	//   - any other error while ctx is still live: the event is denied; the
+	//     engine ACKs and drops it.
+	//   - any error once ctx is done: the check was cut short; the engine drops
+	//     the event without ACKing.
 	OnTriggerAdmission func(ctx context.Context, event triggers.CoordinatedEvent) error
 
 	// Used by the standalone engine

@@ -13,12 +13,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-const defaultStartTimeout = 3 * time.Minute
+const (
+	defaultStartTimeout = 3 * time.Minute
+
+	defaultDonIDResolveTimeout = 3 * time.Minute
+	defaultDonIDRetryInterval  = time.Second
+)
 
 var (
 	ErrServiceStopped  = errors.New("service stopped")
@@ -38,14 +44,9 @@ type StandardCapabilities struct {
 	oracleFactory        core.OracleFactory
 	gatewayConnector     core.GatewayConnector
 	orgResolver          orgresolver.OrgResolver
-	creSettings          core.SettingsBroadcaster
+	creSettings          settings.Broadcaster
 	triggerEventStore    capabilities.EventStore
-	// capabilityDonID is the authoritative on-chain DON ID this plugin process
-	// was spawned for, resolved by the host (localcapmgr.startCapability or
-	// Delegate.NewServices). Plumbed to the LOOP via StandardCapabilitiesDependencies
-	// at Initialise time. Zero means the host did not resolve one; the plugin
-	// will fall back to capability-registry lookup.
-	capabilityDonID uint32
+	capDonIDResolver     CapDonIDResolver
 	// shardIndex is this node's shard from the [Sharding] config, plumbed to the LOOP at Initialise.
 	shardIndex uint32
 
@@ -89,6 +90,7 @@ func NewStandardCapabilities(
 	command string,
 	configJSON string,
 	pluginRegistrar plugins.RegistrarConfig,
+	capDonIDResolver CapDonIDResolver,
 	dependencies core.StandardCapabilitiesDependencies,
 ) *StandardCapabilities {
 	return &StandardCapabilities{
@@ -105,7 +107,7 @@ func NewStandardCapabilities(
 		orgResolver:          dependencies.OrgResolver,
 		creSettings:          dependencies.CRESettings,
 		triggerEventStore:    dependencies.TriggerEventStore,
-		capabilityDonID:      dependencies.CapabilityDonID,
+		capDonIDResolver:     capDonIDResolver,
 		shardIndex:           dependencies.ShardIndex,
 		stopChan:             make(chan struct{}),
 		readyChan:            make(chan struct{}),
@@ -114,7 +116,7 @@ func NewStandardCapabilities(
 
 // initialiseDependencies builds the StandardCapabilitiesDependencies delivered to
 // the capability LOOP via Initialise.
-func (s *StandardCapabilities) initialiseDependencies() core.StandardCapabilitiesDependencies {
+func (s *StandardCapabilities) initialiseDependencies(capDonID uint32) core.StandardCapabilitiesDependencies {
 	return core.StandardCapabilitiesDependencies{
 		Config:             s.config,
 		Store:              s.store,
@@ -126,7 +128,7 @@ func (s *StandardCapabilities) initialiseDependencies() core.StandardCapabilitie
 		OrgResolver:        s.orgResolver,
 		CRESettings:        s.creSettings,
 		TriggerEventStore:  s.triggerEventStore,
-		CapabilityDonID:    s.capabilityDonID,
+		CapabilityDonID:    capDonID,
 		ShardIndex:         s.shardIndex,
 	}
 }
@@ -162,6 +164,15 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				s.startTimeout = defaultStartTimeout
 			}
 
+			rctx, cancel := s.stopChan.NewCtx()
+			defer cancel()
+			capDonID, err := s.capDonIDResolver.awaitCapDonID(rctx)
+			if err != nil {
+				s.log.Errorf("error waiting to resolve the capability Don ID: %v", err)
+				s.setReadyErr(fmt.Errorf("error waiting to resolve the capability Don ID: %w", err))
+				return
+			}
+
 			cctx, cancel := s.stopChan.CtxWithTimeout(s.startTimeout)
 			defer cancel()
 
@@ -171,7 +182,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				return
 			}
 
-			dependencies := s.initialiseDependencies()
+			dependencies := s.initialiseDependencies(capDonID)
 			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)
 				s.setReadyErr(fmt.Errorf("initialising standard capabilities service: %w", err))

@@ -722,6 +722,9 @@ func newTriggerSubscriberForTest(
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
+		if t.Failed() {
+			return // a leaked subscriber mutex would block Unregister/Close and hang the suite
+		}
 		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), regReq))
 		require.NoError(t, subscriber.Close())
 	})
@@ -875,4 +878,57 @@ func TestTriggerSubscriber_PropagateOrgIDEvaluatedEachTick(t *testing.T) {
 
 	gate.open.Store(false)
 	require.Eventually(t, orgIDSent(""), 5*time.Second, 10*time.Millisecond, "OrgID must be stripped again once the flag is off")
+}
+
+// Regression: an event whose workflow is registered but whose trigger ID is not (the same state a
+// pause/unregister racing Receive produces) must not leave the subscriber mutex held.
+func TestTriggerSubscriber_UnregisteredTriggerIDReleasesLock(t *testing.T) {
+	t.Parallel()
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+	}
+	req := commoncap.TriggerRegistrationRequest{
+		TriggerID: "trigger1",
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID: workflowID1,
+		},
+	}
+	subscriber, capDon, callbackCh := newTriggerSubscriberForTest(t, 1, config, req)
+	sender := capDon.Members[0][:]
+
+	subscriber.Receive(t.Context(), buildTriggerEventWithTriggerID(t, sender, workflowID1, "unknown-trigger", "event1"))
+
+	// Every lock-taking path must still complete and a valid event must still be delivered.
+	validMsg := buildTriggerEventWithTriggerID(t, sender, workflowID1, "trigger1", "event2")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		other := commoncap.TriggerRegistrationRequest{
+			TriggerID: "trigger2",
+			Metadata:  commoncap.RequestMetadata{WorkflowID: workflowID1},
+		}
+		if _, err := subscriber.RegisterTrigger(t.Context(), other); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := subscriber.UnregisterTrigger(t.Context(), other); err != nil {
+			t.Error(err)
+			return
+		}
+		subscriber.Receive(t.Context(), validMsg)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("subscriber mutex was not released after event for unregistered trigger ID")
+	}
+	select {
+	case resp := <-callbackCh:
+		require.Equal(t, "event2", resp.Event.ID)
+	case <-time.After(5 * time.Second):
+		t.Fatal("expected trigger event delivery")
+	}
 }

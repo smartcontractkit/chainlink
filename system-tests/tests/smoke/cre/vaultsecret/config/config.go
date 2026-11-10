@@ -12,6 +12,8 @@ type Check struct {
 type Phase struct {
 	Name   string  `yaml:"name" json:"name"`
 	Checks []Check `yaml:"checks" json:"checks"`
+	// Batch fetches every check's secret in one GetSecrets call. Checks must not use ExpectNotFound.
+	Batch bool `yaml:"batch,omitempty" json:"batch,omitempty"`
 }
 
 type Config struct {

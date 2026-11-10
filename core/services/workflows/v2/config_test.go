@@ -123,6 +123,25 @@ func TestNewLimiters_CentralTriggerQueue(t *testing.T) {
 	})
 }
 
+// TestNewLimiters_ExecutionResponseSizeEnforced asserts response size enforcement is off by default and follows its setting.
+func TestNewLimiters_ExecutionResponseSizeEnforced(t *testing.T) {
+	t.Parallel()
+	ctx := contexts.WithCRE(t.Context(), contexts.CRE{Org: "org-1", Owner: testWorkflowOwnerA, Workflow: testWorkflowID})
+	for _, enforced := range []bool{false, true} {
+		l, err := v2.NewLimiters(limits.Factory{Logger: logger.TestLogger(t)}, func(w *cresettings.Workflows) {
+			if enforced {
+				w.ExecutionResponseLimitEnforced.DefaultValue = true
+			}
+		})
+		require.NoError(t, err)
+		t.Cleanup(func() { assert.NoError(t, l.Close()) })
+		require.NotNil(t, l.ExecutionResponseSizeEnforced)
+		open, err := l.ExecutionResponseSizeEnforced.IsOpen(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, enforced, open)
+	}
+}
+
 // defaultTestConfig returns a default v2.EngineConfig. CRE settings can optionally be configured by cfgFn.
 func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.EngineConfig {
 	lf := limits.Factory{Logger: logger.TestLogger(t)}

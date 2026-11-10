@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"testing"
 	"time"
 
@@ -218,11 +219,13 @@ func TestCoordinator_NoDeliver(t *testing.T) {
 	}
 }
 
-// TestCoordinator_DeliverAdmission covers what the coordinator does with an
-// admission error from the engine (e.g. the shard failover manager on a sharded
-// node). A denied event is ACKed and dropped: a shard denial gets its own drop reason and
-// shard-denial counter, any other denial is dropped as admission_denied. A cached event is left
-// un-ACKed so the secondary can replay it.
+// TestCoordinator_DeliverAdmission covers what the coordinator does with the
+// engine's admission check (e.g. the shard failover manager on a sharded node),
+// which runs before the event is queued. A denied event is ACKed and dropped: a
+// shard denial gets its own drop reason and shard-denial counter, any other
+// denial is dropped as admission_denied. A cached event is left un-ACKed so the
+// secondary can replay it. Neither reaches ExecuteTrigger. Execution errors are
+// never ACKed by the coordinator.
 func TestCoordinator_DeliverAdmission(t *testing.T) {
 	t.Parallel()
 	const (
@@ -232,7 +235,9 @@ func TestCoordinator_DeliverAdmission(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		engineErr    error
+		admitErr     error
+		execErr      error
+		wantExecuted bool
 		wantAck      bool
 		wantDrops    map[string]int64
 		wantNotOwner int64
@@ -240,34 +245,40 @@ func TestCoordinator_DeliverAdmission(t *testing.T) {
 	}{
 		{
 			name:         "shard denial not owner is ACKed and counted",
-			engineErr:    ErrShardDeniedNotOwner,
+			admitErr:     ErrShardDeniedNotOwner,
 			wantAck:      true,
 			wantDrops:    map[string]int64{monitoring.TriggerDropReasonShardDeniedNotOwner: 1},
 			wantNotOwner: 1,
 		},
 		{
 			name:        "shard denial orchestrator error is ACKed and counted",
-			engineErr:   ErrShardDeniedOrchestrator,
+			admitErr:    ErrShardDeniedOrchestrator,
 			wantAck:     true,
 			wantDrops:   map[string]int64{monitoring.TriggerDropReasonShardDeniedOrchestrator: 1},
 			wantOrchErr: 1,
 		},
 		{
 			name:      "other denial is ACKed and counted as admission_denied",
-			engineErr: fmt.Errorf("not owned by this node: %w", ErrAdmissionDenied),
+			admitErr:  fmt.Errorf("not owned by this node: %w", ErrAdmissionDenied),
 			wantAck:   true,
 			wantDrops: map[string]int64{monitoring.TriggerDropReasonAdmissionDenied: 1},
 		},
-		{name: "cached is left for replay", engineErr: ErrAdmissionCached},
-		{name: "other error is not ACKed", engineErr: errors.New("metering reserve failed")},
-		{name: "executed is not ACKed by the coordinator"},
+		{name: "cached is left for replay", admitErr: ErrAdmissionCached},
+		{
+			name:      "unexpected admission error is not ACKed",
+			admitErr:  errors.New("boom"),
+			wantDrops: map[string]int64{monitoring.TriggerDropReasonAdmissionDenied: 1},
+		},
+		{name: "execution error is not ACKed", execErr: errors.New("metering reserve failed"), wantExecuted: true},
+		{name: "executed is not ACKed by the coordinator", wantExecuted: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			wfMetrics, reader := newTestMeterMetrics(t)
 			f := newCoordinatorFixture(t, withMetrics(wfMetrics))
-			f.engine.err = tc.engineErr
+			f.engine.admit = func(context.Context, CoordinatedEvent) error { return tc.admitErr }
+			f.engine.err = tc.execErr
 			trigger, eventCh := f.expectTrigger(t)
 			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
 			if tc.wantAck {
@@ -277,28 +288,138 @@ func TestCoordinator_DeliverAdmission(t *testing.T) {
 			_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 			require.NoError(t, err)
 			eventCh <- triggerEvent("evt-1")
-			// Wait for the admitter to deliver the event: unregistering first
-			// would drop it from the queue.
-			require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 10*time.Millisecond)
+			// The reader handles one event at a time, so once it has counted the
+			// probe, evt-1's admission, including any ACK, is complete. ReadLoop
+			// drops the probe itself, as an errored trigger response. Wait for that
+			// before unregistering, or the reader may stop without handling the probe.
+			eventCh <- capabilities.TriggerResponse{Err: errors.New("probe")}
+			probe := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonTriggerResponseError}
+			require.Eventually(t, func() bool {
+				return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", probe) == 1
+			}, 5*time.Second, 10*time.Millisecond, "the reader handled the probe")
+			if tc.wantExecuted {
+				// Wait for the admitter to deliver the event: unregistering first
+				// would drop it from the queue.
+				require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 10*time.Millisecond)
+			}
 
 			// The registration is only released once its executions have
-			// returned, so the delivery, including any ACK and drop metric, is complete.
+			// returned, so the delivery is complete.
 			require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
 			require.Eventually(t, func() bool { return !f.registered() }, 5*time.Second, 10*time.Millisecond)
 
+			if !tc.wantExecuted {
+				assert.Empty(t, f.engine.executed(), "an event that fails admission never reaches ExecuteTrigger")
+			}
 			if !tc.wantAck {
 				trigger.AssertNotCalled(t, "AckEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 			}
-			wantDrops := tc.wantDrops
-			if wantDrops == nil {
-				wantDrops = map[string]int64{}
-			}
+			wantDrops := map[string]int64{monitoring.TriggerDropReasonTriggerResponseError: 1} // the probe
+			maps.Copy(wantDrops, tc.wantDrops)
 			// Every reason is compared, so a drop counted under the wrong reason fails.
 			assert.Equal(t, wantDrops, dropsByReason(t, reader), "drops by reason")
 			assert.Equal(t, tc.wantNotOwner, counterTotal(t, reader, shardNotOwnerTotal, nil), shardNotOwnerTotal)
 			assert.Equal(t, tc.wantOrchErr, counterTotal(t, reader, shardOrchErrTotal, nil), shardOrchErrTotal)
 		})
 	}
+}
+
+// TestCoordinator_AdmitHung covers a hung admission check, e.g. a shard
+// ownership lookup against an unresponsive orchestrator. Unregistering must cut
+// it short and release the registration without waiting for the drain timeout.
+// The check must never hold an execution slot, and the event must not be ACKed,
+// since nothing was decided about it.
+func TestCoordinator_AdmitHung(t *testing.T) {
+	t.Parallel()
+	wfMetrics, reader := newTestMeterMetrics(t)
+	admission, queues := newTrackedAdmission()
+	pool := newCountingPool(1)
+	admission.ExecutionConcurrency = pool
+	f := newCoordinatorFixture(t, withAdmission(admission), withMetrics(wfMetrics))
+
+	admitting := make(chan struct{})
+	admitCtxErr := make(chan error, 1)
+	f.engine.admit = func(ctx context.Context, _ CoordinatedEvent) error {
+		close(admitting)
+		<-ctx.Done()
+		admitCtxErr <- ctx.Err()
+		// Like a resolver, report the cut-short lookup as a failure, not as ctx.Err().
+		return fmt.Errorf("shard lookup failed: %w", ErrAdmissionDenied)
+	}
+	trigger, eventCh := f.expectTrigger(t)
+	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
+
+	_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+	require.NoError(t, err)
+	eventCh <- triggerEvent("evt-1")
+	select {
+	case <-admitting:
+	case <-time.After(5 * time.Second):
+		t.Fatal("admission check never started")
+	}
+	assert.Equal(t, int32(0), pool.waits.Load(), "a pending admission check must not wait for an execution slot")
+
+	unregistered := make(chan error, 1)
+	go func() { unregistered <- f.c.UnregisterTriggers(t.Context(), validWorkflowID) }()
+	select {
+	case err := <-unregistered:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("UnregisterTriggers did not return")
+	}
+	select {
+	case err := <-admitCtxErr:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(5 * time.Second):
+		t.Fatal("admission check was not cancelled by UnregisterTriggers")
+	}
+
+	// The fake clock never reaches the drain timeout, so a closed queue means
+	// the registration drained.
+	require.Eventually(t, func() bool { return queues.get(t, 0).closed.Load() }, 5*time.Second, 5*time.Millisecond)
+	assert.Empty(t, f.engine.executed())
+	assert.Equal(t, int32(0), pool.waits.Load())
+	trigger.AssertNotCalled(t, "AckEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	dropped := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonUnregistered}
+	assert.Equal(t, int64(1), counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", dropped))
+	denied := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonAdmissionDenied}
+	assert.Equal(t, int64(0), counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", denied))
+}
+
+// TestCoordinator_AdmitCachedThenUnregistered covers an event the engine caches
+// for failover just as the registration is unregistered. The event sits in the
+// failover cache, so it must not be counted as an unregistered drop, matching
+// the legacy put. It is not ACKed either way.
+func TestCoordinator_AdmitCachedThenUnregistered(t *testing.T) {
+	t.Parallel()
+	wfMetrics, reader := newTestMeterMetrics(t)
+	admission, queues := newTrackedAdmission()
+	f := newCoordinatorFixture(t, withAdmission(admission), withMetrics(wfMetrics))
+
+	admitting := make(chan struct{})
+	f.engine.admit = func(ctx context.Context, _ CoordinatedEvent) error {
+		close(admitting)
+		<-ctx.Done()
+		return ErrAdmissionCached
+	}
+	trigger, eventCh := f.expectTrigger(t)
+	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
+
+	_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+	require.NoError(t, err)
+	eventCh <- triggerEvent("evt-1")
+	select {
+	case <-admitting:
+	case <-time.After(5 * time.Second):
+		t.Fatal("admission check never started")
+	}
+	require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+
+	// The queue closes only after the reader returns, so admitEvent is done.
+	require.Eventually(t, func() bool { return queues.get(t, 0).closed.Load() }, 5*time.Second, 5*time.Millisecond)
+	assert.Empty(t, f.engine.executed())
+	trigger.AssertNotCalled(t, "AckEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	assert.Empty(t, dropsByReason(t, reader), "a cached event is not a drop")
 }
 
 // TestCoordinator_Ack covers acknowledgement: routing to the registration's
@@ -919,56 +1040,81 @@ func BenchmarkCoordinator_AvailableCapacity(b *testing.B) {
 	}
 }
 
-// TestCoordinator_DropObservability covers drops that happen while resolving
-// the engine, and makes sure expected execution outcomes (duplicate,
-// draining, closed) are never logged as errors. The drop-counting side of
-// this is covered by TestCoordinator_NoDeliver.
-func TestCoordinator_DropObservability(t *testing.T) {
+// TestCoordinator_DeliveryLogs pins the log line, level and fields of the
+// delivery outcomes TestEngine_DeliveryLogParity in the v2 package cannot drive
+// through a real engine. No other line is logged at Error.
+func TestCoordinator_DeliveryLogs(t *testing.T) {
 	t.Parallel()
 
-	t.Run("expected execution outcomes are logged at info, not error", func(t *testing.T) {
-		t.Parallel()
-		for _, tc := range []struct {
-			name string
-			err  error
-		}{
-			{"duplicate execution", ErrDuplicateExecution},
-			{"engine draining", ErrEngineDraining},
-			{"engine closed", ErrEngineClosed},
-			{"admission cached", ErrAdmissionCached},
-			{"admission denied", fmt.Errorf("not owner: %w", ErrAdmissionDenied)},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				t.Parallel()
-				lggr, errorLogs := logger.TestObserved(t, zapcore.ErrorLevel)
-				f := newCoordinatorFixture(t, withLogger(lggr))
-				trigger, eventCh := f.expectTrigger(t)
-				trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
-				trigger.EXPECT().AckEvent(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
-				f.engine.err = tc.err
-				_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
-				require.NoError(t, err)
-
-				eventCh <- triggerEvent("evt-1")
-				require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
-
-				assert.Empty(t, errorLogs.All(), "an expected execution outcome must not log at error, the way legacy's engine.go does")
-			})
-		}
-
-		t.Run("an unexpected execution error still logs at error", func(t *testing.T) {
+	const eventID = "evt-1"
+	tests := []struct {
+		name string
+		// setup runs before registration.
+		setup     func(f *coordinatorFixture)
+		wantLevel zapcore.Level
+		wantMsg   string
+		wantErr   bool
+	}{
+		{
+			name:      "engine gone",
+			setup:     func(f *coordinatorFixture) { f.engines.remove(f.wid) },
+			wantLevel: zapcore.InfoLevel,
+			wantMsg:   "Engine gone, dropping trigger event",
+		},
+		{
+			name:      "engine not coordinated",
+			setup:     func(f *coordinatorFixture) { f.engine.coordinated = false },
+			wantLevel: zapcore.ErrorLevel,
+			wantMsg:   "Engine is not coordinated, dropping trigger event",
+		},
+		{
+			name:      "engine closed",
+			setup:     func(f *coordinatorFixture) { f.engine.err = ErrEngineClosed },
+			wantLevel: zapcore.InfoLevel,
+			wantMsg:   "Skipping trigger event execution",
+			wantErr:   true,
+		},
+		{
+			name:      "execution error",
+			setup:     func(f *coordinatorFixture) { f.engine.err = errors.New("boom") },
+			wantLevel: zapcore.ErrorLevel,
+			wantMsg:   "Failed to execute trigger event",
+			wantErr:   true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			lggr, errorLogs := logger.TestObserved(t, zapcore.ErrorLevel)
+			lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 			f := newCoordinatorFixture(t, withLogger(lggr))
 			trigger, eventCh := f.expectTrigger(t)
 			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
-			f.engine.err = errors.New("boom")
+			tc.setup(f)
+
 			_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 			require.NoError(t, err)
+			eventCh <- triggerEvent(eventID)
 
-			eventCh <- triggerEvent("evt-1")
-			require.Eventually(t, func() bool { return len(errorLogs.All()) == 1 }, 5*time.Second, 5*time.Millisecond,
-				"an unanticipated execution error must still be visible as an error")
+			require.Eventually(t, func() bool { return logs.FilterMessage(tc.wantMsg).Len() > 0 }, 5*time.Second, 5*time.Millisecond)
+			entries := logs.FilterMessage(tc.wantMsg).All()
+			require.Len(t, entries, 1, "logged once")
+			assert.Equal(t, tc.wantLevel, entries[0].Level)
+			fields := entries[0].ContextMap()
+			assert.Equal(t, testTriggerCapID, fields["triggerID"])
+			assert.Equal(t, eventID, fields["eventID"])
+			if tc.wantErr {
+				assert.Contains(t, fields, "err")
+			}
+			errorEntries := logs.FilterLevelExact(zapcore.ErrorLevel).All()
+			gotErrors := make([]string, 0, len(errorEntries))
+			for _, entry := range errorEntries {
+				gotErrors = append(gotErrors, entry.Message)
+			}
+			if tc.wantLevel == zapcore.ErrorLevel {
+				assert.Equal(t, []string{tc.wantMsg}, gotErrors, "Error lines")
+			} else {
+				assert.Empty(t, gotErrors, "Error lines")
+			}
 		})
-	})
+	}
 }
