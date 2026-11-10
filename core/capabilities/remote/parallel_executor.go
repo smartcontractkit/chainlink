@@ -13,6 +13,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
+var (
+	// ErrNoSlotAvailable is returned by TryExecuteTask when all executor slots are in use.
+	ErrNoSlotAvailable = errors.New("no parallel executor slot available")
+	// ErrWaitAborted is returned by ExecuteTaskWithWaitContext when abortWait is closed before a slot is acquired.
+	ErrWaitAborted = errors.New("wait for parallel executor slot aborted")
+)
+
 // ParallelExecutor runs tasks concurrently up to a configured limit.
 type ParallelExecutor struct {
 	services.StateMachine
@@ -65,30 +72,56 @@ func (t *ParallelExecutor) maxSlots() int {
 // maximum execute limit is reached, the function will block until a slot is available or the
 // context is cancelled.
 func (t *ParallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.Context)) error {
+	return t.ExecuteTaskWithWaitContext(ctx, nil, ctx, fn)
+}
+
+// ExecuteTaskWithWaitContext is like ExecuteTask, but waits for a free slot only until waitCtx is
+// done or abortWait is closed (ErrWaitAborted), while the task itself runs with ctx. Neither has any
+// effect on the task once it started. A nil abortWait never aborts.
+func (t *ParallelExecutor) ExecuteTaskWithWaitContext(waitCtx context.Context, abortWait <-chan struct{}, ctx context.Context, fn func(ctx context.Context)) error {
 	select {
 	case t.taskSemaphore <- struct{}{}:
-		t.recordSlotUsage(ctx)
-		stopped := !t.IfNotStopped(func() {
-			t.wg.Go(func() {
-				ctxWithStop, cancel := t.stopChan.Ctx(ctx)
-				defer func() {
-					<-t.taskSemaphore
-					t.recordSlotUsage(ctxWithStop)
-					cancel()
-				}()
-				fn(ctxWithStop)
-			})
-		})
-
-		if stopped {
-			return errors.New("executor stopped")
-		}
+		return t.runInAcquiredSlot(ctx, fn)
 	case <-t.stopChan:
 		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+	case <-waitCtx.Done():
+		return waitCtx.Err()
+	case <-abortWait:
+		return ErrWaitAborted
 	}
+}
 
+// TryExecuteTask is a non-blocking variant of ExecuteTask. If all slots are in use, it returns
+// ErrNoSlotAvailable immediately instead of waiting for a slot to free up.
+func (t *ParallelExecutor) TryExecuteTask(ctx context.Context, fn func(ctx context.Context)) error {
+	select {
+	case t.taskSemaphore <- struct{}{}:
+		return t.runInAcquiredSlot(ctx, fn)
+	default:
+		return ErrNoSlotAvailable
+	}
+}
+
+// runInAcquiredSlot runs fn in a new goroutine that releases the slot when done. The caller
+// must have already acquired a slot.
+func (t *ParallelExecutor) runInAcquiredSlot(ctx context.Context, fn func(ctx context.Context)) error {
+	t.recordSlotUsage(ctx)
+	stopped := !t.IfNotStopped(func() {
+		t.wg.Go(func() {
+			ctxWithStop, cancel := t.stopChan.Ctx(ctx)
+			defer func() {
+				<-t.taskSemaphore
+				t.recordSlotUsage(ctxWithStop)
+				cancel()
+			}()
+			fn(ctxWithStop)
+		})
+	})
+
+	if stopped {
+		<-t.taskSemaphore
+		return errors.New("executor stopped")
+	}
 	return nil
 }
 
