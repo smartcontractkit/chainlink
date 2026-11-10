@@ -177,6 +177,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryLogExportInterval = m.cfgTelemetry.LogExportInterval()
 		envCfg.TelemetryLogMaxQueueSize = m.cfgTelemetry.LogMaxQueueSize()
 		envCfg.TelemetryMetricViewsDenyAttributes = m.cfgTelemetry.MetricViewsDenyAttributes()
+		envCfg.TelemetryOTelResourceAttributes = m.cfgTelemetry.OTelResourceAttributes()
 		limit := m.cfgTelemetry.MetricCardinalityLimit()
 		envCfg.TelemetryMetricCardinalityLimit = &limit
 		envCfg.TelemetryPrometheusBridgeEnabled = m.cfgTelemetry.PrometheusBridge().Enabled()

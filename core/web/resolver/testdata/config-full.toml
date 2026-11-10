@@ -373,6 +373,7 @@ LogMaxQueueSize = 2048
 MetricViewsDenyAttributes = ['event_id']
 MetricCardinalityLimit = 100000
 LoopIDEnabled = true
+OTelResourceAttributes = ['process.executable.name', 'service.version', 'process.pid']
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'

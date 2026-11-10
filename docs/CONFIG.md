@@ -2325,6 +2325,7 @@ LogMaxQueueSize = 2048 # Default
 MetricViewsDenyAttributes = ['event_id'] # Default
 MetricCardinalityLimit = 100000 # Default
 LoopIDEnabled = false # Default
+OTelResourceAttributes = ['process.executable.name', 'service.version'] # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2542,6 +2543,15 @@ LoopIDEnabled = false # Default
 LoopIDEnabled sends each LOOP plugin a telemetry-only identity (CL_TELEMETRY_LOOP_ID), exported as the
 chainlink.loop.id resource attribute, e.g. Relayer.evm.1 or StandardCapabilities.<jobID>.<jobName>.
 It keeps series from different LOOPs on the same node distinct. Bounded: one value per LOOP, stable across restarts.
+
+### OTelResourceAttributes
+```toml
+OTelResourceAttributes = ['process.executable.name', 'service.version'] # Default
+```
+OTelResourceAttributes lists process attributes the node and each LOOP plugin add to their own telemetry
+resource: process.executable.name (the binary's main package path), service.version (the binary's version),
+process.pid. ResourceAttributes with the same key win. process.pid changes on every restart and starts a new
+set of series each time, so it is not enabled by default.
 
 ## Telemetry.ResourceAttributes
 ```toml

@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	looptelemetry "github.com/smartcontractkit/chainlink-common/pkg/loop/telemetry"
 	"github.com/smartcontractkit/chainlink-common/pkg/promutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
@@ -140,7 +141,10 @@ func newBeholderClient(
 	csaPubKeyHex string,
 	beholderAuthHeaders map[string]string,
 ) (*beholder.Client, error) {
-	attributes := make([]attribute.KeyValue, 0, len(cfgApp.ResourceAttributes()))
+	// Process attributes first, so ResourceAttributes with the same key (service.version) win.
+	processAttrs, _ := looptelemetry.ProcessResourceAttributes(cfgTelemetry.OTelResourceAttributes()) // keys validated by config
+	attributes := make([]attribute.KeyValue, 0, len(processAttrs)+len(cfgApp.ResourceAttributes()))
+	attributes = append(attributes, processAttrs...)
 	for k, v := range cfgApp.ResourceAttributes() {
 		attributes = append(attributes, attribute.String(k, v))
 	}

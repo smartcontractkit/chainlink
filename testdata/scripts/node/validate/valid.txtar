@@ -412,6 +412,7 @@ LogMaxQueueSize = 2048
 MetricViewsDenyAttributes = ['event_id']
 MetricCardinalityLimit = 100000
 LoopIDEnabled = false
+OTelResourceAttributes = ['process.executable.name', 'service.version']
 
 [Telemetry.PrometheusBridge]
 Enabled = false

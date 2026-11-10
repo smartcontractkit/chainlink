@@ -42,6 +42,7 @@ type Telemetry interface {
 	MetricViewsDenyAttributes() []string
 	MetricCardinalityLimit() int
 	LoopIDEnabled() bool
+	OTelResourceAttributes() []string
 	PrometheusBridge() PrometheusBridge
 }
 
