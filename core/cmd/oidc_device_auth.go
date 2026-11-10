@@ -38,7 +38,25 @@ type oidcDeviceStartResponse struct {
 // oidcDevicePollResponse mirrors oidcauth.DevicePollResponse.
 type oidcDevicePollResponse struct {
 	Status  string `json:"status"`
+	Reason  string `json:"reason,omitempty"`
 	Message string `json:"message,omitempty"`
+}
+
+// deviceDeniedMessages maps a node failure reason to CLI text. The CLI uses
+// its own text per reason rather than printing the node's message.
+var deviceDeniedMessages = map[string]string{
+	"no_role":   "signed in, but none of your identity provider groups map to a node role; ask your IdP admin to add you to one of the node's configured role groups",
+	"denied":    "device authorization was denied at the identity provider",
+	"expired":   "device authorization expired before it was approved",
+	"abandoned": "device authorization was abandoned by the node; start the login again",
+	"unknown":   "the node does not know this device login; it may have expired, start the login again",
+}
+
+func deviceDeniedError(reason string) error {
+	if msg, ok := deviceDeniedMessages[reason]; ok {
+		return errors.New(msg)
+	}
+	return errors.New("device authorization was not completed; check the node log for the reason")
 }
 
 // OIDCDeviceCookieAuthenticator obtains a session cookie via the node-brokered
@@ -120,7 +138,7 @@ func (o *OIDCDeviceCookieAuthenticator) Login(ctx context.Context) error {
 			if time.Now().After(deadline) {
 				return errors.New("device authorization timed out before approval")
 			}
-			cookie, status, perr := o.poll(ctx, start.DeviceHandle)
+			cookie, status, reason, perr := o.poll(ctx, start.DeviceHandle)
 			if perr != nil {
 				return perr
 			}
@@ -131,7 +149,7 @@ func (o *OIDCDeviceCookieAuthenticator) Login(ctx context.Context) error {
 				}
 				return o.store.Save(cookie)
 			case "denied":
-				return errors.New("device authorization was denied or expired")
+				return deviceDeniedError(reason)
 			default: // "pending"
 				continue
 			}
@@ -162,41 +180,42 @@ func (o *OIDCDeviceCookieAuthenticator) start(ctx context.Context) (*oidcDeviceS
 	return &sr, nil
 }
 
-// poll asks the node for the flow status. On "complete" the node sets the
-// session cookie on the response, which is extracted and returned.
-func (o *OIDCDeviceCookieAuthenticator) poll(ctx context.Context, handle string) (*http.Cookie, string, error) {
+// poll asks the node for the flow status and, on "denied", the failure
+// reason. On "complete" the node sets the session cookie on the response,
+// which is extracted and returned.
+func (o *OIDCDeviceCookieAuthenticator) poll(ctx context.Context, handle string) (*http.Cookie, string, string, error) {
 	b, err := json.Marshal(map[string]string{"device_handle": handle})
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	u := o.config.RemoteNodeURL.String() + "/oidc-device/poll"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(b))
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	client := newHTTPClient(o.lggr, o.config.InsecureSkipVerify)
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, "denied", nil
+		return nil, "denied", "unknown", nil
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", errors.Errorf("device poll failed (status %d): %s", resp.StatusCode, string(body))
+		return nil, "", "", errors.Errorf("device poll failed (status %d): %s", resp.StatusCode, string(body))
 	}
 	var pr oidcDevicePollResponse
 	if err := json.Unmarshal(body, &pr); err != nil {
-		return nil, "", errors.Wrap(err, "failed to parse device poll response")
+		return nil, "", "", errors.Wrap(err, "failed to parse device poll response")
 	}
 	if pr.Status == "complete" {
-		return web.FindSessionCookie(resp.Cookies()), "complete", nil
+		return web.FindSessionCookie(resp.Cookies()), "complete", "", nil
 	}
-	return nil, pr.Status, nil
+	return nil, pr.Status, pr.Reason, nil
 }
 
 func (o *OIDCDeviceCookieAuthenticator) promptUser(start *oidcDeviceStartResponse) {

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
 const testClientID = "test-client-id"
@@ -72,20 +73,21 @@ func TestIssueSessionFromIDToken_Expired(t *testing.T) {
 	assert.Equal(t, 0, countOIDCSessions(t, oi, "expired-user@example.com"))
 }
 
-// TestIssueSessionFromIDToken_UnexpectedGroup rejects a token that carries a
-// configured role group plus any other group. The login fails closed.
-func TestIssueSessionFromIDToken_UnexpectedGroup(t *testing.T) {
+// TestIssueSessionFromIDToken_ExtraGroups accepts a token that carries a
+// configured role group alongside groups the node does not know. Real IdP
+// users belong to many groups; only the configured ones pick the role.
+func TestIssueSessionFromIDToken_ExtraGroups(t *testing.T) {
 	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	idp := newMockIDP(t, testClientID)
 	idp.email = "extra-group@example.com"
-	idp.groups = []string{AdminClaim, "Contractors"}
+	idp.groups = []string{"Contractors", RunnerClaim, "Everyone"}
 	oi := newAuthenticatorForIDP(t, idp, db)
 
-	_, _, _, err := oi.issueSessionFromIDToken(t.Context(), idp.signIDToken(t), "")
-	require.ErrorIs(t, err, errNoMatchingRole)
-	assert.Contains(t, err.Error(), "not limited")
-	assert.Equal(t, 0, countOIDCSessions(t, oi, "extra-group@example.com"))
+	_, _, role, err := oi.issueSessionFromIDToken(t.Context(), idp.signIDToken(t), "")
+	require.NoError(t, err)
+	assert.Equal(t, clsessions.UserRoleRun, role)
+	assert.Equal(t, 1, countOIDCSessions(t, oi, "extra-group@example.com"))
 }
 
 // TestIssueSessionFromIDToken_NoMatchingGroup asserts a validly signed token

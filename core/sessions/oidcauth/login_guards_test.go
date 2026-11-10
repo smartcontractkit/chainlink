@@ -1,6 +1,7 @@
 package oidcauth
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -57,15 +58,6 @@ func TestDeviceClientIP(t *testing.T) {
 	assert.Equal(t, "203.0.113.7", deviceClientIP(linkLocal))
 }
 
-func TestUnexpectedGroup(t *testing.T) {
-	t.Parallel()
-	allowed := []string{AdminClaim, EditorClaim, RunnerClaim, ReadClaim}
-	assert.Empty(t, unexpectedGroup([]string{AdminClaim, EditorClaim}, allowed...))
-	assert.Equal(t, "Contractors", unexpectedGroup([]string{AdminClaim, "Contractors"}, allowed...))
-	assert.Empty(t, unexpectedGroup(nil, allowed...))
-	assert.Equal(t, "Contractors", unexpectedGroup([]string{"Contractors"}, allowed...))
-}
-
 func TestDeviceFailureReason(t *testing.T) {
 	t.Parallel()
 	require.Empty(t, deviceFailureReason(nil))
@@ -73,6 +65,10 @@ func TestDeviceFailureReason(t *testing.T) {
 	assert.Equal(t, "denied", deviceFailureReason(stringError("access_denied")))
 	assert.Equal(t, "abandoned", deviceFailureReason(errDeviceFlowAbandoned))
 	assert.Equal(t, "expired", deviceFailureReason(stringError("context deadline exceeded")))
+	assert.Equal(t, deviceReasonNoRole, deviceFailureReason(fmt.Errorf("%w: %w", errNoMatchingRole, ErrUserNoOIDCGroups)))
+	for _, reason := range []string{deviceReasonNoRole, "denied", "expired", "abandoned", "failed"} {
+		assert.NotEmpty(t, deviceReasonMessages[reason], reason)
+	}
 }
 
 type stringError string

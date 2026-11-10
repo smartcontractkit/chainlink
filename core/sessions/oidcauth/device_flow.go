@@ -201,10 +201,12 @@ type DevicePollRequest struct {
 }
 
 // DevicePollResponse reports flow status to the CLI. Status is one of
-// "pending", "complete", or "denied". On "complete" the session cookie is set
-// on the response; the body carries no token material.
+// "pending", "complete", or "denied". On "denied" after a finished flow,
+// Reason is one of the deviceReasonMessages keys. On "complete" the session
+// cookie is set on the response; the body carries no token material.
 type DevicePollResponse struct {
 	Status  string `json:"status"`
+	Reason  string `json:"reason,omitempty"`
 	Message string `json:"message,omitempty"`
 }
 
@@ -443,7 +445,12 @@ func (oi *oidcAuthenticator) handleDevicePoll(c *gin.Context) {
 	if flowErr != nil {
 		// Terminal failure already consumed the handle; no session to clean up
 		// unless a prior success path left one (should not happen).
-		c.JSON(http.StatusOK, DevicePollResponse{Status: "denied", Message: "Authorization was not completed"})
+		reason := flowErr.Error()
+		msg, ok := deviceReasonMessages[reason]
+		if !ok {
+			reason, msg = "failed", deviceReasonMessages["failed"]
+		}
+		c.JSON(http.StatusOK, DevicePollResponse{Status: "denied", Reason: reason, Message: msg})
 		return
 	}
 

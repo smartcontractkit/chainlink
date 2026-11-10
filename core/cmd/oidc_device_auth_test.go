@@ -23,6 +23,7 @@ type mockNode struct {
 	oidcEnabled  bool
 	pollsPending int32 // number of "pending" polls to return before "complete"
 	denyAfter    bool  // if true, return "denied" instead of completing
+	denyReason   string
 }
 
 func (m *mockNode) handler(t *testing.T) http.Handler {
@@ -58,7 +59,7 @@ func (m *mockNode) handler(t *testing.T) http.Handler {
 			return
 		}
 		if m.denyAfter {
-			_ = json.NewEncoder(w).Encode(map[string]string{"status": "denied", "message": "expired"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "denied", "reason": m.denyReason, "message": "node text"})
 			return
 		}
 		http.SetCookie(w, &http.Cookie{
@@ -139,19 +140,35 @@ func TestOIDCDeviceLogin_RefusesInsecureSkipVerify(t *testing.T) {
 
 func TestOIDCDeviceLogin_Denied(t *testing.T) {
 	t.Parallel()
-	node := &mockNode{oidcEnabled: true, pollsPending: 1, denyAfter: true}
-	srv := httptest.NewServer(node.handler(t))
-	defer srv.Close()
+	cases := []struct {
+		reason string
+		want   string
+	}{
+		{"denied", "denied at the identity provider"},
+		{"no_role", "none of your identity provider groups map to a node role"},
+		{"expired", "expired before it was approved"},
+		{"", "was not completed"},
+		{"something-new", "was not completed"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.reason, func(t *testing.T) {
+			t.Parallel()
+			node := &mockNode{oidcEnabled: true, pollsPending: 1, denyAfter: true, denyReason: tc.reason}
+			srv := httptest.NewServer(node.handler(t))
+			defer srv.Close()
 
-	store := &cmd.MemoryCookieStore{}
-	var out bytes.Buffer
-	auth := cmd.NewOIDCDeviceCookieAuthenticator(newClientOpts(t, srv), store, &out, logger.TestLogger(t))
+			store := &cmd.MemoryCookieStore{}
+			var out bytes.Buffer
+			auth := cmd.NewOIDCDeviceCookieAuthenticator(newClientOpts(t, srv), store, &out, logger.TestLogger(t))
 
-	err := auth.Login(context.Background())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "denied")
+			err := auth.Login(context.Background())
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.want)
+			assert.NotContains(t, err.Error(), "node text", "CLI must not print the node's message")
 
-	// On denial nothing must be written to the cookie jar.
-	cookie, _ := store.Retrieve()
-	assert.Nil(t, cookie)
+			// On denial nothing must be written to the cookie jar.
+			cookie, _ := store.Retrieve()
+			assert.Nil(t, cookie)
+		})
+	}
 }

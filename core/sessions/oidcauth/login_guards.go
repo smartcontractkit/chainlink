@@ -1,6 +1,7 @@
 package oidcauth
 
 import (
+	"errors"
 	"net"
 	"net/url"
 	"slices"
@@ -11,6 +12,20 @@ import (
 )
 
 const maxDeviceFlowLifetime = 5 * time.Minute
+
+// deviceReasonNoRole is the failure reason for a verified identity whose
+// groups map to no node role.
+const deviceReasonNoRole = "no_role"
+
+// deviceReasonMessages are the operator-facing texts for each device-flow
+// failure reason. The CLI keeps its own copy and never prints node text.
+var deviceReasonMessages = map[string]string{
+	deviceReasonNoRole: "Signed in, but none of your identity provider groups map to a node role",
+	"denied":           "Authorization was denied at the identity provider",
+	"expired":          "Authorization expired before it was approved",
+	"abandoned":        "Authorization was abandoned",
+	"failed":           "Authorization was not completed",
+}
 
 // capDeviceExpiry bounds a provider expiry. A missing expiry, or one longer
 // than maxDeviceFlowLifetime, is shortened. An already-past expiry is left
@@ -101,6 +116,9 @@ func deviceFailureReason(err error) string {
 	if err == nil {
 		return ""
 	}
+	if errors.Is(err, errNoMatchingRole) {
+		return deviceReasonNoRole
+	}
 	if errorsIsDeadline(err) {
 		return "expired"
 	}
@@ -115,21 +133,6 @@ func deviceFailureReason(err error) string {
 	default:
 		return "failed"
 	}
-}
-
-func unexpectedGroup(claims []string, allowed ...string) string {
-	allow := make(map[string]struct{}, len(allowed))
-	for _, name := range allowed {
-		if name != "" {
-			allow[name] = struct{}{}
-		}
-	}
-	for _, claim := range claims {
-		if _, ok := allow[claim]; !ok {
-			return claim
-		}
-	}
-	return ""
 }
 
 func errorsIsDeadline(err error) bool {

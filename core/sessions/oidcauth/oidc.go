@@ -325,10 +325,6 @@ func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDT
 	if err != nil {
 		return "", "", "", err
 	}
-	if extra := unexpectedGroup(idClaims, oi.config.AdminClaim(), oi.config.EditClaim(), oi.config.RunClaim(), oi.config.ReadClaim()); extra != "" {
-		oi.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]any{"email": email, "reason": "unexpected_group", "group": extra})
-		return "", "", "", fmt.Errorf("%w: groups claim is not limited to the configured role groups", errNoMatchingRole)
-	}
 	oi.lggr.Tracef("Received and validated ID claims: %v\n", idClaims)
 
 	role, err := oi.IDClaimsToUserRole(
@@ -341,7 +337,7 @@ func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDT
 	if err != nil {
 		// Audit the full claim set so an over-broad or unexpected group grant is
 		// detectable after the fact.
-		oi.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]any{"email": email, "groups": idClaims})
+		oi.auditLogger.Audit(audit.AuthLoginFailedOIDC, map[string]any{"email": email, "reason": deviceReasonNoRole, "groups": idClaims})
 		return "", "", "", fmt.Errorf("%w: %w", errNoMatchingRole, err)
 	}
 

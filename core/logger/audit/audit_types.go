@@ -8,6 +8,7 @@ const (
 	AuthLoginFailedPassword EventID = "AUTH_LOGIN_FAILED_PASSWORD"
 	AuthLoginFailed2FA      EventID = "AUTH_LOGIN_FAILED_2FA"
 	AuthLoginFailedDevice   EventID = "AUTH_LOGIN_FAILED_DEVICE"
+	AuthLoginFailedOIDC     EventID = "AUTH_LOGIN_FAILED_OIDC"
 	AuthLoginSuccessWith2FA EventID = "AUTH_LOGIN_SUCCESS_WITH_2FA"
 	AuthLoginSuccessNo2FA   EventID = "AUTH_LOGIN_SUCCESS_NO_2FA"
 	Auth2FAEnrolled         EventID = "AUTH_2FA_ENROLLED"
