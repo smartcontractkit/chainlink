@@ -724,6 +724,7 @@ func TestTriggerPublisher_CloseAndUnregister(t *testing.T) {
 
 		err := publisher.CloseAndUnregister(ctx)
 		require.ErrorContains(t, err, "filter not found")
+		require.ErrorContains(t, err, "some unregisters failed; 2 registrations may still be held by the underlying (failed 2: [triggerA triggerB], not attempted 0: [])")
 		require.Equal(t, int32(2), underlying.unregisterCount.Load())
 	})
 
@@ -738,13 +739,33 @@ func TestTriggerPublisher_CloseAndUnregister(t *testing.T) {
 		defer cancel()
 		err := publisher.CloseAndUnregister(closeCtx)
 		require.ErrorIs(t, err, context.DeadlineExceeded)
-		require.ErrorContains(t, err, "stopped unregistering after a timeout")
+		require.ErrorContains(t, err, "stopped unregistering after a timeout; 2 registrations may still be held by the underlying (failed 1: [trigger")
+		require.ErrorContains(t, err, "not attempted 1: [trigger")
 		require.Equal(t, int32(1), underlying.unregisterCount.Load())
 	})
 
-	t.Run("retries an explicit unregister cancelled by close", func(t *testing.T) {
+	t.Run("reports cancellation, not a timeout, when the caller's ctx is cancelled", func(t *testing.T) {
 		t.Parallel()
 
+		underlying := &unregisterFailingTrigger{info: capInfo, hang: true}
+		publisher := startWithTwoRegistrations(t, underlying)
+
+		closeCtx, cancel := context.WithCancel(ctx)
+		time.AfterFunc(50*time.Millisecond, cancel)
+		err := publisher.CloseAndUnregister(closeCtx)
+		require.ErrorIs(t, err, context.Canceled)
+		require.ErrorContains(t, err, "stopped unregistering because the context was cancelled; 2 registrations may still be held by the underlying (failed 1: [trigger")
+		require.ErrorContains(t, err, "not attempted 1: [trigger")
+		require.NotContains(t, err.Error(), "timeout")
+		require.Equal(t, int32(1), underlying.unregisterCount.Load())
+	})
+
+	// startExplicitUnregister registers triggerA, then sends an explicit unregister for it and waits
+	// until the underlying's UnregisterTrigger has been called. receiveDone is closed when Receive returns.
+	startExplicitUnregister := func(t *testing.T, underlying *cancellableUnregisterTrigger) (interface {
+		CloseAndUnregister(context.Context) error
+	}, <-chan struct{}) {
+		t.Helper()
 		dispatcher := mocks.NewDispatcher(t)
 		checkReceived := make(chan struct{}, 1)
 		dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
@@ -756,12 +777,11 @@ func TestTriggerPublisher_CloseAndUnregister(t *testing.T) {
 			}
 		}).Return(nil).Maybe()
 
-		underlying := &cancellableUnregisterTrigger{info: capInfo, firstUnregisterStarted: make(chan struct{})}
-		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
-		require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
-		servicetest.Run(t, publisher)
+		pub := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+		require.NoError(t, pub.SetConfig(config, underlying, capDonInfo, workflowDONs))
+		servicetest.Run(t, pub)
 
-		publisher.Receive(ctx, newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA"))
+		pub.Receive(ctx, newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA"))
 		// The explicit unregister below is only processed once the publisher has recorded the registration.
 		select {
 		case <-checkReceived:
@@ -769,10 +789,10 @@ func TestTriggerPublisher_CloseAndUnregister(t *testing.T) {
 			t.Fatal("timed out waiting for registration check message")
 		}
 
-		receiveDone := make(chan struct{})
+		done := make(chan struct{})
 		go func() {
-			defer close(receiveDone)
-			publisher.Receive(ctx, &remotetypes.MessageBody{
+			defer close(done)
+			pub.Receive(ctx, &remotetypes.MessageBody{
 				Sender:      peers[1][:],
 				Method:      remotetypes.MethodUnregisterTrigger,
 				CallerDonId: workflowDONID,
@@ -785,17 +805,45 @@ func TestTriggerPublisher_CloseAndUnregister(t *testing.T) {
 			})
 		}()
 		<-underlying.firstUnregisterStarted
+		return pub, done
+	}
+
+	t.Run("retries an explicit unregister cancelled by close", func(t *testing.T) {
+		t.Parallel()
+
+		underlying := &cancellableUnregisterTrigger{info: capInfo, firstUnregisterStarted: make(chan struct{})}
+		publisher, receiveDone := startExplicitUnregister(t, underlying)
 
 		require.NoError(t, publisher.CloseAndUnregister(ctx))
 		<-receiveDone
 		require.Equal(t, []string{"triggerA"}, underlying.succeeded())
 	})
+
+	t.Run("gives up on an in-flight explicit unregister that ignores cancellation", func(t *testing.T) {
+		t.Parallel()
+
+		release := make(chan struct{})
+		underlying := &cancellableUnregisterTrigger{info: capInfo, firstUnregisterStarted: make(chan struct{}), ignoreCtxUntil: release}
+		publisher, receiveDone := startExplicitUnregister(t, underlying)
+		t.Cleanup(func() { close(release); <-receiveDone })
+
+		// The parent deadline stands in for the total timeout so the test doesn't wait 30s.
+		closeCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+		defer cancel()
+		err := publisher.CloseAndUnregister(closeCtx)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		require.ErrorContains(t, err, "in-flight explicit unregisters didn't return")
+		require.ErrorContains(t, err, "stopped unregistering; 1 registrations may still be held by the underlying (failed 0: [], not attempted 1: [triggerA])")
+		require.Equal(t, int32(1), underlying.calls.Load(), "must not call the underlying again after giving up")
+	})
 }
 
-// cancellableUnregisterTrigger blocks its first UnregisterTrigger call until the context is cancelled.
+// cancellableUnregisterTrigger blocks its first UnregisterTrigger call until the context is cancelled,
+// or, if ignoreCtxUntil is set, until that channel is closed.
 type cancellableUnregisterTrigger struct {
 	info                   commoncap.CapabilityInfo
 	firstUnregisterStarted chan struct{}
+	ignoreCtxUntil         chan struct{}
 	calls                  atomic.Int32
 	mu                     sync.Mutex
 	unregistered           []string
@@ -812,6 +860,10 @@ func (tr *cancellableUnregisterTrigger) RegisterTrigger(context.Context, commonc
 func (tr *cancellableUnregisterTrigger) UnregisterTrigger(ctx context.Context, req commoncap.TriggerRegistrationRequest) error {
 	if tr.calls.Add(1) == 1 {
 		close(tr.firstUnregisterStarted)
+		if tr.ignoreCtxUntil != nil {
+			<-tr.ignoreCtxUntil
+			return errors.New("released")
+		}
 		<-ctx.Done()
 		return ctx.Err()
 	}
@@ -1657,4 +1709,14 @@ func (tr *multiTrigger) SendEvent(triggerID string, event commoncap.TriggerRespo
 	if ch, ok := tr.eventChans[triggerID]; ok {
 		ch <- event
 	}
+}
+
+func TestTriggerPublisher_CloseDoesNotStopAtFirstExecutorError(t *testing.T) {
+	t.Parallel()
+
+	// Never started, so closing either executor fails.
+	publisher := remote.NewTriggerPublisher(capID, "", mocks.NewDispatcher(t), logger.Test(t))
+	err := publisher.Close()
+	require.ErrorContains(t, err, "failed to close ack executor")
+	require.ErrorContains(t, err, "failed to close register executor")
 }

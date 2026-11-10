@@ -6,7 +6,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"iter"
 	"maps"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -110,6 +112,12 @@ type TriggerPublisher interface {
 	types.ReceiverService
 	SetConfig(config *commoncap.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON) error
 	// CloseAndUnregister closes the publisher and unregisters all of its triggers from the underlying capability.
+	//
+	// This is separate from Close() because Close() is also the node shutdown path, where the underlying
+	// capability is shutting down too, so unregistering would only slow shutdown and call into a closing
+	// capability. Unregistering is needed only when the publisher is removed while the underlying keeps
+	// running (e.g. the capability moved to another DON on this node). Otherwise the underlying keeps the
+	// registrations, and the new DON's publisher can't re-register the same trigger IDs.
 	CloseAndUnregister(ctx context.Context) error
 }
 
@@ -125,6 +133,9 @@ const (
 
 	// unregisterOnCloseTimeout bounds each UnregisterTrigger call in CloseAndUnregister.
 	unregisterOnCloseTimeout = 5 * time.Second
+	// unregisterOnCloseTotalTimeout bounds the whole of CloseAndUnregister after Close, including
+	// waiting for in-flight explicit unregisters.
+	unregisterOnCloseTotalTimeout = 30 * time.Second
 )
 
 func NewTriggerPublisher(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
@@ -967,16 +978,16 @@ func (p *triggerPublisher) Close() error {
 	p.closeOnce.Do(func() {
 		close(p.stopCh)
 
+		// Don't return early on an error: CloseAndUnregister relies on Close waiting for in-flight
+		// register tasks, so no registration is added after its snapshot.
 		if p.ackExecutor != nil {
 			if e := p.ackExecutor.Close(); e != nil {
-				err = fmt.Errorf("failed to close ack executor: %w", e)
-				return
+				err = errors.Join(err, fmt.Errorf("failed to close ack executor: %w", e))
 			}
 		}
 		if p.registerExecutor != nil {
 			if e := p.registerExecutor.Close(); e != nil {
-				err = fmt.Errorf("failed to close register executor: %w", e)
-				return
+				err = errors.Join(err, fmt.Errorf("failed to close register executor: %w", e))
 			}
 		}
 
@@ -991,11 +1002,28 @@ func (p *triggerPublisher) CloseAndUnregister(ctx context.Context) error {
 	// Close waits for in-flight register tasks, so no registration is added after the snapshot.
 	closeErr := p.Close()
 
+	// Bounds the whole release, so that an underlying that is slow on every call can't hold up the
+	// launcher's registration gate for this capability for long.
+	releaseCtx, cancelRelease := context.WithTimeout(ctx, unregisterOnCloseTotalTimeout)
+	defer cancelRelease()
+
 	p.mu.Lock()
 	p.releasing = true
 	p.mu.Unlock()
-	// Close cancels in-flight explicit unregisters; wait, then retry the ones that failed.
-	p.inflightUnregs.Wait()
+	// Close cancels in-flight explicit unregisters; wait, then retry the ones that failed. No new
+	// ones start once releasing is set. If an underlying ignores the cancellation, give up when
+	// releaseCtx is done rather than block forever (this goroutine then lives until those calls return).
+	inflightDone := make(chan struct{})
+	go func() {
+		p.inflightUnregs.Wait()
+		close(inflightDone)
+	}()
+	var waitErr error
+	select {
+	case <-inflightDone:
+	case <-releaseCtx.Done():
+		waitErr = fmt.Errorf("in-flight explicit unregisters didn't return: %w", releaseCtx.Err())
+	}
 
 	p.mu.Lock()
 	regs := p.registrations
@@ -1004,34 +1032,91 @@ func (p *triggerPublisher) CloseAndUnregister(ctx context.Context) error {
 	p.pendingUnregs = make(map[registrationKey]*pubRegState)
 	p.mu.Unlock()
 
-	cfg := p.cfg.Load()
-	if cfg == nil {
-		return closeErr
+	toUnregister := make(map[registrationKey]*pubRegState, len(regs))
+	for key, reg := range regs {
+		if reg.registrationErr == nil { // otherwise never registered on the underlying
+			toUnregister[key] = reg
+		}
 	}
 
+	cfg := p.cfg.Load()
+	if cfg == nil || len(toUnregister) == 0 {
+		return errors.Join(closeErr, waitErr)
+	}
+	if waitErr != nil {
+		notAttempted := sortedTriggerIDs(maps.Keys(toUnregister))
+		p.lggr.Errorw("stopped unregistering triggers on publisher removal; they may still be registered on the underlying",
+			"notAttempted", notAttempted)
+		return errors.Join(closeErr, waitErr, leftoverRegistrationsErr("stopped unregistering", nil, notAttempted))
+	}
+
+	start := time.Now()
 	var unregErrs []error
-	attempted := 0
-	for key, reg := range regs {
-		if reg.registrationErr != nil {
-			continue // never registered on the underlying
-		}
-		attempted++
-		callCtx, cancel := context.WithTimeout(ctx, unregisterOnCloseTimeout)
+	var failedKeys []registrationKey
+	attempted := make(map[registrationKey]bool, len(toUnregister))
+	var stopReason string
+	for key, reg := range toUnregister {
+		attempted[key] = true
+		callCtx, cancel := context.WithTimeout(releaseCtx, unregisterOnCloseTimeout)
 		err := cfg.underlying.UnregisterTrigger(callCtx, reg.request)
-		timedOut := callCtx.Err() != nil
+		callCtxErr := callCtx.Err()
 		cancel()
 		if err != nil {
+			failedKeys = append(failedKeys, key)
 			unregErrs = append(unregErrs, fmt.Errorf("failed to unregister trigger (workflowID %s, triggerID %s): %w", key.workflowID, key.triggerID, err))
-			if timedOut {
-				// Underlying is unresponsive; don't wait out the timeout for every remaining registration.
-				unregErrs = append(unregErrs, fmt.Errorf("stopped unregistering after a timeout; up to %d registrations left on the underlying", len(regs)-attempted))
+			if callCtxErr != nil {
+				// Either the caller is done (e.g. launcher shutdown), or the per-call or total timeout
+				// passed and the underlying is unresponsive. Don't wait out the timeout for every
+				// remaining registration.
+				stopReason = "stopped unregistering after a timeout"
+				if errors.Is(ctx.Err(), context.Canceled) {
+					stopReason = "stopped unregistering because the context was cancelled"
+				}
 				break
 			}
 			continue
 		}
-		p.lggr.Infow("unregistered trigger on publisher removal", "workflowID", key.workflowID, "triggerID", key.triggerID, "callerDonID", key.callerDonID)
+		p.lggr.Debugw("unregistered trigger on publisher removal", "workflowID", key.workflowID, "triggerID", key.triggerID, "callerDonID", key.callerDonID)
 	}
+
+	failed := sortedTriggerIDs(slices.Values(failedKeys))
+	var notAttemptedKeys []registrationKey
+	for key := range toUnregister {
+		if !attempted[key] {
+			notAttemptedKeys = append(notAttemptedKeys, key)
+		}
+	}
+	notAttempted := sortedTriggerIDs(slices.Values(notAttemptedKeys))
+
+	if len(failed) == 0 && len(notAttempted) == 0 {
+		p.lggr.Infow("unregistered triggers on publisher removal", "total", len(toUnregister), "duration", time.Since(start))
+		return closeErr
+	}
+	// Failed or skipped registrations may still be held by the underlying, which then rejects the same
+	// trigger IDs from other publishers until it releases them (e.g. on a plugin restart).
+	p.lggr.Errorw("some triggers may still be registered on the underlying after publisher removal",
+		"total", len(toUnregister), "failed", failed, "notAttempted", notAttempted, "duration", time.Since(start))
+	if stopReason == "" {
+		stopReason = "some unregisters failed"
+	}
+	unregErrs = append(unregErrs, leftoverRegistrationsErr(stopReason, failed, notAttempted))
 	return errors.Join(closeErr, errors.Join(unregErrs...))
+}
+
+// leftoverRegistrationsErr lists the trigger IDs that may still be registered on the underlying.
+func leftoverRegistrationsErr(reason string, failed, notAttempted []string) error {
+	return fmt.Errorf("%s; %d registrations may still be held by the underlying (failed %d: %v, not attempted %d: %v)",
+		reason, len(failed)+len(notAttempted), len(failed), failed, len(notAttempted), notAttempted)
+}
+
+// sortedTriggerIDs returns the trigger IDs of keys, sorted so logs and errors are stable.
+func sortedTriggerIDs(keys iter.Seq[registrationKey]) []string {
+	ids := []string{}
+	for key := range keys {
+		ids = append(ids, key.triggerID)
+	}
+	slices.Sort(ids)
+	return ids
 }
 
 func (p *triggerPublisher) Ready() error {

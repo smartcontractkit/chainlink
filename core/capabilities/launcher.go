@@ -98,6 +98,14 @@ type launcher struct {
 
 	stopCh services.StopChan
 	wg     sync.WaitGroup
+
+	// triggerCleanupMu guards pendingTriggerCleanups and triggerCleanupsClosed.
+	triggerCleanupMu sync.Mutex
+	// pendingTriggerCleanups holds, per capability ID, pruned trigger publishers still unregistering
+	// from the underlying. See closeTriggerPublisherAsync.
+	pendingTriggerCleanups map[string]*triggerCleanup
+	triggerCleanupsClosed  bool
+	triggerCleanupWg       sync.WaitGroup
 }
 
 // For V2 capabilities, shims are created once and their config is updated dynamically.
@@ -267,6 +275,7 @@ func (w *launcher) Close() error {
 	return w.StopOnce("CapabilitiesLauncher", func() error {
 		close(w.stopCh)
 		w.wg.Wait()
+		w.closeTriggerCleanups()
 		for _, s := range w.subServices {
 			if err := s.Close(); err != nil {
 				w.lggr.Errorw("failed to close a sub-service", "name", s.Name(), "error", err)
@@ -857,7 +866,8 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 				)
 				// add to cachedShims later, only after startNewShim succeeds
 			}
-			if errCfg := publisher.SetConfig(config.RemoteTriggerConfig, underlyingTriggerCapability, myDON.DON, idsToDONs); errCfg != nil {
+			gated := gatedTriggerCapability{TriggerCapability: underlyingTriggerCapability, capID: capID, launcher: w}
+			if errCfg := publisher.SetConfig(config.RemoteTriggerConfig, gated, myDON.DON, idsToDONs); errCfg != nil {
 				return fmt.Errorf("failed to set config for trigger publisher: %w", errCfg)
 			}
 
@@ -1042,7 +1052,7 @@ func (w *launcher) pruneStaleShims(ctx context.Context, wanted wantedShimKeys) {
 		if cc := w.cachedShims.combinedClients[shimID{capID: key.capID, donID: key.donID}]; cc != nil {
 			cc.SetTriggerSubscriber(key.method, nil)
 		}
-		w.closeStaleShim(ctx, key, sub)
+		w.closeStaleShim(key, sub)
 		delete(w.cachedShims.triggerSubscribers, key)
 	}
 	for key, client := range w.cachedShims.executableClients {
@@ -1052,38 +1062,37 @@ func (w *launcher) pruneStaleShims(ctx context.Context, wanted wantedShimKeys) {
 		if cc := w.cachedShims.combinedClients[shimID{capID: key.capID, donID: key.donID}]; cc != nil {
 			cc.SetExecutableClient(key.method, nil)
 		}
-		w.closeStaleShim(ctx, key, client)
+		w.closeStaleShim(key, client)
 		delete(w.cachedShims.executableClients, key)
 	}
 	for key, pub := range w.cachedShims.triggerPublishers {
 		if _, ok := wanted.triggerPublishers[key]; ok {
 			continue
 		}
-		w.closeStaleShim(ctx, key, pub)
+		w.closeStaleShim(key, pub)
 		delete(w.cachedShims.triggerPublishers, key)
 	}
 	for key, server := range w.cachedShims.executableServers {
 		if _, ok := wanted.executableServers[key]; ok {
 			continue
 		}
-		w.closeStaleShim(ctx, key, server)
+		w.closeStaleShim(key, server)
 		delete(w.cachedShims.executableServers, key)
 	}
 }
 
 // closeStaleShim deregisters a pruned shim from the dispatcher and closes it, removing it from
-// w.subServices so the launcher's own Close() doesn't close it a second time.
-func (w *launcher) closeStaleShim(ctx context.Context, key shimID, shim any) {
+// w.subServices so the launcher's own Close() doesn't close it a second time. Trigger publishers
+// are closed asynchronously, together with unregistering their triggers.
+func (w *launcher) closeStaleShim(key shimID, shim any) {
 	w.dispatcher.RemoveReceiverForMethod(key.capID, key.donID, key.method)
-	var err error
 	switch s := shim.(type) {
 	case remote.TriggerPublisher:
-		err = s.CloseAndUnregister(ctx)
+		w.closeTriggerPublisherAsync(key, s)
 	case interface{ Close() error }:
-		err = s.Close()
-	}
-	if err != nil {
-		w.lggr.Errorw("failed to close stale shim", "capabilityID", key.capID, "donID", key.donID, "method", key.method, "error", err)
+		if err := s.Close(); err != nil {
+			w.lggr.Errorw("failed to close stale shim", "capabilityID", key.capID, "donID", key.donID, "method", key.method, "error", err)
+		}
 	}
 
 	w.muSubServices.Lock()

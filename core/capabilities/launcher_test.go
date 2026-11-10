@@ -889,12 +889,52 @@ func TestLauncher_OnNewRegistry_PrunesRemovedServedCapability(t *testing.T) {
 	assert.Empty(t, launcher.subServices)
 }
 
+// recordingDispatcher records method receivers. Unlike the mockery mock, it doesn't format its
+// arguments, which would race with the publishers' own goroutines.
+type recordingDispatcher struct {
+	remotetypes.Dispatcher // only the methods below are called
+	mu                     sync.Mutex
+	receivers              map[shimID]remotetypes.Receiver
+}
+
+func newRecordingDispatcher() *recordingDispatcher {
+	return &recordingDispatcher{receivers: make(map[shimID]remotetypes.Receiver)}
+}
+
+func (d *recordingDispatcher) SetReceiverForMethod(capID string, donID uint32, method string, receiver remotetypes.Receiver) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	key := shimID{capID: capID, donID: donID, method: method}
+	if _, ok := d.receivers[key]; ok {
+		return fmt.Errorf("receiver already exists for %v", key)
+	}
+	d.receivers[key] = receiver
+	return nil
+}
+
+func (d *recordingDispatcher) RemoveReceiverForMethod(capID string, donID uint32, method string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	delete(d.receivers, shimID{capID: capID, donID: donID, method: method})
+}
+
+func (d *recordingDispatcher) Send(p2ptypes.PeerID, *remotetypes.MessageBody) error { return nil }
+
+func (d *recordingDispatcher) hasReceiver(key shimID) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	_, ok := d.receivers[key]
+	return ok
+}
+
 // dupRejectingTrigger rejects a trigger ID that is already registered, like the EVM log trigger.
 type dupRejectingTrigger struct {
 	capabilities.CapabilityInfo
 	mu            sync.Mutex
 	registered    map[string]chan capabilities.TriggerResponse
 	registrations int
+	// unregisterGate, if set, holds UnregisterTrigger until it is closed.
+	unregisterGate chan struct{}
 }
 
 func (d *dupRejectingTrigger) AckEvent(context.Context, string, string, string) error { return nil }
@@ -911,7 +951,14 @@ func (d *dupRejectingTrigger) RegisterTrigger(_ context.Context, req capabilitie
 	return ch, nil
 }
 
-func (d *dupRejectingTrigger) UnregisterTrigger(_ context.Context, req capabilities.TriggerRegistrationRequest) error {
+func (d *dupRejectingTrigger) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
+	if d.unregisterGate != nil {
+		select {
+		case <-d.unregisterGate:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if ch, ok := d.registered[req.TriggerID]; ok {
@@ -947,8 +994,7 @@ func TestLauncher_OnNewRegistry_ServedTriggerMovesToDONOnSameNode(t *testing.T) 
 	}
 	require.NoError(t, reg.Add(t.Context(), underlying))
 
-	dispatcher := remoteMocks.NewDispatcher(t)
-	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
+	dispatcher := newRecordingDispatcher()
 
 	workflowDonNodes, capabilityDonNodes := newNodes(4), newNodes(4)
 	triggerCapIDHash := RandomUTF8BytesWord()
@@ -984,8 +1030,10 @@ func TestLauncher_OnNewRegistry_ServedTriggerMovesToDONOnSameNode(t *testing.T) 
 	require.NoError(t, err)
 	servicetest.Run(t, launcher)
 
-	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonIDA, "StreamsTrigger", mock.AnythingOfType("*remote.triggerPublisher")).Return(nil).Once()
 	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+	keyA := shimID{capID: fullTriggerCapID, donID: capDonIDA, method: "StreamsTrigger"}
+	keyB := shimID{capID: fullTriggerCapID, donID: capDonIDB, method: "StreamsTrigger"}
+	require.True(t, dispatcher.hasReceiver(keyA))
 
 	triggerID := "trigger_reg_0"
 	request, err := capabilitiespb.MarshalTriggerRegistrationRequest(capabilities.TriggerRegistrationRequest{
@@ -1000,7 +1048,7 @@ func TestLauncher_OnNewRegistry_ServedTriggerMovesToDONOnSameNode(t *testing.T) 
 		Payload:     request,
 	}
 
-	pubA := launcher.cachedShims.triggerPublishers[shimID{capID: fullTriggerCapID, donID: capDonIDA, method: "StreamsTrigger"}]
+	pubA := launcher.cachedShims.triggerPublishers[keyA]
 	require.NotNil(t, pubA)
 	pubA.Receive(t.Context(), registerMsg)
 	require.Eventually(t, func() bool { return underlying.isRegistered(triggerID) }, 5*time.Second, 10*time.Millisecond)
@@ -1011,14 +1059,22 @@ func TestLauncher_OnNewRegistry_ServedTriggerMovesToDONOnSameNode(t *testing.T) 
 	localRegistry.IDsToDONs[regpkg.DonID(capDonIDA)] = capDonA
 	addCapabilityToDON(localRegistry, capDonIDB, fullTriggerCapID, capabilities.CapabilityTypeTrigger, triggerCfg)
 
-	dispatcher.On("RemoveReceiverForMethod", fullTriggerCapID, capDonIDA, "StreamsTrigger").Return().Once()
-	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonIDB, "StreamsTrigger", mock.AnythingOfType("*remote.triggerPublisher")).Return(nil).Once()
-	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
-	require.False(t, underlying.isRegistered(triggerID), "old DON's registration must be released")
+	// Hold the old DON's unregister to check that it doesn't block the registry sync.
+	release := make(chan struct{})
+	underlying.unregisterGate = release
 
-	pubB := launcher.cachedShims.triggerPublishers[shimID{capID: fullTriggerCapID, donID: capDonIDB, method: "StreamsTrigger"}]
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+	require.False(t, dispatcher.hasReceiver(keyA))
+	require.True(t, dispatcher.hasReceiver(keyB))
+
+	pubB := launcher.cachedShims.triggerPublishers[keyB]
 	require.NotNil(t, pubB)
 	pubB.Receive(t.Context(), registerMsg)
+	require.Never(t, func() bool { return underlying.successfulRegistrations() > 1 }, 200*time.Millisecond, 10*time.Millisecond,
+		"new DON must not register while the old DON's registration is being released")
+	require.True(t, underlying.isRegistered(triggerID), "old DON's registration is still held")
+
+	close(release)
 	require.Eventually(t, func() bool { return underlying.successfulRegistrations() == 2 }, 5*time.Second, 10*time.Millisecond, "new DON must register the same trigger ID")
 	require.True(t, underlying.isRegistered(triggerID))
 }
