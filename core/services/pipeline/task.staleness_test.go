@@ -1,6 +1,10 @@
 package pipeline_test
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -8,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -302,5 +307,285 @@ func TestStalenessTask(t *testing.T) {
 		}
 		require.Len(t, mk("0s"), 3, "cutoff=0 disabled")
 		require.Len(t, mk("20s"), 2, "cutoff=20s drops the 30s-old sample")
+	})
+}
+
+func TestStalenessTask_RelativeToFreshest(t *testing.T) {
+	t.Parallel()
+
+	// Fixed timestamps far in the past: in relativeTo=freshest mode the wall
+	// clock must play no part.
+	const freshestMs = int64(1725000000000)
+	sample := func(source string, ageMs int64) pipeline.Sample {
+		return pipeline.Sample{Source: source, Value: decimal.NewFromInt(100), Weight: decimal.NewFromInt(1), TsMs: freshestMs - ageMs}
+	}
+	unknown := func(source string) pipeline.Sample {
+		return pipeline.Sample{Source: source, Value: decimal.NewFromInt(100), Weight: decimal.NewFromInt(1)}
+	}
+	run := func(t *testing.T, task pipeline.StalenessTask, inputs ...pipeline.Result) pipeline.Result {
+		t.Helper()
+		task.BaseTask = pipeline.NewBaseTask(0, "stale", nil, nil, 0)
+		if task.Method == "" {
+			task.Method = "cutoff"
+		}
+		if task.Threshold == "" {
+			task.Threshold = "10s"
+		}
+		task.RelativeTo = "freshest"
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), inputs)
+		return out
+	}
+	sources := func(t *testing.T, out pipeline.Result) (kept []string, stale []string, errs int) {
+		t.Helper()
+		require.NoError(t, out.Error)
+		for _, x := range out.Value.([]any) {
+			switch v := x.(type) {
+			case pipeline.Sample:
+				kept = append(kept, v.Source)
+			case pipeline.StaleSampleError:
+				stale = append(stale, v.Source)
+			case error:
+				errs++
+			default:
+				t.Fatalf("unexpected element %T", x)
+			}
+		}
+		return
+	}
+
+	t.Run("measures age against the freshest sample, not the wall clock", func(t *testing.T) {
+		t.Parallel()
+		out := run(t, pipeline.StalenessTask{},
+			pipeline.Result{Value: sample("a", 0)},
+			pipeline.Result{Value: sample("b", 5000)},
+			pipeline.Result{Value: sample("c", 30000)},
+		)
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 2)
+		assert.Equal(t, "a", res[0].Source)
+		assert.Equal(t, "b", res[1].Source)
+	})
+
+	t.Run("unknown timestamps are never excluded and never the reference", func(t *testing.T) {
+		t.Parallel()
+		out := run(t, pipeline.StalenessTask{OnStale: "fault"},
+			pipeline.Result{Value: unknown("u")},
+			pipeline.Result{Value: sample("a", 0)},
+			pipeline.Result{Value: sample("c", 30000)},
+		)
+		kept, stale, _ := sources(t, out)
+		assert.Equal(t, []string{"u", "a"}, kept)
+		assert.Equal(t, []string{"c"}, stale)
+	})
+
+	t.Run("all unknown timestamps pass through", func(t *testing.T) {
+		t.Parallel()
+		out := run(t, pipeline.StalenessTask{}, pipeline.Result{Value: unknown("u")}, pipeline.Result{Value: unknown("v")})
+		require.NoError(t, out.Error)
+		require.Len(t, out.Value.([]pipeline.Sample), 2)
+	})
+
+	t.Run("onStale=fault emits StaleSampleError and passes upstream errors through", func(t *testing.T) {
+		t.Parallel()
+		out := run(t, pipeline.StalenessTask{OnStale: "fault"},
+			pipeline.Result{Value: sample("a", 0)},
+			pipeline.Result{Error: errors.New("bridge down")},
+			pipeline.Result{Value: sample("c", 30000)},
+		)
+		kept, stale, errs := sources(t, out)
+		assert.Equal(t, []string{"a"}, kept)
+		assert.Equal(t, []string{"c"}, stale)
+		assert.Equal(t, 1, errs)
+
+		staleErr := out.Value.([]any)[2].(pipeline.StaleSampleError)
+		require.ErrorIs(t, staleErr, pipeline.ErrStaleSample)
+		assert.Equal(t, freshestMs-30000, staleErr.TsMs)
+		assert.Equal(t, freshestMs, staleErr.ReferenceTsMs)
+		b, err := json.Marshal(staleErr)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"stale":true,"source":"c","ts_ms":1724999970000,"reference_ts_ms":1725000000000}`, string(b))
+	})
+
+	t.Run("onStale=drop discards upstream errors", func(t *testing.T) {
+		t.Parallel()
+		out := run(t, pipeline.StalenessTask{},
+			pipeline.Result{Value: sample("a", 0)},
+			pipeline.Result{Error: errors.New("bridge down")},
+		)
+		require.NoError(t, out.Error)
+		require.Len(t, out.Value.([]pipeline.Sample), 1)
+	})
+
+	t.Run("allowedFaults excludes stalest first", func(t *testing.T) {
+		t.Parallel()
+		out := run(t, pipeline.StalenessTask{OnStale: "fault", AllowedFaults: "2"},
+			pipeline.Result{Value: sample("a", 0)},
+			pipeline.Result{Value: sample("b", 20000)},
+			pipeline.Result{Value: sample("c", 40000)},
+			pipeline.Result{Value: sample("d", 30000)},
+		)
+		kept, stale, _ := sources(t, out)
+		assert.Equal(t, []string{"a", "b"}, kept)
+		assert.Equal(t, []string{"c", "d"}, stale)
+	})
+
+	t.Run("upstream errors spend the budget first", func(t *testing.T) {
+		t.Parallel()
+		out := run(t, pipeline.StalenessTask{OnStale: "fault", AllowedFaults: "2"},
+			pipeline.Result{Value: sample("a", 0)},
+			pipeline.Result{Error: errors.New("bridge down")},
+			pipeline.Result{Value: sample("b", 20000)},
+			pipeline.Result{Value: sample("c", 40000)},
+		)
+		kept, stale, errs := sources(t, out)
+		assert.Equal(t, []string{"a", "b"}, kept)
+		assert.Equal(t, []string{"c"}, stale)
+		assert.Equal(t, 1, errs)
+	})
+
+	t.Run("budget exhausted by upstream errors excludes nothing", func(t *testing.T) {
+		t.Parallel()
+		out := run(t, pipeline.StalenessTask{OnStale: "fault", AllowedFaults: "1"},
+			pipeline.Result{Value: sample("a", 0)},
+			pipeline.Result{Error: errors.New("bridge down")},
+			pipeline.Result{Error: errors.New("bridge down")},
+			pipeline.Result{Value: sample("c", 40000)},
+		)
+		kept, stale, errs := sources(t, out)
+		assert.Equal(t, []string{"a", "c"}, kept)
+		assert.Empty(t, stale)
+		assert.Equal(t, 2, errs)
+	})
+
+	t.Run("equally stale samples are excluded in input order", func(t *testing.T) {
+		t.Parallel()
+		out := run(t, pipeline.StalenessTask{OnStale: "fault", AllowedFaults: "1"},
+			pipeline.Result{Value: sample("a", 0)},
+			pipeline.Result{Value: sample("b", 30000)},
+			pipeline.Result{Value: sample("c", 30000)},
+		)
+		kept, stale, _ := sources(t, out)
+		assert.Equal(t, []string{"a", "c"}, kept)
+		assert.Equal(t, []string{"b"}, stale)
+	})
+
+	t.Run("allowedFaults caps drop mode too, keeping decayed weight", func(t *testing.T) {
+		t.Parallel()
+		out := run(t, pipeline.StalenessTask{Method: "linear", AllowedFaults: "1"},
+			pipeline.Result{Value: sample("a", 0)},
+			pipeline.Result{Value: sample("b", 15000)},
+			pipeline.Result{Value: sample("c", 20000)},
+		)
+		require.NoError(t, out.Error)
+		res := out.Value.([]pipeline.Sample)
+		require.Len(t, res, 2)
+		assert.Equal(t, "a", res[0].Source)
+		assert.Equal(t, "b", res[1].Source)
+		assert.True(t, res[1].Weight.IsZero(), "reinstated sample keeps its decayed weight, got %s", res[1].Weight)
+	})
+
+	t.Run("future timestamp becomes the reference", func(t *testing.T) {
+		t.Parallel()
+		// A source misreporting time is outside the gate's remit: pin that the
+		// freshest timestamp wins even when it is implausible.
+		out := run(t, pipeline.StalenessTask{OnStale: "fault"},
+			pipeline.Result{Value: sample("future", -3600000)},
+			pipeline.Result{Value: sample("a", 0)},
+			pipeline.Result{Value: sample("b", 0)},
+		)
+		kept, stale, _ := sources(t, out)
+		assert.Equal(t, []string{"future"}, kept)
+		assert.Equal(t, []string{"a", "b"}, stale)
+	})
+
+	t.Run("invalid relativeTo errors", func(t *testing.T) {
+		t.Parallel()
+		task := pipeline.StalenessTask{BaseTask: pipeline.NewBaseTask(0, "stale", nil, nil, 0), Method: "cutoff", Threshold: "10s", RelativeTo: "sometime"}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+		require.Error(t, out.Error)
+	})
+
+	t.Run("invalid onStale errors", func(t *testing.T) {
+		t.Parallel()
+		out := run(t, pipeline.StalenessTask{OnStale: "ignore"})
+		require.Error(t, out.Error)
+	})
+}
+
+// TestStalenessGate_ComposedPipeline runs the sample → staleness → median
+// composition from ADR 0002 end to end.
+func TestStalenessGate_ComposedPipeline(t *testing.T) {
+	t.Parallel()
+
+	const spec = `
+s1     [type=sample input="$(r1)" source="a" valuePath="result"
+        tsPath="timestamps,providerIndicatedTimeUnixMs"
+        tsFallbackPath="timestamps,providerDataReceivedUnixMs" onMissingTs=unknown]
+s2     [type=sample input="$(r2)" source="b" valuePath="result"
+        tsPath="timestamps,providerIndicatedTimeUnixMs"
+        tsFallbackPath="timestamps,providerDataReceivedUnixMs" onMissingTs=unknown]
+s3     [type=sample input="$(r3)" source="c" valuePath="result"
+        tsPath="timestamps,providerIndicatedTimeUnixMs"
+        tsFallbackPath="timestamps,providerDataReceivedUnixMs" onMissingTs=unknown]
+fresh  [type=staleness samples="[$(s1),$(s2),$(s3)]" method=cutoff threshold="30s"
+        relativeTo=freshest onStale=fault allowedFaults=1]
+answer [type=median values="$(fresh)" allowedFaults=1]
+s1 -> fresh; s2 -> fresh; s3 -> fresh; fresh -> answer;
+`
+	const freshestMs = int64(1725000000000)
+	body := func(result int, ageMs int64) string {
+		return fmt.Sprintf(`{"result":%d,"timestamps":{"providerIndicatedTimeUnixMs":%d}}`, result, freshestMs-ageMs)
+	}
+
+	cfg := configtest.NewTestGeneralConfig(t)
+	r := pipeline.NewRunner(nil, nil, cfg.JobPipeline(), cfg.WebServer(), nil, nil, nil, logger.TestLogger(t), nil, nil)
+
+	tests := []struct {
+		name       string
+		r1, r2, r3 any
+		want       string
+	}{
+		{"no stale sources", body(100, 0), body(101, 5000), body(200, 10000), "101"},
+		{"stale source excluded", body(100, 0), body(101, 5000), body(200, 60000), "100.5"},
+		{"only the stalest excluded when the threshold is reached", body(100, 0), body(101, 60000), body(200, 120000), "100.5"},
+		{"received timestamp used when indicated is absent", body(100, 0), body(101, 5000),
+			fmt.Sprintf(`{"result":200,"timestamps":{"providerDataReceivedUnixMs":%d}}`, freshestMs-60000), "100.5"},
+		{"unknown timestamp is never excluded", body(100, 0), body(101, 60000), `{"result":200}`, "150"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			vars := pipeline.NewVarsFrom(map[string]any{"r1": test.r1, "r2": test.r2, "r3": test.r3})
+			_, trrs, err := r.ExecuteRun(t.Context(), pipeline.Spec{DotDagSource: spec}, vars)
+			require.NoError(t, err)
+			result, err := trrs.FinalResult().SingularResult()
+			require.NoError(t, err)
+			require.NoError(t, result.Error)
+			assert.Equal(t, test.want, result.Value.(decimal.Decimal).String())
+		})
+	}
+
+	t.Run("source fault spends the budget so stale sources are kept", func(t *testing.T) {
+		t.Parallel()
+		failingSpec := strings.Replace(spec, `s2     [type=sample input="$(r2)"`, `down [type=fail msg="bridge down"]
+s2     [type=sample input="$(down)"`, 1) + "down -> s2;\n"
+		vars := pipeline.NewVarsFrom(map[string]any{"r1": body(100, 0), "r3": body(200, 60000)})
+		_, trrs, err := r.ExecuteRun(t.Context(), pipeline.Spec{DotDagSource: failingSpec}, vars)
+		require.NoError(t, err)
+		result, err := trrs.FinalResult().SingularResult()
+		require.NoError(t, err)
+		require.NoError(t, result.Error)
+		assert.Equal(t, "150", result.Value.(decimal.Decimal).String())
+	})
+
+	t.Run("median fails when source faults alone exceed the threshold", func(t *testing.T) {
+		t.Parallel()
+		vars := pipeline.NewVarsFrom(map[string]any{"r1": body(100, 0), "r2": "not json", "r3": "not json"})
+		_, trrs, err := r.ExecuteRun(t.Context(), pipeline.Spec{DotDagSource: spec}, vars)
+		require.NoError(t, err)
+		result, err := trrs.FinalResult().SingularResult()
+		require.NoError(t, err)
+		require.ErrorIs(t, result.Error, pipeline.ErrTooManyErrors)
 	})
 }

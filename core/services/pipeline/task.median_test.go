@@ -466,3 +466,27 @@ func TestMedianTask_CountNilsAsFaults_Unmarshal(t *testing.T) {
 		}
 	}
 }
+
+func TestMedianTask_StalenessOutput(t *testing.T) {
+	t.Parallel()
+
+	sample := func(v int64) pipeline.Sample {
+		return pipeline.Sample{Value: decimal.NewFromInt(v), Weight: decimal.NewFromInt(1)}
+	}
+	values := []any{sample(1), pipeline.StaleSampleError{Source: "b"}, sample(3), errors.New("bridge down")}
+
+	t.Run("excluded samples count as faults", func(t *testing.T) {
+		t.Parallel()
+		task := pipeline.MedianTask{BaseTask: pipeline.NewBaseTask(0, "median", nil, nil, 0), Values: "$(fresh)", AllowedFaults: "2"}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]any{"fresh": values}), nil)
+		require.NoError(t, out.Error)
+		assert.Equal(t, "2", out.Value.(decimal.Decimal).String())
+	})
+
+	t.Run("too many faults fails", func(t *testing.T) {
+		t.Parallel()
+		task := pipeline.MedianTask{BaseTask: pipeline.NewBaseTask(0, "median", nil, nil, 0), Values: "$(fresh)", AllowedFaults: "1"}
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]any{"fresh": values}), nil)
+		require.ErrorIs(t, out.Error, pipeline.ErrTooManyErrors)
+	})
+}
