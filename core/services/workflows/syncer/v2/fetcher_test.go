@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -360,6 +361,68 @@ func TestNewFetcherService(t *testing.T) {
 		require.ErrorIs(t, fetcher.Start(ctx), ErrNoStorageClient)
 		defer fetcher.Close()
 	})
+}
+
+func TestFetcherService_RetrieveURL_Timeout(t *testing.T) {
+	t.Parallel()
+	for _, artifactType := range []storage_service.ArtifactType{
+		storage_service.ArtifactType_ARTIFACT_TYPE_BINARY,
+		storage_service.ArtifactType_ARTIFACT_TYPE_CONFIG,
+	} {
+		t.Run(artifactType.String(), func(t *testing.T) {
+			t.Parallel()
+			for _, mode := range []string{"default deadline", "earlier deadline", "cancellation"} {
+				t.Run(mode, func(t *testing.T) {
+					t.Parallel()
+					synctest.Test(t, func(t *testing.T) {
+						ctx, cancel := context.WithCancel(t.Context())
+						defer cancel()
+						budget := 20 * time.Second
+						if mode == "earlier deadline" {
+							budget = time.Second
+							var stop context.CancelFunc
+							ctx, stop = context.WithTimeout(ctx, budget)
+							defer stop()
+						}
+						started := time.Now()
+						client := mocks.NewWorkflowClient(t)
+						req := &storage_service.DownloadArtifactRequest{Id: "workflow-id", Type: artifactType}
+						client.EXPECT().DownloadArtifact(mock.Anything, req).RunAndReturn(func(ctx context.Context, _ *storage_service.DownloadArtifactRequest) (*storage_service.DownloadArtifactResponse, error) {
+							deadline, ok := ctx.Deadline()
+							require.True(t, ok)
+							require.Equal(t, started.Add(budget), deadline)
+							if mode == "cancellation" {
+								cancel()
+							}
+							<-ctx.Done()
+							return nil, ctx.Err()
+						}).Once()
+						fetcher := NewFetcherService(logger.TestLogger(t), nil, client)
+						url, err := fetcher.RetrieveURL(ctx, req)
+						if mode == "cancellation" {
+							require.ErrorIs(t, err, context.Canceled)
+							require.Zero(t, time.Since(started))
+						} else {
+							require.ErrorIs(t, err, context.DeadlineExceeded)
+							require.Equal(t, budget, time.Since(started))
+						}
+						require.Empty(t, url)
+						require.Equal(t, ActivationRetryable, activationRetryPolicyForEvent(WorkflowActivated, err))
+						if mode == "default deadline" {
+							require.NoError(t, ctx.Err(), "URL lookup must not cancel the artifact download context")
+						}
+
+						client.EXPECT().DownloadArtifact(mock.Anything, req).Run(func(ctx context.Context, _ *storage_service.DownloadArtifactRequest) {
+							require.NoError(t, ctx.Err())
+						}).Return(&storage_service.DownloadArtifactResponse{Url: "https://example.com/signed"}, nil).Once()
+						url, err = fetcher.RetrieveURL(t.Context(), req)
+						require.NoError(t, err)
+						require.Equal(t, "https://example.com/signed", url)
+					})
+				})
+			}
+		})
+	}
 }
 
 func TestNewFetcherFunc(t *testing.T) {
