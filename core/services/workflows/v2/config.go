@@ -111,14 +111,14 @@ type EngineLimiters struct {
 	// Settings is the CRE dynamic settings getter from [limits.Factory.Settings] (optional).
 	Settings settings.Getter
 
-	ExecutionResponse         limits.BoundLimiter[commonconfig.Size]
+	ExecutionResponse             limits.BoundLimiter[commonconfig.Size]
 	ExecutionResponseSizeEnforced limits.GateLimiter
-	TriggerSubscriptionTime   limits.TimeLimiter
-	TriggerRegistrationsTime  limits.TimeLimiter
-	TriggerSubscription       limits.BoundLimiter[int]
-	TriggerEventQueue         limits.QueueLimiter[triggers.CoordinatedEvent]
-	TriggerEventQueueTimeout  limits.BoundLimiter[time.Duration]
-	ExecutionConcurrency      limits.ResourcePoolLimiter[int]
+	TriggerSubscriptionTime       limits.TimeLimiter
+	TriggerRegistrationsTime      limits.TimeLimiter
+	TriggerSubscription           limits.BoundLimiter[int]
+	TriggerEventQueue             limits.QueueLimiter[triggers.CoordinatedEvent]
+	TriggerEventQueueTimeout      limits.BoundLimiter[time.Duration]
+	ExecutionConcurrency          limits.ResourcePoolLimiter[int]
 
 	WASMBinarySize           limits.BoundLimiter[commonconfig.Size]
 	WASMCompressedBinarySize limits.BoundLimiter[commonconfig.Size]
