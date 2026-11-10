@@ -3,9 +3,10 @@ package queue
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"

@@ -87,7 +87,7 @@ func (o *ConsensusQueue) PostEnvStartup(
 	if err != nil {
 		return fmt.Errorf("failed to create consensusQueue jobs: %w", err)
 	}
-	//TODO more?
+	// TODO more?
 	return nil
 }
 
@@ -153,7 +153,8 @@ func createJobs(
 	if creEnv.FreshExternalJobIDs {
 		input.Inputs["externalJobID"] = uuid.NewString()
 	}
-	if err := (cre_jobs.ProposeJobSpec{}).VerifyPreconditions(*creEnv.CldfEnvironment, input); err != nil {
+	err = (cre_jobs.ProposeJobSpec{}).VerifyPreconditions(*creEnv.CldfEnvironment, input)
+	if err != nil {
 		return errors.Wrapf(err, "precondition verification failed for %s worker job", flag)
 	}
 
