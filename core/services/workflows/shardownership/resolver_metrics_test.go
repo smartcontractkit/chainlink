@@ -17,8 +17,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	wfmon "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -46,8 +45,8 @@ func newAssignmentMetricsFixture(t *testing.T) *assignmentMetricsFixture {
 	return &assignmentMetricsFixture{reader: reader, metrics: metrics}
 }
 
-func (f *assignmentMetricsFixture) manualResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, lggr logger.Logger) *manualShardResolver {
-	r := NewManualShardResolver(settings, orgResolver, nil, lggr).(*manualShardResolver)
+func (f *assignmentMetricsFixture) manualResolver(shardSettings *settings.Atomic, orgResolver OrgResolver, lggr logger.Logger) *manualShardResolver {
+	r := NewManualShardResolver(shardSettings, orgResolver, nil, lggr).(*manualShardResolver)
 	r.metrics = f.metrics
 	return r
 }
@@ -170,8 +169,8 @@ func TestResolverMetrics_ManualSources(t *testing.T) {
 	ctx := t.Context()
 	f := newAssignmentMetricsFixture(t)
 
-	settings := &loop.AtomicSettings{}
-	storeShardAssignment(t, settings, `
+	shardSettings := &settings.Atomic{}
+	storeShardAssignment(t, shardSettings, `
 static_default_assignment = [0]
 hashed_owner_assignment = ["`+ownerC+`"]
 
@@ -182,7 +181,7 @@ hashed_owner_assignment = ["`+ownerC+`"]
   org_abc123 = [2]
 `)
 	orgR := &mockOrgResolver{mappings: map[string]string{ownerB: "org_abc123"}}
-	r := f.manualResolver(settings, orgR, nopLogger)
+	r := f.manualResolver(shardSettings, orgR, nopLogger)
 
 	donID, found, err := r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
@@ -234,7 +233,7 @@ hashed_owner_assignment = ["`+ownerC+`"]
 	}, f.observedSources(t))
 	f.requireSourceWithinBoundedValues(t)
 
-	noDefault := &loop.AtomicSettings{}
+	noDefault := &settings.Atomic{}
 	storeShardAssignment(t, noDefault, `
 [per_owner_assignment]
   `+ownerA+` = [1]
@@ -284,9 +283,9 @@ func TestResolverMetrics_SettingsHash(t *testing.T) {
 	require.NotEqual(t, stable, shardAssignmentSettingsHash(cfgChanged), "a one-owner change must change the hash")
 
 	f := newAssignmentMetricsFixture(t)
-	settings := &loop.AtomicSettings{}
-	storeShardAssignment(t, settings, raw)
-	r := f.manualResolver(settings, nil, nopLogger)
+	shardSettings := &settings.Atomic{}
+	storeShardAssignment(t, shardSettings, raw)
+	r := f.manualResolver(shardSettings, nil, nopLogger)
 
 	donID, found, err := r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
@@ -304,13 +303,13 @@ func TestResolverMetrics_SettingsHash(t *testing.T) {
 	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_assignment_updated", map[string]string{"outcome": wfmon.ShardAssignmentUpdateApplied}),
 		"identical settings must not count another applied update")
 
-	storeShardAssignment(t, settings, raw)
+	storeShardAssignment(t, shardSettings, raw)
 	_, found, err = r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_assignment_updated", map[string]string{"outcome": wfmon.ShardAssignmentUpdateApplied}))
 
-	storeShardAssignment(t, settings, oneOwnerChanged)
+	storeShardAssignment(t, shardSettings, oneOwnerChanged)
 	donID, found, err = r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 	require.True(t, found)
@@ -329,14 +328,14 @@ func TestResolverMetrics_ParseErrorPropagates(t *testing.T) {
 	f := newAssignmentMetricsFixture(t)
 
 	lggr, logs := logger.TestObserved(t, zapcore.WarnLevel)
-	settings := &loop.AtomicSettings{}
-	storeShardAssignment(t, settings, `
+	shardSettings := &settings.Atomic{}
+	storeShardAssignment(t, shardSettings, `
 static_default_assignment = [0]
 
 [per_owner_assignment]
   `+ownerA+` = [1]
 `)
-	r := f.manualResolver(settings, nil, lggr)
+	r := f.manualResolver(shardSettings, nil, lggr)
 
 	donID, found, err := r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
@@ -346,7 +345,7 @@ static_default_assignment = [0]
 	require.True(t, ok)
 
 	bad := `static_default_assignment = "not-an-array"`
-	storeShardAssignment(t, settings, bad)
+	storeShardAssignment(t, shardSettings, bad)
 	_, found, err = r.ResolveShard(ctx, "wf-a", ownerA)
 	require.Error(t, err, "a parse error must fail resolution exactly as it did before instrumentation")
 	require.False(t, found)
@@ -379,7 +378,7 @@ static_default_assignment = [0]
 	}), "a failed batch call counts one error")
 
 	// A good version applies again and resets the parse-error dedup.
-	storeShardAssignment(t, settings, `
+	storeShardAssignment(t, shardSettings, `
 static_default_assignment = [0]
 
 [per_owner_assignment]
@@ -393,7 +392,7 @@ static_default_assignment = [0]
 		"the same assignment returning after a broken version is not a new applied update")
 
 	// The same broken version recurring after a good one counts and warns again.
-	storeShardAssignment(t, settings, bad)
+	storeShardAssignment(t, shardSettings, bad)
 	_, found, err = r.ResolveShard(ctx, "wf-a", ownerA)
 	require.Error(t, err)
 	require.False(t, found)
@@ -402,7 +401,7 @@ static_default_assignment = [0]
 	require.Len(t, logs.FilterMessage("Failed to parse shard assignment settings; returning error").All(), 2)
 
 	// A different broken version is its own parse error.
-	storeShardAssignment(t, settings, `[per_owner_assignment]
+	storeShardAssignment(t, shardSettings, `[per_owner_assignment]
   "0x1234" = [1]
 `)
 	_, _, err = r.ResolveShard(ctx, "wf-a", ownerA)
@@ -459,8 +458,8 @@ func TestResolverMetrics_OverrideRequests(t *testing.T) {
 	ctx := t.Context()
 	f := newAssignmentMetricsFixture(t)
 
-	settings := &loop.AtomicSettings{}
-	storeShardAssignment(t, settings, `
+	shardSettings := &settings.Atomic{}
+	storeShardAssignment(t, shardSettings, `
 static_default_assignment = [0]
 hashed_default_assignment = true
 
@@ -473,7 +472,7 @@ hashed_default_assignment = true
 	}, nopLogger).(*ringOCRShardResolver)
 	ring.metrics = f.metrics
 
-	o := NewOverrideShardResolver(settings, nil, nil, ring, nopLogger).(*overrideShardResolver)
+	o := NewOverrideShardResolver(shardSettings, nil, nil, ring, nopLogger).(*overrideShardResolver)
 	o.metrics = f.metrics
 	o.manual.metrics = f.metrics
 
@@ -543,7 +542,7 @@ hashed_default_assignment = true
 
 	// With no manual settings at all, the whole batch is decided (and counted)
 	// by the ring resolver; the override resolver adds nothing.
-	empty := &loop.AtomicSettings{}
+	empty := &settings.Atomic{}
 	o2 := NewOverrideShardResolver(empty, nil, nil, ring, nopLogger).(*overrideShardResolver)
 	o2.metrics = f.metrics
 	o2.manual.metrics = f.metrics
@@ -565,8 +564,8 @@ func TestResolverMetrics_SettingsDiffLog(t *testing.T) {
 	f := newAssignmentMetricsFixture(t)
 
 	lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
-	settings := &loop.AtomicSettings{}
-	storeShardAssignment(t, settings, `
+	shardSettings := &settings.Atomic{}
+	storeShardAssignment(t, shardSettings, `
 static_default_assignment = [0]
 
 [per_owner_assignment]
@@ -574,7 +573,7 @@ static_default_assignment = [0]
   `+ownerB+` = [2]
   `+ownerC+` = [5]
 `)
-	r := f.manualResolver(settings, nil, lggr)
+	r := f.manualResolver(shardSettings, nil, lggr)
 
 	_, _, err := r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
@@ -588,7 +587,7 @@ static_default_assignment = [0]
 	require.Len(t, logs.FilterMessage("Shard assignment settings applied").All(), 1,
 		"re-observing identical settings must not log another line")
 
-	storeShardAssignment(t, settings, `
+	storeShardAssignment(t, shardSettings, `
 static_default_assignment = [0]
 
 [per_owner_assignment]
@@ -619,14 +618,14 @@ func TestResolverMetrics_ManualBatchCountsEveryWorkflow(t *testing.T) {
 	ctx := t.Context()
 	f := newAssignmentMetricsFixture(t)
 
-	settings := &loop.AtomicSettings{}
-	storeShardAssignment(t, settings, `
+	shardSettings := &settings.Atomic{}
+	storeShardAssignment(t, shardSettings, `
 static_default_assignment = [0]
 
 [per_owner_assignment]
   `+ownerA+` = [1]
 `)
-	r := f.manualResolver(settings, nil, nopLogger)
+	r := f.manualResolver(shardSettings, nil, nopLogger)
 
 	// More workflows than owners: the ownerless tail still counts as
 	// not-found with source=none and stays absent from the result.
@@ -642,7 +641,7 @@ static_default_assignment = [0]
 
 	// A batch hitting an unparseable settings version fails like single-shot
 	// and counts one error for the call.
-	storeShardAssignment(t, settings, `static_default_assignment = "not-an-array"`)
+	storeShardAssignment(t, shardSettings, `static_default_assignment = "not-an-array"`)
 	_, err = r.ResolveShards(ctx, []string{"wf-a"}, []string{ownerA})
 	require.Error(t, err)
 	require.Equal(t, int64(1), f.counterTotal(t, "platform_shard_resolver_requests", map[string]string{
@@ -660,23 +659,23 @@ func TestResolverMetrics_SettingsDiffBaselineSurvivesParseError(t *testing.T) {
 	f := newAssignmentMetricsFixture(t)
 
 	lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
-	settings := &loop.AtomicSettings{}
-	storeShardAssignment(t, settings, `
+	shardSettings := &settings.Atomic{}
+	storeShardAssignment(t, shardSettings, `
 static_default_assignment = [0]
 
 [per_owner_assignment]
   `+ownerA+` = [1]
 `)
-	r := f.manualResolver(settings, nil, lggr)
+	r := f.manualResolver(shardSettings, nil, lggr)
 	_, _, err := r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 	require.Len(t, logs.FilterMessage("Shard assignment settings applied").All(), 1)
 
-	storeShardAssignment(t, settings, `static_default_assignment = "not-an-array"`)
+	storeShardAssignment(t, shardSettings, `static_default_assignment = "not-an-array"`)
 	_, _, err = r.ResolveShard(ctx, "wf-a", ownerA)
 	require.Error(t, err)
 
-	storeShardAssignment(t, settings, `
+	storeShardAssignment(t, shardSettings, `
 static_default_assignment = [0]
 
 [per_owner_assignment]
@@ -702,24 +701,24 @@ func TestResolverMetrics_SettingsDiffBaselineIsPerResolver(t *testing.T) {
 	f := newAssignmentMetricsFixture(t)
 
 	lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
-	settings := &loop.AtomicSettings{}
-	storeShardAssignment(t, settings, `
+	shardSettings := &settings.Atomic{}
+	storeShardAssignment(t, shardSettings, `
 static_default_assignment = [0]
 
 [per_owner_assignment]
   `+ownerA+` = [1]
 `)
-	r1 := f.manualResolver(settings, nil, lggr)
+	r1 := f.manualResolver(shardSettings, nil, lggr)
 	_, _, err := r1.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 
-	storeShardAssignment(t, settings, `
+	storeShardAssignment(t, shardSettings, `
 static_default_assignment = [0]
 
 [per_owner_assignment]
   `+ownerA+` = [3]
 `)
-	r2 := f.manualResolver(settings, nil, lggr)
+	r2 := f.manualResolver(shardSettings, nil, lggr)
 	_, _, err = r2.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 	entries := logs.FilterMessage("Shard assignment settings applied").All()
@@ -728,7 +727,7 @@ static_default_assignment = [0]
 		"the baseline is per-resolver: r2 never applied the previous version")
 	require.NotContains(t, entries[1].ContextMap(), "perOwnerMoved")
 
-	storeShardAssignment(t, settings, `
+	storeShardAssignment(t, shardSettings, `
 static_default_assignment = [0]
 
 [per_owner_assignment]
@@ -752,9 +751,9 @@ func TestResolverMetrics_SettingsDiffLogCapsOwnerLists(t *testing.T) {
 	f := newAssignmentMetricsFixture(t)
 
 	lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
-	settings := &loop.AtomicSettings{}
-	storeShardAssignment(t, settings, `static_default_assignment = [0]`)
-	r := f.manualResolver(settings, nil, lggr)
+	shardSettings := &settings.Atomic{}
+	storeShardAssignment(t, shardSettings, `static_default_assignment = [0]`)
+	r := f.manualResolver(shardSettings, nil, lggr)
 	_, _, err := r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 
@@ -763,7 +762,7 @@ func TestResolverMetrics_SettingsDiffLogCapsOwnerLists(t *testing.T) {
 	for i := range assignmentDiffOwnerCap + 2 {
 		fmt.Fprintf(&cfgToml, "  \"0x%040x\" = [1]\n", i+1)
 	}
-	storeShardAssignment(t, settings, cfgToml.String())
+	storeShardAssignment(t, shardSettings, cfgToml.String())
 	_, _, err = r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 
@@ -795,9 +794,9 @@ static_default_assignment = [0]
 [per_owner_assignment]
   ` + ownerA + ` = [2]
 `
-	settings := &loop.AtomicSettings{}
-	storeShardAssignment(t, settings, goodA)
-	r := f.manualResolver(settings, nil, nopLogger)
+	shardSettings := &settings.Atomic{}
+	storeShardAssignment(t, shardSettings, goodA)
+	r := f.manualResolver(shardSettings, nil, nopLogger)
 
 	var wg sync.WaitGroup
 	for range 4 {
@@ -810,8 +809,8 @@ static_default_assignment = [0]
 	}
 	wg.Go(func() {
 		for range 25 {
-			_ = settings.Store(core.SettingsUpdate{Settings: goodB, Hash: "test"})
-			_ = settings.Store(core.SettingsUpdate{Settings: goodA, Hash: "test"})
+			_ = shardSettings.Store(settings.Snapshot{Settings: goodB, Hash: "test"})
+			_ = shardSettings.Store(settings.Snapshot{Settings: goodA, Hash: "test"})
 		}
 	})
 	wg.Wait()

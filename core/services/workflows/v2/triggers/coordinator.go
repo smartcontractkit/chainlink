@@ -545,6 +545,7 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 			return
 		}
 		tm.IncrementTriggerEventEnqueuedCounter(ctx)
+		cw.lggr.Debugw("Enqueued trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
 	}
 }
 
@@ -594,13 +595,15 @@ func (c *coordinator) admitEvent(ctx context.Context, cw *coordinatedWorkflow, t
 	switch {
 	case err == nil:
 		return true
+	case errors.Is(err, ErrAdmissionCached):
+		// Deliberately left un-ACKed so it can be replayed on failover. Checked
+		// before ctx.Err(), as in the legacy put, so an event cached just before
+		// an unregister is not counted as an unregistered drop.
+		cw.lggr.Infow("Trigger event cached for failover, not enqueuing", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
 	case ctx.Err() != nil:
 		// Unregistered during the check. Nothing was decided, so the event is not ACKed.
-		cw.lggr.Infow("Unregistered during trigger admission, dropping event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+		cw.lggr.Infow("Trigger admission cut short, dropping event without ACK", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
 		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonUnregistered)
-	case errors.Is(err, ErrAdmissionCached):
-		// Deliberately left un-ACKed so it can be replayed on failover.
-		cw.lggr.Infow("Trigger event cached for failover", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
 	case errors.Is(err, ErrAdmissionDenied):
 		cw.lggr.Infow("Trigger event denied admission, dropping", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
 		// WithoutCancel: an unregister racing in must not stop the ACK of a decided denial.
@@ -627,6 +630,7 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 
 		now := c.clock.Now()
 		eventAge := now.Sub(event.ObservedAt)
+		cw.lggr.Debugw("Popped a trigger event from the queue", "eventID", event.Event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
 		tm.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
 		if now.After(event.Deadline) {
 			cw.lggr.Warnw("Trigger event is too old, skipping execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
@@ -662,7 +666,9 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 			err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event)
 			switch {
 			case err == nil:
-			case errors.Is(err, ErrDuplicateExecution), errors.Is(err, ErrEngineDraining), errors.Is(err, ErrEngineClosed):
+			case errors.Is(err, ErrEngineDraining):
+				cw.lggr.Infow("Engine is draining, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
+			case errors.Is(err, ErrDuplicateExecution), errors.Is(err, ErrEngineClosed):
 				cw.lggr.Infow("Skipping trigger event execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
 			default:
 				cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
@@ -678,12 +684,12 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 func (c *coordinator) coordinatedEngine(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) (RegisteredEngine, bool) {
 	engine, found := c.engines.Get(cw.wid)
 	if !found {
-		cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID)
+		cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
 		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineGone)
 		return nil, false
 	}
 	if !engine.IsCoordinated() {
-		cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID)
+		cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
 		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineNotCoordinated)
 		return nil, false
 	}

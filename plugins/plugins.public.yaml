@@ -58,13 +58,19 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20261022195454-600e2b321c7a"
+      gitRef: "v0.3.4-0.20261109182726-4d83db28afc6"
       installPath: "./pkg/cmd/chainlink-evm"
 
   capability-cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
       gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
       installPath: "."
+      flags: "-tags timetzdata"
+
+  capability-cronv2:
+    - moduleURI: "github.com/smartcontractkit/capabilities/cron"
+      gitRef: "12ca7f9cba40dea8ad4ce1661e8459b05cbb1761"
+      installPath: "./cmd/cronv2"
       flags: "-tags timetzdata"
 
   capability-consensus:

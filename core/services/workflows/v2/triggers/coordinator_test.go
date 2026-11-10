@@ -386,6 +386,42 @@ func TestCoordinator_AdmitHung(t *testing.T) {
 	assert.Equal(t, int64(0), counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", denied))
 }
 
+// TestCoordinator_AdmitCachedThenUnregistered covers an event the engine caches
+// for failover just as the registration is unregistered. The event sits in the
+// failover cache, so it must not be counted as an unregistered drop, matching
+// the legacy put. It is not ACKed either way.
+func TestCoordinator_AdmitCachedThenUnregistered(t *testing.T) {
+	t.Parallel()
+	wfMetrics, reader := newTestMeterMetrics(t)
+	admission, queues := newTrackedAdmission()
+	f := newCoordinatorFixture(t, withAdmission(admission), withMetrics(wfMetrics))
+
+	admitting := make(chan struct{})
+	f.engine.admit = func(ctx context.Context, _ CoordinatedEvent) error {
+		close(admitting)
+		<-ctx.Done()
+		return ErrAdmissionCached
+	}
+	trigger, eventCh := f.expectTrigger(t)
+	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
+
+	_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+	require.NoError(t, err)
+	eventCh <- triggerEvent("evt-1")
+	select {
+	case <-admitting:
+	case <-time.After(5 * time.Second):
+		t.Fatal("admission check never started")
+	}
+	require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+
+	// The queue closes only after the reader returns, so admitEvent is done.
+	require.Eventually(t, func() bool { return queues.get(t, 0).closed.Load() }, 5*time.Second, 5*time.Millisecond)
+	assert.Empty(t, f.engine.executed())
+	trigger.AssertNotCalled(t, "AckEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	assert.Empty(t, dropsByReason(t, reader), "a cached event is not a drop")
+}
+
 // TestCoordinator_Ack covers acknowledgement: routing to the registration's
 // handle, and the failure paths for unknown or malformed registration IDs.
 func TestCoordinator_Ack(t *testing.T) {
@@ -1004,87 +1040,81 @@ func BenchmarkCoordinator_AvailableCapacity(b *testing.B) {
 	}
 }
 
-// TestCoordinator_DropObservability covers drops that happen while resolving
-// the engine, and makes sure expected execution outcomes (duplicate,
-// draining, closed) are never logged as errors. The drop-counting side of
-// this is covered by TestCoordinator_NoDeliver.
-func TestCoordinator_DropObservability(t *testing.T) {
+// TestCoordinator_DeliveryLogs pins the log line, level and fields of the
+// delivery outcomes TestEngine_DeliveryLogParity in the v2 package cannot drive
+// through a real engine. No other line is logged at Error.
+func TestCoordinator_DeliveryLogs(t *testing.T) {
 	t.Parallel()
 
-	t.Run("expected execution outcomes are logged at info, not error", func(t *testing.T) {
-		t.Parallel()
-		for _, tc := range []struct {
-			name string
-			err  error
-		}{
-			{"duplicate execution", ErrDuplicateExecution},
-			{"engine draining", ErrEngineDraining},
-			{"engine closed", ErrEngineClosed},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				t.Parallel()
-				lggr, errorLogs := logger.TestObserved(t, zapcore.ErrorLevel)
-				f := newCoordinatorFixture(t, withLogger(lggr))
-				trigger, eventCh := f.expectTrigger(t)
-				trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
-				trigger.EXPECT().AckEvent(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
-				f.engine.err = tc.err
-				_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
-				require.NoError(t, err)
-
-				eventCh <- triggerEvent("evt-1")
-				require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
-
-				assert.Empty(t, errorLogs.All(), "an expected execution outcome must not log at error, the way legacy's engine.go does")
-			})
-		}
-
-		for _, tc := range []struct {
-			name string
-			err  error
-		}{
-			{"admission cached", ErrAdmissionCached},
-			{"admission denied", fmt.Errorf("not owner: %w", ErrAdmissionDenied)},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				t.Parallel()
-				lggr, errorLogs := logger.TestObserved(t, zapcore.ErrorLevel)
-				f := newCoordinatorFixture(t, withLogger(lggr))
-				trigger, eventCh := f.expectTrigger(t)
-				trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
-				trigger.EXPECT().AckEvent(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
-				// Only evt-1 fails admission. evt-2 is admitted and marks when evt-1 is done.
-				f.engine.admit = func(_ context.Context, event CoordinatedEvent) error {
-					if event.Event.Event.ID == "evt-1" {
-						return tc.err
-					}
-					return nil
-				}
-				_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
-				require.NoError(t, err)
-
-				// The reader admits one event at a time, so once evt-2 executes, evt-1's admission is complete.
-				eventCh <- triggerEvent("evt-1")
-				eventCh <- triggerEvent("evt-2")
-				require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
-
-				assert.Empty(t, errorLogs.All(), "an expected admission outcome must not log at error, the way legacy's engine.go does")
-			})
-		}
-
-		t.Run("an unexpected execution error still logs at error", func(t *testing.T) {
+	const eventID = "evt-1"
+	tests := []struct {
+		name string
+		// setup runs before registration.
+		setup     func(f *coordinatorFixture)
+		wantLevel zapcore.Level
+		wantMsg   string
+		wantErr   bool
+	}{
+		{
+			name:      "engine gone",
+			setup:     func(f *coordinatorFixture) { f.engines.remove(f.wid) },
+			wantLevel: zapcore.InfoLevel,
+			wantMsg:   "Engine gone, dropping trigger event",
+		},
+		{
+			name:      "engine not coordinated",
+			setup:     func(f *coordinatorFixture) { f.engine.coordinated = false },
+			wantLevel: zapcore.ErrorLevel,
+			wantMsg:   "Engine is not coordinated, dropping trigger event",
+		},
+		{
+			name:      "engine closed",
+			setup:     func(f *coordinatorFixture) { f.engine.err = ErrEngineClosed },
+			wantLevel: zapcore.InfoLevel,
+			wantMsg:   "Skipping trigger event execution",
+			wantErr:   true,
+		},
+		{
+			name:      "execution error",
+			setup:     func(f *coordinatorFixture) { f.engine.err = errors.New("boom") },
+			wantLevel: zapcore.ErrorLevel,
+			wantMsg:   "Failed to execute trigger event",
+			wantErr:   true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			lggr, errorLogs := logger.TestObserved(t, zapcore.ErrorLevel)
+			lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 			f := newCoordinatorFixture(t, withLogger(lggr))
 			trigger, eventCh := f.expectTrigger(t)
 			trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
-			f.engine.err = errors.New("boom")
+			tc.setup(f)
+
 			_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
 			require.NoError(t, err)
+			eventCh <- triggerEvent(eventID)
 
-			eventCh <- triggerEvent("evt-1")
-			require.Eventually(t, func() bool { return len(errorLogs.All()) == 1 }, 5*time.Second, 5*time.Millisecond,
-				"an unanticipated execution error must still be visible as an error")
+			require.Eventually(t, func() bool { return logs.FilterMessage(tc.wantMsg).Len() > 0 }, 5*time.Second, 5*time.Millisecond)
+			entries := logs.FilterMessage(tc.wantMsg).All()
+			require.Len(t, entries, 1, "logged once")
+			assert.Equal(t, tc.wantLevel, entries[0].Level)
+			fields := entries[0].ContextMap()
+			assert.Equal(t, testTriggerCapID, fields["triggerID"])
+			assert.Equal(t, eventID, fields["eventID"])
+			if tc.wantErr {
+				assert.Contains(t, fields, "err")
+			}
+			errorEntries := logs.FilterLevelExact(zapcore.ErrorLevel).All()
+			gotErrors := make([]string, 0, len(errorEntries))
+			for _, entry := range errorEntries {
+				gotErrors = append(gotErrors, entry.Message)
+			}
+			if tc.wantLevel == zapcore.ErrorLevel {
+				assert.Equal(t, []string{tc.wantMsg}, gotErrors, "Error lines")
+			} else {
+				assert.Empty(t, gotErrors, "Error lines")
+			}
 		})
-	})
+	}
 }

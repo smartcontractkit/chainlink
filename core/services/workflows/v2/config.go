@@ -132,6 +132,8 @@ type EngineLimiters struct {
 	LogLine               limits.BoundLimiter[commonconfig.Size]
 	ChainAllowed          limits.GateLimiter
 
+	WASMModulePendingCalls limits.ResourcePoolLimiter[int]
+
 	ChainWriteTargets     limits.BoundLimiter[int]
 	ChainReadCalls        limits.BoundLimiter[int]
 	ConsensusCalls        limits.BoundLimiter[int]
@@ -243,7 +245,18 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
+
+	// Capability call concurrency is enforced both in the WASM module and in the Engine.
+	// Each uses its own pool so that a single call takes one slot from each, not two from the same pool.
 	l.CapabilityConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.CapabilityConcurrencyLimit)
+	if err != nil {
+		return err
+	}
+
+	// No meter: the same setting key would duplicate CapabilityConcurrency's gauges.
+	lfNoMetrics := lf
+	lfNoMetrics.Meter = nil
+	l.WASMModulePendingCalls, err = limits.MakeResourcePoolLimiter(lfNoMetrics, cfg.CapabilityConcurrencyLimit)
 	if err != nil {
 		return err
 	}
@@ -381,6 +394,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.WASMMemorySize,
 		l.WASMCompressedBinarySize,
 		l.CapabilityConcurrency,
+		l.WASMModulePendingCalls,
 		l.SecretsConcurrency,
 		l.ExecutionTime,
 		l.CapabilityCallTime,
@@ -427,6 +441,7 @@ func (l *EngineLimiters) Close() error {
 		l.WASMMemorySize,
 		l.WASMCompressedBinarySize,
 		l.CapabilityConcurrency,
+		l.WASMModulePendingCalls,
 		l.SecretsConcurrency,
 		l.ExecutionTime,
 		l.CapabilityCallTime,

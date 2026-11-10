@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto"
 	"fmt"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
@@ -18,9 +20,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -56,13 +62,14 @@ type Delegate struct {
 	ocrPeerWrapper          *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
 	orgResolver             orgresolver.OrgResolver
-	creSettings             core.SettingsBroadcaster
+	creSettings             settings.Broadcaster
 	ocrConfigService        capregconfig.OCRConfigService
 	localCfg                coreconfig.LocalCapabilities
 	defaultBootstrappers    []ocrcommontypes.BootstrapperLocator
 	capRegistryAddress      string
 	capRegistryChainID      string
 	shardIndex              uint32
+	limitsFactory           limits.Factory
 
 	isNewlyCreatedJob bool
 }
@@ -82,13 +89,14 @@ func NewDelegate(
 	ocrPeerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
 	orgResolver orgresolver.OrgResolver,
-	creSettings core.SettingsBroadcaster,
+	creSettings settings.Broadcaster,
 	ocrConfigService capregconfig.OCRConfigService,
 	localCfg coreconfig.LocalCapabilities,
 	defaultBootstrappers []ocrcommontypes.BootstrapperLocator,
 	capRegistryAddress string,
 	capRegistryChainID string,
 	shardIndex uint32,
+	limitsFactory limits.Factory,
 ) (*Delegate, error) {
 	if registry == nil {
 		return nil, errors.New("capabilities registry must not be nil")
@@ -117,6 +125,7 @@ func NewDelegate(
 		capRegistryAddress:      capRegistryAddress,
 		capRegistryChainID:      capRegistryChainID,
 		shardIndex:              shardIndex,
+		limitsFactory:           limitsFactory,
 	}, nil
 }
 
@@ -176,6 +185,11 @@ func (d *Delegate) NewServices(
 	registryOCRConfig *ocrtypes.ContractConfig,
 ) ([]job.ServiceCtx, error) {
 	log := logger.Sugared(logger.Named(d.logger, "StandardCapabilities")).Named(strconv.Itoa(int(jobID))).Named(jobName)
+
+	if filepath.Base(command) == conversions.CronCmd && d.cronV2Active(ctx) {
+		v2cmd := filepath.Join(filepath.Dir(command), conversions.CronV2Cmd)
+		return d.newServicesV2(ctx, log, v2cmd, conversions.CronV2Cmd, configJSON, capabilityDonID)
+	}
 
 	// Warn when neither the job spec nor the TOML config provide bootstrap peers.
 	// The oracle factory will fail at startup if it can't find peers, so the error
@@ -398,6 +412,28 @@ func (d *Delegate) NewServices(
 	return []job.ServiceCtx{standardCapability}, nil
 }
 
+func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command, app, configJSON string, capabilityDonID uint32) ([]job.ServiceCtx, error) {
+	// The capability ID depends on the capability, not on how it runs, so look it up by app name.
+	capabilityID := conversions.GetCapabilityIDFromCommand(app, configJSON)
+
+	idResolver := d.newCapDonIDResolver(log, capabilityID, capabilityDonID)
+
+	s, err := NewV2(V2Params{
+		Log:              log,
+		Command:          command,
+		App:              app,
+		ConfigJSON:       configJSON,
+		CapDonIDResolver: idResolver,
+		PluginRegistrar:  d.cfg,
+		Registry:         d.registry,
+		CRESettings:      d.creSettings,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return []job.ServiceCtx{s}, nil
+}
+
 // newCapDonIDResolver picks how the capability DON ID is obtained. On the job-spec
 // boot path it is resolved at Start rather than here, since the registry may not
 // have synced yet right after node start. Resolution is skipped without an
@@ -408,6 +444,16 @@ func (d *Delegate) newCapDonIDResolver(log logger.Logger, capabilityID string, c
 		return &staticCapDonIDResolver{donID: capabilityDonID}
 	}
 	return newDynamicCapDonIDResolver(capabilityID, d.registry, d.getPeerID, log)
+}
+
+func (d *Delegate) cronV2Active(ctx context.Context) bool {
+	flag, err := limits.MakeRangeLimiter(d.limitsFactory, cresettings.Default.CRONV2ActivePeriod)
+	if err != nil {
+		d.logger.Errorw("Failed to create cron v2 flag; using cron v1", "err", err)
+		return false
+	}
+	defer flag.Close()
+	return flag.Check(ctx, commonconfig.Timestamp(time.Now().Unix())) == nil
 }
 
 func (d *Delegate) AfterJobCreated(job job.Job) {}
