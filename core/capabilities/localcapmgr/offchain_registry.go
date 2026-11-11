@@ -45,7 +45,7 @@ func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*ca
 				out[divergenceMissing]++
 				if legacy != "{}" {
 					out[divergenceEmptySpec]++
-					m.lggr.Warnw("Offchain registry has no config for capability; with the gate on it would launch with an empty spec_config", "donID", don.ID, "capID", capID)
+					m.lggr.Debugw("Offchain registry has no config for capability; with the gate on it would launch with an empty spec_config", "donID", don.ID, "capID", capID)
 				} else {
 					m.lggr.Debugw("Offchain registry has no config for capability", "donID", don.ID, "capID", capID)
 				}
