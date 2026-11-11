@@ -14,8 +14,10 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/andybalholm/brotli"
+	"github.com/avast/retry-go/v5"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -293,18 +295,29 @@ func compileTSWorkflow(ctx context.Context, workflowFilePath, workflowName, outp
 func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName, outputDir string) (string, error) {
 	workflowWasmPath := filepath.Join(outputDir, workflowName+".wasm")
 
-	goModTidyCmd := exec.CommandContext(ctx, "go", "mod", "tidy")
-	goModTidyCmd.Dir = filepath.Dir(workflowFilePath)
-	if output, err := goModTidyCmd.CombinedOutput(); err != nil {
-		return "", errors.Wrapf(err, "failed to run go mod tidy: %s", string(output))
+	// retry: go mod tidy downloads modules
+	tidyErr := retry.New(
+		retry.Context(ctx),
+		retry.Attempts(3),
+		retry.Delay(5*time.Second),
+		retry.LastErrorOnly(true),
+	).Do(func() error {
+		goModTidyCmd := exec.CommandContext(ctx, "go", "mod", "tidy")
+		goModTidyCmd.Dir = filepath.Dir(workflowFilePath)
+		if output, err := goModTidyCmd.CombinedOutput(); err != nil {
+			return errors.Wrapf(err, "failed to run go mod tidy: %s", strings.TrimSpace(string(output)))
+		}
+		return nil
+	})
+	if tidyErr != nil {
+		return "", tidyErr
 	}
 
 	compileCmd := exec.CommandContext(ctx, "go", "build", "-o", workflowWasmPath, filepath.Base(workflowFilePath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
 	compileCmd.Dir = filepath.Dir(workflowFilePath)
 	compileCmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=wasip1", "GOARCH=wasm")
 	if output, err := compileCmd.CombinedOutput(); err != nil {
-		fmt.Fprint(os.Stderr, string(output))
-		return "", errors.Wrap(err, "failed to compile workflow")
+		return "", errors.Wrapf(err, "failed to compile workflow: %s", strings.TrimSpace(string(output)))
 	}
 
 	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(workflowWasmPath)

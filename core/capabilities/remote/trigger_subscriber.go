@@ -535,6 +535,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				}
 			}
 			if registration == nil {
+				s.mu.Unlock()
 				s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "triggerID", triggerID, "sender", sender)
 				continue // was unregistered in the meantime
 			}

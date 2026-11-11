@@ -71,10 +71,7 @@ const (
 	channelsPerRound = 5
 	// pumpWaitTimeout bounds how long a round driver waits for the blob pump to
 	// park a snapshot. A cycle costs microseconds even at the widest workload, so
-	// this is ~100x headroom on the happy path. It is deliberately small because
-	// the timeout is also hit on rounds where the pump legitimately parks nothing
-	// (no channel definitions in state yet), and those waits are pure dead time
-	// in the warmup of every v31 sub-benchmark.
+	// this is ~100x headroom on the happy path.
 	pumpWaitTimeout = 250 * time.Millisecond
 	// warmupRoundSlack is added on top of the minimum rounds needed to add every
 	// channel, to allow the last batch to become reportable and to absorb the
@@ -360,23 +357,28 @@ func bootOrReplicate(obs []byte, n int, seqNr uint64) []ocrtypes.AttributedObser
 // between rounds restores the wall-clock gap a real round has.
 //
 // The wait is best-effort: the caller's own round budget is the real failure
-// signal, so a timeout here is not fatal. The bootstrap round (seqNr 1) has no
-// Observation and therefore never kicks the pump, so waiting on it can only
-// time out; skip it.
+// signal, so a timeout here is not fatal.
 func v31RoundSynced(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInfo], db ocr3_1types.KeyValueDatabase, bbf *llotest.BlobBroadcastFetcher, seqNr uint64, n int) ([]ocr3types.ReportPlus[llotypes.ReportInfo], []byte) {
 	tb.Helper()
 	before := bbf.Broadcasts()
 	reports, obs := v31Round(tb, p, db, bbf, seqNr, n)
-	if seqNr > 1 {
-		waitForPump(tb, bbf, before)
-	}
+	waitForPump(tb, bbf, before)
 	return reports, obs
 }
 
 // waitForPump blocks until the pump has broadcast a blob beyond `before`, or
 // pumpWaitTimeout elapses.
+//
+// Until the first broadcast the pump has nothing to gather: the bootstrap round
+// has no Observation, and the rounds before channel definitions land in state
+// request no streams, so no cycle runs and the wait could only time out. Skip
+// it. The first cycle that does run is covered by the pump itself, since Take
+// waits for an in-flight cycle before falling back to what is parked.
 func waitForPump(tb testing.TB, bbf *llotest.BlobBroadcastFetcher, before int) {
 	tb.Helper()
+	if before == 0 {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), pumpWaitTimeout)
 	defer cancel()
 	_ = bbf.WaitForBroadcast(ctx, before)

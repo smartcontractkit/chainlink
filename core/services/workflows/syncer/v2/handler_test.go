@@ -2137,8 +2137,10 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		WithEngineFactoryFn(mockEngineFactory),
 		WithOrgResolver(orgResolver),
 		WithEventEmitter(events.NewEmitter(rec, events.WithNoDurableEmit())),
+		WithShardIndex(3),
 	)
 	require.NoError(t, err)
+	h.SetWorkflowDon(commoncap.DON{ID: 7})
 
 	// Handle workflow registered event
 	event := WorkflowRegisteredEvent{
@@ -2173,6 +2175,9 @@ func Test_Handler_OrganizationID(t *testing.T) {
 
 		if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
 			orgIDFound = true
+			require.Equal(t, int32(7), payload.CreInfo.DonID)
+			require.Equal(t, int32(7), payload.CreInfo.WorkflowDonID)
+			require.Equal(t, uint32(3), payload.CreInfo.ShardIndex)
 			break
 		}
 	}
@@ -2205,8 +2210,10 @@ func Test_Handler_OrganizationID(t *testing.T) {
 			WithEngineFactoryFn(mockEngineFactory),
 			WithOrgResolver(orgResolver),
 			WithEventEmitter(events.NewEmitter(deleteRec, events.WithNoDurableEmit())),
+			WithShardIndex(3),
 		)
 		require.NoError(t, err)
+		hDelete.SetWorkflowDon(commoncap.DON{ID: 7})
 
 		err = hDelete.Handle(ctx, Event{
 			Name: WorkflowDeleted,
@@ -2228,6 +2235,9 @@ func Test_Handler_OrganizationID(t *testing.T) {
 
 			if payload.Workflow != nil && payload.Workflow.WorkflowKey != nil && payload.Workflow.WorkflowKey.OrganizationID == "test-org" {
 				deleteOrgIDFound = true
+				require.Equal(t, int32(7), payload.CreInfo.DonID)
+				require.Equal(t, int32(7), payload.CreInfo.WorkflowDonID)
+				require.Equal(t, uint32(3), payload.CreInfo.ShardIndex)
 				break
 			}
 		}
@@ -2724,6 +2734,105 @@ func Test_handler_SourceParity_PauseActivateCycle(t *testing.T) {
 			wantDeleteID := resourcemanager.EventID("workflow-spec-delete", wfID.Hex(), strconv.FormatUint(createdAt, 10))
 			requireSpecDelta(t, records[2], "-1", wfID.Hex(), wantDeleteID)
 			requireSpecBytesDelta(t, records[3], "-12", wfID.Hex(), meteringBytesEventID(wantDeleteID))
+		})
+	}
+}
+
+// Test_Handler_ShardTransitionSkipsStatusEmit checks that lifecycle events marked
+// ShardTransition still run through the handler but send no external lifecycle
+// events or customer messages. Both handler paths fail here, since customer
+// messages are only sent on failure.
+func Test_Handler_ShardTransitionSkipsStatusEmit(t *testing.T) {
+	t.Parallel()
+
+	wfID := types.WorkflowID{0x42}
+	owner := []byte{0xaa, 0xbb, 0xcc, 0xdd}
+
+	newHandler := func(t *testing.T, orm *mocks.ORM) (h *eventHandler, statusRec, custMsgRec *beholdertest.Recorder) {
+		t.Helper()
+		lggr := logger.TestLogger(t)
+		lf := limits.Factory{Logger: lggr}
+		custMsgRec = beholdertest.NewRecorder()
+		custMsgEmitter := custmsg.NewLabelerWithEmitter(custMsgRec)
+		statusRec = beholdertest.NewRecorder()
+
+		er := NewEngineRegistry()
+		registry := capreg.NewRegistry(lggr)
+		registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
+		limiters, err := v2.NewLimiters(lf, nil)
+		require.NoError(t, err)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+		require.NoError(t, err)
+		fetcher := newMockFetcher(map[string]mockFetchResp{})
+		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custMsgEmitter, lf, artifacts.WithConfig(artifacts.StoreConfig{
+			ArtifactStorageHost: "example.com",
+		}))
+		require.NoError(t, err)
+
+		h, err = NewEventHandler(lggr, store.NewInMemoryStore(lggr, clockwork.NewFakeClock()), nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, custMsgEmitter, limiters, nil, rl, workflowLimits, artifactStore, workflowkey.MustNewXXXTestingOnly(big.NewInt(1)), &testDonNotifier{},
+			WithEngineRegistry(er),
+			WithEngineFactoryFn(mockEngineFactory),
+			withTestOrgResolver(),
+			WithEventEmitter(events.NewEmitter(statusRec, events.WithNoDurableEmit())),
+		)
+		require.NoError(t, err)
+		return h, statusRec, custMsgRec
+	}
+
+	for _, shardTransition := range []bool{false, true} {
+		t.Run(fmt.Sprintf("WorkflowDeleted/ShardTransition=%t", shardTransition), func(t *testing.T) {
+			t.Parallel()
+			orm := mocks.NewORM(t)
+			orm.EXPECT().GetWorkflowSpec(mock.Anything, wfID.Hex()).Return(&job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				WorkflowOwner: hex.EncodeToString(owner),
+				WorkflowName:  "wf",
+			}, nil)
+			orm.EXPECT().DeleteWorkflowSpec(mock.Anything, wfID.Hex()).Return(nil, assert.AnError)
+			h, statusRec, custMsgRec := newHandler(t, orm)
+
+			require.Error(t, h.Handle(t.Context(), Event{
+				Name:            WorkflowDeleted,
+				Data:            WorkflowDeletedEvent{WorkflowID: wfID},
+				ShardTransition: shardTransition,
+			}))
+
+			// The spec release is attempted either way (asserted by the ORM mock); only the external signals differ.
+			if shardTransition {
+				assert.Zero(t, statusRec.Len(t), "shard moves must not emit a lifecycle event")
+				assert.Zero(t, custMsgRec.Len(t), "shard moves must not send customer messages")
+			} else {
+				assert.Positive(t, statusRec.Len(t, "beholder_entity", "workflows.v2.WorkflowDeleted"))
+				assert.Positive(t, custMsgRec.Len(t))
+			}
+		})
+
+		t.Run(fmt.Sprintf("WorkflowActivated/ShardTransition=%t", shardTransition), func(t *testing.T) {
+			t.Parallel()
+			orm := mocks.NewORM(t)
+			orm.EXPECT().GetWorkflowSpec(mock.Anything, wfID.Hex()).Return(nil, assert.AnError)
+			h, statusRec, custMsgRec := newHandler(t, orm)
+
+			require.Error(t, h.Handle(t.Context(), Event{
+				Name: WorkflowActivated,
+				Data: WorkflowActivatedEvent{
+					WorkflowID:    wfID,
+					WorkflowOwner: owner,
+					WorkflowName:  "wf",
+					Status:        WorkflowStatusActive,
+				},
+				ShardTransition: shardTransition,
+			}))
+
+			if shardTransition {
+				assert.Zero(t, statusRec.Len(t), "shard moves must not emit a lifecycle event")
+				assert.Zero(t, custMsgRec.Len(t), "shard moves must not send customer messages")
+			} else {
+				assert.Positive(t, statusRec.Len(t, "beholder_entity", "workflows.v2.WorkflowActivated"))
+				assert.Positive(t, custMsgRec.Len(t))
+			}
 		})
 	}
 }

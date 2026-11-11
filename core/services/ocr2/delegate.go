@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	kvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/keyvaluedatabase"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -167,6 +168,19 @@ type Delegate struct {
 	// RegistryBasedLaunchAllowlist are started by LocalCapabilityManager,
 	// and ServicesForSpec rejects job specs for them to avoid double launch.
 	localCfg coreconfig.LocalCapabilities
+	// lloKeyValueDatabaseFactory replaces the on-disk store for LLO v31
+	// jobs when set. Tests only.
+	lloKeyValueDatabaseFactory ocr3_1types.KeyValueDatabaseFactory
+	// lloNetworkEndpointWrapper wraps the network endpoint factories LLO
+	// jobs use when set. Tests only.
+	lloNetworkEndpointWrapper LLONetworkEndpointWrapper
+}
+
+// LLONetworkEndpointWrapper wraps the network endpoint factories LLO jobs
+// use, so a test can observe the traffic a DON moves. Tests only.
+type LLONetworkEndpointWrapper interface {
+	WrapEndpointFactory(ocrtypes.BinaryNetworkEndpointFactory) ocrtypes.BinaryNetworkEndpointFactory
+	WrapEndpoint2Factory(ocrtypes.BinaryNetworkEndpoint2Factory) ocrtypes.BinaryNetworkEndpoint2Factory
 }
 
 type DelegateConfig interface {
@@ -303,6 +317,13 @@ type DelegateOpts struct {
 	CapRegistryAddress   string
 	CapRegistryChainID   string
 	LocalCfg             coreconfig.LocalCapabilities
+
+	// LLOKeyValueDatabaseFactory replaces the on-disk pebble store LLO v31
+	// jobs use when set. Tests only, so a benchmark can run in memory.
+	LLOKeyValueDatabaseFactory ocr3_1types.KeyValueDatabaseFactory
+	// LLONetworkEndpointWrapper wraps the network endpoint factories LLO
+	// jobs use. Tests only, so a benchmark can count bytes on the wire.
+	LLONetworkEndpointWrapper LLONetworkEndpointWrapper
 }
 
 func NewDelegate(
@@ -342,6 +363,8 @@ func NewDelegate(
 		capRegistryAddress:             opts.CapRegistryAddress,
 		capRegistryChainID:             opts.CapRegistryChainID,
 		localCfg:                       opts.LocalCfg,
+		lloKeyValueDatabaseFactory:     opts.LLOKeyValueDatabaseFactory,
+		lloNetworkEndpointWrapper:      opts.LLONetworkEndpointWrapper,
 	}
 }
 
@@ -553,7 +576,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		// The job-spec path carries no registry capability ID, so fall back to
 		// the pinned constant; the registry-driven path (NewServices) passes the
 		// actual ID from the registry.
-		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, dontimeCapabilityID)
+		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, dontimeCapabilityID, d.limitsFactory)
 
 	case types.RingPlugin:
 		return d.newServicesRing(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
@@ -686,7 +709,7 @@ func (d *Delegate) NewServices(
 
 	switch pluginType {
 	case types.DonTimePlugin:
-		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, capabilityID)
+		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, capabilityID, d.limitsFactory)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported for registry-driven launch", pluginType)
 	}
@@ -977,7 +1000,8 @@ func (d *Delegate) newServicesVaultPlugin(
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
 	lpk := vaultcap.NewLazyPublicKey()
-	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, limitsFactory, requestLifecycle)
+	directReader := vaultcap.NewLazyDirectSecretsReader()
+	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, directReader, limitsFactory, requestLifecycle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault capability: %w", err)
 	}
@@ -1054,7 +1078,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		return nil, err
 	}
 
-	oracleArgs := libocr2.OCR3_1OracleArgs2[[]byte]{
+	oracleArgs := libocr2.OCR3_1OracleArgs3[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
@@ -1080,13 +1104,14 @@ func (d *Delegate) newServicesVaultPlugin(
 		vaultocrplugin.NewVaultORM(d.ds),
 		&dkgRecipientKey,
 		lpk,
+		directReader,
 		limitsFactory,
 		requestLifecycle,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)
 	}
-	wrappedRpf := beholderwrapper.NewReportingPluginFactory(
+	wrappedRpf := beholderwrapper.NewReportingPluginFactory2(
 		rpf,
 		lggr,
 		"vault",
@@ -1175,6 +1200,7 @@ func (d *Delegate) newDonTimePlugin(
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	capabilityID string,
+	limitsFactory limits.Factory,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
@@ -1269,6 +1295,10 @@ func (d *Delegate) newDonTimePlugin(
 	if err != nil {
 		return nil, err
 	}
+	err = baseFactory.InitLimits(limitsFactory)
+	if err != nil {
+		return nil, err
+	}
 	oracleArgs.ReportingPluginFactory = ocr3beholderwrapper.NewReportingPluginFactory(
 		baseFactory,
 		lggr,
@@ -1276,10 +1306,6 @@ func (d *Delegate) newDonTimePlugin(
 	)
 
 	oracle, err := libocr2.NewOracle(oracleArgs)
-	if err != nil {
-		return nil, err
-	}
-
 	if err != nil {
 		return nil, err
 	}
@@ -1819,7 +1845,7 @@ func (d *Delegate) newServicesLLO(
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
 		SampleTelemetry:              d.cfg.OCR2().SampleTelemetry(),
-		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		BinaryNetworkEndpointFactory: d.lloEndpointFactory(),
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          provider.ContractTransmitter(),
 		ContractConfigTrackers:       provider.ContractConfigTrackers(),
@@ -1847,12 +1873,15 @@ func (d *Delegate) newServicesLLO(
 	// directory stays per job too, since the key-value database is created per
 	// config digest and so the instances cannot collide inside it.
 	if pluginCfg.AnyV31() {
-		fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
-		if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700)); err != nil {
-			return nil, fmt.Errorf("failed to create LLO key value store directory: %w", err)
+		cfg.BinaryNetworkEndpoint2Factory = d.lloEndpoint2Factory()
+		cfg.KeyValueDatabaseFactory = d.lloKeyValueDatabaseFactory
+		if cfg.KeyValueDatabaseFactory == nil {
+			fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
+			if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700)); err != nil {
+				return nil, fmt.Errorf("failed to create LLO key value store directory: %w", err)
+			}
+			cfg.KeyValueDatabaseFactory = kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
 		}
-		cfg.BinaryNetworkEndpoint2Factory = d.peerWrapper.Peer3_1
-		cfg.KeyValueDatabaseFactory = kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
 	}
 
 	oracle, err := llo.NewDelegate(cfg)
@@ -1925,4 +1954,21 @@ type errorLog struct {
 
 func (l *errorLog) SaveError(ctx context.Context, msg string) error {
 	return l.recordError(ctx, l.jobID, msg)
+}
+
+// lloEndpointFactory returns the OCR3 network endpoint factory for LLO jobs,
+// wrapped for testing and benchmarking.
+func (d *Delegate) lloEndpointFactory() ocrtypes.BinaryNetworkEndpointFactory {
+	if d.lloNetworkEndpointWrapper != nil {
+		return d.lloNetworkEndpointWrapper.WrapEndpointFactory(d.peerWrapper.Peer2)
+	}
+	return d.peerWrapper.Peer2
+}
+
+// lloEndpoint2Factory is lloEndpointFactory for the OCR3.1 endpoint.
+func (d *Delegate) lloEndpoint2Factory() ocrtypes.BinaryNetworkEndpoint2Factory {
+	if d.lloNetworkEndpointWrapper != nil {
+		return d.lloNetworkEndpointWrapper.WrapEndpoint2Factory(d.peerWrapper.Peer3_1)
+	}
+	return d.peerWrapper.Peer3_1
 }

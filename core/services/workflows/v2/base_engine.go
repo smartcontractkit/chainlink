@@ -55,8 +55,8 @@ var (
 	ErrEngineDraining     = triggers.ErrEngineDraining
 	ErrEngineClosed       = triggers.ErrEngineClosed
 
-	ErrShardDeniedNotOwner     = fmt.Errorf("shard ownership denied: not owner: %w", triggers.ErrAdmissionDenied)
-	ErrShardDeniedOrchestrator = fmt.Errorf("shard ownership denied: orchestrator error: %w", triggers.ErrAdmissionDenied)
+	ErrShardDeniedNotOwner     = triggers.ErrShardDeniedNotOwner
+	ErrShardDeniedOrchestrator = triggers.ErrShardDeniedOrchestrator
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
 	ErrAdmissionCache          = triggers.ErrAdmissionCached
 
@@ -196,7 +196,7 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2, metering.WithEventEmitter(cfg.EventEmitter))
 	engine.metrics = metricsLabeler
 	// Disabled metering is a no-op inside the resource manager.
-	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter})
+	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter, Settings: cfg.LocalLimiters.Settings})
 	engine.usageIdentity = resourcemanager.WithWorkflowUsagePool(
 		resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
 		resourcemanager.ResourceTypeWorkflowCompute)
@@ -775,7 +775,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	}
 	execHelper = &ExecutionHelper{
 		base: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
-		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
+		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID, executionTimestamp),
 		executionProfile: newExecutionProfileCollector(),
 	}
 
@@ -869,7 +869,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	return nil
 }
 
-func (e *baseEngine) secretsFetcher(executionID string) SecretsFetcher {
+func (e *baseEngine) secretsFetcher(executionID string, executionTimestamp time.Time) SecretsFetcher {
 	if e.cfg.SecretsFetcher != nil {
 		return e.cfg.SecretsFetcher
 	}
@@ -886,6 +886,7 @@ func (e *baseEngine) secretsFetcher(executionID string) SecretsFetcher {
 		e.cfg.WorkflowName.String(),
 		e.cfg.WorkflowID,
 		executionID,
+		executionTimestamp,
 		e.cfg.WorkflowEncryptionKey,
 		e.cfg.OverrideFetcher,
 	)
@@ -1073,6 +1074,8 @@ func (e *baseEngine) buildLabels(localNode *capabilities.Node) []any {
 		platform.KeyWorkflowName, e.cfg.WorkflowName.String(),
 		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2,
 		platform.KeyDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyWorkflowDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyShardIndex, strconv.FormatUint(uint64(e.cfg.ShardIndex), 10),
 		platform.KeyDonF, strconv.Itoa(int(localNode.WorkflowDON.F)),
 		platform.KeyDonN, strconv.Itoa(len(localNode.WorkflowDON.Members)),
 		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(

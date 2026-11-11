@@ -52,7 +52,7 @@ import (
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
@@ -1350,7 +1350,17 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 	cfg := defaultTestConfig(t, func(cfg *cresettings.Workflows) {
 		cfg.CapabilityCallTimeout.DefaultValue = 50 * time.Millisecond
 	})
-	cfg.Lggr, logs = logger.TestObserved(t, zapcore.ErrorLevel)
+	cfg.Lggr, logs = logger.TestObserved(t, zapcore.DebugLevel)
+	// relevantLogs drains the observer and keeps errors plus the (debug-level) metering mode switch.
+	relevantLogs := func() []observer.LoggedEntry {
+		var out []observer.LoggedEntry
+		for _, e := range logs.TakeAll() {
+			if e.Level >= zapcore.ErrorLevel || strings.Contains(e.Message, "switching to metering mode") {
+				out = append(out, e)
+			}
+		}
+		return out
+	}
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
@@ -1450,7 +1460,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		require.Equal(t, wantExecID, executionID)
 		capability.AssertExpectations(t)
 
-		logged := logs.TakeAll()
+		logged := relevantLogs()
 		require.Len(t, logged, 1)
 		assert.Contains(t, logged[0].Message, "switching to metering mode")
 	})
@@ -1544,7 +1554,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		require.Equal(t, wantExecID, executionID)
 		capability.AssertExpectations(t)
 
-		logged := logs.TakeAll()
+		logged := relevantLogs()
 		require.Empty(t, logged)
 	})
 
@@ -1624,7 +1634,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		require.Equal(t, wantExecID, executionID)
 		capability.AssertExpectations(t)
 
-		logged := logs.TakeAll()
+		logged := relevantLogs()
 		require.Empty(t, logged)
 	})
 
@@ -1718,7 +1728,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		require.Equal(t, wantExecID, executionID)
 		capability.AssertExpectations(t)
 
-		logged := logs.TakeAll()
+		logged := relevantLogs()
 		require.Len(t, logged, 1)
 		assert.Contains(t, logged[0].Message, "metering mode")
 	})
@@ -2197,6 +2207,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		cfg.WorkflowName.String(),
 		cfg.WorkflowID,
 		"",
+		time.Time{},
 		cfg.WorkflowEncryptionKey,
 		nil,
 	)
@@ -3244,7 +3255,7 @@ func beholderBaseMessages(t *testing.T, rec *beholdertest.Recorder) []beholder.M
 
 func beholderUserLogMessages(t *testing.T, rec *beholdertest.Recorder) []beholder.Message {
 	t.Helper()
-	return rec.Messages(t, "beholder_entity", fmt.Sprintf("%s.%s", workflowEvents.ProtoPkg, workflowEvents.UserLogs))
+	return rec.Messages(t, "beholder_entity", "workflows.v2."+workflowEvents.WorkflowUserLog)
 }
 
 // eventLabelsMatchStatus returns observed BaseMessages and the label set still being
@@ -3357,19 +3368,17 @@ func requireEventsMessages(t *testing.T, rec *beholdertest.Recorder, expected []
 func userLogMatchStatus(msgs []beholder.Message, expectedSubstrings []string) (observed, missing []string) {
 	nextToFind := 0
 	for _, msg := range msgs {
-		if msg.Attrs["beholder_entity"] != "workflows.v1.UserLogs" {
+		if msg.Attrs["beholder_entity"] != "workflows.v2.WorkflowUserLog" {
 			continue
 		}
-		var payload events.UserLogs
+		var payload eventsv2.WorkflowUserLog
 		if err := proto.Unmarshal(msg.Body, &payload); err != nil {
 			continue
 		}
-		for _, log := range payload.LogLines {
-			observed = append(observed, log.Message)
-			if nextToFind < len(expectedSubstrings) &&
-				strings.Contains(log.Message, expectedSubstrings[nextToFind]) {
-				nextToFind++
-			}
+		observed = append(observed, payload.Msg)
+		if nextToFind < len(expectedSubstrings) &&
+			strings.Contains(payload.Msg, expectedSubstrings[nextToFind]) {
+			nextToFind++
 		}
 	}
 	return observed, expectedSubstrings[nextToFind:]
