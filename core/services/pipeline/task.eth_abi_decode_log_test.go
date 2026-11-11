@@ -16,6 +16,7 @@ import (
 )
 
 func TestETHABIDecodeLogTask(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name                  string
 		abi                   string
@@ -229,6 +230,7 @@ func TestETHABIDecodeLogTask(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.ETHABIDecodeLogTask{
 				BaseTask: pipeline.NewBaseTask(0, "decodelog", nil, nil, 0),
 				ABI:      test.abi,

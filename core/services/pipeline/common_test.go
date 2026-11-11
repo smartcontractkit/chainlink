@@ -104,6 +104,7 @@ func TestRetryUnmarshal(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			p, err := pipeline.Parse(test.spec)
 			require.NoError(t, err)
 			require.Len(t, p.Tasks, 1)
@@ -118,6 +119,7 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns error if task is not the right type", func(t *testing.T) {
+		t.Parallel()
 		taskMap := any(nil)
 		_, err := pipeline.UnmarshalTaskFromMap(pipeline.TaskType("http"), taskMap, 0, "foo-dot-id")
 		require.EqualError(t, err, "UnmarshalTaskFromMap: UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string. Got <nil> (<nil>) of type <nil>")
@@ -132,6 +134,7 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 	})
 
 	t.Run("unknown task type", func(t *testing.T) {
+		t.Parallel()
 		taskMap := map[string]string{}
 		_, err := pipeline.UnmarshalTaskFromMap(pipeline.TaskType("xxx"), taskMap, 0, "foo-dot-id")
 		require.EqualError(t, err, `UnmarshalTaskFromMap: unknown task type: "xxx"`)
@@ -187,6 +190,7 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(string(test.taskType), func(t *testing.T) {
+			t.Parallel()
 			taskMap := map[string]string{}
 			task, err := pipeline.UnmarshalTaskFromMap(test.taskType, taskMap, 0, "foo-dot-id")
 			require.NoError(t, err)
@@ -225,6 +229,7 @@ func TestCheckInputs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			outputs, err := pipeline.CheckInputs(test.pr, test.minLen, test.maxLen, test.maxErrors)
 			if test.err == nil {
 				require.NoError(t, err)
@@ -265,43 +270,51 @@ func TestSelectGasLimit(t *testing.T) {
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
 	t.Run("spec defined gas limit", func(t *testing.T) {
+		t.Parallel()
 		var specGasLimit uint32 = 1
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.DirectRequestJobType, &specGasLimit)
 		assert.Equal(t, uint64(1), gasLimit)
 	})
 
 	t.Run("direct request specific gas limit", func(t *testing.T) {
+		t.Parallel()
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.DirectRequestJobType, nil)
 		assert.Equal(t, uint64(100), gasLimit)
 	})
 
 	t.Run("OCR specific gas limit", func(t *testing.T) {
+		t.Parallel()
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.OffchainReportingJobType, nil)
 		assert.Equal(t, uint64(103), gasLimit)
 	})
 
 	t.Run("OCR2 specific gas limit", func(t *testing.T) {
+		t.Parallel()
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.OffchainReporting2JobType, nil)
 		assert.Equal(t, uint64(105), gasLimit)
 	})
 
 	t.Run("VRF specific gas limit", func(t *testing.T) {
+		t.Parallel()
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.VRFJobType, nil)
 		assert.Equal(t, uint64(101), gasLimit)
 	})
 
 	t.Run("flux monitor specific gas limit", func(t *testing.T) {
+		t.Parallel()
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.FluxMonitorJobType, nil)
 		assert.Equal(t, uint64(102), gasLimit)
 	})
 
 	t.Run("fallback to default gas limit", func(t *testing.T) {
+		t.Parallel()
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.WebhookJobType, nil)
 		assert.Equal(t, uint64(999), gasLimit)
 	})
 }
 
 func TestGetNextTaskOf(t *testing.T) {
+	t.Parallel()
 	trrs := pipeline.TaskRunResults{
 		{
 			Task: &pipeline.BridgeTask{
@@ -343,6 +356,7 @@ func TestGetDescendantTasks(t *testing.T) {
 	t.Parallel()
 
 	t.Run("GetDescendantTasks with multiple levels of tasks", func(t *testing.T) {
+		t.Parallel()
 		l3T2 := pipeline.AnyTask{
 			BaseTask: pipeline.NewBaseTask(6, "l3T2", nil, nil, 1),
 		}
@@ -372,6 +386,7 @@ func TestGetDescendantTasks(t *testing.T) {
 	})
 
 	t.Run("GetDescendantTasks with duplicate tasks defined", func(t *testing.T) {
+		t.Parallel()
 		l2T1 := pipeline.JSONParseTask{
 			BaseTask: pipeline.NewBaseTask(2, "l1T2", nil, nil, 3),
 		}
@@ -387,6 +402,7 @@ func TestGetDescendantTasks(t *testing.T) {
 	})
 
 	t.Run("GetDescendantTasks with nil output tasks", func(t *testing.T) {
+		t.Parallel()
 		taskWithRepeats := pipeline.BridgeTask{
 			Name:     "bridge-task",
 			BaseTask: pipeline.NewBaseTask(0, "taskWithRepeats", nil, nil, 0),
@@ -396,6 +412,7 @@ func TestGetDescendantTasks(t *testing.T) {
 	})
 
 	t.Run("GetDescendantTasks with empty list of output tasks", func(t *testing.T) {
+		t.Parallel()
 		taskWithRepeats := pipeline.BridgeTask{
 			Name:     "bridge-task",
 			BaseTask: pipeline.NewBaseTask(0, "taskWithRepeats", nil, []pipeline.Task{}, 0),

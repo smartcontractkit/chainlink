@@ -53,6 +53,7 @@ func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.G
 }
 
 func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
@@ -134,6 +135,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 }
 
 func Test_PipelineRunner_ExecuteEthAbiDecode(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
@@ -390,12 +392,14 @@ decode_log -> decode_cbor;
 )
 
 func Test_PipelineRunner_CBORParse(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, db, btORM, cfg)
 
 	t.Run("diet mode, empty CBOR", func(t *testing.T) {
+		t.Parallel()
 		s := CBORDietEmpty
 		d, err := pipeline.Parse(s)
 		require.NoError(t, err)
@@ -423,6 +427,7 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 	})
 
 	t.Run("standard mode, string value", func(t *testing.T) {
+		t.Parallel()
 		s := CBORStdString
 		d, err := pipeline.Parse(s)
 		require.NoError(t, err)
@@ -451,6 +456,7 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 }
 
 func Test_PipelineRunner_HandleFaults(t *testing.T) {
+	t.Parallel()
 	// We want to test the scenario where one or multiple APIs time out,
 	// but a sufficient number of them still complete within the desired time frame
 	// and so we can still obtain a median.
@@ -502,6 +508,7 @@ answer1 [type=median                      index=0];
 }
 
 func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	orm := mocks.NewORM(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -549,6 +556,7 @@ succeed2 -> final;
 }
 
 func Test_PipelineRunner_ExecuteAndInsertFinishedRun_SavingTheSpec(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	orm := mocks.NewORM(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -595,6 +603,7 @@ succeed2 -> final;
 }
 
 func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -623,6 +632,7 @@ a->b2->c;`,
 }
 
 func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
+	t.Parallel()
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
 	r, _ := newRunner(t, pgtest.NewSqlxDB(t), btORM, cfg)
@@ -645,6 +655,7 @@ a->b2;`,
 }
 
 func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
@@ -781,6 +792,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 }
 
 func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
@@ -906,6 +918,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 }
 
 func Test_PipelineRunner_LowercaseOutputs(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -929,6 +942,7 @@ a [type=lowercase input="$(first)"]
 }
 
 func Test_PipelineRunner_UppercaseOutputs(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -951,6 +965,7 @@ a [type=uppercase input="$(first)"]
 }
 
 func Test_PipelineRunner_HexDecodeOutputs(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -973,6 +988,7 @@ a [type=hexdecode input="$(astring)"]
 }
 
 func Test_PipelineRunner_HexEncodeAndDecode(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -998,6 +1014,7 @@ en->de
 }
 
 func Test_PipelineRunner_Base64DecodeOutputs(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -1020,6 +1037,7 @@ a [type=base64decode input="$(astring)"]
 }
 
 func Test_PipelineRunner_Base64EncodeAndDecode(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	btORM := bridgesMocks.NewORM(t)
@@ -1045,6 +1063,7 @@ en->de
 }
 
 func Test_PipelineRunner_ExecuteRun(t *testing.T) {
+	t.Parallel()
 	t.Run("uses cached *Pipeline if available", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)

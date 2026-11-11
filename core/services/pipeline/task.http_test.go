@@ -314,6 +314,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 }
 
 func TestHTTPTask_Headers(t *testing.T) {
+	t.Parallel()
 	allHeaders := func(headers http.Header) (s []string) {
 		keys := make([]string, 0, len(headers))
 		for k := range headers {
@@ -331,6 +332,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 	standardHeaders := []string{"Content-Length", "38", "Content-Type", "application/json", "User-Agent", "Go-http-client/1.1"}
 
 	t.Run("sends headers", func(t *testing.T) {
+		t.Parallel()
 		config := configtest.NewTestGeneralConfig(t)
 		var headers http.Header
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -362,6 +364,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 	})
 
 	t.Run("errors with odd number of headers", func(t *testing.T) {
+		t.Parallel()
 		task := pipeline.HTTPTask{
 			Method:      "POST",
 			URL:         "http://example.com",
@@ -377,6 +380,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 	})
 
 	t.Run("allows to override content-type", func(t *testing.T) {
+		t.Parallel()
 		config := configtest.NewTestGeneralConfig(t)
 		var headers http.Header
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

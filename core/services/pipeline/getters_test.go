@@ -45,6 +45,7 @@ func TestGetters_VarExpr(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.expr, func(t *testing.T) {
+			t.Parallel()
 			getter := pipeline.VarExpr(test.expr, vars)
 			v, err := getter()
 			if test.err == nil {
@@ -99,6 +100,7 @@ func TestGetters_JSONWithVarExprs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.json, func(t *testing.T) {
+			t.Parallel()
 			getter := pipeline.JSONWithVarExprs(test.json, vars, test.allowErrors)
 			v, err := getter()
 			if test.err != nil {
@@ -119,6 +121,7 @@ func TestGetters_Input(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns the requested input's Value and Error if they exist", func(t *testing.T) {
+		t.Parallel()
 		expectedVal := "bar"
 		expectedErr := errors.New("some err")
 		val, err := pipeline.Input([]pipeline.Result{{Value: "foo"}, {Value: expectedVal, Error: expectedErr}, {Value: "baz"}}, 1)()
@@ -127,6 +130,7 @@ func TestGetters_Input(t *testing.T) {
 	})
 
 	t.Run("returns ErrIndexOutOfRange if the specified index is out of range", func(t *testing.T) {
+		t.Parallel()
 		_, err := pipeline.Input([]pipeline.Result{{Value: "foo"}}, 1)()
 		assert.Equal(t, pipeline.ErrIndexOutOfRange, errors.Cause(err))
 		_, err = pipeline.Input([]pipeline.Result{{Value: "foo"}}, -1)()
@@ -165,6 +169,7 @@ func TestGetters_Inputs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			val, err := pipeline.Inputs(test.inputs)()
 			assert.Equal(t, test.expectedErr, errors.Cause(err))
 			assert.Equal(t, test.expected, val)
@@ -176,12 +181,14 @@ func TestGetters_NonemptyString(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns any non-empty string", func(t *testing.T) {
+		t.Parallel()
 		val, err := pipeline.NonemptyString("foo bar")()
 		require.NoError(t, err)
 		assert.Equal(t, "foo bar", val)
 	})
 
 	t.Run("returns ErrParameterEmpty when given an empty string (including only spaces)", func(t *testing.T) {
+		t.Parallel()
 		_, err := pipeline.NonemptyString("")()
 		assert.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
 		_, err = pipeline.NonemptyString(" ")()
@@ -193,6 +200,7 @@ func TestGetters_ValidDurationInSeconds(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns duration in seconds", func(t *testing.T) {
+		t.Parallel()
 		val, err := pipeline.ValidDurationInSeconds("10s")()
 		require.NoError(t, err)
 		assert.Equal(t, 10, val)
@@ -207,6 +215,7 @@ func TestGetters_ValidDurationInSeconds(t *testing.T) {
 	})
 
 	t.Run("returns ErrParameterEmpty when given an empty string (including only spaces)", func(t *testing.T) {
+		t.Parallel()
 		_, err := pipeline.ValidDurationInSeconds("")()
 		assert.Equal(t, pipeline.ErrParameterEmpty, errors.Cause(err))
 		_, err = pipeline.ValidDurationInSeconds(" ")()
@@ -214,6 +223,7 @@ func TestGetters_ValidDurationInSeconds(t *testing.T) {
 	})
 
 	t.Run("returns duration errors when given invalid durations", func(t *testing.T) {
+		t.Parallel()
 		_, err := pipeline.ValidDurationInSeconds("1b")()
 		assert.Contains(t, err.Error(), "unknown unit")
 		_, err = pipeline.ValidDurationInSeconds("5")()
@@ -262,6 +272,7 @@ func TestGetters_From(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			getters := pipeline.From(test.input...)
 			assert.Len(t, getters, 2)
 

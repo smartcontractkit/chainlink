@@ -42,12 +42,15 @@ func TestHexDecodeTask(t *testing.T) {
 			}
 		}
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			t.Run("without vars through job DAG", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.HexDecodeTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0)}
 				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("without vars through input param", func(t *testing.T) {
+				t.Parallel()
 				inputStr := test.input
 				if inputStr == "" {
 					// empty input parameter is indistinguishable from not providing it at all
@@ -62,6 +65,7 @@ func TestHexDecodeTask(t *testing.T) {
 				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(map[string]any{
 					"foo": map[string]any{"bar": test.input},
 				})

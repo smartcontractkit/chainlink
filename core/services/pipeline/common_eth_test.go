@@ -94,6 +94,7 @@ func Test_convertToETHABIType(t *testing.T) {
 		for _, tc := range tt.cases {
 			abiType := mustABIType(t, tc.abiType)
 			t.Run(fmt.Sprintf("%s:%T", tc.abiType, tc.exp), func(t *testing.T) {
+				t.Parallel()
 				for _, val := range tt.vals {
 					t.Run(fmt.Sprintf("%T", val), func(t *testing.T) {
 						got, err := convertToETHABIType(val, abiType)
@@ -118,6 +119,7 @@ func Test_convertToETHABIType_Errors(t *testing.T) {
 		{"0xasdfasdfasdfasdfasdfsadfasdfasdfasdfasdf", "invalid hex"},
 	} {
 		t.Run(fmt.Sprintf("%T,%s", tt.val, tt.errStr), func(t *testing.T) {
+			t.Parallel()
 			_, err := convertToETHABIType(tt.val, mustABIType(t, "bytes20"))
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.errStr)
@@ -139,6 +141,7 @@ func Test_convertToETHABIBytes_Errors(t *testing.T) {
 		{"0xasdfasdfasdfasdfasdfsadfasdfasdfasdfasdf", "invalid hex"},
 	} {
 		t.Run(fmt.Sprintf("%T,%s", tt.val, tt.errStr), func(t *testing.T) {
+			t.Parallel()
 			a := reflect.TypeFor[[20]byte]()
 			b := reflect.ValueOf(tt.val)
 			_, err := convertToETHABIBytes(a, b, 20)

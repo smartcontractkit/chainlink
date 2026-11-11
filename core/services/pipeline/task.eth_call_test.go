@@ -286,6 +286,7 @@ func TestETHCallTask(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.ETHCallTask{
 				BaseTask:   pipeline.NewBaseTask(0, "ethcall", nil, nil, 0),
 				Contract:   test.contract,

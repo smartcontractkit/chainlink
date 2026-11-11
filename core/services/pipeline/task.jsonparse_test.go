@@ -403,6 +403,7 @@ func TestJSONParseTask(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.JSONParseTask{
 				BaseTask:  pipeline.NewBaseTask(0, "json", nil, nil, 0),
 				Path:      test.path,

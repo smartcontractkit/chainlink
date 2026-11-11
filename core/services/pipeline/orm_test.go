@@ -82,6 +82,7 @@ func setupLiteORM(t *testing.T) (db *sqlx.DB, orm pipeline.ORM, jorm job.ORM) {
 }
 
 func Test_PipelineORM_CreateSpec(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db, orm, _ := setupLiteORM(t)
 
@@ -105,6 +106,7 @@ func Test_PipelineORM_CreateSpec(t *testing.T) {
 }
 
 func Test_PipelineORM_FindRun(t *testing.T) {
+	t.Parallel()
 	db, orm, _ := setupLiteORM(t)
 
 	_, err := db.Exec(`SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
@@ -159,6 +161,7 @@ func mustInsertAsyncRun(t *testing.T, orm pipeline.ORM, jobORM job.ORM) *pipelin
 }
 
 func TestInsertFinishedRuns(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db, orm, _ := setupLiteORM(t)
 
@@ -219,6 +222,7 @@ func TestInsertFinishedRuns(t *testing.T) {
 }
 
 func Test_PipelineORM_InsertFinishedRunWithSpec(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db, orm, jorm := setupLiteORM(t)
 
@@ -296,6 +300,7 @@ answer2 [type=bridge name=election_winner index=1];
 
 // Tests that inserting run results, then later updating the run results via upsert will work correctly.
 func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	_, orm, jorm := setupLiteORM(t)
 
@@ -376,6 +381,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 // Tests that trying to persist a partial run while new data became available (i.e. via /v2/restart)
 // will detect a restart and update the result data on the Run.
 func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db, orm, jorm := setupLiteORM(t)
 
@@ -442,6 +448,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 }
 
 func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	_, orm, jorm := setupLiteORM(t)
 
@@ -524,6 +531,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 }
 
 func Test_PipelineORM_DeleteRun(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	_, orm, jorm := setupLiteORM(t)
 
@@ -567,6 +575,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 }
 
 func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db, orm, jorm := setupHeavyORM(t)
 

@@ -27,6 +27,7 @@ import (
 )
 
 func TestETHTxTask(t *testing.T) {
+	t.Parallel()
 	jid := int32(321)
 	reqID := common.HexToHash("0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2")
 	reqTxHash := common.HexToHash("0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8")
