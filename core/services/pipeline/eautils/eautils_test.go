@@ -8,6 +8,7 @@ import (
 )
 
 func TestBestEffortExtractEAStatus(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		arg        []byte
@@ -53,6 +54,7 @@ func TestBestEffortExtractEAStatus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			code, ok := BestEffortExtractEAStatus(tt.arg)
 			assert.Equal(t, tt.expectCode, code)
 			assert.Equal(t, tt.expectOk, ok)

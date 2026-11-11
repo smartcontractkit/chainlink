@@ -23,7 +23,7 @@ func TestHandleShutdown(t *testing.T) { //nolint:paralleltest // sends process-w
 		"SIGTERM": syscall.SIGTERM,
 	}
 
-	for name, sig := range tests {
+	for name, sig := range tests { //nolint:paralleltest // subtests send process-wide OS signals
 		t.Run(name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			go HandleShutdown(func(string) {

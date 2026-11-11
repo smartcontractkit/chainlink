@@ -14,9 +14,10 @@ import (
 
 func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 	ctx := t.Context()
-	db := pgtest.NewSqlxDB(t)
 
 	t.Run("With App Version Check", func(t *testing.T) {
+		t.Parallel()
+		db := pgtest.NewSqlxDB(t)
 		orm := NewORM(db, logger.TestLogger(t))
 
 		err := orm.UpsertNodeVersion(ctx, NewNodeVersion("9.9.8"))
@@ -60,6 +61,7 @@ func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 		require.Equal(t, "9.9.9", ver.Version)
 	})
 	t.Run("Without App Version Check", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
 		orm := NewORM(db, logger.TestLogger(t))
 		// Set the environment variable to skip the app version check
 		t.Setenv("CL_SKIP_APP_VERSION_CHECK", "true")
@@ -87,6 +89,7 @@ func TestORM_NodeVersion_UpsertNodeVersion(t *testing.T) {
 }
 
 func Test_Version_CheckVersion(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 
@@ -131,12 +134,8 @@ func Test_Version_CheckVersion(t *testing.T) {
 }
 
 func TestORM_CheckVersion_CCIP(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
-	db := pgtest.NewSqlxDB(t)
-
-	lggr := logger.TestLogger(t)
-
-	orm := NewORM(db, lggr)
 
 	tests := []struct {
 		name           string
@@ -196,11 +195,12 @@ func TestORM_CheckVersion_CCIP(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := db.ExecContext(ctx, `TRUNCATE node_versions;`)
-			require.NoError(t, err)
+			t.Parallel()
+			db := pgtest.NewSqlxDB(t)
+			orm := NewORM(db, logger.TestLogger(t))
 
 			require.NoError(t, orm.UpsertNodeVersion(ctx, NewNodeVersion(test.currentVersion)))
-			_, _, err = CheckVersion(ctx, db, lggr, test.newVersion, false)
+			_, _, err := CheckVersion(ctx, db, logger.TestLogger(t), test.newVersion, false)
 			if test.expectedError {
 				require.Error(t, err)
 			} else {
@@ -211,6 +211,7 @@ func TestORM_CheckVersion_CCIP(t *testing.T) {
 }
 
 func TestORM_NodeVersion_FindLatestNodeVersion(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(db, logger.TestLogger(t))
