@@ -152,7 +152,7 @@ func testIntegrationLLOHistoryBackfill(t *testing.T, v31 bool) {
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_backfill", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo_backfill", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	packetCh := make(chan *packet, 100000)

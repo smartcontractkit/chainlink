@@ -36,6 +36,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"go.uber.org/zap/zapcore"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
@@ -252,6 +253,18 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 }
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
+// appLogLevel is the level for the logger of an application that a test did not
+// give one. It follows the config (Info unless the test sets [Log] Level), not
+// Debug: the EVM services alone print thousands of debug lines per second, and each
+// line costs encoding, a stack lookup and the test output lock. Set
+// CL_TEST_DEBUG_LOGS=1 to get debug output back when chasing a failure.
+func appLogLevel(cfg chainlink.GeneralConfig) zapcore.Level {
+	if os.Getenv("CL_TEST_DEBUG_LOGS") != "" {
+		return zapcore.DebugLevel
+	}
+	return cfg.Log().Level()
+}
+
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled.
 func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
@@ -268,7 +281,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 	if lggr == nil {
-		lggr = logger.TestLogger(t)
+		lggr = logger.TestLogger(t, appLogLevel(cfg))
 	}
 
 	var auditLogger audit.Logger

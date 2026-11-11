@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -24,7 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
@@ -50,6 +50,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+)
+
+// The nodes in these tests print a lot: with debug logs, P2P tracing and verbose
+// pipeline and Mercury logging on, one package run writes ~200 MB of JSON, and
+// every line costs encoding, a stack lookup and the test output lock. That CPU
+// competes with the rest of the suite, so they are off by default. Set
+// LLO_TEST_DEBUG=1 when debugging a failure to turn all of them back on.
+var (
+	debugLogging = os.Getenv("LLO_TEST_DEBUG") != ""
+	testLogLevel = func() zapcore.Level {
+		if debugLogging {
+			return zapcore.DebugLevel
+		}
+		return zapcore.InfoLevel
+	}()
 )
 
 type mercuryServer struct {
@@ -120,7 +135,6 @@ type Node struct {
 	App          chainlink.Application
 	ClientPubKey credentials.StaticSizedPublicKey
 	KeyBundle    ocr2key.KeyBundle
-	ObservedLogs *observer.ObservedLogs
 }
 
 func (node *Node) AddStreamJob(t *testing.T, spec string) (id int32) {
@@ -160,9 +174,9 @@ func setupNode(
 	csaKey csakey.KeyV2,
 	f func(*chainlink.Config),
 	deps ...any,
-) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
-	app, peerID, clientPubKey, ocr2kb, observedLogs, _ = setupRestartableNode(t, port, dbName, backend, csaKey, f, deps...)
-	return app, peerID, clientPubKey, ocr2kb, observedLogs
+) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle) {
+	app, peerID, clientPubKey, ocr2kb, _ = setupRestartableNode(t, port, dbName, backend, csaKey, f, deps...)
+	return app, peerID, clientPubKey, ocr2kb
 }
 
 // setupRestartableNode is setupNode plus a restart hook. restart stops the
@@ -178,7 +192,7 @@ func setupRestartableNode(
 	csaKey csakey.KeyV2,
 	f func(*chainlink.Config),
 	deps ...any,
-) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs, restart func(t *testing.T, whileDown func()) chainlink.Application) {
+) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, restart func(t *testing.T, whileDown func()) chainlink.Application) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
 	rdr := keystest.NewRandReaderFromSeed(int64(port))
@@ -195,7 +209,7 @@ func setupRestartableNode(
 
 		// [JobPipeline]
 		c.JobPipeline.MaxSuccessfulRuns = new(uint64(0))
-		c.JobPipeline.VerboseLogging = new(true)
+		c.JobPipeline.VerboseLogging = new(debugLogging)
 
 		// [Feature]
 		c.Feature.UICSAKeys = new(true)
@@ -214,7 +228,7 @@ func setupRestartableNode(
 
 		// [P2P]
 		c.P2P.PeerID = new(p2pKey.PeerID())
-		c.P2P.TraceLogging = new(true)
+		c.P2P.TraceLogging = new(debugLogging)
 		// Required for OCR3.1 (llo/v31) networking (the "2" endpoint factory needs
 		// the experimental ragep2p host). Backward-compatible with OCR3.0.
 		c.P2P.EnableExperimentalRageP2P = new(true)
@@ -227,10 +241,10 @@ func setupRestartableNode(
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 
 		// [Mercury]
-		c.Mercury.VerboseLogging = new(true)
+		c.Mercury.VerboseLogging = new(debugLogging)
 
 		// [Log]
-		c.Log.Level = new(toml.LogLevel(zapcore.DebugLevel)) // generally speaking we want debug level for logs unless overridden
+		c.Log.Level = new(toml.LogLevel(testLogLevel)) // tests can override this
 
 		// [CRE]
 		c.CRE.UseLocalTimeProvider = new(true)
@@ -249,7 +263,7 @@ func setupRestartableNode(
 		}
 	})
 
-	lggr, observedLogs := logger.TestLoggerObserved(t, config.Log().Level())
+	lggr := logger.TestLogger(t, config.Log().Level())
 	// newApp builds and starts an application over the config above. Start
 	// registers its own cleanup, which tolerates an application this test
 	// already stopped.
@@ -275,7 +289,7 @@ func setupRestartableNode(
 		return current
 	}
 
-	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb, observedLogs, restart
+	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb, restart
 }
 
 // receiveWithTimeout receives from the packet channel with a timeout.

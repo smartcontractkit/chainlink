@@ -571,7 +571,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig lloprotocol
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("using legacy verifier configuration contract, produces reports in v0.3 format", func(t *testing.T) {
@@ -811,7 +811,7 @@ func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig lloprotocol.Off
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("generates reports using multiple formats", func(t *testing.T) {
@@ -1600,7 +1600,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
 		c.Log.Level = new(logLevel)
 	})
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
@@ -1828,7 +1828,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
 		c.Log.Level = new(logLevel)
 	})
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
@@ -2067,7 +2067,7 @@ func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig lloprotoc
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("Blue/Green lifecycle (using JSON report format)", func(t *testing.T) {
@@ -2451,7 +2451,7 @@ func testIntegrationLLOChannelMerging(t *testing.T, v31 bool) {
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("Channel merging lifecycle with owners and adders", func(t *testing.T) {
@@ -2991,7 +2991,7 @@ func testIntegrationLLOTombstone(t *testing.T, v31 bool) {
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_tombstone", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo_tombstone", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	packetCh := make(chan *packet, 100000)
@@ -3201,7 +3201,7 @@ func TestIntegration_LLO_bridgeConnManagerHappyPath(t *testing.T) {
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_bridgeconnmanager", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo_bridgeconnmanager", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	packetCh := make(chan *packet, 100000)
@@ -3304,11 +3304,11 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 func setupNodesWithRestart(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config), deps ...any) (oracles []confighelper.OracleIdentityExtra, nodes []Node, restarts []func(t *testing.T, whileDown func()) chainlink.Application) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
-		app, peerID, transmitter, kb, observedLogs, restart := setupRestartableNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f, deps...)
+		app, peerID, transmitter, kb, restart := setupRestartableNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f, deps...)
 		restarts = append(restarts, restart)
 
 		nodes = append(nodes, Node{
-			app, transmitter, kb, observedLogs,
+			app, transmitter, kb,
 		})
 		offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 		require.NoError(t, err)
@@ -3449,7 +3449,7 @@ func testIntegrationLLOAggregationFaultTolerance(t *testing.T, aft uint32, nPart
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_aft", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo_aft", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	packetCh := make(chan *packet, 100000)
@@ -3642,7 +3642,7 @@ func testIntegrationLLOV31BlobCatchup(t *testing.T, rejoin bool, salt int64, don
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_catchup", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo_catchup", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	packetCh := make(chan *packet, 100000)
@@ -3837,7 +3837,7 @@ func TestIntegration_LLO_v31_restart_resumes(t *testing.T) {
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_restart", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo_restart", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	packetCh := make(chan *packet, 100000)

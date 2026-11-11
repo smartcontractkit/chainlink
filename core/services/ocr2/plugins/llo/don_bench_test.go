@@ -276,7 +276,7 @@ func runDONBench(t *testing.T, version lloconfig.PluginVersion, salt int64, donI
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, fmt.Sprintf("bootstrap_llo_bench_%s", version), backend, bootstrapCSAKey, func(c *chainlink.Config) {
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, fmt.Sprintf("bootstrap_llo_bench_%s", version), backend, bootstrapCSAKey, func(c *chainlink.Config) {
 		c.Log.Level = new(logLevel)
 		onP2PHost(c)
 	})
