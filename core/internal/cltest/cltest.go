@@ -385,7 +385,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			}
 		}
 	}
-	keyStore := keystore.NewInMemory(ds, commonkeystore.FastScryptParams, lggr.Infof)
+	keyStore := keystore.NewInMemory(ds, TestScryptParams, lggr.Infof)
 	require.NoError(t, keyStore.Unlock(ctx, Password))
 	logPubKeys(t, keyStore)
 
@@ -793,10 +793,16 @@ func (ta *TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Sh
 	return client
 }
 
+// TestScryptParams is the cheapest scrypt cost (N=2^4) for test keystores.
+// The keyring is re-encrypted on every key add, so FastScryptParams (N=2^14,
+// ~16 MB per call) was a measurable share of CPU in suites that start many
+// apps. Tests of encryption itself should use real params.
+var TestScryptParams = commonkeystore.ScryptParams{N: 1 << 4, P: 1}
+
 // NewKeyStore returns a new, unlocked keystore
 func NewKeyStore(t testing.TB, ds sqlutil.DataSource) keystore.Master {
 	ctx := t.Context()
-	keystore := keystore.NewInMemory(ds, commonkeystore.FastScryptParams, logger.TestLogger(t).Infof)
+	keystore := keystore.NewInMemory(ds, TestScryptParams, logger.TestLogger(t).Infof)
 	require.NoError(t, keystore.Unlock(ctx, Password))
 	logPubKeys(t, keystore)
 	return keystore

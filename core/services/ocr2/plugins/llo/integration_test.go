@@ -304,6 +304,15 @@ func WithV31() OCRConfigOption {
 	}
 }
 
+// WithRMax sets the number of rounds per epoch. An oracle that joins or restarts
+// takes part from the next epoch, so a small RMax shortens its catch-up wait
+// (epoch length is about RMax x DeltaRound).
+func WithRMax(rMax uint64) OCRConfigOption {
+	return func(cfg *OCRConfig) {
+		cfg.RMax = rMax
+	}
+}
+
 type OCRConfigOption func(*OCRConfig)
 
 func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.OnchainPublicKey, transmitters []types.Account, f uint8, outOnchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) {
@@ -3569,6 +3578,10 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 // reporting, and an oracle whose job is deleted mid-run and re-created after
 // the DON has advanced many rounds without it. In both cases the remaining
 // 3 oracles (2F+1) keep the DON reporting throughout.
+// shortEpochRMax gives ~5 s epochs at the default 500ms DeltaRound, so a
+// late or restarted oracle does not wait out a 50 s epoch (RMax 100).
+const shortEpochRMax = uint64(10)
+
 func TestIntegration_LLO_v31_blob_catchup(t *testing.T) {
 	t.Parallel()
 	tcs := []struct {
@@ -3710,7 +3723,7 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
-		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(),
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(), WithRMax(shortEpochRMax),
 	)
 
 	// reportsFlowing drains transmitted reports for the channel under test until
@@ -3881,7 +3894,7 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
-		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(),
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(), WithRMax(shortEpochRMax),
 	)
 
 	reportsFlowing := func(d time.Duration) bool {
