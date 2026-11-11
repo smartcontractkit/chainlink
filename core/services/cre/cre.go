@@ -387,13 +387,11 @@ func (s *Services) newRegistrySyncer(
 
 	registryChainID, err := strconv.ParseUint(rid.ChainID, 10, 64)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to parse registry chain ID for OCRConfigService: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to parse capabilities registry chain ID: %w", err)
 	}
 	ocrConfigService := capregconfig.NewOCRConfigService(
 		lggr,
 		dispatcherWrapper.GetPeerID,
-		registryChainID,
-		registryAddress,
 	)
 	s.OCRConfigService = ocrConfigService
 
@@ -482,6 +480,7 @@ func (s *Services) newRegistrySyncer(
 		lggr,
 		dispatcherWrapper.GetPeerID,
 		relayer,
+		registryChainID,
 		registryAddress,
 		registrysyncerV1.NewORM(ds, lggr),
 	)

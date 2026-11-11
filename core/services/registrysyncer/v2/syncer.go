@@ -56,6 +56,7 @@ type registrySyncer struct {
 	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error)
 	relayer              ContractReaderFactory
 	capabilitiesContract types.BoundContract
+	chainID              uint64
 	getPeerID            func() (p2ptypes.PeerID, error)
 
 	orm registrysyncer.ORM
@@ -76,6 +77,7 @@ func New(
 	lggr logger.Logger,
 	getPeerID func() (p2ptypes.PeerID, error),
 	relayer ContractReaderFactory,
+	chainID uint64,
 	registryAddress string,
 	orm registrysyncer.ORM,
 ) (RegistrySyncer, error) {
@@ -94,6 +96,7 @@ func New(
 			Address: registryAddress,
 			Name:    "CapabilitiesRegistry",
 		},
+		chainID:    chainID,
 		initReader: newReader,
 		orm:        orm,
 		getPeerID:  getPeerID,
@@ -265,7 +268,8 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.R
 		cc := map[string]registry.CapabilityConfiguration{}
 		for _, dc := range d.CapabilityConfigurations {
 			cc[dc.CapabilityId] = registry.CapabilityConfiguration{
-				Config: dc.Config,
+				Config:           dc.Config,
+				OCR3DigestInputs: s.ocr3DigestInputs(d.Id, dc.CapabilityId),
 			}
 		}
 
@@ -349,6 +353,8 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		} else {
 			latestRegistry.Logger = s.lggr
 			latestRegistry.GetPeerID = s.getPeerID
+			// Persisted state may predate the digest inputs, so always restamp them.
+			s.setOCR3DigestInputs(latestRegistry)
 		}
 	}
 
@@ -383,6 +389,24 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	return nil
+}
+
+func (s *registrySyncer) ocr3DigestInputs(donID uint32, capabilityID string) registry.OCR3DigestInputs {
+	return registry.OCR3DigestInputs{
+		ChainID:         s.chainID,
+		RegistryAddress: s.capabilitiesContract.Address,
+		DonID:           donID,
+		CapabilityID:    capabilityID,
+	}
+}
+
+func (s *registrySyncer) setOCR3DigestInputs(md *registry.RegistryMetadata) {
+	for donID, don := range md.IDsToDONs {
+		for capID, cc := range don.CapabilityConfigurations {
+			cc.OCR3DigestInputs = s.ocr3DigestInputs(uint32(donID), capID)
+			don.CapabilityConfigurations[capID] = cc
+		}
+	}
 }
 
 type ContractCapabilityType uint8

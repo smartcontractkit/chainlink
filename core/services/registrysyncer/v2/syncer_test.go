@@ -115,6 +115,8 @@ func (l *launcher) OnNewRegistry(_ context.Context, localRegistry *registry.Regi
 	return nil
 }
 
+const testChainID = 1337
+
 type orm struct {
 	ormMock               *syncerMocks.ORM
 	mu                    sync.RWMutex
@@ -294,7 +296,7 @@ func TestReader_Integration(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	factory := newContractReaderFactory(t, simulatedBackend)
 	syncerORM := registrysyncer.NewORM(db, lggr)
-	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
+	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, testChainID, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -330,6 +332,12 @@ func TestReader_Integration(t *testing.T) {
 	gotDon := s.IDsToDONs[1]
 	assert.Equal(t, expectedDON, gotDon.DON)
 	assert.Equal(t, configb, gotDon.CapabilityConfigurations[cid].Config)
+	assert.Equal(t, registry.OCR3DigestInputs{
+		ChainID:         testChainID,
+		RegistryAddress: regAddress.Hex(),
+		DonID:           1,
+		CapabilityID:    cid,
+	}, gotDon.CapabilityConfigurations[cid].OCR3DigestInputs)
 
 	hashedID, err := registrysyncer_v2.HashCapabilityID(cid)
 	require.NoError(t, err, "Failed to hash capability ID")
@@ -510,6 +518,7 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 		lggr,
 		func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil },
 		factory,
+		testChainID,
 		regAddress.Hex(),
 		syncerORM,
 	)
@@ -841,7 +850,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	factory := newContractReaderFactory(t, simulatedBackend)
 	syncerORM := registrysyncer.NewORM(db, lggr)
-	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
+	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, testChainID, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -1082,7 +1091,7 @@ func TestSync_V2_PreservesNodeCapabilitiesDONIds(t *testing.T) {
 
 	reader := &stubReader{nodes: []capabilities_registry_v2.INodeInfoProviderNodeInfo{node}}
 
-	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: reader}, "0x0", nil)
+	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: reader}, testChainID, "0x0", nil)
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -1094,4 +1103,36 @@ func TestSync_V2_PreservesNodeCapabilitiesDONIds(t *testing.T) {
 	require.NotNil(t, l.localRegistry)
 	got := l.localRegistry.IDsToNodes[p2ptypes.PeerID(node.P2pId)]
 	require.Equal(t, donIDs, got.CapabilitiesDONIds)
+}
+
+func TestSync_V2_RestampsOCR3DigestInputsOnLocalRegistry(t *testing.T) {
+	t.Parallel()
+
+	capID := "consensus@1.0.0"
+	persisted := &registry.RegistryMetadata{
+		IDsToDONs: map[registry.DonID]registry.DON{
+			3: {CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
+				capID: {Config: []byte{0x01}},
+			}},
+		},
+	}
+	ormMock := syncerMocks.NewORM(t)
+	ormMock.On("LatestRegistryMetadata", mock.Anything).Return(persisted, nil)
+
+	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: &stubReader{}}, testChainID, "0xabc", ormMock)
+	require.NoError(t, err)
+
+	l := &launcher{}
+	syncer.AddListener(l)
+	require.NoError(t, syncer.Sync(t.Context(), true))
+
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	require.NotNil(t, l.localRegistry)
+	assert.Equal(t, registry.OCR3DigestInputs{
+		ChainID:         testChainID,
+		RegistryAddress: "0xabc",
+		DonID:           3,
+		CapabilityID:    capID,
+	}, l.localRegistry.IDsToDONs[3].CapabilityConfigurations[capID].OCR3DigestInputs)
 }

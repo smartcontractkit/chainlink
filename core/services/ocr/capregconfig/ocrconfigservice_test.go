@@ -30,9 +30,30 @@ func testPeerIDProvider() PeerIDProvider {
 	}
 }
 
+const (
+	testChainID         = 1
+	testRegistryAddress = "0x1234567890abcdef"
+)
+
+// withDigestInputs stamps OCR3 digest inputs the way the registry syncer does.
+func withDigestInputs(md *registry.RegistryMetadata) *registry.RegistryMetadata {
+	for donID, don := range md.IDsToDONs {
+		for capID, cc := range don.CapabilityConfigurations {
+			cc.OCR3DigestInputs = registry.OCR3DigestInputs{
+				ChainID:         testChainID,
+				RegistryAddress: testRegistryAddress,
+				DonID:           uint32(donID),
+				CapabilityID:    capID,
+			}
+			don.CapabilityConfigurations[capID] = cc
+		}
+	}
+	return md
+}
+
 func TestOCRConfigService_StartClose(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -41,7 +62,7 @@ func TestOCRConfigService_StartClose(t *testing.T) {
 
 func TestOCRConfigService_Start_NilPeerIDProvider(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, nil, 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, nil)
 
 	ctx := t.Context()
 	err := svc.Start(ctx)
@@ -51,7 +72,7 @@ func TestOCRConfigService_Start_NilPeerIDProvider(t *testing.T) {
 
 func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -93,18 +114,62 @@ func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
-	err = svc.OnNewRegistry(ctx, registry)
+	err = svc.OnNewRegistry(ctx, withDigestInputs(registry))
 	require.NoError(t, err)
 
 	// Verify config was stored.
+	cached, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
+	require.True(t, ok)
+
+	wantDigest, err := registryOCR3ConfigDigest(1, "consensus@1.0.0", ocrConfig)
+	require.NoError(t, err)
+	assert.Equal(t, wantDigest, cached.ContractConfig.ConfigDigest)
+}
+
+func registryOCR3ConfigDigest(donID uint32, capabilityID string, cfg *capabilitiespb.OCR3Config) (ocrtypes.ConfigDigest, error) {
+	return registry.OCR3ConfigDigest(registry.OCR3DigestInputs{
+		ChainID:         testChainID,
+		RegistryAddress: testRegistryAddress,
+		DonID:           donID,
+		CapabilityID:    capabilityID,
+	}, capabilitiespb.OCR3ConfigDefaultKey, cfg)
+}
+
+func TestOCRConfigService_OnNewRegistry_MissingDigestInputs(t *testing.T) {
+	lggr := logger.Test(t)
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
+
+	ctx := t.Context()
+	require.NoError(t, svc.Start(ctx))
+	defer svc.Close()
+
+	configBytes, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
+			capabilitiespb.OCR3ConfigDefaultKey: {F: 1, ConfigCount: 1},
+		},
+	})
+	require.NoError(t, err)
+
+	don := registry.DON{
+		CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: configBytes},
+		},
+	}
+	don.Members = []ragetypes.PeerID{testPeerID()}
+
+	require.NoError(t, svc.OnNewRegistry(ctx, &registry.RegistryMetadata{
+		Logger:    lggr,
+		IDsToDONs: map[registry.DonID]registry.DON{1: don},
+	}))
+
 	_, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
-	assert.True(t, ok)
+	assert.False(t, ok)
 }
 
 func TestOCRConfigService_GetContractConfig(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -150,7 +215,7 @@ func TestOCRConfigService_GetContractConfig(t *testing.T) {
 		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
-	err = svc.OnNewRegistry(ctx, registry)
+	err = svc.OnNewRegistry(ctx, withDigestInputs(registry))
 	require.NoError(t, err)
 
 	// After registry update, GetContractConfig should return the cached config.
@@ -167,7 +232,7 @@ func TestOCRConfigService_GetContractConfig(t *testing.T) {
 
 func TestOCRConfigService_GetConfigTracker(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -185,7 +250,7 @@ func TestOCRConfigService_GetConfigTracker(t *testing.T) {
 
 func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -227,7 +292,7 @@ func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
-	err = svc.OnNewRegistry(ctx, registry)
+	err = svc.OnNewRegistry(ctx, withDigestInputs(registry))
 	require.NoError(t, err)
 
 	// Get tracker - should return registry-based config.
@@ -249,7 +314,7 @@ func TestOCRConfigService_GetConfigTracker_WithConfig(t *testing.T) {
 
 func TestOCRConfigService_GetConfigDigester(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -267,7 +332,7 @@ func TestOCRConfigService_GetConfigDigester(t *testing.T) {
 
 func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -309,7 +374,7 @@ func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
-	err = svc.OnNewRegistry(ctx, registry)
+	err = svc.OnNewRegistry(ctx, withDigestInputs(registry))
 	require.NoError(t, err)
 
 	// Get digester - should return registry-based prefix.
@@ -323,7 +388,7 @@ func TestOCRConfigService_GetConfigDigester_WithConfig(t *testing.T) {
 
 func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -365,7 +430,7 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
-	err = svc.OnNewRegistry(ctx, registry1)
+	err = svc.OnNewRegistry(ctx, withDigestInputs(registry1))
 	require.NoError(t, err)
 
 	cfg1, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
@@ -408,7 +473,7 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
-	err = svc.OnNewRegistry(ctx, registry2)
+	err = svc.OnNewRegistry(ctx, withDigestInputs(registry2))
 	require.NoError(t, err)
 
 	cfg2, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
@@ -418,7 +483,7 @@ func TestOCRConfigService_ConfigChangeDetection(t *testing.T) {
 
 func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -463,7 +528,7 @@ func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
-	err = svc.OnNewRegistry(ctx, registry)
+	err = svc.OnNewRegistry(ctx, withDigestInputs(registry))
 	require.NoError(t, err)
 
 	cfg, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
@@ -476,7 +541,7 @@ func TestOCRConfigService_TransmitterHexEncoding(t *testing.T) {
 
 func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -517,7 +582,7 @@ func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
-	err = svc.OnNewRegistry(ctx, registry)
+	err = svc.OnNewRegistry(ctx, withDigestInputs(registry))
 	require.NoError(t, err)
 
 	cfg, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
@@ -527,7 +592,7 @@ func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 	assert.True(t, ocrtypes.ConfigDigestPrefixKeystoneOCR3Capability.IsPrefixOf(cfg.ContractConfig.ConfigDigest))
 
 	// Verify digest is deterministic (same config produces same digest).
-	err = svc.OnNewRegistry(ctx, registry)
+	err = svc.OnNewRegistry(ctx, withDigestInputs(registry))
 	require.NoError(t, err)
 
 	cfg2, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
@@ -537,7 +602,7 @@ func TestOCRConfigService_ConfigDigestComputation(t *testing.T) {
 
 func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -580,7 +645,7 @@ func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
-	require.NoError(t, svc.OnNewRegistry(ctx, registry))
+	require.NoError(t, svc.OnNewRegistry(ctx, withDigestInputs(registry)))
 
 	cfg1, ok := svc.getConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
 	require.True(t, ok)
@@ -594,7 +659,7 @@ func TestOCRConfigService_ConfigDigestUniqueness(t *testing.T) {
 
 func TestOCRConfigService_LegacyFallbackAfterRegistryReceived(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -621,7 +686,7 @@ func TestOCRConfigService_LegacyFallbackAfterRegistryReceived(t *testing.T) {
 		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
-	err = svc.OnNewRegistry(ctx, registry)
+	err = svc.OnNewRegistry(ctx, withDigestInputs(registry))
 	require.NoError(t, err)
 
 	// Now legacy fallback should work.
@@ -649,7 +714,7 @@ func (m *mockConfigTracker) LatestBlockHeight(ctx context.Context) (uint64, erro
 
 func TestOCRConfigService_MultipleOCRKeys(t *testing.T) {
 	lggr := logger.Test(t)
-	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -702,7 +767,7 @@ func TestOCRConfigService_MultipleOCRKeys(t *testing.T) {
 		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
-	err = svc.OnNewRegistry(ctx, registry)
+	err = svc.OnNewRegistry(ctx, withDigestInputs(registry))
 	require.NoError(t, err)
 
 	// Verify both configs are stored.
@@ -726,7 +791,7 @@ func TestOCRConfigService_DONMembershipFiltering(t *testing.T) {
 	copy(otherPeerID[:], []byte("other-peer-id-12345678901234"))
 
 	peerIDProvider := func() (ragetypes.PeerID, error) { return myPeerID, nil }
-	svc := NewOCRConfigService(lggr, peerIDProvider, 1, "0x1234567890abcdef")
+	svc := NewOCRConfigService(lggr, peerIDProvider)
 
 	ctx := t.Context()
 	require.NoError(t, svc.Start(ctx))
@@ -776,7 +841,7 @@ func TestOCRConfigService_DONMembershipFiltering(t *testing.T) {
 		IDsToCapabilities: map[string]registry.Capability{},
 	}
 
-	err = svc.OnNewRegistry(ctx, registry)
+	err = svc.OnNewRegistry(ctx, withDigestInputs(registry))
 	require.NoError(t, err)
 
 	// Config from DON 1 (node is member) should be stored.
