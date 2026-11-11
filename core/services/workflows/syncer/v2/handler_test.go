@@ -862,9 +862,9 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		)
 		wfOwner := testutils.NewAddress().Bytes()
 
-		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, workflowName, binary, config, "")
+		generatedWorkflowID, err := pkgworkflows.GenerateWorkflowID(wfOwner, workflowName, binary, config, "")
 		require.NoError(t, err)
-		wfIDString := hex.EncodeToString(giveWFID[:])
+		wfIDString := hex.EncodeToString(generatedWorkflowID[:])
 
 		binaryURL := "http://example.com/" + wfIDString + "/binary"
 		configURL := "http://example.com/" + wfIDString + "/config"
@@ -896,10 +896,22 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		}
 		require.NoError(t, registry.Add(ctx, action))
 
+		// Build the expected request from the deployment and trigger identities.
+		executionID, err := pkgworkflows.GenerateExecutionIDWithTriggerIndex(wfIDString, triggerResponse.Event.ID, 0)
+		require.NoError(t, err)
+		localNode, err := registry.LocalNode(ctx)
+		require.NoError(t, err)
 		executeRequest := &sdk.ExecuteRequest{
 			Config:          config,
 			Request:         &sdk.ExecuteRequest_Trigger{Trigger: &sdk.Trigger{Payload: payload}},
 			MaxResponseSize: 100000,
+			ExecutionMetadata: &sdk.WorkflowExecutionMetadata{
+				WorkflowId:    wfIDString,
+				ExecutionId:   executionID,
+				WorkflowOwner: hex.EncodeToString(wfOwner),
+				DonId:         localNode.WorkflowDON.ID,
+				DonF:          uint32(localNode.WorkflowDON.F),
+			},
 		}
 
 		confidential := &confidentialCap{
@@ -908,6 +920,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			expected: &confworkflowtypes.ConfidentialWorkflowRequest{
 				Execution: &confworkflowtypes.WorkflowExecution{
 					WorkflowId:        wfIDString,
+					ExecutionId:       executionID,
 					BinaryHash:        v2.ComputeBinaryHash(binary),
 					SdkExecuteRequest: executeRequest,
 					Owner:             hex.EncodeToString(wfOwner),
@@ -941,7 +954,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 
 		event := WorkflowRegisteredEvent{
 			Status:        WorkflowStatusActive,
-			WorkflowID:    giveWFID,
+			WorkflowID:    generatedWorkflowID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  workflowName,
 			WorkflowTag:   "workflow-tag",
@@ -2307,11 +2320,7 @@ type confidentialCap struct {
 }
 
 func (c *confidentialCap) Execute(_ context.Context, _ commoncap.RequestMetadata, input *confworkflowtypes.ConfidentialWorkflowRequest) (*commoncap.ResponseAndMetadata[*confworkflowtypes.ConfidentialWorkflowResponse], caperrors.Error) {
-	// execution ID differs on every run.
-	assert.NotEmpty(c.t, input.Execution.ExecutionId)
-	input.Execution.ExecutionId = ""
-
-	assert.True(c.t, proto.Equal(c.expected, input), "WorkflowExecution mismatch")
+	assert.True(c.t, proto.Equal(c.expected, input), "WorkflowExecution mismatch: want %v, got %v", c.expected, input)
 	c.ran.Store(true)
 
 	triggerPayload, err := anypb.New(&basictrigger.Config{Name: "test", Number: 0})

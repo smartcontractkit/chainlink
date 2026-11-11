@@ -1164,7 +1164,18 @@ func TestEngine_Execution(t *testing.T) {
 		t.Parallel()
 		engine, err := v2.NewEngine(cfg)
 		require.NoError(t, err)
-		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+			Run(func(_ context.Context, request *sdkpb.ExecuteRequest, _ host.ExecutionHelper) {
+				// Verify subscribe execution metadata (no executionID expected).
+				node := newNode(t)
+				assert.True(t, proto.Equal(&sdkpb.WorkflowExecutionMetadata{
+					WorkflowId:    cfg.WorkflowID,
+					WorkflowOwner: cfg.WorkflowOwner,
+					ExecutionId:   "",
+					DonId:         node.WorkflowDON.ID,
+					DonF:          uint32(node.WorkflowDON.F),
+				}, request.ExecutionMetadata), "unexpected execution metadata: %v", request.ExecutionMetadata)
+			}).Return(newTriggerSubs(1), nil).Once()
 		trigger := capmocks.NewTriggerCapability(t)
 		capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil)
 		eventCh := make(chan capabilities.TriggerResponse)
@@ -1209,6 +1220,15 @@ func TestEngine_Execution(t *testing.T) {
 					capExec, ok := executor.(interface{ GetWorkflowExecutionID() string })
 					require.True(t, ok)
 					require.Equal(t, wantExecID, capExec.GetWorkflowExecutionID())
+					// Verify trigger execution metadata.
+					node := newNode(t)
+					assert.True(t, proto.Equal(&sdkpb.WorkflowExecutionMetadata{
+						WorkflowId:    cfg.WorkflowID,
+						ExecutionId:   wantExecID,
+						WorkflowOwner: cfg.WorkflowOwner,
+						DonId:         node.WorkflowDON.ID,
+						DonF:          uint32(node.WorkflowDON.F),
+					}, request.ExecutionMetadata), "unexpected execution metadata: %v", request.ExecutionMetadata)
 					require.Equal(t, uint64(0), request.Request.(*sdkpb.ExecuteRequest_Trigger).Trigger.Id)
 				},
 			).

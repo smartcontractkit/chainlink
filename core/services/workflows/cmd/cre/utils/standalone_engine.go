@@ -172,10 +172,15 @@ func NewStandaloneEngine(
 	if moduleExecuteMaxResponseSizeBytes < 0 {
 		return nil, nil, fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 	}
+	workflowExecutionMetadata, err := getExecutionMetadata(ctx, cfg)
+	if err != nil {
+		return nil, nil, err
+	}
 	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
-		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
-		Config:          config,
+		ExecutionMetadata: workflowExecutionMetadata,
+		Request:           &sdkpb.ExecuteRequest_Subscribe{},
+		MaxResponseSize:   uint64(moduleExecuteMaxResponseSizeBytes),
+		Config:            config,
 	}, v2.NewDisallowedExecutionHelper(lggr, nil, &types.LocalTimeProvider{}))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to execute subscribe: %w", err)
@@ -314,4 +319,19 @@ func (s *simulationModuleWrapper) SetRequirements(executionID string, requiremen
 	if s.requirementsSet != nil {
 		s.requirementsSet(executionID, requirements)
 	}
+}
+
+func getExecutionMetadata(ctx context.Context, cfg *v2.EngineConfig) (*sdkpb.WorkflowExecutionMetadata, error) {
+	node, err := cfg.CapRegistry.LocalNode(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get a local node for execution metadata: %w", err)
+	}
+
+	// ExecutionID is omitted during subscription; the engine generates it for each trigger event.
+	return &sdkpb.WorkflowExecutionMetadata{
+		WorkflowId:    cfg.WorkflowID,
+		WorkflowOwner: cfg.WorkflowOwner,
+		DonId:         node.WorkflowDON.ID,
+		DonF:          uint32(node.WorkflowDON.F),
+	}, nil
 }
