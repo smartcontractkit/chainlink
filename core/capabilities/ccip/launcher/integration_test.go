@@ -41,6 +41,9 @@ func TestIntegration_Launcher(t *testing.T) {
 		uni,
 		uni.CapReg.Address().String(),
 		registrysyncer.NewORM(db, lggr),
+		// The DON is added to the registry after the initial sync, so without a
+		// short tick the test waits out the 12 s default.
+		registrysyncer.WithTickInterval(100*time.Millisecond),
 	)
 	require.NoError(t, err)
 

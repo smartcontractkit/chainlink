@@ -539,6 +539,78 @@ func offchainConfigCases() []offchainConfigCase {
 	}
 }
 
+// Order matters for wall time. `go test` releases parallel tests to run in source
+// order, and the package runs at most GOMAXPROCS of them at once. The two longest
+// tests (aggregation_fault_tolerance, v31_blob_catchup) used to sit last in this
+// file, so they waited ~26 s for a slot and then ran 15-25 s, leaving the package
+// tail with only a few tests running. Keep the longest tests first. This is a
+// scheduling aid, not a speedup of the tests themselves.
+
+// TestIntegration_LLO_aggregation_fault_tolerance exercises the v31 contribution
+// floor. aggregationFaultTolerance sets the fewest contributions an aggregate may
+// be built from (2*aft+1), so a stream observed by too few oracles must not
+// produce an aggregate and its channel must not report, while a stream observed
+// by the whole DON keeps reporting.
+//
+// With nNodes=4 and F=1, aft=1 sets a floor of 3 contributions. A stream whose
+// job exists on only 2 nodes is therefore withheld, and one whose job exists on
+// 3 nodes reports. aft=0 is not exercised: v31 rejects it when F is non-zero.
+func TestIntegration_LLO_aggregation_fault_tolerance(t *testing.T) {
+	t.Parallel()
+	tcs := []struct {
+		name string
+		// aft is the aggregationFaultTolerance set in the offchain config.
+		aft uint32
+		// partialObservers is how many of the 4 oracles observe the partial
+		// stream.
+		partialObservers int
+		// partialReports is whether the channel of the partial stream is
+		// expected to produce reports.
+		partialReports bool
+		salt           int64
+		donID          uint32
+	}{
+		{name: "floor of 3 withholds a stream with 2 observers", aft: 1, partialObservers: 2, partialReports: false, salt: 700, donID: uint32(555111)},
+		{name: "floor of 3 admits a stream with 3 observers", aft: 1, partialObservers: 3, partialReports: true, salt: 750, donID: uint32(555222)},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOAggregationFaultTolerance(t, tc.aft, tc.partialObservers, tc.partialReports, tc.salt, tc.donID)
+		})
+	}
+}
+
+// TestIntegration_LLO_v31_blob_catchup covers the v31 blob path for an oracle
+// that is not present for the earlier rounds. v31 disseminates stream values
+// through blobs, so such an oracle can only contribute once it has fetched the
+// blobs and state the running DON produced without it.
+//
+// Two ways in: an oracle whose LLO job is created after the DON is already
+// reporting, and an oracle whose job is deleted mid-run and re-created after
+// the DON has advanced many rounds without it. In both cases the remaining
+// 3 oracles (2F+1) keep the DON reporting throughout.
+func TestIntegration_LLO_v31_blob_catchup(t *testing.T) {
+	t.Parallel()
+	tcs := []struct {
+		name string
+		// rejoin starts the lagging oracle with an LLO job and deletes it
+		// mid-run, instead of never creating it until catch-up time.
+		rejoin bool
+		salt   int64
+		donID  uint32
+	}{
+		{name: "oracle joining after the DON is reporting catches up", rejoin: false, salt: 800, donID: uint32(555333)},
+		{name: "oracle rejoining after its job is deleted catches up", rejoin: true, salt: 850, donID: uint32(555444)},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOV31BlobCatchup(t, tc.rejoin, tc.salt, tc.donID)
+		})
+	}
+}
+
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	t.Parallel()
 	for _, oc := range offchainConfigCases() {
@@ -3382,41 +3454,6 @@ func newSingleABIEncoder(typ string, multiplier *sqlutil.Big) (enc lloevm.ABIEnc
 	return enc
 }
 
-// TestIntegration_LLO_aggregation_fault_tolerance exercises the v31 contribution
-// floor. aggregationFaultTolerance sets the fewest contributions an aggregate may
-// be built from (2*aft+1), so a stream observed by too few oracles must not
-// produce an aggregate and its channel must not report, while a stream observed
-// by the whole DON keeps reporting.
-//
-// With nNodes=4 and F=1, aft=1 sets a floor of 3 contributions. A stream whose
-// job exists on only 2 nodes is therefore withheld, and one whose job exists on
-// 3 nodes reports. aft=0 is not exercised: v31 rejects it when F is non-zero.
-func TestIntegration_LLO_aggregation_fault_tolerance(t *testing.T) {
-	t.Parallel()
-	tcs := []struct {
-		name string
-		// aft is the aggregationFaultTolerance set in the offchain config.
-		aft uint32
-		// partialObservers is how many of the 4 oracles observe the partial
-		// stream.
-		partialObservers int
-		// partialReports is whether the channel of the partial stream is
-		// expected to produce reports.
-		partialReports bool
-		salt           int64
-		donID          uint32
-	}{
-		{name: "floor of 3 withholds a stream with 2 observers", aft: 1, partialObservers: 2, partialReports: false, salt: 700, donID: uint32(555111)},
-		{name: "floor of 3 admits a stream with 3 observers", aft: 1, partialObservers: 3, partialReports: true, salt: 750, donID: uint32(555222)},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			testIntegrationLLOAggregationFaultTolerance(t, tc.aft, tc.partialObservers, tc.partialReports, tc.salt, tc.donID)
-		})
-	}
-}
-
 func testIntegrationLLOAggregationFaultTolerance(t *testing.T, aft uint32, nPartialObservers int, expectPartialReports bool, salt int64, donID uint32) {
 	const (
 		// streamIDFull has a stream job on every oracle.
@@ -3579,39 +3616,9 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 		"under-observed channel should not report when it cannot meet the contribution floor")
 }
 
-// TestIntegration_LLO_v31_blob_catchup covers the v31 blob path for an oracle
-// that is not present for the earlier rounds. v31 disseminates stream values
-// through blobs, so such an oracle can only contribute once it has fetched the
-// blobs and state the running DON produced without it.
-//
-// Two ways in: an oracle whose LLO job is created after the DON is already
-// reporting, and an oracle whose job is deleted mid-run and re-created after
-// the DON has advanced many rounds without it. In both cases the remaining
-// 3 oracles (2F+1) keep the DON reporting throughout.
 // shortEpochRMax gives ~5 s epochs at the default 500ms DeltaRound, so a
 // late or restarted oracle does not wait out a 50 s epoch (RMax 100).
 const shortEpochRMax = uint64(10)
-
-func TestIntegration_LLO_v31_blob_catchup(t *testing.T) {
-	t.Parallel()
-	tcs := []struct {
-		name string
-		// rejoin starts the lagging oracle with an LLO job and deletes it
-		// mid-run, instead of never creating it until catch-up time.
-		rejoin bool
-		salt   int64
-		donID  uint32
-	}{
-		{name: "oracle joining after the DON is reporting catches up", rejoin: false, salt: 800, donID: uint32(555333)},
-		{name: "oracle rejoining after its job is deleted catches up", rejoin: true, salt: 850, donID: uint32(555444)},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			testIntegrationLLOV31BlobCatchup(t, tc.rejoin, tc.salt, tc.donID)
-		})
-	}
-}
 
 func testIntegrationLLOV31BlobCatchup(t *testing.T, rejoin bool, salt int64, donID uint32) {
 	const (

@@ -238,12 +238,14 @@ func TestLogPollerFilterRegistered(t *testing.T) {
 		filterName := th.Listener.getLogPollerFilterName()
 		require.Eventually(t, func() bool {
 			return th.Listener.chain.LogPoller().HasFilter(filterName)
-		}, testutils.WaitTimeout(t), time.Second)
+		}, testutils.WaitTimeout(t), 10*time.Millisecond)
 
-		// Once registered, expect the filter to stay registered.
+		// Once registered, expect the filter to stay registered. The listener
+		// re-checks on a 1 s interval (runLogListener above), so 2 s spans
+		// at least one re-check.
 		gomega.NewWithT(t).Consistently(func() bool {
 			return th.Listener.chain.LogPoller().HasFilter(filterName)
-		}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+		}, 2*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
 	}()
 
 	// Assert channel is closed.
