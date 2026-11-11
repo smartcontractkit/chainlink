@@ -276,6 +276,7 @@ name				= "bootstrap"
 relay				= "evm"
 schemaVersion		= 1
 contractID			= "%s"
+contractConfigTrackerPollInterval = "1s"
 [relayConfig]
 chainID 			= 1337
 fromBlock = %d
