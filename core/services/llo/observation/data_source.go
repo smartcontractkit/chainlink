@@ -50,7 +50,21 @@ const (
 
 	observationLoopPacingFloor   = 10 * time.Millisecond
 	observationLoopPacingDivisor = 2 // pacing targets T/2, capped below by cache invariant
+
+	// The observable stream set is only refreshed when the plugin calls Observe. A node that falls behind in
+	// consensus stops getting Observe calls, so the set can go stale: the loop would keep polling adapters for
+	// streams the DON has since tombstoned or removed. The loop drops a set that Observe has not refreshed for
+	// max(observableStreamsStaleMultiplier·T, observableStreamsStaleFloor). That is far beyond any healthy round
+	// interval (cache entries themselves expire after cacheTTLMultiplier·T).
+	observableStreamsStaleMultiplier = 10
+	observableStreamsStaleFloor      = 5 * time.Second
 )
+
+// observableStreamsStaleAfter returns how long the observation loop keeps using an observable stream set that the
+// plugin has not refreshed via Observe.
+func observableStreamsStaleAfter(observationTimeout time.Duration) time.Duration {
+	return max(time.Duration(observableStreamsStaleMultiplier)*observationTimeout, observableStreamsStaleFloor)
+}
 
 func cacheEntryTTL(observationTimeout time.Duration) time.Duration {
 	return time.Duration(cacheTTLMultiplier) * observationTimeout
@@ -167,6 +181,8 @@ type dataSource struct {
 
 	observableStreamsMu sync.Mutex
 	observableStreams   *observableStreamValues
+	// observableStreamsStaleAfterOverride replaces observableStreamsStaleAfter when non-zero (tests).
+	observableStreamsStaleAfterOverride time.Duration
 
 	// closeMu serialises Close against startObservationLoop. Once closed is
 	// set, no new observation loop may be started (and therefore no new
@@ -336,6 +352,15 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			}
 
 			if stopChanCtx.Err() != nil {
+				return
+			}
+
+			// Checked after the pacing wait so a lagging node stops polling adapters instead of looping forever.
+			if d.expireStaleObservableStreams() {
+				return
+			}
+			// The set may have been refreshed or cleared while we waited.
+			if osv = d.getObservableStreams(); osv == nil || len(osv.streamValues) == 0 {
 				return
 			}
 
@@ -565,6 +590,8 @@ type observableStreamValues struct {
 	opts               telem.DSOpts
 	streamValues       lloprotocol.StreamValues
 	observationTimeout time.Duration
+	// setAt is when the plugin last refreshed this set via Observe.
+	setAt time.Time
 }
 
 // setObservableStreams updates the stream set and observation deadline (T) used by the background loop. When
@@ -587,6 +614,7 @@ func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llop
 		opts:               opts,
 		streamValues:       make(lloprotocol.StreamValues, len(streamValues)),
 		observationTimeout: 250 * time.Millisecond,
+		setAt:              time.Now(),
 	}
 
 	for streamID := range streamValues {
@@ -614,6 +642,33 @@ func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llop
 	}
 
 	d.observableStreams = osv
+}
+
+// expireStaleObservableStreams clears the observable stream set and reports true if the plugin has not refreshed it
+// within observableStreamsStaleAfter. The loop then exits; the next Observe call restarts it with a fresh set. This
+// stops a node that is no longer being asked to observe (e.g. lagging behind in consensus) from polling adapters
+// for streams that have since been tombstoned or removed.
+func (d *dataSource) expireStaleObservableStreams() bool {
+	d.observableStreamsMu.Lock()
+	defer d.observableStreamsMu.Unlock()
+
+	osv := d.observableStreams
+	if osv == nil {
+		return false
+	}
+	staleAfter := observableStreamsStaleAfter(osv.observationTimeout)
+	if d.observableStreamsStaleAfterOverride > 0 {
+		staleAfter = d.observableStreamsStaleAfterOverride
+	}
+	age := time.Since(osv.setAt)
+	if age <= staleAfter {
+		return false
+	}
+	d.lggr.Warnw("observation loop: observable streams not refreshed by Observe, stopping until the next Observe call",
+		"age_ms", age.Milliseconds(), "stale_after_ms", staleAfter.Milliseconds(),
+		"observable_streams", len(osv.streamValues))
+	d.observableStreams = nil
+	return true
 }
 
 // getObservableStreams returns the current observableStreamValues (opts, stream key set, and T), or nil if unset.
