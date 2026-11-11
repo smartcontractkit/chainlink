@@ -11,6 +11,7 @@ import (
 )
 
 func TestTelemetryIngressConfig(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}
@@ -36,7 +37,9 @@ func TestTelemetryIngressConfig(t *testing.T) {
 }
 
 func TestTelemetryIngressConfig_ChipIngressEnabled(t *testing.T) {
+	t.Parallel()
 	t.Run("returns false when ChipIngressEnabled is explicitly false", func(t *testing.T) {
+		t.Parallel()
 		falseVal := false
 		config := &telemetryIngressConfig{
 			c: toml.TelemetryIngress{
@@ -47,6 +50,7 @@ func TestTelemetryIngressConfig_ChipIngressEnabled(t *testing.T) {
 	})
 
 	t.Run("returns true when ChipIngressEnabled is true", func(t *testing.T) {
+		t.Parallel()
 		trueVal := true
 		config := &telemetryIngressConfig{
 			c: toml.TelemetryIngress{

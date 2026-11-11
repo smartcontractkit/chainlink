@@ -16,6 +16,7 @@ import (
 )
 
 func Test_DiscovererDatabase(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 
 	localPeerID1 := mustRandomP2PPeerID(t)
@@ -40,7 +41,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	for _, tt := range tests { //nolint:paralleltest // subtests build on rows written by earlier subtests
 		dd1 := tt.dd1
 		dd2 := tt.dd2
 
