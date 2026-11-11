@@ -65,7 +65,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := &testDispatcher{}
-		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
 		require.NoError(t, err)
 
@@ -79,7 +79,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := &testDispatcher{}
-		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
 		require.NoError(t, err)
 
@@ -106,7 +106,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := &testDispatcher{}
-		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
 		require.NoError(t, err)
 
@@ -134,7 +134,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := &testDispatcher{}
-		req, err := request.NewServerRequest(TestErrorCapability{err: errors.New("an error")}, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(TestErrorCapability{err: errors.New("an error")}, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
 		require.NoError(t, err)
 
@@ -175,7 +175,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := &testDispatcher{}
-		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPrivateUserError(errors.New("error details"), caperrors.ConsensusFailed)}, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPrivateUserError(errors.New("error details"), caperrors.ConsensusFailed)}, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
 		require.NoError(t, err)
 
@@ -216,7 +216,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := &testDispatcher{}
-		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPrivateSystemError(errors.New("error details"), caperrors.ConsensusFailed)}, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPrivateSystemError(errors.New("error details"), caperrors.ConsensusFailed)}, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
 		require.NoError(t, err)
 
@@ -257,7 +257,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := &testDispatcher{}
-		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPublicSystemError(errors.New("error details"), caperrors.ConsensusFailed)}, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPublicSystemError(errors.New("error details"), caperrors.ConsensusFailed)}, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
 		require.NoError(t, err)
 
@@ -298,7 +298,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := &testDispatcher{}
-		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPublicUserError(errors.New("error details"), caperrors.InvalidArgument)}, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPublicUserError(errors.New("error details"), caperrors.InvalidArgument)}, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
 		require.NoError(t, err)
 
@@ -339,7 +339,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		t.Parallel()
 
 		dispatcher := &testDispatcher{}
-		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
 		require.NoError(t, err)
 
@@ -409,7 +409,7 @@ func Test_ServerRequest_SingleExecutionNonBlocking(t *testing.T) {
 		// need a concurrent dispatcher here as we call onMessage for wf peer 0 concurrently
 		// before this, all onMessage calls were sequential
 		dispatcher := &concurrentTestDispatcher{}
-		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
 		require.NoError(t, err)
 
@@ -466,7 +466,7 @@ func Test_ServerRequest_SingleExecutionNonBlocking(t *testing.T) {
 		// need a concurrent dispatcher here as we call onMessage for wf peer 0 concurrently
 		// before this, all onMessage calls were sequential
 		dispatcher := &concurrentTestDispatcher{}
-		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), nil, lggr)
 		require.NoError(t, err)
 
@@ -533,7 +533,7 @@ func Test_ServerRequest_Evictable(t *testing.T) {
 	}
 
 	newRequest := func(requestTimeout time.Duration) *request.ServerRequest {
-		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
+		req, err := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", &testDispatcher{}, requestTimeout, "", limits.NewGateLimiter(false), nil, lggr)
 		require.NoError(t, err)
 		return req
