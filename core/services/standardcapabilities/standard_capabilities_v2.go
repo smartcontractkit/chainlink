@@ -16,7 +16,9 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/libocr/commontypes"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonocr "github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/remote"
@@ -26,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	settingsremote "github.com/smartcontractkit/chainlink-common/pkg/settings/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -83,8 +86,6 @@ type OCR struct {
 	PeerID          string
 	TransmitAccount string
 	Bootstrappers   []commontypes.BootstrapperLocator
-	RegistryChainID string
-	RegistryAddress string
 }
 
 // envVars are the env vars the process reads its OCR config from, with the node serving its OCR at proxyURL.
@@ -104,9 +105,32 @@ func (o *OCR) envVars(proxyURL string) ([]string, error) {
 		"CL_OCR_PEER_ID=" + o.PeerID,
 		"CL_OCR_TRANSMIT_ACCOUNT=" + o.TransmitAccount,
 		"CL_OCR_BOOTSTRAPPERS=" + strings.Join(bootstrappers, ","),
-		"CL_OCR_REGISTRY_CHAIN_ID=" + o.RegistryChainID,
-		"CL_OCR_REGISTRY_ADDRESS=" + o.RegistryAddress,
 	}, nil
+}
+
+// ocrConfigRegistry is registry with each capability's OCR3 configs as the node's oracles run them.
+type ocrConfigRegistry struct {
+	registry.CapabilitiesRegistry
+	ocrConfigs capregconfig.OCRConfigService
+}
+
+func (r ocrConfigRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+	cfg, err := r.CapabilitiesRegistry.ConfigForCapability(ctx, capabilityID, donID)
+	if err != nil || len(cfg.Ocr3Configs) == 0 {
+		return cfg, err
+	}
+
+	ocr3Configs := make(map[string]ocrtypes.ContractConfig, len(cfg.Ocr3Configs))
+	for key, cc := range cfg.Ocr3Configs {
+		if nodeConfig, ok := r.ocrConfigs.GetContractConfig(capabilityID, key); ok {
+			cc = nodeConfig
+		}
+
+		ocr3Configs[key] = cc
+	}
+
+	cfg.Ocr3Configs = ocr3Configs
+	return cfg, nil
 }
 
 func NewV2(p V2Params) (*V2, error) {

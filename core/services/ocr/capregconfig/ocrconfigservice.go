@@ -18,7 +18,6 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/ocrutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
@@ -277,7 +276,7 @@ func (s *ocrConfigService) parseOCR3Config(
 		transmitters[i] = ocrtypes.Account(gethCommon.BytesToAddress(transmitter).Hex())
 	}
 
-	digest, err := ocrutil.RegistryConfigDigest(s.chainID, s.registryAddress, capabilityID, donID, ocrConfigKey, cfg)
+	digest, err := computeConfigDigest(s.chainID, s.registryAddress, capabilityID, donID, ocrConfigKey, cfg)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, fmt.Errorf("failed to compute config digest: %w", err)
 	}

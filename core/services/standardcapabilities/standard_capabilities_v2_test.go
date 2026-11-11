@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	settingsremote "github.com/smartcontractkit/chainlink-common/pkg/settings/remote"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -158,8 +159,6 @@ func TestStandardCapabilitiesV2_OCR(t *testing.T) {
 				{PeerID: "12D3KooWBoot", Addrs: []string{"127.0.0.1:6690"}},
 				{PeerID: "12D3KooWOther", Addrs: []string{"127.0.0.1:6691", "127.0.0.1:6692"}},
 			},
-			RegistryChainID: "1337",
-			RegistryAddress: "0xregistry",
 		},
 	})
 	require.NoError(t, err)
@@ -170,8 +169,6 @@ func TestStandardCapabilitiesV2_OCR(t *testing.T) {
 	assert.Equal(t, "12D3KooWPeer", env["CL_OCR_PEER_ID"])
 	assert.Equal(t, "0xabc", env["CL_OCR_TRANSMIT_ACCOUNT"])
 	assert.Equal(t, "12D3KooWBoot@127.0.0.1:6690,12D3KooWOther@127.0.0.1:6691/127.0.0.1:6692", env["CL_OCR_BOOTSTRAPPERS"])
-	assert.Equal(t, "1337", env["CL_OCR_REGISTRY_CHAIN_ID"])
-	assert.Equal(t, "0xregistry", env["CL_OCR_REGISTRY_ADDRESS"])
 	assert.Equal(t, "12D3KooWPeer", node.BinaryNetworkEndpointFactory.PeerID())
 }
 
@@ -393,4 +390,43 @@ func TestEnvName(t *testing.T) {
 	} {
 		assert.Equal(t, want, envName(in), in)
 	}
+}
+
+func TestOCRConfigRegistry(t *testing.T) {
+	t.Parallel()
+	raw := ocrtypes.ContractConfig{ConfigCount: 2, Transmitters: []ocrtypes.Account{"f98665742002d7212b9a74c37bb17dcd0f96ff9d"}}
+	node := ocrtypes.ContractConfig{
+		ConfigDigest: ocrtypes.ConfigDigest{0, 14, 1},
+		ConfigCount:  2,
+		Transmitters: []ocrtypes.Account{"0xf98665742002D7212B9a74c37Bb17dcd0f96FF9D"},
+	}
+
+	r := ocrConfigRegistry{
+		CapabilitiesRegistry: &ocr3ConfigRegistry{configs: map[string]ocrtypes.ContractConfig{"__default__": raw, "other": raw}},
+		ocrConfigs:           &staticOCRConfigService{key: "__default__", config: node},
+	}
+
+	cfg, err := r.ConfigForCapability(t.Context(), "consensus@1.0.0-alpha", 1)
+	require.NoError(t, err)
+	assert.Equal(t, node, cfg.Ocr3Configs["__default__"], "the node's config replaces the raw one")
+	assert.Equal(t, raw, cfg.Ocr3Configs["other"], "a config the node does not run is left as it is")
+}
+
+type ocr3ConfigRegistry struct {
+	registry.CapabilitiesRegistry
+	configs map[string]ocrtypes.ContractConfig
+}
+
+func (r *ocr3ConfigRegistry) ConfigForCapability(context.Context, string, uint32) (capabilities.CapabilityConfiguration, error) {
+	return capabilities.CapabilityConfiguration{Ocr3Configs: r.configs}, nil
+}
+
+type staticOCRConfigService struct {
+	capregconfig.OCRConfigService
+	key    string
+	config ocrtypes.ContractConfig
+}
+
+func (s *staticOCRConfigService) GetContractConfig(_ string, key string) (ocrtypes.ContractConfig, bool) {
+	return s.config, key == s.key
 }

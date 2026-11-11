@@ -389,8 +389,8 @@ func (d *Delegate) NewServices(
 	}
 
 	if filepath.Base(command) == conversions.ConsensusCmd && d.consensusV2Active(ctx) {
-		if !oracleFactoryCfg.Enabled || d.ocrPeerWrapper == nil || d.capRegistryAddress == "" {
-			return nil, errors.New("consensus v2 needs the oracle factory enabled, a P2P stack, and the capabilities registry")
+		if !oracleFactoryCfg.Enabled || d.ocrPeerWrapper == nil || d.ocrConfigService == nil {
+			return nil, errors.New("consensus v2 needs the oracle factory enabled, a P2P stack, and the OCR config service")
 		}
 
 		node, err := generic.NewOCRNode(generic.OCRNodeParams{
@@ -423,8 +423,6 @@ func (d *Delegate) NewServices(
 			PeerID:          peerID.String(),
 			TransmitAccount: oracleFactoryCfg.TransmitterID,
 			Bootstrappers:   bootstrappers,
-			RegistryChainID: d.capRegistryChainID,
-			RegistryAddress: d.capRegistryAddress,
 		}
 
 		v2cmd := filepath.Join(filepath.Dir(command), conversions.ConsensusV2Cmd)
@@ -470,7 +468,7 @@ func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command
 		ConfigJSON:       configJSON,
 		CapDonIDResolver: idResolver,
 		PluginRegistrar:  d.cfg,
-		Registry:         d.registry,
+		Registry:         d.registryForV2(),
 		CRESettings:      d.creSettings,
 		OCR:              ocr,
 	})
@@ -478,6 +476,16 @@ func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command
 		return nil, err
 	}
 	return []job.ServiceCtx{s}, nil
+}
+
+// registryForV2 is the registry a v2 process is served: OCR3 configs come as the node's oracles run them, digest
+// included, since only the node knows the registry's chain and address the digest is computed from.
+func (d *Delegate) registryForV2() registry.CapabilitiesRegistry {
+	if d.registry == nil || d.ocrConfigService == nil {
+		return d.registry
+	}
+
+	return ocrConfigRegistry{CapabilitiesRegistry: d.registry, ocrConfigs: d.ocrConfigService}
 }
 
 // newCapDonIDResolver picks how the capability DON ID is obtained. On the job-spec
