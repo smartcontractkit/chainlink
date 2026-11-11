@@ -1475,7 +1475,12 @@ func TestBridgeTask_AdapterTimeout(t *testing.T) {
 	})
 
 	t.Run("short", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(t.Context(), time.Millisecond)
+		// The deadline must outlast the bridge lookup, which runs against the DB
+		// and shares the ctx's overtime window. With a 1ms deadline that window is
+		// only 100ms for two DB queries, which a loaded machine can miss. Here the
+		// request times out against the 1s handler, then the cache read gets the
+		// whole overtime window to itself.
+		ctx, cancel := context.WithTimeout(t.Context(), 250*time.Millisecond)
 		t.Cleanup(cancel)
 		result, runInfo := task.Run(ctx, logger.TestLogger(t), vars, nil)
 
