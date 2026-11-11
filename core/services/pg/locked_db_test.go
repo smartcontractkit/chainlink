@@ -89,7 +89,10 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 	// matters here.
 	appID := config.AppID()
 	appID[0] ^= 0xff
-	ctx, cancel := context.WithTimeout(t.Context(), config.Database().Lock().LeaseDuration())
+	// The first instance renews its lease every second, so the second never gets
+	// it. A few renewal periods are enough to show that; waiting out the full
+	// lease duration only costs time.
+	ctx, cancel := context.WithTimeout(t.Context(), 3*config.Database().Lock().LeaseRefreshInterval())
 	defer cancel()
 	ldb2 := pg.NewLockedDB(appID, config.Database(), config.Database().Lock(), lggr)
 	err = ldb2.Open(ctx)
