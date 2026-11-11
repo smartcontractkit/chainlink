@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"math/big"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
@@ -599,6 +601,20 @@ func TestShell_BeforeNode(t *testing.T) {
 	}
 }
 
+// startFakeOTLPEndpoint starts a gRPC server with no OTLP services and returns its address. Exports get a
+// non-retryable Unimplemented reply. With nothing listening, Beholder's final metrics flush on close retries
+// "connection refused" for 10 s.
+func startFakeOTLPEndpoint(t *testing.T) string {
+	t.Helper()
+	var lc net.ListenConfig
+	lis, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	srv := grpc.NewServer()
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+	return lis.Addr().String()
+}
+
 func TestShell_BeholderLifecycle(t *testing.T) {
 	testutils.SkipShortDB(t)
 	rawDBURL, ok := os.LookupEnv("CL_DATABASE_URL")
@@ -654,7 +670,7 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			trueVal := true
 			c.Telemetry.Enabled = &trueVal
-			endpoint := "localhost:4317"
+			endpoint := startFakeOTLPEndpoint(t)
 			c.Telemetry.Endpoint = &endpoint
 			c.Telemetry.InsecureConnection = &trueVal
 		}, nil)
@@ -676,7 +692,7 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			trueVal := true
 			c.Telemetry.Enabled = &trueVal
-			endpoint := "localhost:4317"
+			endpoint := startFakeOTLPEndpoint(t)
 			c.Telemetry.Endpoint = &endpoint
 			c.Telemetry.InsecureConnection = &trueVal
 			c.Telemetry.LogStreamingEnabled = &trueVal
@@ -694,7 +710,7 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			trueVal := true
 			c.Telemetry.Enabled = &trueVal
-			endpoint := "localhost:4317"
+			endpoint := startFakeOTLPEndpoint(t)
 			c.Telemetry.Endpoint = &endpoint
 			c.Telemetry.InsecureConnection = &trueVal
 			c.Telemetry.LogStreamingEnabled = &trueVal
