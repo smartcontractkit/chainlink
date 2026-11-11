@@ -56,7 +56,7 @@ func TestParity(t *testing.T) {
 
 			p31, db, bbf := buildV31(t, defs, benchN, benchF)
 			seq31 := warmV31(t, p31, db, bbf, benchN, w.numChannels)
-			reports31, _ := v31Round(t, p31, db, bbf, seq31, benchN)
+			reports31 := steadyV31Reports(t, p31, db, bbf, seq31, benchN, w.numChannels)
 
 			require.NotEmpty(t, reports30, "v30 produced no reports")
 			require.Len(t, reports30, w.numChannels, "v30 should report every channel")
