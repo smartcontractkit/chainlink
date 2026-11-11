@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -653,10 +654,11 @@ func Test_StartReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	workflow.ID = workflowID
 	upsertWorkflowV2(t, backendTH, wfRegistryC, workflow)
 
-	var retryCount int
+	// The handler fails its first two calls, then succeeds.
+	var retryCount atomic.Int32
 	testEventHandler := newTestEvtHandler(func() error {
-		if retryCount <= 1 {
-			retryCount++
+		if retryCount.Load() <= 1 {
+			retryCount.Add(1)
 			return errors.New("error handling event")
 		}
 		return nil
@@ -690,14 +692,19 @@ func Test_StartReconciliation_RetriesWithBackoffV2(t *testing.T) {
 
 	servicetest.Run(t, worker)
 
+	// Every Handle call is recorded, including failed ones, and reconciliation
+	// keeps re-dispatching the event after it succeeds. Wait for the two failures
+	// plus the successful attempt; do not wait for an exact count, because a slow
+	// poll can miss the moment it is reached.
 	require.Eventually(t, func() bool {
-		return len(testEventHandler.GetEvents()) == 1
+		return len(testEventHandler.GetEvents()) >= 3
 	}, 30*time.Second, 100*time.Millisecond)
 
-	event := testEventHandler.GetEvents()[0]
-	assert.Equal(t, WorkflowActivated, event.Name)
+	for _, event := range testEventHandler.GetEvents() {
+		assert.Equal(t, WorkflowActivated, event.Name)
+	}
 
-	assert.Equal(t, 1, retryCount)
+	assert.Equal(t, int32(2), retryCount.Load())
 }
 
 // Links owner account to Workflow Registry contract

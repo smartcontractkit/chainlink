@@ -3550,6 +3550,20 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 		return seen
 	}
 
+	if expectPartialReports {
+		// Both channels must report. Stop as soon as both have been seen instead
+		// of sitting out a fixed window.
+		seen := make(map[uint32]bool)
+		require.Eventually(t, func() bool {
+			for ch := range collectChannels(2 * time.Second) {
+				seen[ch] = true
+			}
+			return seen[channelFull] && seen[channelPartial]
+		}, reportTimeout, 100*time.Millisecond,
+			"fully observed and under-observed channels should both report when the contribution floor is met")
+		return
+	}
+
 	// The fully observed channel must report regardless of the floor. This also
 	// establishes that the DON has reached a reporting steady state before
 	// judging the under-observed channel.
@@ -3557,16 +3571,12 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 		return collectChannels(2 * time.Second)[channelFull]
 	}, reportTimeout, 100*time.Millisecond, "fully observed channel should produce reports")
 
-	// Now judge the under-observed channel over a window that spans many rounds.
-	seen := collectChannels(15 * time.Second)
+	// Now judge the under-observed channel over a window that spans many rounds
+	// (~20 at the 500ms round time and 1s min report interval).
+	seen := collectChannels(10 * time.Second)
 	require.True(t, seen[channelFull], "fully observed channel should keep reporting")
-	if expectPartialReports {
-		require.True(t, seen[channelPartial],
-			"under-observed channel should report when the contribution floor is met")
-	} else {
-		require.False(t, seen[channelPartial],
-			"under-observed channel should not report when it cannot meet the contribution floor")
-	}
+	require.False(t, seen[channelPartial],
+		"under-observed channel should not report when it cannot meet the contribution floor")
 }
 
 // TestIntegration_LLO_v31_blob_catchup covers the v31 blob path for an oracle
