@@ -49,6 +49,7 @@ func TestValidateMessage(t *testing.T) {
 	require.Error(t, err)
 
 	t.Run("invalid signature", func(t *testing.T) {
+		t.Parallel()
 		p2pMsg := encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
 		var outer remotetypes.Message
 		require.NoError(t, proto.Unmarshal(p2pMsg.Payload, &outer))
@@ -61,12 +62,14 @@ func TestValidateMessage(t *testing.T) {
 	})
 
 	t.Run("malformed message", func(t *testing.T) {
+		t.Parallel()
 		p2pMsg := p2ptypes.Message{Sender: peerID1, Payload: []byte{0xff, 0xff, 0xff}}
 		_, err := remote.ValidateMessage(&p2pMsg, peerID2)
 		require.ErrorContains(t, err, "failed to unmarshal message")
 	})
 
 	t.Run("malformed body", func(t *testing.T) {
+		t.Parallel()
 		rawMsg, err := proto.Marshal(&remotetypes.Message{Body: []byte{0xff, 0xff, 0xff}})
 		require.NoError(t, err)
 		_, err = remote.ValidateMessage(&p2ptypes.Message{Sender: peerID1, Payload: rawMsg}, peerID2)
@@ -74,6 +77,7 @@ func TestValidateMessage(t *testing.T) {
 	})
 
 	t.Run("invalid sender length", func(t *testing.T) {
+		t.Parallel()
 		p2pMsg := signBody(t, privKey1, &remotetypes.MessageBody{
 			Sender:   peerID1[:len(peerID1)-1],
 			Receiver: peerID2[:],
