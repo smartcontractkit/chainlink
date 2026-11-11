@@ -335,10 +335,29 @@ func newServices(t *testing.T, capabilityDONID, workflowDONID, maxBatchSize uint
 	return underlying, publisher, dispatcher, peers
 }
 
-func allowRegistrationChecks(dispatcher *mocks.Dispatcher) {
+// allowRegistrationChecks accepts registration checks and returns a channel that signals each one.
+func allowRegistrationChecks(dispatcher *mocks.Dispatcher) <-chan struct{} {
+	checks := make(chan struct{}, 1)
 	dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
 		return m.Method == remotetypes.MethodTriggerRegistrationCheck
-	})).Return(nil).Maybe()
+	})).Run(func(mock.Arguments) {
+		select {
+		case checks <- struct{}{}:
+		default:
+		}
+	}).Return(nil).Maybe()
+	return checks
+}
+
+// waitForPublisherRegistered waits for a registration check, which the publisher only sends for
+// registrations it has already recorded (RegisterTrigger returning on the mock is not enough).
+func waitForPublisherRegistered(t *testing.T, checks <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-checks:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for registration check")
+	}
 }
 
 func newRegisterTriggerMessage(t *testing.T, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
@@ -820,7 +839,7 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 
 	underlying := newMultiTrigger(capInfo)
 	dispatcher := mocks.NewDispatcher(t)
-	allowRegistrationChecks(dispatcher)
+	checks := allowRegistrationChecks(dispatcher)
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
@@ -839,6 +858,7 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA")
 	publisher.Receive(ctx, regEvent)
 	waitForRegistration(t, underlying.registrationsCh)
+	waitForPublisherRegistered(t, checks)
 
 	// Send unregister from a peer NOT in the workflow DON — should be ignored
 	unregMsg := &remotetypes.MessageBody{
@@ -903,7 +923,7 @@ func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
 	}
 
 	dispatcher := mocks.NewDispatcher(t)
-	allowRegistrationChecks(dispatcher)
+	checks := allowRegistrationChecks(dispatcher)
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
@@ -923,6 +943,7 @@ func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
 		publisher.Receive(ctx, newRegisterTriggerMessageWithTriggerID(t, workflowDONID, p, "triggerA"))
 	}
 	require.Equal(t, "triggerA", waitForRegistration(t, underlying.registrationsCh).TriggerID)
+	waitForPublisherRegistered(t, checks)
 
 	unregMeta := &remotetypes.MessageBody_TriggerEventMetadata{
 		TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
