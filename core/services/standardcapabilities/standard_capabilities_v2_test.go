@@ -105,7 +105,7 @@ func TestDelegate_NewServicesV2_ForwardsCRESettings(t *testing.T) {
 	t.Parallel()
 	creSettings := &settings.Atomic{}
 	d := &Delegate{logger: logger.Test(t), creSettings: creSettings}
-	svcs, err := d.newServicesV2(t.Context(), logger.Test(t), "cronv2", "cron", "", 7)
+	svcs, err := d.newServicesV2(t.Context(), logger.Test(t), "cronv2", "cron", "", 7, "")
 	require.NoError(t, err)
 	require.Len(t, svcs, 1)
 	v2, ok := svcs[0].(*V2)

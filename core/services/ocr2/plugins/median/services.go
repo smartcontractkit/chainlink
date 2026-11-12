@@ -11,6 +11,7 @@ import (
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	looptelemetry "github.com/smartcontractkit/chainlink-common/pkg/loop/telemetry"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-feeds/median"
@@ -159,9 +160,10 @@ func NewMedianServices(ctx context.Context,
 			return srvs, err
 		}
 		cmdFn, telem, err2 := cfg.RegisterLOOP(plugins.CmdConfig{
-			ID:  medianLggr.Name(),
-			Cmd: cmdName,
-			Env: envVars,
+			ID:              medianLggr.Name(),
+			Cmd:             cmdName,
+			Env:             envVars,
+			TelemetryLoopID: looptelemetry.NewLoopID("Median", spec.ContractID, spec.GetID()),
 		})
 		if err2 != nil {
 			err = fmt.Errorf("failed to register loop: %w", err2)

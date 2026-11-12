@@ -54,7 +54,9 @@ func (mockCfgApp) ResourceAttributes() map[string]string {
 	return map[string]string{"foo": "bar"}
 }
 
-type mockCfgTelemetry struct{}
+type mockCfgTelemetry struct {
+	loopIDEnabled bool
+}
 
 func (m mockCfgTelemetry) DurableEmitterMaxQueuePayloadBytes() int64 { return 1024 * 1024 }
 
@@ -124,6 +126,10 @@ func (m mockCfgTelemetry) MetricViewsDenyAttributes() []string {
 	return []string{"event_id"}
 }
 func (m mockCfgTelemetry) MetricCardinalityLimit() int { return 100000 }
+func (m mockCfgTelemetry) LoopIDEnabled() bool         { return m.loopIDEnabled }
+func (m mockCfgTelemetry) OTelResourceAttributes() []string {
+	return []string{"process.executable.name", "service.version"}
+}
 
 func (m mockCfgTelemetry) PrometheusBridge() coreconfig.PrometheusBridge {
 	return mockPrometheusBridge{}
@@ -228,6 +234,20 @@ func (t mockCfgTransmitter) ReaperFrequency() time.Duration { return time.Hour }
 
 func (t mockCfgTransmitter) ReaperMaxAge() time.Duration { return time.Minute }
 
+func TestLoopRegistry_Register_TelemetryLoopIDEnabled(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		loopRegistry := &LoopRegistry{
+			registry:     make(map[string]*RegisteredLoop),
+			lggr:         logger.Test(t),
+			cfgTelemetry: &mockCfgTelemetry{loopIDEnabled: enabled},
+			cfgApp:       mockCfgApp{},
+		}
+		registeredLoop, err := loopRegistry.Register("testID")
+		require.NoError(t, err)
+		require.Equal(t, enabled, registeredLoop.TelemetryLoopIDEnabled)
+	}
+}
+
 func TestLoopRegistry_Register(t *testing.T) {
 	mockCfgDatabase := &mockCfgDatabase{}
 	mockCfgMercury := &mockCfgMercury{}
@@ -312,6 +332,9 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, []string{"event_id"}, envCfg.TelemetryMetricViewsDenyAttributes)
 	require.NotNil(t, envCfg.TelemetryMetricCardinalityLimit)
 	require.Equal(t, 100000, *envCfg.TelemetryMetricCardinalityLimit)
+	require.False(t, registeredLoop.TelemetryLoopIDEnabled, "[Telemetry] LoopIDEnabled defaults to off")
+	require.Equal(t, []string{"process.executable.name", "service.version"}, envCfg.TelemetryOTelResourceAttributes)
+	require.Empty(t, envCfg.TelemetryLoopID, "the registry entry never carries a per-command telemetry ID")
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 	require.False(t, envCfg.ChipIngressBatchEmitterEnabled)

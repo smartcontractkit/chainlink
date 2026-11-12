@@ -41,6 +41,8 @@ type Telemetry interface {
 	LogMaxQueueSize() int
 	MetricViewsDenyAttributes() []string
 	MetricCardinalityLimit() int
+	LoopIDEnabled() bool
+	OTelResourceAttributes() []string
 	PrometheusBridge() PrometheusBridge
 }
 

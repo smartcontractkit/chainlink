@@ -913,6 +913,15 @@ LogMaxQueueSize = 2048 # Default
 MetricViewsDenyAttributes = ['event_id'] # Default
 # MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
 MetricCardinalityLimit = 100000 # Default
+# LoopIDEnabled sends each LOOP plugin a telemetry-only identity (CL_TELEMETRY_LOOP_ID), exported as the
+# chainlink.loop.id resource attribute, e.g. Relayer.evm.1 or StandardCapabilities.<jobID>.<jobName>.
+# It keeps series from different LOOPs on the same node distinct. Bounded: one value per LOOP, stable across restarts.
+LoopIDEnabled = false # Default
+# OTelResourceAttributes lists process attributes the node and each LOOP plugin add to their own telemetry
+# resource: process.executable.name (the binary's main package path), service.version (the binary's version),
+# process.pid. ResourceAttributes with the same key win. process.pid changes on every restart and starts a new
+# set of series each time, so it is not enabled by default.
+OTelResourceAttributes = ['process.executable.name', 'service.version'] # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]

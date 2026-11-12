@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	looptelemetry "github.com/smartcontractkit/chainlink-common/pkg/loop/telemetry"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -3047,6 +3048,8 @@ type Telemetry struct {
 	LogMaxQueueSize                        *int
 	MetricViewsDenyAttributes              []string
 	MetricCardinalityLimit                 *int
+	LoopIDEnabled                          *bool
+	OTelResourceAttributes                 []string
 
 	PrometheusBridge PrometheusBridge `toml:",omitempty"`
 }
@@ -3154,6 +3157,12 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.MetricCardinalityLimit; v != nil {
 		b.MetricCardinalityLimit = v
 	}
+	if v := f.LoopIDEnabled; v != nil {
+		b.LoopIDEnabled = v
+	}
+	if v := f.OTelResourceAttributes; v != nil {
+		b.OTelResourceAttributes = v
+	}
 	b.PrometheusBridge.setFrom(&f.PrometheusBridge)
 }
 
@@ -3172,6 +3181,10 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	}
 	if ratio := b.TraceSampleRatio; ratio != nil && (*ratio < 0 || *ratio > 1) {
 		err = errors.Join(err, configutils.InvalidError{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
+	}
+	if _, unknown := looptelemetry.ProcessResourceAttributes(b.OTelResourceAttributes); len(unknown) > 0 {
+		err = errors.Join(err, configutils.InvalidError{Name: "OTelResourceAttributes", Value: unknown,
+			Msg: "unsupported; supported: " + strings.Join(looptelemetry.SupportedOTelResourceAttributes, ", ")})
 	}
 	if v := b.ChipIngressBufferSize; v != nil && *v == 0 {
 		err = errors.Join(err, configutils.InvalidError{Name: "ChipIngressBufferSize", Value: *v, Msg: "must be greater than 0"})

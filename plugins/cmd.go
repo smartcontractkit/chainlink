@@ -10,6 +10,9 @@ type CmdConfig struct {
 	ID  string   // unique string used by the node to track the LOOP. typically supplied by the loop logger name
 	Cmd string   // string value of executable to exec
 	Env []string // environment variables as described in [exec.Cmd.Env]
+	// TelemetryLoopID is the LOOP's telemetry-only identity, built with telemetry.NewLoopID
+	// (e.g. Relayer.evm.1). Sent as CL_TELEMETRY_LOOP_ID only when [Telemetry] LoopIDEnabled is set.
+	TelemetryLoopID string
 }
 
 // NewCmdFactory is helper to ensure synchronization between the loop registry and os cmd to exec the LOOP
@@ -18,10 +21,14 @@ func NewCmdFactory(register func(id string) (*RegisteredLoop, error), lcfg CmdCo
 	if err != nil {
 		return nil, fmt.Errorf("failed to register %s LOOP plugin: %w", lcfg.ID, err)
 	}
+	envCfg := registeredLoop.EnvCfg // copy: the telemetry ID is per command, not part of the registry entry
+	if registeredLoop.TelemetryLoopIDEnabled {
+		envCfg.TelemetryLoopID = lcfg.TelemetryLoopID
+	}
 	return func() *exec.Cmd {
 		cmd := exec.Command(lcfg.Cmd) //nolint:noctx,gosec // LOOP process; ctx attached by caller at execution, cmd value controlled by us
 		cmd.Env = append(cmd.Env, lcfg.Env...)
-		cmd.Env = append(cmd.Env, registeredLoop.EnvCfg.AsCmdEnv()...)
+		cmd.Env = append(cmd.Env, envCfg.AsCmdEnv()...)
 		return cmd
 	}, nil
 }

@@ -22,6 +22,8 @@ var ErrExists = errors.New("plugin already registered")
 type RegisteredLoop struct {
 	Name   string
 	EnvCfg loop.EnvConfig
+	// TelemetryLoopIDEnabled mirrors [Telemetry] LoopIDEnabled: whether CmdConfig.TelemetryLoopID is sent.
+	TelemetryLoopIDEnabled bool
 }
 
 // LoopRegistry is responsible for assigning ports to plugins that are to be used for the
@@ -175,6 +177,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryLogExportInterval = m.cfgTelemetry.LogExportInterval()
 		envCfg.TelemetryLogMaxQueueSize = m.cfgTelemetry.LogMaxQueueSize()
 		envCfg.TelemetryMetricViewsDenyAttributes = m.cfgTelemetry.MetricViewsDenyAttributes()
+		envCfg.TelemetryOTelResourceAttributes = m.cfgTelemetry.OTelResourceAttributes()
 		limit := m.cfgTelemetry.MetricCardinalityLimit()
 		envCfg.TelemetryMetricCardinalityLimit = &limit
 		envCfg.TelemetryPrometheusBridgeEnabled = m.cfgTelemetry.PrometheusBridge().Enabled()
@@ -208,7 +211,11 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.CRESettingsDefault = s
 	}
 
-	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg}
+	m.registry[id] = &RegisteredLoop{
+		Name:                   id,
+		EnvCfg:                 envCfg,
+		TelemetryLoopIDEnabled: m.cfgTelemetry != nil && m.cfgTelemetry.LoopIDEnabled(),
+	}
 	return m.registry[id], nil
 }
 

@@ -30,6 +30,42 @@ func TestNewCmdFactory_RegisterSuccess(t *testing.T) {
 	}
 }
 
+func TestNewCmdFactory_TelemetryLoopID(t *testing.T) {
+	const envKey = "CL_TELEMETRY_LOOP_ID="
+	envOf := func(t *testing.T, enabled bool, id string) []string {
+		t.Helper()
+		registered := &RegisteredLoop{EnvCfg: loop.EnvConfig{}, TelemetryLoopIDEnabled: enabled}
+		cmdFactory, err := NewCmdFactory(func(string) (*RegisteredLoop, error) { return registered, nil },
+			CmdConfig{ID: "test-loop", Cmd: "echo", TelemetryLoopID: id})
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		env := cmdFactory().Env
+		if registered.EnvCfg.TelemetryLoopID != "" {
+			t.Errorf("registry entry must not be mutated, got %q", registered.EnvCfg.TelemetryLoopID)
+		}
+		return env
+	}
+	hasID := func(env []string) (string, bool) {
+		for _, kv := range env {
+			if v, ok := strings.CutPrefix(kv, envKey); ok {
+				return v, true
+			}
+		}
+		return "", false
+	}
+
+	if v, ok := hasID(envOf(t, true, "Relayer.evm.1")); !ok || v != "Relayer.evm.1" {
+		t.Errorf("enabled: expected %sRelayer.evm.1, got %q (present=%v)", envKey, v, ok)
+	}
+	if _, ok := hasID(envOf(t, false, "Relayer.evm.1")); ok {
+		t.Errorf("disabled: %s must not be sent", envKey)
+	}
+	if _, ok := hasID(envOf(t, true, "")); ok {
+		t.Errorf("enabled without an ID: %s must not be sent", envKey)
+	}
+}
+
 func TestNewCmdFactory_RegisterFail(t *testing.T) {
 	mockRegister := func(id string) (*RegisteredLoop, error) {
 		return nil, errors.New("registration failed")

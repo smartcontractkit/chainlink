@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	looptelemetry "github.com/smartcontractkit/chainlink-common/pkg/loop/telemetry"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
@@ -89,9 +90,10 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]core
 				return nil, fmt.Errorf("failed to parse EVM env file: %w", err)
 			}
 			solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-				ID:  relayID.Name(),
-				Cmd: cmdName,
-				Env: envVars,
+				ID:              relayID.Name(),
+				Cmd:             cmdName,
+				Env:             envVars,
+				TelemetryLoopID: looptelemetry.NewLoopID("Relayer", relayID.Network, relayID.ChainID),
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create EVM LOOP command: %w", err)
@@ -190,6 +192,7 @@ func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.
 
 		cmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 			ID: relayID.Name(), Cmd: cmdName, Env: envVars,
+			TelemetryLoopID: looptelemetry.NewLoopID("Relayer", relayID.Network, relayID.ChainID),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create LOOP command: %w", err)

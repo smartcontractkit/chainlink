@@ -23,6 +23,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	looptelemetry "github.com/smartcontractkit/chainlink-common/pkg/loop/telemetry"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -185,10 +186,11 @@ func (d *Delegate) NewServices(
 	registryOCRConfig *ocrtypes.ContractConfig,
 ) ([]job.ServiceCtx, error) {
 	log := logger.Sugared(logger.Named(d.logger, "StandardCapabilities")).Named(strconv.Itoa(int(jobID))).Named(jobName)
+	telemetryLoopID := looptelemetry.NewLoopID("StandardCapabilities", strconv.Itoa(int(jobID)), jobName)
 
 	if filepath.Base(command) == conversions.CronCmd && d.cronV2Active(ctx) {
 		v2cmd := filepath.Join(filepath.Dir(command), conversions.CronV2Cmd)
-		return d.newServicesV2(ctx, log, v2cmd, conversions.CronV2Cmd, configJSON, capabilityDonID)
+		return d.newServicesV2(ctx, log, v2cmd, conversions.CronV2Cmd, configJSON, capabilityDonID, telemetryLoopID)
 	}
 
 	// Warn when neither the job spec nor the TOML config provide bootstrap peers.
@@ -408,11 +410,12 @@ func (d *Delegate) NewServices(
 	}
 	idResolver := d.newCapDonIDResolver(log, capabilityID, capabilityDonID)
 	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, idResolver, dependencies)
+	standardCapability.telemetryLoopID = telemetryLoopID
 
 	return []job.ServiceCtx{standardCapability}, nil
 }
 
-func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command, app, configJSON string, capabilityDonID uint32) ([]job.ServiceCtx, error) {
+func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command, app, configJSON string, capabilityDonID uint32, telemetryLoopID string) ([]job.ServiceCtx, error) {
 	// The capability ID depends on the capability, not on how it runs, so look it up by app name.
 	capabilityID := conversions.GetCapabilityIDFromCommand(app, configJSON)
 
@@ -427,6 +430,7 @@ func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command
 		PluginRegistrar:  d.cfg,
 		Registry:         d.registry,
 		CRESettings:      d.creSettings,
+		TelemetryLoopID:  telemetryLoopID,
 	})
 	if err != nil {
 		return nil, err

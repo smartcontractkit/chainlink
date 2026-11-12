@@ -46,8 +46,10 @@ type V2 struct {
 
 	emptyLoop atomic.Pointer[loop.EmptyService]
 	loopID    string
-	wg        sync.WaitGroup
-	stopChan  services.StopChan
+	// telemetryLoopID is the LOOP's telemetry-only identity; see V2Params.TelemetryLoopID.
+	telemetryLoopID string
+	wg              sync.WaitGroup
+	stopChan        services.StopChan
 
 	// The process is launched in the background once the capability DON ID is
 	// resolved. It has its own cancellation, separate from stopChan, because Close
@@ -69,6 +71,9 @@ type V2Params struct {
 	Registry registry.CapabilitiesRegistry
 	// CRESettings is served to the process. Nil serves no settings.
 	CRESettings settings.Broadcaster
+	// TelemetryLoopID is the LOOP's telemetry-only identity (StandardCapabilities.<jobID>.<jobName>).
+	// Empty sends none.
+	TelemetryLoopID string
 }
 
 func NewV2(p V2Params) (*V2, error) {
@@ -81,6 +86,7 @@ func NewV2(p V2Params) (*V2, error) {
 		pluginRegistrar:  p.PluginRegistrar,
 		registry:         p.Registry,
 		creSettings:      p.CRESettings,
+		telemetryLoopID:  p.TelemetryLoopID,
 		stopChan:         make(services.StopChan),
 	}, nil
 }
@@ -146,9 +152,10 @@ func (s *V2) launch(ctx context.Context, envVars []string) error {
 
 	loopID := s.log.Name()
 	cmdFn, opts, err := s.pluginRegistrar.RegisterLOOP(plugins.CmdConfig{
-		ID:  loopID,
-		Cmd: s.command,
-		Env: envVars,
+		ID:              loopID,
+		Cmd:             s.command,
+		Env:             envVars,
+		TelemetryLoopID: s.telemetryLoopID,
 	})
 	if err != nil {
 		return fmt.Errorf("error registering loop: %w", err)

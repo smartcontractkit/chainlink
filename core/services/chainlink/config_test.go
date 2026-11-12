@@ -558,6 +558,8 @@ func TestConfig_Marshal(t *testing.T) {
 		LogMaxQueueSize:                        new(2048),
 		MetricViewsDenyAttributes:              []string{"event_id"},
 		MetricCardinalityLimit:                 new(100000),
+		LoopIDEnabled:                          new(true),
+		OTelResourceAttributes:                 []string{"process.executable.name", "service.version", "process.pid"},
 
 		PrometheusBridge: toml.PrometheusBridge{
 			Enabled:  new(true),

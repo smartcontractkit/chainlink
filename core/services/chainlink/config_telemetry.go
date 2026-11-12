@@ -288,6 +288,17 @@ func (b *telemetryConfig) MetricCardinalityLimit() int {
 	return *b.s.MetricCardinalityLimit
 }
 
+func (b *telemetryConfig) LoopIDEnabled() bool {
+	if b.s.LoopIDEnabled == nil {
+		return false
+	}
+	return *b.s.LoopIDEnabled
+}
+
+func (b *telemetryConfig) OTelResourceAttributes() []string {
+	return b.s.OTelResourceAttributes
+}
+
 func (b *telemetryConfig) PrometheusBridge() config.PrometheusBridge {
 	return &prometheusBridgeConfig{b.s.PrometheusBridge}
 }

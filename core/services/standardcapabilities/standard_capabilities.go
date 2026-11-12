@@ -55,6 +55,9 @@ type StandardCapabilities struct {
 	// once RegisterLOOP succeeds and cleared by unregisterLOOP, so the same ID can be
 	// registered again when the capability is restarted (e.g. on a config change).
 	loopID string
+	// telemetryLoopID is the LOOP's telemetry-only identity (StandardCapabilities.<jobID>.<jobName>),
+	// set by the delegate. Empty when the service is built outside a job (e.g. CRE local tooling).
+	telemetryLoopID string
 
 	wg           sync.WaitGroup
 	readyChan    chan struct{}
@@ -138,9 +141,10 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 		}
 		loopID := s.log.Name()
 		cmdFn, opts, err := s.pluginRegistrar.RegisterLOOP(plugins.CmdConfig{
-			ID:  loopID,
-			Cmd: s.command,
-			Env: envVars,
+			ID:              loopID,
+			Cmd:             s.command,
+			Env:             envVars,
+			TelemetryLoopID: s.telemetryLoopID,
 		})
 		if err != nil {
 			return fmt.Errorf("error registering loop: %w", err)
