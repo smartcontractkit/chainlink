@@ -161,7 +161,9 @@ func TestMedianTask(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			t.Run("without vars", func(t *testing.T) {
+				t.Parallel()
 				task := pipeline.MedianTask{
 					BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 					AllowedFaults: test.allowedFaults,
@@ -183,6 +185,7 @@ func TestMedianTask(t *testing.T) {
 				}
 			})
 			t.Run("with vars", func(t *testing.T) {
+				t.Parallel()
 				var inputs []any
 				for _, input := range test.inputs {
 					if input.Error != nil {
@@ -216,6 +219,7 @@ func TestMedianTask(t *testing.T) {
 				}
 			})
 			t.Run("with json vars", func(t *testing.T) {
+				t.Parallel()
 				var inputs []any
 				for _, input := range test.inputs {
 					if input.Error != nil {
@@ -378,6 +382,7 @@ func TestMedianTask_CountNilsAsFaults(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.MedianTask{
 				BaseTask:          pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				AllowedFaults:     test.allowedFaults,

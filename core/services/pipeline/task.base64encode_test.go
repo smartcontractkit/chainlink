@@ -46,12 +46,15 @@ func TestBase64EncodeTask(t *testing.T) {
 			}
 		}
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			t.Run("without vars through job DAG", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.Base64EncodeTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0)}
 				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("with vars", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(map[string]any{
 					"foo": map[string]any{"bar": test.input},
 				})
@@ -81,6 +84,7 @@ func TestBase64EncodeTaskInputParamLiteral(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			vars := pipeline.NewVarsFrom(nil)
 			task := pipeline.Base64EncodeTask{
 				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),

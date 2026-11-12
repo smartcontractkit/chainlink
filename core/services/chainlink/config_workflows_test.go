@@ -8,6 +8,7 @@ import (
 )
 
 func TestWorkflowsConfig(t *testing.T) {
+	t.Parallel()
 	workflowsTOML := `[Workflows]
 [Workflows.Limits]
 Global = 200

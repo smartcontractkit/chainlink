@@ -18,6 +18,7 @@ type event struct {
 }
 
 func TestScheduler(t *testing.T) {
+	t.Parallel()
 	// NOTE: task type does not matter in the test cases, it's just there so it's parsed successfully
 	tests := []struct {
 		name      string

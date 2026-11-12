@@ -32,6 +32,7 @@ func (m *mockPipelineRunner) ExecuteRun(ctx context.Context, spec string, vars c
 }
 
 func TestDataSource(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	expect := jsonserializable.JSONSerializable{Val: int64(3), Valid: true}
 	pr := &mockPipelineRunner{
@@ -69,6 +70,7 @@ func TestDataSource(t *testing.T) {
 }
 
 func TestDataSource_ResultErrors(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	pr := &mockPipelineRunner{
 		results: core.TaskResults{
@@ -92,6 +94,7 @@ func TestDataSource_ResultErrors(t *testing.T) {
 }
 
 func TestDataSource_ResultNotAnInt(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	expect := jsonserializable.JSONSerializable{Val: "string-result", Valid: true}

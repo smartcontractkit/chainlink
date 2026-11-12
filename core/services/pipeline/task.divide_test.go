@@ -94,7 +94,9 @@ func TestDivideTask_Happy(t *testing.T) {
 			require.Equal(t, test.expected.String(), result.Value.(decimal.Decimal).String())
 		}
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			t.Run("without vars through job DAG", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.DivideTask{
 					BaseTask:  pipeline.NewBaseTask(0, "task", nil, nil, 0),
@@ -104,6 +106,7 @@ func TestDivideTask_Happy(t *testing.T) {
 				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("without vars through input param", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.DivideTask{
 					BaseTask:  pipeline.NewBaseTask(0, "task", nil, nil, 0),
@@ -114,6 +117,7 @@ func TestDivideTask_Happy(t *testing.T) {
 				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(map[string]any{
 					"foo":    map[string]any{"bar": test.input},
 					"chain":  map[string]any{"link": test.divisor},
@@ -156,6 +160,7 @@ func TestDivideTask_Unhappy(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.DivideTask{
 				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Input:    test.input,

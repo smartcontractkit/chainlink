@@ -71,12 +71,15 @@ func TestLessThanTask_Happy(t *testing.T) {
 			require.Equal(t, test.want, result.Value.(bool))
 		}
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			t.Run("without vars through job DAG", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.LessThanTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Right: test.right}
 				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.left}}))
 			})
 			t.Run("without vars through input param", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.LessThanTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
@@ -86,6 +89,7 @@ func TestLessThanTask_Happy(t *testing.T) {
 				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(map[string]any{
 					"foo":   map[string]any{"bar": test.left},
 					"chain": map[string]any{"link": test.right},
@@ -123,6 +127,7 @@ func TestLessThanTask_Unhappy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.LessThanTask{
 				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Left:     test.left,

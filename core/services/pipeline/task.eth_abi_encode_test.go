@@ -16,6 +16,7 @@ import (
 )
 
 func TestETHABIEncodeTask(t *testing.T) {
+	t.Parallel()
 	var bytes32 [32]byte
 	copy(bytes32[:], []byte("chainlink chainlink chainlink"))
 
@@ -215,6 +216,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.ETHABIEncodeTask{
 				BaseTask: pipeline.NewBaseTask(0, "encode", nil, nil, 0),
 				ABI:      test.abi,
@@ -240,6 +242,7 @@ func TestETHABIEncodeTask(t *testing.T) {
 }
 
 func TestETHABIEncode_EncodeIntegers(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name                  string
 		abi                   string
@@ -505,6 +508,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.ETHABIEncodeTask{
 				BaseTask: pipeline.NewBaseTask(0, "encode", nil, nil, 0),
 				ABI:      test.abi,
@@ -530,6 +534,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 }
 
 func TestETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name                  string
 		abi                   string
@@ -568,6 +573,7 @@ func TestETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.ETHABIEncodeTask{
 				BaseTask: pipeline.NewBaseTask(0, "encode", nil, nil, 0),
 				ABI:      test.abi,

@@ -61,6 +61,7 @@ func TestObjectParam_UnmarshalPipelineParamValid(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var value pipeline.ObjectParam
 			err := value.UnmarshalPipelineParam(test.input)
 			require.NoError(t, err)
@@ -72,6 +73,7 @@ func TestObjectParam_UnmarshalPipelineParamValid(t *testing.T) {
 }
 
 func TestObjectParam_Marshal(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		input  *pipeline.ObjectParam
@@ -87,6 +89,7 @@ func TestObjectParam_Marshal(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			marshalledValue, err := test.input.Marshal()
 			require.NoError(t, err)
 			assert.Equal(t, test.output, marshalledValue)

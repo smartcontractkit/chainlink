@@ -10,6 +10,7 @@ import (
 )
 
 func TestCapabilitiesLocalConfig(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}
@@ -31,6 +32,7 @@ func TestCapabilitiesLocalConfig(t *testing.T) {
 }
 
 func TestCapabilitiesLocalConfigEmpty(t *testing.T) {
+	t.Parallel()
 	tomlStr := `
 [Capabilities.Local]
 `
@@ -46,6 +48,7 @@ func TestCapabilitiesLocalConfigEmpty(t *testing.T) {
 }
 
 func TestValidateCapabilityID(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		capID   string
@@ -66,6 +69,7 @@ func TestValidateCapabilityID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := toml.ValidateCapabilityID(tt.capID)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -77,7 +81,9 @@ func TestValidateCapabilityID(t *testing.T) {
 }
 
 func TestLocalCapabilitiesValidation(t *testing.T) {
+	t.Parallel()
 	t.Run("valid config with regex patterns", func(t *testing.T) {
+		t.Parallel()
 		cfg := toml.LocalCapabilities{
 			RegistryBasedLaunchAllowlist: []string{"^cron@1\\.0\\.0$", "^http-actions@.*$", ".*"},
 		}
@@ -86,6 +92,7 @@ func TestLocalCapabilitiesValidation(t *testing.T) {
 	})
 
 	t.Run("invalid regex pattern", func(t *testing.T) {
+		t.Parallel()
 		cfg := toml.LocalCapabilities{
 			RegistryBasedLaunchAllowlist: []string{"[invalid"},
 		}
@@ -96,6 +103,7 @@ func TestLocalCapabilitiesValidation(t *testing.T) {
 	})
 
 	t.Run("multiple errors", func(t *testing.T) {
+		t.Parallel()
 		cfg := toml.LocalCapabilities{
 			RegistryBasedLaunchAllowlist: []string{"[invalid1", "[invalid2"},
 		}

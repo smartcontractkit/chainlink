@@ -1023,6 +1023,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewTestGeneralConfig(t)
 
@@ -1192,6 +1193,7 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var response adapterResponse
 			err := json.Unmarshal([]byte(test.content), &response)
 			require.NoError(t, err)
@@ -1202,6 +1204,7 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 }
 
 func TestBridgeTask_Headers(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
@@ -1241,7 +1244,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 	standardHeaders := []string{"Content-Length", "38", "Content-Type", "application/json", "User-Agent", "Go-http-client/1.1"}
 
-	t.Run("sends headers", func(t *testing.T) {
+	t.Run("sends headers", func(t *testing.T) { //nolint:paralleltest // subtests share one bridge task and its captured state
 		task := pipeline.BridgeTask{
 			BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 			Name:        bridge.Name.String(),
@@ -1263,7 +1266,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
 	})
 
-	t.Run("errors with odd number of headers", func(t *testing.T) {
+	t.Run("errors with odd number of headers", func(t *testing.T) { //nolint:paralleltest // subtests share one bridge task and its captured state
 		task := pipeline.BridgeTask{
 			BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 			Name:        bridge.Name.String(),
@@ -1284,7 +1287,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 		assert.Nil(t, result.Value)
 	})
 
-	t.Run("allows to override content-type", func(t *testing.T) {
+	t.Run("allows to override content-type", func(t *testing.T) { //nolint:paralleltest // subtests share one bridge task and its captured state
 		task := pipeline.BridgeTask{
 			BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 			Name:        bridge.Name.String(),
@@ -1463,7 +1466,7 @@ func TestBridgeTask_AdapterTimeout(t *testing.T) {
 		},
 	)
 
-	t.Run("pre-cancelled", func(t *testing.T) {
+	t.Run("pre-cancelled", func(t *testing.T) { //nolint:paralleltest // subtests share one bridge task and its captured state
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel() // pre-cancelled
 		result, runInfo := task.Run(ctx, logger.TestLogger(t), vars, nil)
@@ -1474,7 +1477,7 @@ func TestBridgeTask_AdapterTimeout(t *testing.T) {
 		require.False(t, runInfo.IsPending)
 	})
 
-	t.Run("short", func(t *testing.T) {
+	t.Run("short", func(t *testing.T) { //nolint:paralleltest // subtests share one bridge task and its captured state
 		// The deadline must outlast the bridge lookup, which runs against the DB
 		// and shares the ctx's overtime window. With a 1ms deadline that window is
 		// only 100ms for two DB queries, which a loaded machine can miss. Here the

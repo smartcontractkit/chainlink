@@ -41,6 +41,7 @@ func TestStringParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.StringParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -74,6 +75,7 @@ func TestStringSliceParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.StringSliceParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -104,6 +106,7 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.BytesParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -148,6 +151,7 @@ func TestAddressParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.AddressParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -184,6 +188,7 @@ func TestAddressSliceParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.AddressSliceParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -229,6 +234,7 @@ func TestUint64Param_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.Uint64Param
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -275,6 +281,7 @@ func TestMaybeUint64Param_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.MaybeUint64Param
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -330,6 +337,7 @@ func TestMaybeBigIntParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.MaybeBigIntParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -372,6 +380,7 @@ func TestMaybeInt32Param_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.MaybeInt32Param
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -400,6 +409,7 @@ func TestBoolParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.BoolParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -434,6 +444,7 @@ func TestDecimalParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.DecimalParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -461,6 +472,7 @@ func TestURLParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.URLParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -523,6 +535,7 @@ func TestMapParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.MapParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -549,6 +562,7 @@ func TestSliceParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.SliceParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -582,6 +596,7 @@ func TestHashSliceParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.HashSliceParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -633,6 +648,7 @@ func TestDecimalSliceParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.DecimalSliceParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -661,6 +677,7 @@ func TestJSONPathParam_UnmarshalPipelineParam(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			var p pipeline.JSONPathParam
 			err := p.UnmarshalPipelineParam(test.input)
 			require.Equal(t, test.err, errors.Cause(err))
@@ -673,6 +690,7 @@ func TestResolveValue(t *testing.T) {
 	t.Parallel()
 
 	t.Run("calls getters in order until the first one that returns without ErrParameterEmpty", func(t *testing.T) {
+		t.Parallel()
 		param := mocks.NewPipelineParamUnmarshaler(t)
 		param.On("UnmarshalPipelineParam", mock.Anything).Return(nil)
 
@@ -698,6 +716,7 @@ func TestResolveValue(t *testing.T) {
 	})
 
 	t.Run("returns any GetterFunc error that isn't ErrParameterEmpty", func(t *testing.T) {
+		t.Parallel()
 		param := mocks.NewPipelineParamUnmarshaler(t)
 		called := []int{}
 		expectedErr := errors.New("some other issue")
@@ -723,6 +742,7 @@ func TestResolveValue(t *testing.T) {
 	})
 
 	t.Run("calls UnmarshalPipelineParam with the value obtained from the GetterFuncs", func(t *testing.T) {
+		t.Parallel()
 		expectedValue := 123
 
 		param := mocks.NewPipelineParamUnmarshaler(t)
@@ -739,6 +759,7 @@ func TestResolveValue(t *testing.T) {
 	})
 
 	t.Run("returns any error returned by UnmarshalPipelineParam", func(t *testing.T) {
+		t.Parallel()
 		expectedValue := 123
 		expectedErr := errors.New("some issue")
 

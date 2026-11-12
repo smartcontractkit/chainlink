@@ -68,12 +68,14 @@ func TestRun_Status(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tc.want, tc.run.Status())
 		})
 	}
 }
 
 func TestRunErrors_ToError(t *testing.T) {
+	t.Parallel()
 	runErrors := make(pipeline.RunErrors, 0, 3)
 	runErrors = append(runErrors, null.NewString("bad thing happened", true))
 	runErrors = append(runErrors, null.NewString("pretty bad thing happened", true))
@@ -115,6 +117,7 @@ func TestRun_StringOutputs(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			run := &pipeline.Run{
 				Outputs: jsonserializable.JSONSerializable{
 					Valid: true,

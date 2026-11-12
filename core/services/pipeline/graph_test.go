@@ -257,6 +257,7 @@ func TestGraph_ImplicitDependencies(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
+	t.Parallel()
 	for _, s := range []struct {
 		name     string
 		pipeline string
@@ -266,6 +267,7 @@ func TestParse(t *testing.T) {
 		{"foo", "foo"},
 	} {
 		t.Run(s.name, func(t *testing.T) {
+			t.Parallel()
 			_, err := pipeline.Parse(s.pipeline)
 			assert.Error(t, err)
 		})

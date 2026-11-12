@@ -9,6 +9,7 @@ import (
 )
 
 func TestNewCmdFactory_RegisterSuccess(t *testing.T) {
+	t.Parallel()
 	mockRegister := func(id string) (*RegisteredLoop, error) {
 		return &RegisteredLoop{EnvCfg: loop.EnvConfig{}}, nil
 	}
@@ -31,6 +32,7 @@ func TestNewCmdFactory_RegisterSuccess(t *testing.T) {
 }
 
 func TestNewCmdFactory_RegisterFail(t *testing.T) {
+	t.Parallel()
 	mockRegister := func(id string) (*RegisteredLoop, error) {
 		return nil, errors.New("registration failed")
 	}

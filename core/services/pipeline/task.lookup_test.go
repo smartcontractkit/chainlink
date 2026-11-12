@@ -12,17 +12,17 @@ import (
 )
 
 func Test_LookupTask(t *testing.T) {
-	task := pipeline.LookupTask{}
+	t.Parallel()
 	m := map[string]any{
 		"foo": 42,
 		"bar": "baz",
 	}
 	var vars pipeline.Vars
-	var inputs []pipeline.Result
 
 	t.Run("with valid key for map", func(t *testing.T) {
-		task.Key = "foo"
-		inputs = []pipeline.Result{{Value: m, Error: nil}}
+		t.Parallel()
+		task := pipeline.LookupTask{Key: "foo"}
+		inputs := []pipeline.Result{{Value: m, Error: nil}}
 
 		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
@@ -30,8 +30,9 @@ func Test_LookupTask(t *testing.T) {
 		assert.NoError(t, res.Error)
 	})
 	t.Run("returns nil if key is missing", func(t *testing.T) {
-		task.Key = "qux"
-		inputs = []pipeline.Result{{Value: m, Error: nil}}
+		t.Parallel()
+		task := pipeline.LookupTask{Key: "qux"}
+		inputs := []pipeline.Result{{Value: m, Error: nil}}
 
 		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
@@ -39,8 +40,9 @@ func Test_LookupTask(t *testing.T) {
 		assert.Nil(t, res.Value)
 	})
 	t.Run("errors when input is not a map", func(t *testing.T) {
-		task.Key = "qux"
-		inputs = []pipeline.Result{{Value: "something", Error: nil}}
+		t.Parallel()
+		task := pipeline.LookupTask{Key: "qux"}
+		inputs := []pipeline.Result{{Value: "something", Error: nil}}
 
 		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
@@ -48,8 +50,9 @@ func Test_LookupTask(t *testing.T) {
 		assert.Nil(t, res.Value)
 	})
 	t.Run("errors when input is error", func(t *testing.T) {
-		task.Key = "qux"
-		inputs = []pipeline.Result{{Value: nil, Error: errors.New("something blew up")}}
+		t.Parallel()
+		task := pipeline.LookupTask{Key: "qux"}
+		inputs := []pipeline.Result{{Value: nil, Error: errors.New("something blew up")}}
 
 		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 
@@ -57,8 +60,9 @@ func Test_LookupTask(t *testing.T) {
 		assert.Nil(t, res.Value)
 	})
 	t.Run("errors with too many inputs", func(t *testing.T) {
-		task.Key = "qux"
-		inputs = []pipeline.Result{{Value: m, Error: nil}, {Value: nil, Error: errors.New("something blew up")}}
+		t.Parallel()
+		task := pipeline.LookupTask{Key: "qux"}
+		inputs := []pipeline.Result{{Value: m, Error: nil}, {Value: nil, Error: errors.New("something blew up")}}
 
 		res, _ := task.Run(t.Context(), logger.TestLogger(t), vars, inputs)
 

@@ -8,6 +8,7 @@ import (
 )
 
 func TestPasswordConfig(t *testing.T) {
+	t.Parallel()
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
 	}

@@ -14,6 +14,7 @@ import (
 )
 
 func TestETHABIEncodeTask2(t *testing.T) {
+	t.Parallel()
 	var bytes32 [32]byte
 	copy(bytes32[:], []byte("chainlink chainlink chainlink"))
 
@@ -348,6 +349,7 @@ func TestETHABIEncodeTask2(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.ETHABIEncodeTask2{
 				BaseTask: pipeline.NewBaseTask(0, "encode", nil, nil, 0),
 				ABI:      test.abi,

@@ -89,6 +89,7 @@ func TestCoalesceTask(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.CoalesceTask{}
 			output, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
 			assert.False(t, runInfo.IsPending)

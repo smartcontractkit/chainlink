@@ -144,7 +144,7 @@ func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
 	donID := uint32(1)
 	opts := &mockOpts{}
 
-	t.Run("with error", func(t *testing.T) {
+	t.Run("with error", func(t *testing.T) { //nolint:paralleltest // subtests share one telemeter and its mock endpoint
 		tm := newTelemeter(TelemeterParams{
 			Logger:             lggr,
 			MonitoringEndpoint: m,
@@ -152,12 +152,12 @@ func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
 		})
 		servicetest.Run(t, tm)
 
-		t.Run("if error is some random failure returns immediately", func(t *testing.T) {
+		t.Run("if error is some random failure returns immediately", func(t *testing.T) { //nolint:paralleltest // subtests share one telemeter and its mock endpoint
 			// should return immediately and not even send on the channel
 			m.chTypedLogs = nil
 			tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, nil, errors.New("test error"))
 		})
-		t.Run("if error is dp invariant violation, sets this flag", func(t *testing.T) {
+		t.Run("if error is dp invariant violation, sets this flag", func(t *testing.T) { //nolint:paralleltest // subtests share one telemeter and its mock endpoint
 			m.chTypedLogs = make(chan typedLog, 100)
 			adapterError := new(eautils.AdapterError)
 			adapterError.Name = adapterLWBAErrorName
@@ -177,7 +177,7 @@ func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
 			}
 		})
 	})
-	t.Run("with decimal value, sets all values correctly", func(t *testing.T) {
+	t.Run("with decimal value, sets all values correctly", func(t *testing.T) { //nolint:paralleltest // subtests share one telemeter and its mock endpoint
 		tm := newTelemeter(TelemeterParams{
 			Logger:             lggr,
 			MonitoringEndpoint: m,
@@ -233,7 +233,7 @@ func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
 			i++
 		}
 	})
-	t.Run("with quote value", func(t *testing.T) {
+	t.Run("with quote value", func(t *testing.T) { //nolint:paralleltest // subtests share one telemeter and its mock endpoint
 		tm := newTelemeter(TelemeterParams{
 			Logger:             lggr,
 			MonitoringEndpoint: m,
@@ -430,7 +430,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 		ch := tm.GetOutcomeTelemetryCh()
 		require.NotNil(t, ch)
 
-		t.Run("zero values", func(t *testing.T) {
+		t.Run("zero values", func(t *testing.T) { //nolint:paralleltest // subtests share one telemeter and its mock endpoint
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
 			orig := &lloprotocol.LLOOutcomeTelemetry{SeqNr: opts.SeqNr(), ConfigDigest: cd[:]}
@@ -459,7 +459,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 			assert.Zero(t, decoded.DonId)
 		})
 
-		t.Run("with values", func(t *testing.T) {
+		t.Run("with values", func(t *testing.T) { //nolint:paralleltest // subtests share one telemeter and its mock endpoint
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
 			orig := &lloprotocol.LLOOutcomeTelemetry{
@@ -645,7 +645,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 		ch := tm.GetReportTelemetryCh()
 		require.NotNil(t, ch)
 
-		t.Run("zero values", func(t *testing.T) {
+		t.Run("zero values", func(t *testing.T) { //nolint:paralleltest // subtests share one telemeter and its mock endpoint
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
 			orig := &lloprotocol.LLOReportTelemetry{SeqNr: opts.SeqNr(), ConfigDigest: cd[:]}
@@ -676,7 +676,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 			assert.Equal(t, cd[:], decoded.ConfigDigest)
 		})
 
-		t.Run("with values", func(t *testing.T) {
+		t.Run("with values", func(t *testing.T) { //nolint:paralleltest // subtests share one telemeter and its mock endpoint
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
 			orig := &lloprotocol.LLOReportTelemetry{

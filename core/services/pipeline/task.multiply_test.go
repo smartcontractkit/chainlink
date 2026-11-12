@@ -115,12 +115,15 @@ func TestMultiplyTask_Happy(t *testing.T) {
 			require.Equal(t, test.want.String(), result.Value.(decimal.Decimal).String())
 		}
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			t.Run("without vars through job DAG", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.MultiplyTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Times: test.times}
 				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("without vars through input param", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.MultiplyTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
@@ -130,6 +133,7 @@ func TestMultiplyTask_Happy(t *testing.T) {
 				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
+				t.Parallel()
 				vars := pipeline.NewVarsFrom(map[string]any{
 					"foo":   map[string]any{"bar": test.input},
 					"chain": map[string]any{"link": test.times},
@@ -167,6 +171,7 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.MultiplyTask{
 				BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				Input:    test.input,

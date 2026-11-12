@@ -160,6 +160,7 @@ func TestMergeTask(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			task := pipeline.MergeTask{
 				BaseTask: pipeline.NewBaseTask(0, "merge", nil, nil, 0),
 				Left:     test.left,

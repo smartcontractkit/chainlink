@@ -69,6 +69,7 @@ func eip55AddressPtr(raw string) *evmtypes.EIP55Address {
 }
 
 func TestNewNodePlatformBuildInfoConfig_UsesThreeMinuteBeat(t *testing.T) {
+	t.Parallel()
 	csaStore := &keystoremocks.CSA{}
 	keyStore := &keystoremocks.Master{}
 	keyStore.EXPECT().CSA().Return(csaStore).Once()
