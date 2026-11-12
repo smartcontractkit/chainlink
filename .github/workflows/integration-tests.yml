@@ -11,6 +11,9 @@ on:
       - "*"
     branches:
       - develop
+  schedule:
+    # Nightly full E2E coverage for the full coverage review/badge.
+    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       cl_ref:
@@ -51,7 +54,7 @@ env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink-integration-tests' }}
   CHAINLINK_REF: ${{ inputs.cl_ref || github.sha }}
   TEST_SUITE: smoke
-  E2E_COVERAGE: ${{ (github.event_name == 'workflow_dispatch' && inputs.coverage) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-coverage')) }}
+  E2E_COVERAGE: ${{ (github.event_name == 'workflow_dispatch' && inputs.coverage) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-coverage')) || github.event_name == 'schedule' }}
   E2E_DEBUG: ${{ (github.event_name == 'workflow_dispatch' && inputs.debug) || (github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-e2e-debug')) }}
 
 jobs:
