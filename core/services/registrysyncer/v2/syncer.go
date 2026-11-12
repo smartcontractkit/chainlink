@@ -56,6 +56,7 @@ type registrySyncer struct {
 	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error)
 	relayer              ContractReaderFactory
 	capabilitiesContract types.BoundContract
+	chainID              uint64
 	getPeerID            func() (p2ptypes.PeerID, error)
 
 	orm registrysyncer.ORM
@@ -76,9 +77,17 @@ func New(
 	lggr logger.Logger,
 	getPeerID func() (p2ptypes.PeerID, error),
 	relayer ContractReaderFactory,
+	chainID uint64,
 	registryAddress string,
 	orm registrysyncer.ORM,
 ) (RegistrySyncer, error) {
+	if chainID == 0 {
+		return nil, errors.New("capabilities registry chain ID must be set")
+	}
+	if registryAddress == "" {
+		return nil, errors.New("capabilities registry address must be set")
+	}
+
 	metricLabeler, err := newSyncerMetricLabeler()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create syncer metric labeler: %w", err)
@@ -94,6 +103,7 @@ func New(
 			Address: registryAddress,
 			Name:    "CapabilitiesRegistry",
 		},
+		chainID:    chainID,
 		initReader: newReader,
 		orm:        orm,
 		getPeerID:  getPeerID,
@@ -354,18 +364,19 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 
 	if latestRegistry == nil {
 		s.lggr.Debug("syncing with remote registry")
-		importedRegistry, err := s.importOnchainRegistry(ctx)
+		latestRegistry, err = s.importOnchainRegistry(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to sync with remote registry: %w", err)
 		}
-		latestRegistry = importedRegistry
+
+		persisted := registry.DeepCopyRegistryMetadata(latestRegistry)
 		// Attempt to send local registry to the update channel without blocking
 		// This is to prevent the tests from hanging if they are not calling `Start()` on the syncer
 		select {
 		case <-s.stopCh:
 			s.lggr.Debug("sync cancelled, stopping")
 			return nil
-		case s.updateChan <- latestRegistry:
+		case s.updateChan <- &persisted:
 			// Successfully sent state
 			s.lggr.Debug("remote registry update triggered successfully")
 		default:
@@ -374,6 +385,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		}
 	}
 
+	s.setOCR3DigestInputs(latestRegistry)
 	for _, listener := range s.listeners {
 		lrCopy := registry.DeepCopyRegistryMetadata(latestRegistry)
 		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
@@ -383,6 +395,20 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	return nil
+}
+
+func (s *registrySyncer) setOCR3DigestInputs(md *registry.RegistryMetadata) {
+	for donID, don := range md.IDsToDONs {
+		for capID, cc := range don.CapabilityConfigurations {
+			cc.OCR3DigestInputs = registry.OCR3DigestInputs{
+				ChainID:         s.chainID,
+				RegistryAddress: s.capabilitiesContract.Address,
+				DonID:           uint32(donID),
+				CapabilityID:    capID,
+			}
+			don.CapabilityConfigurations[capID] = cc
+		}
+	}
 }
 
 type ContractCapabilityType uint8

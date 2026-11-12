@@ -26,8 +26,6 @@ type ocrConfigService struct {
 
 	lggr             logger.Logger
 	peerIDProviderFn PeerIDProvider
-	chainID          uint64
-	registryAddress  string
 	metrics          *Metrics
 
 	mu                sync.RWMutex
@@ -52,7 +50,7 @@ type cachedConfig struct {
 	ContractConfig ocrtypes.ContractConfig
 }
 
-func NewOCRConfigService(lggr logger.Logger, peerIDProviderFn PeerIDProvider, chainID uint64, registryAddress string) *ocrConfigService {
+func NewOCRConfigService(lggr logger.Logger, peerIDProviderFn PeerIDProvider) *ocrConfigService {
 	namedLggr := logger.Named(lggr, "OCRConfigService")
 
 	metrics, err := InitMetrics()
@@ -63,8 +61,6 @@ func NewOCRConfigService(lggr logger.Logger, peerIDProviderFn PeerIDProvider, ch
 	return &ocrConfigService{
 		lggr:             namedLggr,
 		peerIDProviderFn: peerIDProviderFn,
-		chainID:          chainID,
-		registryAddress:  registryAddress,
 		configs:          make(map[configKey]*cachedConfig),
 		metrics:          metrics,
 	}
@@ -147,7 +143,7 @@ func (s *ocrConfigService) OnNewRegistry(ctx context.Context, registry *registry
 		)
 
 		for capID, capConfig := range don.CapabilityConfigurations {
-			if err := s.processCapabilityConfig(ctx, capID, uint32(donID), capConfig.Config, foundConfigs); err != nil {
+			if err := s.processCapabilityConfig(ctx, capID, uint32(donID), capConfig, foundConfigs); err != nil {
 				s.lggr.Warnw("failed to process capability config",
 					"capabilityID", capID,
 					"donID", donID,
@@ -161,7 +157,8 @@ func (s *ocrConfigService) OnNewRegistry(ctx context.Context, registry *registry
 	return nil
 }
 
-func (s *ocrConfigService) processCapabilityConfig(ctx context.Context, capabilityID string, donID uint32, configBytes []byte, foundConfigs map[configKey]uint32) error {
+func (s *ocrConfigService) processCapabilityConfig(ctx context.Context, capabilityID string, donID uint32, capCfg registry.CapabilityConfiguration, foundConfigs map[configKey]uint32) error {
+	configBytes := capCfg.Config
 	if len(configBytes) == 0 {
 		s.lggr.Debugw("empty config bytes, skipping",
 			"capabilityID", capabilityID,
@@ -183,6 +180,11 @@ func (s *ocrConfigService) processCapabilityConfig(ctx context.Context, capabili
 
 	if len(capConfig.Ocr3Configs) == 0 {
 		return nil
+	}
+
+	unmarshalled, err := capCfg.Unmarshal()
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal capability configuration: %w", err)
 	}
 
 	for ocrKey, ocrConfig := range capConfig.Ocr3Configs {
@@ -225,7 +227,7 @@ func (s *ocrConfigService) processCapabilityConfig(ctx context.Context, capabili
 			continue
 		}
 
-		contractConfig, err := s.parseOCR3Config(capabilityID, donID, ocrKey, ocrConfig)
+		contractConfig, err := parseOCR3Config(unmarshalled.Ocr3Configs[ocrKey].ConfigDigest, ocrConfig)
 		if err != nil {
 			s.metrics.IncrementParseErrors(ctx, capabilityID, donID, ocrKey)
 			s.lggr.Errorw("failed to parse OCR3 config",
@@ -259,12 +261,14 @@ func (s *ocrConfigService) processCapabilityConfig(ctx context.Context, capabili
 }
 
 // convert a protobuf OCR3Config to a libocr ContractConfig
-func (s *ocrConfigService) parseOCR3Config(
-	capabilityID string,
-	donID uint32,
-	ocrConfigKey string,
+func parseOCR3Config(
+	digest ocrtypes.ConfigDigest,
 	cfg *capabilitiespb.OCR3Config,
 ) (ocrtypes.ContractConfig, error) {
+	if digest == (ocrtypes.ConfigDigest{}) {
+		return ocrtypes.ContractConfig{}, errors.New("registry did not provide an OCR3 config digest")
+	}
+
 	signers := make([]ocrtypes.OnchainPublicKey, len(cfg.Signers))
 	for i, signer := range cfg.Signers {
 		signers[i] = ocrtypes.OnchainPublicKey(signer)
@@ -274,11 +278,6 @@ func (s *ocrConfigService) parseOCR3Config(
 	for i, transmitter := range cfg.Transmitters {
 		// Accounts have to be checksummed hex strings with a "0x" prefix, to match the format expected by libocr.
 		transmitters[i] = ocrtypes.Account(gethCommon.BytesToAddress(transmitter).Hex())
-	}
-
-	digest, err := computeConfigDigest(s.chainID, s.registryAddress, capabilityID, donID, ocrConfigKey, cfg)
-	if err != nil {
-		return ocrtypes.ContractConfig{}, fmt.Errorf("failed to compute config digest: %w", err)
 	}
 
 	if cfg.F > math.MaxUint8 {
