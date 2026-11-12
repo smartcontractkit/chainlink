@@ -116,20 +116,26 @@ func ensure(ctx context.Context, conf *config.App, out *output.Printer, setGloba
 
 	// Turned off some prod-protections to make postgres go brrr
 	// https://github.com/peterldowns/pgtestdb#how-do-i-make-it-go-faster
+	cmdArgs := []string{
+		"-c", "max_connections=1000",
+		"-c", "shared_buffers=128MB",
+		"-c", "fsync=off",
+		"-c", "synchronous_commit=off",
+		"-c", "full_page_writes=off",
+		"-c", "client_min_messages=warning",
+	}
+	if conf.DiagnoseMode {
+		// Diagnose runs want to see which statement waited on a lock and for how
+		// long. Normal runs stay quiet so the server log only holds errors.
+		cmdArgs = append(cmdArgs, "-c", "log_lock_waits=on")
+	}
 	c, err := postgres.Run(ctx,
 		postgresImage(conf.PostgresVersion),
 		postgres.WithDatabase(postgresDBName),
 		postgres.WithUsername(postgresUser),
 		postgres.WithPassword(postgresPassword),
 		testcontainers.WithName(conf.PostgresContainerName()),
-		testcontainers.WithCmdArgs(
-			"-c", "max_connections=1000",
-			"-c", "shared_buffers=128MB",
-			"-c", "fsync=off",
-			"-c", "synchronous_commit=off",
-			"-c", "full_page_writes=off",
-			"-c", "client_min_messages=warning",
-		),
+		testcontainers.WithCmdArgs(cmdArgs...),
 		testcontainers.WithTmpfs(map[string]string{
 			"/var/lib/postgresql/data": "rw",
 		}),

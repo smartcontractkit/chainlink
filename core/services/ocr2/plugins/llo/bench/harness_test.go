@@ -77,6 +77,16 @@ const (
 	// channel, to allow the last batch to become reportable and to absorb the
 	// bootstrap round.
 	warmupRoundSlack = 32
+	// minRoundGap is the minimum wall-clock gap between synced v31 rounds. The
+	// state transition bounds a stream value's age to a few round intervals,
+	// estimated from the previous rounds' timestamps. Rounds that run
+	// back-to-back make that interval microseconds wide, so one scheduler or GC
+	// pause under CPU contention marks every value stale and the round reports
+	// nothing. A small gap keeps the estimate realistic and the bound tolerant.
+	minRoundGap = 2 * time.Millisecond
+	// parityRoundBudget is how many extra rounds TestParity gives v31 to emit a
+	// full report set after warmup before it fails.
+	parityRoundBudget = 8
 )
 
 // ---------------------------------------------------------------------------
@@ -363,7 +373,24 @@ func v31RoundSynced(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.Report
 	before := bbf.Broadcasts()
 	reports, obs := v31Round(tb, p, db, bbf, seqNr, n)
 	waitForPump(tb, bbf, before)
+	time.Sleep(minRoundGap)
 	return reports, obs
+}
+
+// steadyV31Reports drives synced v31 rounds from seqNr until one emits at least
+// `channels` reports, and returns that round's reports. A single round can miss
+// the pump's snapshot or find its values stale under CPU contention, so the
+// caller gets a bounded number of tries instead of one shot.
+func steadyV31Reports(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInfo], db ocr3_1types.KeyValueDatabase, bbf *llotest.BlobBroadcastFetcher, seqNr uint64, n, channels int) []ocr3types.ReportPlus[llotypes.ReportInfo] {
+	tb.Helper()
+	var reports []ocr3types.ReportPlus[llotypes.ReportInfo]
+	for i := range uint64(parityRoundBudget) {
+		reports, _ = v31RoundSynced(tb, p, db, bbf, seqNr+i, n)
+		if len(reports) >= channels {
+			return reports
+		}
+	}
+	return reports
 }
 
 // waitForPump blocks until the pump has broadcast a blob beyond `before`, or

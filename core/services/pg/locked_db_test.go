@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
 func lease(c *chainlink.Config, s *chainlink.Secrets) {
@@ -22,10 +23,13 @@ func lease(c *chainlink.Config, s *chainlink.Secrets) {
 	c.Database.Lock.LeaseRefreshInterval = commonconfig.MustNewDuration(time.Second)
 }
 
+// The lease tests each own a database. On the shared txdb database every test
+// runs in one long transaction, so its lease_lock DDL and singleton row stay
+// locked until the test ends; parallel tests then wait out the full lease.
 func TestLockedDB_HappyPath(t *testing.T) {
 	t.Parallel()
 	testutils.SkipShortDB(t)
-	config := configtest.NewGeneralConfig(t, lease)
+	config, _ := heavyweight.FullTestDBNoFixturesV2(t, lease)
 	lggr := logger.TestLogger(t)
 	ldb := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
 
@@ -41,7 +45,7 @@ func TestLockedDB_HappyPath(t *testing.T) {
 func TestLockedDB_ContextCancelled(t *testing.T) {
 	t.Parallel()
 	testutils.SkipShortDB(t)
-	config := configtest.NewGeneralConfig(t, lease)
+	config, _ := heavyweight.FullTestDBNoFixturesV2(t, lease)
 	lggr := logger.TestLogger(t)
 	ldb := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
 
@@ -55,7 +59,7 @@ func TestLockedDB_ContextCancelled(t *testing.T) {
 func TestLockedDB_OpenTwice(t *testing.T) {
 	t.Parallel()
 	testutils.SkipShortDB(t)
-	config := configtest.NewGeneralConfig(t, lease)
+	config, _ := heavyweight.FullTestDBNoFixturesV2(t, lease)
 	lggr := logger.TestLogger(t)
 	ldb := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
 
@@ -69,7 +73,7 @@ func TestLockedDB_OpenTwice(t *testing.T) {
 func TestLockedDB_TwoInstances(t *testing.T) {
 	t.Parallel()
 	testutils.SkipShortDB(t)
-	config := configtest.NewGeneralConfig(t, lease)
+	config, _ := heavyweight.FullTestDBNoFixturesV2(t, lease)
 	lggr := logger.TestLogger(t)
 
 	ldb1 := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
@@ -79,11 +83,15 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 		require.NoError(t, ldb1.Close())
 	}()
 
-	// second instance would wait for locks to be released,
-	// hence we use some timeout
+	// Second instances have a different app ID in production, so the upsert
+	// cannot match the first instance's client_id and must wait for the lease to
+	// expire. Flip a byte instead of importing a UUID generator; only uniqueness
+	// matters here.
+	appID := config.AppID()
+	appID[0] ^= 0xff
 	ctx, cancel := context.WithTimeout(t.Context(), config.Database().Lock().LeaseDuration())
 	defer cancel()
-	ldb2 := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
+	ldb2 := pg.NewLockedDB(appID, config.Database(), config.Database().Lock(), lggr)
 	err = ldb2.Open(ctx)
 	require.Error(t, err)
 }
