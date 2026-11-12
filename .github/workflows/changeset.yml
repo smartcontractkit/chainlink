@@ -75,7 +75,7 @@ jobs:
         uses: actions/setup-node@v6
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           cache-dependency-path: ./pnpm-lock.yaml
 
