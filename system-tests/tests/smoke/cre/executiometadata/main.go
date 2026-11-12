@@ -13,20 +13,16 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
+
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/executiometadata/config"
 )
-
-const defaultSchedule = "*/30 * * * * *"
-
-type config struct {
-	Schedule string `json:"schedule"`
-}
 
 func main() {
 	wasm.NewRunner(parseConfig).Run(initWorkflow)
 }
 
-func parseConfig(raw []byte) (config, error) {
-	cfg := config{Schedule: defaultSchedule}
+func parseConfig(raw []byte) (config.Config, error) {
+	cfg := config.Config{Schedule: config.DefaultSchedule}
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &cfg); err != nil {
 			return cfg, fmt.Errorf("parse workflow configuration: %w", err)
@@ -39,14 +35,14 @@ func parseConfig(raw []byte) (config, error) {
 	return cfg, nil
 }
 
-func initWorkflow(cfg config, logger *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[config], error) {
+func initWorkflow(cfg config.Config, logger *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[config.Config], error) {
 	logger.Info("Execution metadata workflow configured", "schedule", cfg.Schedule)
-	return cre.Workflow[config]{
+	return cre.Workflow[config.Config]{
 		cre.Handler(cron.Trigger(&cron.Config{Schedule: cfg.Schedule}), onTrigger),
 	}, nil
 }
 
-func onTrigger(cfg config, runtime cre.Runtime, _ *cron.Payload) (cre.WorkflowExecutionMetadata, error) {
+func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (cre.WorkflowExecutionMetadata, error) {
 	executionMetadata := cre.ExecutionMetadata(runtime)
 	logger := runtime.Logger().With(
 		"workflowID", executionMetadata.WorkflowID,
@@ -61,7 +57,7 @@ func onTrigger(cfg config, runtime cre.Runtime, _ *cron.Payload) (cre.WorkflowEx
 		return executionMetadata, err
 	}
 
-	consensusMetadata, err := cre.RunInNodeMode(cfg, runtime, func(_ config, node cre.NodeRuntime) (cre.WorkflowExecutionMetadata, error) {
+	consensusMetadata, err := cre.RunInNodeMode(cfg, runtime, func(_ config.Config, node cre.NodeRuntime) (cre.WorkflowExecutionMetadata, error) {
 		nodeMetadata := cre.ExecutionMetadata(node)
 		if nodeMetadata != executionMetadata {
 			return nodeMetadata, errors.New("node mode workflow execution metadata does not match expected execution metadata")
