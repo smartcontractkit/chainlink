@@ -18,6 +18,11 @@ on:
         required: false
         default: true
         type: boolean
+      update_badge:
+        description: Update the coverage badge branch from this manual run (develop only)
+        required: false
+        default: false
+        type: boolean
   workflow_run:
     workflows:
       - CI Core
@@ -36,7 +41,8 @@ on:
 
 permissions:
   actions: read
-  contents: read
+  # The badge job writes a tiny SVG/JSON to the orphan `coverage` branch.
+  contents: write
   pull-requests: write
 
 concurrency:
@@ -83,3 +89,86 @@ jobs:
           path: coverage-report
           retention-days: 30
           if-no-files-found: warn
+  badge:
+    name: Update coverage badge
+    needs: [collect]
+    if: |
+      (github.event_name == 'workflow_run' &&
+        github.event.workflow_run.name == 'Integration Tests' &&
+        github.event.workflow_run.event == 'schedule' &&
+        github.event.workflow_run.head_branch == 'develop' &&
+        github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' &&
+        inputs.update_badge &&
+        github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v7
+        with:
+          name: coverage-report-${{ github.event.workflow_run.head_sha || inputs.target_sha }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/coverage-report
+
+      - name: Require a full report
+        id: full
+        run: |
+          set -euo pipefail
+          for file in unit.txt integration.txt e2e.txt any.json; do
+            if [[ ! -f "$RUNNER_TEMP/coverage-report/$file" ]]; then
+              echo "Missing $file; not updating the badge from a partial report."
+              echo "full=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "full=true" >> "$GITHUB_OUTPUT"
+
+      - name: Generate badge and state
+        if: steps.full.outputs.full == 'true'
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT: coverage-report-${{ github.event.workflow_run.head_sha || inputs.target_sha }}-${{ github.run_id }}
+        run: |
+          python3 tools/coverage/badge.py \
+            "$RUNNER_TEMP/coverage-report/any.json" \
+            "$RUNNER_TEMP/coverage-badge.svg" \
+            "$RUNNER_TEMP/coverage-state.json" \
+            "$SHA" "$ARTIFACT" "$REPO" "$RUN_URL"
+
+      - name: Publish coverage branch
+        if: steps.full.outputs.full == 'true'
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
+        run: |
+          set -euo pipefail
+          worktree="$RUNNER_TEMP/coverage-branch"
+          rm -rf "$worktree"
+          if git ls-remote --exit-code --heads origin coverage >/dev/null 2>&1; then
+            git fetch --no-tags origin coverage:refs/remotes/origin/coverage
+            git worktree add --detach "$worktree" refs/remotes/origin/coverage
+          else
+            git worktree add --detach "$worktree"
+            cd "$worktree"
+            git checkout --orphan coverage
+            git rm -rf . >/dev/null 2>&1 || true
+          fi
+          cd "$worktree"
+          mkdir -p latest
+          cp "$RUNNER_TEMP/coverage-badge.svg" latest/badge.svg
+          cp "$RUNNER_TEMP/coverage-state.json" latest/report.json
+          git add latest
+          if git diff --cached --quiet; then
+            echo "Coverage badge unchanged; not committing."
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "coverage: update badge for ${SHA}"
+          git push origin HEAD:refs/heads/coverage

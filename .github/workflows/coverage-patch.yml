@@ -1,0 +1,67 @@
+name: Coverage Patch
+
+# Fast, non-blocking patch coverage for the packages touched by a PR.
+# This is intentionally not the full coverage suite: it runs affected packages
+# with -short, reuses the normal Go build/module caches, and posts a sticky PR
+# comment. The nightly full report remains the authoritative number.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: coverage-patch-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    name: Patch coverage
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          go-version-file: go.mod
+          go-module-file: go.sum
+          build-cache-version: coverage-patch
+          # Upsert the branch-specific build cache so later pushes on this PR
+          # reuse the coverage build outputs. The cache version is unique to
+          # this job, so concurrent PRs cannot race on one key.
+          build-cache-write: always
+
+      - name: Run affected-package tests and publish patch coverage
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          OUT: coverage-patch
+          SHORT: "true"
+          TEST_TIMEOUT: "10m"
+        run: ./tools/coverage/patch.sh
+
+      - name: Upload patch report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-patch-${{ github.event.pull_request.head.sha }}
+          path: coverage-patch
+          retention-days: 1
+          if-no-files-found: warn
