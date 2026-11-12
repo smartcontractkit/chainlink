@@ -71,16 +71,24 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 	case ConfigTypeCapRegistry:
 		var version uint64
 		payload, err := extractOffchainConfig(spec.Settings)
-		if err == nil {
-			version, err = d.capRegistry.Store(payload, spec.Hash)
-		}
 		domain, env := globalconfig.PayloadLabels(payload)
+		if err == nil {
+			err = globalconfig.Validate(payload)
+		}
 		if err != nil {
+			// Malformed or invalid payload.
 			d.capRegMetrics.RecordValidationError(ctx, domain, env)
 			d.activeJobIDs.CompareAndDelete(configType, j.ID)
 			return nil, fmt.Errorf("failed to store capabilities registry config: %w", err)
 		}
+		if version, err = d.capRegistry.Store(payload, spec.Hash); err != nil {
+			// Valid payload that could not be applied, e.g. a stale version.
+			d.capRegMetrics.RecordApplyError(ctx, domain, env)
+			d.activeJobIDs.CompareAndDelete(configType, j.ID)
+			return nil, fmt.Errorf("failed to store capabilities registry config: %w", err)
+		}
 		d.capRegMetrics.RecordAppliedVersion(ctx, domain, env, version)
+		d.capRegMetrics.RecordApplied(ctx, domain, env, spec.Hash, time.Now())
 		d.lggr.Infow("Updated capabilities registry config", "hash", spec.Hash, "offchainVersion", version)
 
 	case ConfigTypeShardAssignment:

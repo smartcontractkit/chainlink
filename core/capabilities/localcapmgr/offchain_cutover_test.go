@@ -366,5 +366,5 @@ func TestReconcile_OffchainMatchesByDONName(t *testing.T) {
 
 	dons = uniqueDONsByID(dons)
 	got := m.offchainDivergences(m.offchainDONsByID(gc.LoadParsed(), dons), dons)
-	assert.Equal(t, map[string]int64{divergenceMissing: 3, divergenceMismatch: 1}, got)
+	assert.Equal(t, map[string]int64{divergenceMissing: 3, divergenceMismatch: 1, divergenceSpecMismatch: 1, divergenceEmptySpec: 3}, got)
 }
