@@ -164,6 +164,8 @@ func TestShardFailoverManager_CacheExitFunnel(t *testing.T) {
 	// and failing on the other.
 	m.HandleExecutionStatusUpdate(&ringpb.ExecutionStatusUpdate{TriggerEventId: "evt-replay", Status: ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR})
 	failing.HandleExecutionStatusUpdate(&ringpb.ExecutionStatusUpdate{TriggerEventId: "evt-fail", Status: ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR})
+	m.replayWG.Wait()
+	failing.replayWG.Wait()
 
 	// The 10-minute prune expires the event whose verdict never arrived.
 	m.mu.Lock()
