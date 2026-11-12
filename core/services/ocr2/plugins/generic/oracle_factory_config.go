@@ -122,7 +122,8 @@ func matchSigner(bundles []ocr2key.KeyBundle, signer ocrtypes.OnchainPublicKey) 
 	if len(signer) == 0 {
 		return nil, false
 	}
-	pubKeys, err := ocrcommon.UnmarshalMultichainPublicKey(signer)
+	var pubKeys ocr2key.MultichainPublicKey
+	err := pubKeys.UnmarshalBinary(signer)
 	if err != nil || len(pubKeys) == 0 {
 		return nil, false
 	}

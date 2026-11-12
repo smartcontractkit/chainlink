@@ -475,7 +475,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/deployment v0.0.0-20260916222901-720a003dab50 // indirect
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20261001213322-a2d686f610ca // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.16.0 // indirect
-	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260923164324-86cd57d9fdbd // indirect
+	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20261111193935-c83f8e2996fb // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261106154152-9426766b30a9 // indirect
 	github.com/smartcontractkit/chainlink-common/x/config v0.0.0-20260928140953-a9b0d3a04daa // indirect
 	github.com/smartcontractkit/chainlink-data-streams v1.1.3 // indirect
