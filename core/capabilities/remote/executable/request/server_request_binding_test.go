@@ -65,7 +65,7 @@ func Test_ServerRequest_WorkflowDONBinding(t *testing.T) {
 	newReqAndSendQuorum := func(t *testing.T, gate limits.GateLimiter, workflowDonID uint32) *testDispatcher {
 		t.Helper()
 		d := &testDispatcher{}
-		req, rerr := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
+		req, rerr := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", d, 10*time.Minute, "", gate, nil, lggr)
 		require.NoError(t, rerr)
 		payload := buildPayload(workflowDonID)
@@ -96,7 +96,7 @@ func Test_ServerRequest_WorkflowDONBinding(t *testing.T) {
 
 	t.Run("nil gate is rejected at construction", func(t *testing.T) {
 		t.Parallel()
-		_, rerr := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
+		_, rerr := request.NewServerRequest(capability, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", &testDispatcher{}, 10*time.Minute, "", nil, nil, lggr)
 		require.ErrorContains(t, rerr, "workflowDONBindingGate must not be nil")
 	})

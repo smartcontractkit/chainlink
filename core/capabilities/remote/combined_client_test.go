@@ -1,10 +1,12 @@
 package remote_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -12,423 +14,159 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 )
 
-func TestCombinedClient_Info(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-capability-info", commoncap.CapabilityTypeAction)
-	client := remote.NewCombinedClient(info)
-
-	returnedInfo, err := client.Info(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, info, returnedInfo)
-}
-
-func TestCombinedClient_RegisterTrigger_Success(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
-	client := remote.NewCombinedClient(info)
-
-	mockTrigger := &mocks.TriggerCapability{}
-	method := "test-method"
-
-	client.SetTriggerSubscriber(method, mockTrigger)
-
-	request := commoncap.TriggerRegistrationRequest{
-		TriggerID: "test-trigger-id",
-		Method:    method,
-	}
-
-	responseChan := make(<-chan commoncap.TriggerResponse, 1)
-	mockTrigger.On("RegisterTrigger", ctx, request).Return(responseChan, nil)
-
-	result, err := client.RegisterTrigger(ctx, request)
-	require.NoError(t, err)
-	assert.Equal(t, responseChan, result)
-}
-
-func TestCombinedClient_RegisterTrigger_MethodNotDefined(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
-	client := remote.NewCombinedClient(info)
-
-	request := commoncap.TriggerRegistrationRequest{
-		TriggerID: "test-trigger-id",
-		Method:    "undefined-method",
-	}
-
-	result, err := client.RegisterTrigger(ctx, request)
-	require.Error(t, err)
-	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "method undefined-method not defined")
-}
-
-func TestCombinedClient_RegisterTrigger_ErrorFromSubscriber(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
-	client := remote.NewCombinedClient(info)
-
-	mockTrigger := &mocks.TriggerCapability{}
-	method := "test-method"
-
-	client.SetTriggerSubscriber(method, mockTrigger)
-
-	request := commoncap.TriggerRegistrationRequest{
-		TriggerID: "test-trigger-id",
-		Method:    method,
-	}
-
-	expectedError := errors.New("registration failed")
-	mockTrigger.On("RegisterTrigger", ctx, request).Return((<-chan commoncap.TriggerResponse)(nil), expectedError)
-
-	result, err := client.RegisterTrigger(ctx, request)
-	require.Error(t, err)
-	assert.Nil(t, result)
-	assert.Equal(t, expectedError, err)
-}
-
-func TestCombinedClient_UnregisterTrigger_Success(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
-	client := remote.NewCombinedClient(info)
-
-	mockTrigger := &mocks.TriggerCapability{}
-	method := "test-method"
-
-	client.SetTriggerSubscriber(method, mockTrigger)
-
-	request := commoncap.TriggerRegistrationRequest{
-		TriggerID: "test-trigger-id",
-		Method:    method,
-	}
-
-	mockTrigger.On("UnregisterTrigger", ctx, request).Return(nil)
-	err := client.UnregisterTrigger(ctx, request)
-	require.NoError(t, err)
-}
-
-func TestCombinedClient_UnregisterTrigger_MethodNotDefined(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
-	client := remote.NewCombinedClient(info)
-
-	request := commoncap.TriggerRegistrationRequest{
-		TriggerID: "test-trigger-id",
-		Method:    "undefined-method",
-	}
-
-	err := client.UnregisterTrigger(ctx, request)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "method undefined-method not defined")
-}
-
-func TestCombinedClient_UnregisterTrigger_ErrorFromSubscriber(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
-	client := remote.NewCombinedClient(info)
-
-	mockTrigger := &mocks.TriggerCapability{}
-	method := "test-method"
-
-	client.SetTriggerSubscriber(method, mockTrigger)
-
-	request := commoncap.TriggerRegistrationRequest{
-		TriggerID: "test-trigger-id",
-		Method:    method,
-	}
-
-	expectedError := errors.New("unregistration failed")
-	mockTrigger.On("UnregisterTrigger", ctx, request).Return(expectedError)
-
-	err := client.UnregisterTrigger(ctx, request)
-	require.Error(t, err)
-	assert.Equal(t, expectedError, err)
-}
-
-func TestCombinedClient_RegisterToWorkflow_NotSupported(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeTrigger)
-	client := remote.NewCombinedClient(info)
-
-	request := commoncap.RegisterToWorkflowRequest{
-		Metadata: commoncap.RegistrationMetadata{
-			WorkflowID: "test-workflow",
-		},
-	}
-
-	err := client.RegisterToWorkflow(ctx, request)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "RegisterToWorkflow is not supported by remote capabilities")
-}
-
-func TestCombinedClient_UnregisterFromWorkflow_NotSupported(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeTrigger)
-	client := remote.NewCombinedClient(info)
-
-	request := commoncap.UnregisterFromWorkflowRequest{
-		Metadata: commoncap.RegistrationMetadata{
-			WorkflowID: "test-workflow",
-		},
-	}
-
-	err := client.UnregisterFromWorkflow(ctx, request)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "UnregisterFromWorkflow is not supported by remote capabilities")
-}
-
-func TestCombinedClient_Execute_Success(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-executable", commoncap.CapabilityTypeAction)
-	client := remote.NewCombinedClient(info)
-
-	mockExecutable := &mocks.ExecutableCapability{}
-	method := "test-execute-method"
-
-	client.SetExecutableClient(method, mockExecutable)
-
-	request := commoncap.CapabilityRequest{
-		Method: method,
-		Config: nil,
-		Inputs: nil,
-		Metadata: commoncap.RequestMetadata{
-			WorkflowID:          "test-workflow",
-			WorkflowExecutionID: "test-execution",
-		},
-	}
-
-	expectedResponse := commoncap.CapabilityResponse{
-		Value: nil,
-	}
-
-	mockExecutable.On("Execute", ctx, request).Return(expectedResponse, nil)
-
-	result, err := client.Execute(ctx, request)
-	require.NoError(t, err)
-	assert.Equal(t, expectedResponse, result)
-}
-
-func TestCombinedClient_Execute_MethodNotDefined(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-executable", commoncap.CapabilityTypeAction)
-	client := remote.NewCombinedClient(info)
-
-	request := commoncap.CapabilityRequest{
-		Method: "undefined-method",
-		Config: nil,
-		Inputs: nil,
-		Metadata: commoncap.RequestMetadata{
-			WorkflowID:          "test-workflow",
-			WorkflowExecutionID: "test-execution",
-		},
-	}
-
-	result, err := client.Execute(ctx, request)
-	require.Error(t, err)
-	assert.Equal(t, commoncap.CapabilityResponse{}, result)
-	assert.Contains(t, err.Error(), "method undefined-method not defined")
-}
-
-func TestCombinedClient_Execute_ErrorFromExecutable(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-executable", commoncap.CapabilityTypeAction)
-	client := remote.NewCombinedClient(info)
-
-	// Create mock executable capability
-	mockExecutable := &mocks.ExecutableCapability{}
-	method := "test-execute-method"
-
-	client.SetExecutableClient(method, mockExecutable)
-
-	request := commoncap.CapabilityRequest{
-		Method: method,
-		Config: nil,
-		Inputs: nil,
-		Metadata: commoncap.RequestMetadata{
-			WorkflowID:          "test-workflow",
-			WorkflowExecutionID: "test-execution",
-		},
-	}
-
-	expectedError := errors.New("execution failed")
-	mockExecutable.On("Execute", ctx, request).Return(commoncap.CapabilityResponse{}, expectedError)
-
-	result, err := client.Execute(ctx, request)
-	require.Error(t, err)
-	assert.Equal(t, commoncap.CapabilityResponse{}, result)
-	assert.Equal(t, expectedError, err)
-}
-
-func TestCombinedClient_SetTriggerSubscriber(t *testing.T) {
-	t.Parallel()
-
-	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeTrigger)
-
-	client := remote.NewCombinedClient(info)
-	mockTrigger := &mocks.TriggerCapability{}
-	method := "test-method"
-
-	client.SetTriggerSubscriber(method, mockTrigger)
-
-	ctx := t.Context()
-	request := commoncap.TriggerRegistrationRequest{
-		TriggerID: "test-trigger-id",
-		Method:    method,
-	}
-
-	responseChan := make(chan commoncap.TriggerResponse, 1)
-	mockTrigger.On("RegisterTrigger", ctx, request).Return((<-chan commoncap.TriggerResponse)(responseChan), nil)
-
-	_, err := client.RegisterTrigger(ctx, request)
-	require.NoError(t, err)
-}
-
-func TestCombinedClient_SetExecutableClient(t *testing.T) {
-	t.Parallel()
-
-	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeAction)
-
-	client := remote.NewCombinedClient(info)
-	mockExecutable := &mocks.ExecutableCapability{}
-	method := "test-method"
-
-	client.SetExecutableClient(method, mockExecutable)
-
-	ctx := t.Context()
-	request := commoncap.CapabilityRequest{
-		Method: method,
-		Config: nil,
-		Inputs: nil,
-		Metadata: commoncap.RequestMetadata{
-			WorkflowID:          "test-workflow",
-			WorkflowExecutionID: "test-execution",
-		},
-	}
-
-	expectedResponse := commoncap.CapabilityResponse{
-		Value: nil,
-	}
-
-	mockExecutable.On("Execute", ctx, request).Return(expectedResponse, nil)
-
-	_, err := client.Execute(ctx, request)
-	require.NoError(t, err)
-}
-
-func TestCombinedClient_MultipleMethodsAndCapabilities(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	info := createTestCapabilityInfo("test-multi-capability", commoncap.CapabilityTypeAction)
-	client := remote.NewCombinedClient(info)
-
-	// Add multiple trigger subscribers
-	mockTrigger1 := &mocks.TriggerCapability{}
-	mockTrigger2 := &mocks.TriggerCapability{}
-	triggerMethod1 := "trigger-method-1"
-	triggerMethod2 := "trigger-method-2"
-
-	client.SetTriggerSubscriber(triggerMethod1, mockTrigger1)
-	client.SetTriggerSubscriber(triggerMethod2, mockTrigger2)
-
-	client.SetTriggerSubscriber(triggerMethod1, mockTrigger1)
-	client.SetTriggerSubscriber(triggerMethod2, mockTrigger2)
-
-	// Add multiple executable clients
-	mockExecutable1 := &mocks.ExecutableCapability{}
-	mockExecutable2 := &mocks.ExecutableCapability{}
-	execMethod1 := "exec-method-1"
-	execMethod2 := "exec-method-2"
-
-	client.SetExecutableClient(execMethod1, mockExecutable1)
-	client.SetExecutableClient(execMethod2, mockExecutable2)
-
-	// Test trigger method 1
-	triggerRequest1 := commoncap.TriggerRegistrationRequest{
-		TriggerID: "trigger-1",
-		Method:    triggerMethod1,
-	}
-	responseChan1 := make(chan commoncap.TriggerResponse, 1)
-	mockTrigger1.On("RegisterTrigger", ctx, triggerRequest1).Return((<-chan commoncap.TriggerResponse)(responseChan1), nil)
-
-	_, err := client.RegisterTrigger(ctx, triggerRequest1)
-	require.NoError(t, err)
-
-	// Test trigger method 2
-	triggerRequest2 := commoncap.TriggerRegistrationRequest{
-		TriggerID: "trigger-2",
-		Method:    triggerMethod2,
-	}
-	responseChan2 := make(chan commoncap.TriggerResponse, 1)
-	mockTrigger2.On("RegisterTrigger", ctx, triggerRequest2).Return((<-chan commoncap.TriggerResponse)(responseChan2), nil)
-
-	_, err = client.RegisterTrigger(ctx, triggerRequest2)
-	require.NoError(t, err)
-
-	// Test executable method 1
-	execRequest1 := commoncap.CapabilityRequest{
-		Method: execMethod1,
-		Metadata: commoncap.RequestMetadata{
-			WorkflowID:          "workflow-1",
-			WorkflowExecutionID: "execution-1",
-		},
-	}
-	execResponse1 := commoncap.CapabilityResponse{Value: nil}
-	mockExecutable1.On("Execute", ctx, execRequest1).Return(execResponse1, nil)
-
-	_, err = client.Execute(ctx, execRequest1)
-	require.NoError(t, err)
-
-	// Test executable method 2
-	execRequest2 := commoncap.CapabilityRequest{
-		Method: execMethod2,
-		Metadata: commoncap.RequestMetadata{
-			WorkflowID:          "workflow-2",
-			WorkflowExecutionID: "execution-2",
-		},
-	}
-	execResponse2 := commoncap.CapabilityResponse{Value: nil}
-	mockExecutable2.On("Execute", ctx, execRequest2).Return(execResponse2, nil)
-
-	_, err = client.Execute(ctx, execRequest2)
-	require.NoError(t, err)
-
-	// Assert all expectations
-	mockTrigger1.AssertExpectations(t)
-	mockTrigger2.AssertExpectations(t)
-	mockExecutable1.AssertExpectations(t)
-	mockExecutable2.AssertExpectations(t)
-}
-
 func createTestCapabilityInfo(id string, capType commoncap.CapabilityType) commoncap.CapabilityInfo {
 	return commoncap.CapabilityInfo{
 		ID:             id,
 		CapabilityType: capType,
 		Description:    "Test capability",
-		DON:            nil,
-		IsLocal:        false,
+	}
+}
+
+func TestCombinedClient_Info(t *testing.T) {
+	t.Parallel()
+
+	info := createTestCapabilityInfo("test-capability-info", commoncap.CapabilityTypeAction)
+	returnedInfo, err := remote.NewCombinedClient(info).Info(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, info, returnedInfo)
+}
+
+// forwardOp describes one forwarded API call: setup installs a mock for the
+// method (returning err, or the wanted result on success); invoke calls the client.
+type forwardOp struct {
+	name   string
+	setup  func(c remote.CombinedClient, method string, err error) (want any)
+	invoke func(ctx context.Context, c remote.CombinedClient, method string) (any, error)
+}
+
+func TestCombinedClient_Forwarding(t *testing.T) {
+	t.Parallel()
+
+	ops := []forwardOp{
+		{
+			name: "RegisterTrigger",
+			setup: func(c remote.CombinedClient, method string, err error) any {
+				m := &mocks.TriggerCapability{}
+				c.SetTriggerSubscriber(method, m)
+				ch := make(<-chan commoncap.TriggerResponse, 1)
+				if err != nil {
+					m.On("RegisterTrigger", mock.Anything, mock.Anything).Return((<-chan commoncap.TriggerResponse)(nil), err)
+					return nil
+				}
+				m.On("RegisterTrigger", mock.Anything, mock.Anything).Return(ch, nil)
+				return ch
+			},
+			invoke: func(ctx context.Context, c remote.CombinedClient, method string) (any, error) {
+				return c.RegisterTrigger(ctx, commoncap.TriggerRegistrationRequest{TriggerID: "id", Method: method})
+			},
+		},
+		{
+			name: "UnregisterTrigger",
+			setup: func(c remote.CombinedClient, method string, err error) any {
+				m := &mocks.TriggerCapability{}
+				c.SetTriggerSubscriber(method, m)
+				m.On("UnregisterTrigger", mock.Anything, mock.Anything).Return(err)
+				return nil
+			},
+			invoke: func(ctx context.Context, c remote.CombinedClient, method string) (any, error) {
+				return nil, c.UnregisterTrigger(ctx, commoncap.TriggerRegistrationRequest{TriggerID: "id", Method: method})
+			},
+		},
+		{
+			name: "Execute",
+			setup: func(c remote.CombinedClient, method string, err error) any {
+				m := &mocks.ExecutableCapability{}
+				c.SetExecutableClient(method, m)
+				m.On("Execute", mock.Anything, mock.Anything).Return(commoncap.CapabilityResponse{}, err)
+				return commoncap.CapabilityResponse{}
+			},
+			invoke: func(ctx context.Context, c remote.CombinedClient, method string) (any, error) {
+				return c.Execute(ctx, commoncap.CapabilityRequest{Method: method})
+			},
+		},
+	}
+
+	for _, op := range ops {
+		t.Run(op.name, func(t *testing.T) {
+			t.Parallel()
+			newClient := func() remote.CombinedClient {
+				return remote.NewCombinedClient(createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeAction))
+			}
+
+			t.Run("success", func(t *testing.T) {
+				t.Parallel()
+				c := newClient()
+				want := op.setup(c, "method", nil)
+				got, err := op.invoke(t.Context(), c, "method")
+				require.NoError(t, err)
+				assert.Equal(t, want, got)
+			})
+
+			t.Run("method not defined", func(t *testing.T) {
+				t.Parallel()
+				got, err := op.invoke(t.Context(), newClient(), "undefined-method")
+				require.ErrorContains(t, err, "method undefined-method not defined")
+				assert.Zero(t, got)
+			})
+
+			t.Run("error from underlying", func(t *testing.T) {
+				t.Parallel()
+				c := newClient()
+				wantErr := errors.New("underlying failed")
+				op.setup(c, "method", wantErr)
+				got, err := op.invoke(t.Context(), c, "method")
+				require.ErrorIs(t, err, wantErr)
+				assert.Zero(t, got)
+			})
+		})
+	}
+}
+
+func TestCombinedClient_WorkflowRegistrationNotSupported(t *testing.T) {
+	t.Parallel()
+
+	client := remote.NewCombinedClient(createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeTrigger))
+	meta := commoncap.RegistrationMetadata{WorkflowID: "test-workflow"}
+
+	err := client.RegisterToWorkflow(t.Context(), commoncap.RegisterToWorkflowRequest{Metadata: meta})
+	require.ErrorContains(t, err, "RegisterToWorkflow is not supported by remote capabilities")
+
+	err = client.UnregisterFromWorkflow(t.Context(), commoncap.UnregisterFromWorkflowRequest{Metadata: meta})
+	require.ErrorContains(t, err, "UnregisterFromWorkflow is not supported by remote capabilities")
+}
+
+func TestCombinedClient_MultipleMethods(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	client := remote.NewCombinedClient(createTestCapabilityInfo("test-multi-capability", commoncap.CapabilityTypeAction))
+
+	triggers := map[string]*mocks.TriggerCapability{"trigger-1": {}, "trigger-2": {}}
+	executables := map[string]*mocks.ExecutableCapability{"exec-1": {}, "exec-2": {}}
+	for method, m := range triggers {
+		client.SetTriggerSubscriber(method, m)
+		m.On("RegisterTrigger", ctx, commoncap.TriggerRegistrationRequest{TriggerID: method, Method: method}).
+			Return((<-chan commoncap.TriggerResponse)(make(chan commoncap.TriggerResponse, 1)), nil).Once()
+	}
+	for method, m := range executables {
+		client.SetExecutableClient(method, m)
+		m.On("Execute", ctx, commoncap.CapabilityRequest{Method: method}).Return(commoncap.CapabilityResponse{}, nil).Once()
+	}
+
+	// each call reaches only the mock registered for its method
+	for method := range triggers {
+		_, err := client.RegisterTrigger(ctx, commoncap.TriggerRegistrationRequest{TriggerID: method, Method: method})
+		require.NoError(t, err)
+	}
+	for method := range executables {
+		_, err := client.Execute(ctx, commoncap.CapabilityRequest{Method: method})
+		require.NoError(t, err)
+	}
+	for _, m := range triggers {
+		m.AssertExpectations(t)
+	}
+	for _, m := range executables {
+		m.AssertExpectations(t)
 	}
 }
 
