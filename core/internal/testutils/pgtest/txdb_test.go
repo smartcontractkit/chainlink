@@ -56,8 +56,9 @@ func TestTxDBDriver(t *testing.T) {
 		cancel()
 		// BeginTx spawns separate goroutine that rollbacks the tx and tries to close underlying connection, unless
 		// db driver says that connection is still active.
-		// This approach is not ideal, but there is no better way to wait for independent goroutine to complete
-		time.Sleep(time.Second * 10)
+		// This approach is not ideal, but there is no better way to wait for independent goroutine to complete.
+		// The goroutine runs as soon as the context is cancelled, so a second is ample.
+		time.Sleep(time.Second)
 		ensureValuesPresent(t, db)
 	})
 }

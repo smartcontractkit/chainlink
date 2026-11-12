@@ -56,6 +56,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
+// blockTick is how often the tests mine a block while polling, and how often the
+// head tracker samples heads. The tx confirmer needs several new blocks before it
+// writes a receipt, so this sets how long those tests take.
+const blockTick = 100 * time.Millisecond
+
 func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
 	t.Parallel()
 	type testCase struct {
@@ -159,7 +164,7 @@ func testTransmitter(
 		receipt, err := uni.simClient.TransactionReceipt(ctx, common.BytesToHash(txHash))
 		require.NoError(c, err)
 		txStatus = receipt.Status
-	}, testutils.WaitTimeout(t), 1*time.Second)
+	}, testutils.WaitTimeout(t), blockTick)
 
 	// wait for receipt to be written to the db
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -168,7 +173,7 @@ func testTransmitter(
 		err := uni.db.GetContext(ctx, &count, `SELECT count(*) as cnt FROM evm.receipts LIMIT 1`)
 		require.NoError(c, err)
 		require.Equal(c, uint32(1), count)
-	}, testutils.WaitTimeout(t), 2*time.Second)
+	}, testutils.WaitTimeout(t), blockTick)
 
 	require.Equal(t, uint64(1), txStatus, "tx status should be success")
 
@@ -716,7 +721,7 @@ func (t *TestHeadTrackerConfig) MaxBufferSize() uint32 {
 
 // SamplingInterval implements config.HeadTracker.
 func (t *TestHeadTrackerConfig) SamplingInterval() time.Duration {
-	return 1 * time.Second
+	return blockTick
 }
 
 func (t *TestHeadTrackerConfig) PersistenceEnabled() bool {

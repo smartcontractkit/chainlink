@@ -313,7 +313,7 @@ func TestChipIngressBatchClient_HealthMonitoring(t *testing.T) {
 	chipClient := chipingressmocks.NewClient(t)
 
 	sendInterval := time.Nanosecond
-	chipIngressClient := synchronization.NewTestChipIngressBatchClient(t, chipClient, false, sendInterval)
+	chipIngressClient := synchronization.NewTestChipIngressBatchClientWithHealthInterval(t, chipClient, false, sendInterval, 50*time.Millisecond)
 
 	// Mock Ping to succeed initially
 	var pingCallCount atomic.Uint32
@@ -339,7 +339,7 @@ func TestChipIngressBatchClient_HealthMonitoring_PingFailure(t *testing.T) {
 	chipClient := chipingressmocks.NewClient(t)
 
 	sendInterval := time.Nanosecond
-	chipIngressClient := synchronization.NewTestChipIngressBatchClient(t, chipClient, false, sendInterval)
+	chipIngressClient := synchronization.NewTestChipIngressBatchClientWithHealthInterval(t, chipClient, false, sendInterval, 50*time.Millisecond)
 
 	// Mock Ping to fail
 	var pingCallCount atomic.Uint32

@@ -90,10 +90,12 @@ func TestHTTPClient_Send(t *testing.T) {
 			name: "context canceled due to timeout passed in request",
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					time.Sleep(10 * time.Second)
-					w.WriteHeader(http.StatusOK)
-					_, err2 := w.Write([]byte("success"))
-					assert.NoError(t, err2)
+					// Hold the response until the client gives up. A fixed sleep would
+					// make server.Close wait for the full duration.
+					select {
+					case <-r.Context().Done():
+					case <-time.After(10 * time.Second):
+					}
 				}))
 			},
 			request: HTTPRequest{
@@ -110,10 +112,12 @@ func TestHTTPClient_Send(t *testing.T) {
 			name: "context canceled due to default timeout",
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					time.Sleep(10 * time.Second)
-					w.WriteHeader(http.StatusOK)
-					_, err2 := w.Write([]byte("success"))
-					assert.NoError(t, err2)
+					// Hold the response until the client gives up. A fixed sleep would
+					// make server.Close wait for the full duration.
+					select {
+					case <-r.Context().Done():
+					case <-time.After(10 * time.Second):
+					}
 				}))
 			},
 			request: HTTPRequest{
@@ -121,6 +125,9 @@ func TestHTTPClient_Send(t *testing.T) {
 				URL:     "/",
 				Headers: map[string]string{},
 				Body:    nil,
+			},
+			configOption: func(hc *HTTPClientConfig) {
+				hc.DefaultTimeout = 200 * time.Millisecond
 			},
 			expectedError: context.DeadlineExceeded,
 		},

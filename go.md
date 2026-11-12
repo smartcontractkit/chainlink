@@ -671,7 +671,7 @@ flowchart LR
 	click tdh2/go/tdh2 href "https://github.com/smartcontractkit/tdh2"
 	testrig --> testrig/tools/test
 	click testrig href "https://github.com/smartcontractkit/testrig"
-	testrig/tools/test
+	testrig/tools/test --> testrig
 	click testrig/tools/test href "https://github.com/smartcontractkit/testrig"
 	wsrpc
 	click wsrpc href "https://github.com/smartcontractkit/wsrpc"

@@ -30,3 +30,11 @@ func NewTestTelemetryIngressBatchClient(t *testing.T, url *url.URL, serverPubKey
 func NewTestChipIngressBatchClient(t *testing.T, chipClient chipingress.Client, logging bool, sendInterval time.Duration) ChipIngressService {
 	return NewChipIngressBatchClient(chipClient, logging, logger.TestLogger(t), 100, 50, sendInterval, time.Second)
 }
+
+// NewTestChipIngressBatchClientWithHealthInterval is like NewTestChipIngressBatchClient but pings the
+// connection every healthInterval instead of the 5s default.
+func NewTestChipIngressBatchClientWithHealthInterval(t *testing.T, chipClient chipingress.Client, logging bool, sendInterval, healthInterval time.Duration) ChipIngressService {
+	c := NewTestChipIngressBatchClient(t, chipClient, logging, sendInterval)
+	c.(*chipIngressBatchClient).healthCheckInterval = healthInterval
+	return c
+}

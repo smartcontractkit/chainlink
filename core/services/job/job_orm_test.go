@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1563,13 +1565,16 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		jobs[j] = jb
 	}
 
+	// Runs are spread across the jobs in turn so their ids interleave.
+	toInsert := make([]job.Job, 0, 2500)
 	for i, j := 0, 0; i < 2500; i++ {
-		mustInsertPipelineRun(t, pipelineORM, jobs[j])
+		toInsert = append(toInsert, jobs[j])
 		j++
 		if j == len(jobs)-1 {
 			j = 0
 		}
 	}
+	mustInsertPipelineRuns(t, db, toInsert)
 
 	t.Run("with no pipeline runs", func(t *testing.T) {
 		ctx := t.Context()
@@ -1609,9 +1614,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		assert.Equal(t, int64(67*(len(jobs)-1)), runIDs[12]-runIDs[79])
 	})
 
-	for range 2100 {
-		mustInsertPipelineRun(t, pipelineORM, jb)
-	}
+	mustInsertPipelineRuns(t, db, slices.Repeat([]job.Job{jb}, 2100))
 
 	// There is a COUNT query which doesn't run unless the query for the most recent 1000 rows
 	//  returns empty.  This can happen if the job id being requested hasn't run in a while,
@@ -1876,6 +1879,30 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 		require.NoError(t, err2)
 		require.Equal(t, int32(1), count)
 	})
+}
+
+// mustInsertPipelineRuns inserts one running pipeline run per entry of jobs in a single
+// statement, so ids follow the order of jobs. Use it instead of looping over
+// mustInsertPipelineRun when a test needs thousands of rows.
+func mustInsertPipelineRuns(t *testing.T, db *sqlx.DB, jobs []job.Job) {
+	t.Helper()
+
+	now := time.Now()
+	runs := make([]pipeline.Run, len(jobs))
+	for i, j := range jobs {
+		runs[i] = pipeline.Run{
+			PipelineSpecID: j.PipelineSpecID,
+			PruningKey:     j.ID,
+			State:          pipeline.RunStatusRunning,
+			Outputs:        jsonserializable.JSONSerializable{Valid: false},
+			AllErrors:      pipeline.RunErrors{},
+			CreatedAt:      now.Add(time.Duration(i) * time.Microsecond),
+			FinishedAt:     null.Time{},
+		}
+	}
+	_, err := db.NamedExecContext(t.Context(), `INSERT INTO pipeline_runs (pipeline_spec_id, pruning_key, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+		VALUES (:pipeline_spec_id, :pruning_key, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)`, runs)
+	require.NoError(t, err)
 }
 
 func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.Run {

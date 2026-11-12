@@ -41,11 +41,15 @@ echo ""
 
 # For matching `go test` output - use --format='standard-quiet' and --hide-summary=skipped
 # For matching `go test -v` output - use only --format='standard-verbose'
+# Slowest packages first. `go test` starts packages in command-line order, so listing these first stops the longest
+# ones from starting late and setting the wall clock. Packages already listed are not run twice.
+SLOW_PACKAGES="./core/services/ocr2/plugins/llo ./core/internal/features/ocr2 ./core/cmd"
+
 gotestsum \
   --format='standard-quiet' \
   --hide-summary=skipped \
   $RERUN_FLAGS \
-  --packages='./...' \
+  --packages="$SLOW_PACKAGES ./..." \
   --jsonfile "$OUTPUT_FILE" \
   --post-run-command "sh -c \"echo; echo 'Slowest tests'; echo '----------------------------------------------'; echo; gotestsum tool slowest --num 20 --jsonfile ${OUTPUT_FILE}\"" \
   "$JUNIT_FLAG" \

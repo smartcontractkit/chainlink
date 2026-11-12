@@ -568,44 +568,76 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 
 func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 	ctx := t.Context()
-	_, orm, jorm := setupHeavyORM(t)
+	db, orm, jorm := setupHeavyORM(t)
 
-	var runsIDs []int64
+	const nRuns = 2000 // more than one delete batch
 
-	for i := 1; i <= 2000; i++ {
-		run := mustInsertAsyncRun(t, orm, jorm)
+	// One job owns every run. Creating a job per run dominated the test's time,
+	// and MaxSuccessfulRuns (123456) is far above nRuns, so nothing is pruned.
+	first := mustInsertAsyncRun(t, orm, jorm)
 
-		now := time.Now()
+	now := time.Now()
+	finishedAt := null.TimeFrom(now.Add(-1 * time.Second))
+	outputs := jsonserializable.JSONSerializable{Val: 1, Valid: true}
+	allErrors := pipeline.RunErrors{null.StringFrom("SOMETHING")}
 
-		run.PipelineTaskRuns = []pipeline.TaskRun{
-			// finished task
-			{
-				ID:            uuid.New(),
-				PipelineRunID: run.ID,
-				Type:          "median",
-				DotID:         "answer2",
-				Output:        jsonserializable.JSONSerializable{Val: 1, Valid: true},
-				CreatedAt:     now,
-				FinishedAt:    null.TimeFrom(now.Add(-1 * time.Second)),
-			},
-		}
-		run.State = pipeline.RunStatusCompleted
-		run.FinishedAt = null.TimeFrom(now.Add(-1 * time.Second))
-		run.Outputs = jsonserializable.JSONSerializable{Val: 1, Valid: true}
-		run.AllErrors = pipeline.RunErrors{null.StringFrom("SOMETHING")}
-
-		restart, err := orm.StoreRun(ctx, run)
-		require.NoError(t, err)
-		// no new data, so we don't need a restart
-		assert.False(t, restart)
-
-		runsIDs = append(runsIDs, run.ID)
+	// finish the run created above through the normal path
+	first.PipelineTaskRuns = []pipeline.TaskRun{
+		{
+			ID:            uuid.New(),
+			PipelineRunID: first.ID,
+			Type:          "median",
+			DotID:         "answer2",
+			Output:        outputs,
+			CreatedAt:     now,
+			FinishedAt:    finishedAt,
+		},
 	}
+	first.State = pipeline.RunStatusCompleted
+	first.FinishedAt = finishedAt
+	first.Outputs = outputs
+	first.AllErrors = allErrors
+	restart, err := orm.StoreRun(ctx, first)
+	require.NoError(t, err)
+	// no new data, so we don't need a restart
+	assert.False(t, restart)
 
-	err := orm.DeleteRunsOlderThan(t.Context(), 1*time.Second)
+	// the rest are inserted already finished, in one batch
+	finished := make([]*pipeline.Run, 0, nRuns-1)
+	for range nRuns - 1 {
+		finished = append(finished, &pipeline.Run{
+			PipelineSpecID: first.PipelineSpecID,
+			PruningKey:     first.PruningKey,
+			State:          pipeline.RunStatusCompleted,
+			Outputs:        outputs,
+			AllErrors:      allErrors,
+			CreatedAt:      now,
+			FinishedAt:     finishedAt,
+			PipelineTaskRuns: []pipeline.TaskRun{
+				{
+					ID:         uuid.New(),
+					Type:       "median",
+					DotID:      "answer2",
+					Output:     outputs,
+					CreatedAt:  now,
+					FinishedAt: finishedAt,
+				},
+			},
+		})
+	}
+	require.NoError(t, orm.InsertFinishedRuns(ctx, finished, false))
+
+	var runIDs []int64
+	require.NoError(t, db.SelectContext(ctx, &runIDs, `SELECT id FROM pipeline_runs WHERE pruning_key = $1`, first.PruningKey))
+	require.Len(t, runIDs, nRuns)
+
+	err = orm.DeleteRunsOlderThan(ctx, 1*time.Second)
 	require.NoError(t, err)
 
-	for _, runID := range runsIDs {
+	var remaining int
+	require.NoError(t, db.GetContext(ctx, &remaining, `SELECT count(*) FROM pipeline_runs WHERE pruning_key = $1`, first.PruningKey))
+	assert.Zero(t, remaining)
+	for _, runID := range []int64{runIDs[0], runIDs[len(runIDs)-1]} {
 		_, err := orm.FindRun(ctx, runID)
 		require.Error(t, err, "not found")
 	}

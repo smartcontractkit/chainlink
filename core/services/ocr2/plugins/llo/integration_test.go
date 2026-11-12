@@ -304,6 +304,15 @@ func WithV31() OCRConfigOption {
 	}
 }
 
+// WithRMax sets the number of rounds per epoch. An oracle that joins or restarts
+// takes part from the next epoch, so a small RMax shortens its catch-up wait
+// (epoch length is about RMax x DeltaRound).
+func WithRMax(rMax uint64) OCRConfigOption {
+	return func(cfg *OCRConfig) {
+		cfg.RMax = rMax
+	}
+}
+
 type OCRConfigOption func(*OCRConfig)
 
 func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.OnchainPublicKey, transmitters []types.Account, f uint8, outOnchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) {
@@ -530,6 +539,78 @@ func offchainConfigCases() []offchainConfigCase {
 	}
 }
 
+// Order matters for wall time. `go test` releases parallel tests to run in source
+// order, and the package runs at most GOMAXPROCS of them at once. The two longest
+// tests (aggregation_fault_tolerance, v31_blob_catchup) used to sit last in this
+// file, so they waited ~26 s for a slot and then ran 15-25 s, leaving the package
+// tail with only a few tests running. Keep the longest tests first. This is a
+// scheduling aid, not a speedup of the tests themselves.
+
+// TestIntegration_LLO_aggregation_fault_tolerance exercises the v31 contribution
+// floor. aggregationFaultTolerance sets the fewest contributions an aggregate may
+// be built from (2*aft+1), so a stream observed by too few oracles must not
+// produce an aggregate and its channel must not report, while a stream observed
+// by the whole DON keeps reporting.
+//
+// With nNodes=4 and F=1, aft=1 sets a floor of 3 contributions. A stream whose
+// job exists on only 2 nodes is therefore withheld, and one whose job exists on
+// 3 nodes reports. aft=0 is not exercised: v31 rejects it when F is non-zero.
+func TestIntegration_LLO_aggregation_fault_tolerance(t *testing.T) {
+	t.Parallel()
+	tcs := []struct {
+		name string
+		// aft is the aggregationFaultTolerance set in the offchain config.
+		aft uint32
+		// partialObservers is how many of the 4 oracles observe the partial
+		// stream.
+		partialObservers int
+		// partialReports is whether the channel of the partial stream is
+		// expected to produce reports.
+		partialReports bool
+		salt           int64
+		donID          uint32
+	}{
+		{name: "floor of 3 withholds a stream with 2 observers", aft: 1, partialObservers: 2, partialReports: false, salt: 700, donID: uint32(555111)},
+		{name: "floor of 3 admits a stream with 3 observers", aft: 1, partialObservers: 3, partialReports: true, salt: 750, donID: uint32(555222)},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOAggregationFaultTolerance(t, tc.aft, tc.partialObservers, tc.partialReports, tc.salt, tc.donID)
+		})
+	}
+}
+
+// TestIntegration_LLO_v31_blob_catchup covers the v31 blob path for an oracle
+// that is not present for the earlier rounds. v31 disseminates stream values
+// through blobs, so such an oracle can only contribute once it has fetched the
+// blobs and state the running DON produced without it.
+//
+// Two ways in: an oracle whose LLO job is created after the DON is already
+// reporting, and an oracle whose job is deleted mid-run and re-created after
+// the DON has advanced many rounds without it. In both cases the remaining
+// 3 oracles (2F+1) keep the DON reporting throughout.
+func TestIntegration_LLO_v31_blob_catchup(t *testing.T) {
+	t.Parallel()
+	tcs := []struct {
+		name string
+		// rejoin starts the lagging oracle with an LLO job and deletes it
+		// mid-run, instead of never creating it until catch-up time.
+		rejoin bool
+		salt   int64
+		donID  uint32
+	}{
+		{name: "oracle joining after the DON is reporting catches up", rejoin: false, salt: 800, donID: uint32(555333)},
+		{name: "oracle rejoining after its job is deleted catches up", rejoin: true, salt: 850, donID: uint32(555444)},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOV31BlobCatchup(t, tc.rejoin, tc.salt, tc.donID)
+		})
+	}
+}
+
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	t.Parallel()
 	for _, oc := range offchainConfigCases() {
@@ -562,7 +643,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig lloprotocol
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("using legacy verifier configuration contract, produces reports in v0.3 format", func(t *testing.T) {
@@ -802,7 +883,7 @@ func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig lloprotocol.Off
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("generates reports using multiple formats", func(t *testing.T) {
@@ -1591,7 +1672,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
 		c.Log.Level = new(logLevel)
 	})
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
@@ -1819,7 +1900,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
 		c.Log.Level = new(logLevel)
 	})
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
@@ -2058,7 +2139,7 @@ func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig lloprotoc
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("Blue/Green lifecycle (using JSON report format)", func(t *testing.T) {
@@ -2442,7 +2523,7 @@ func testIntegrationLLOChannelMerging(t *testing.T, v31 bool) {
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("Channel merging lifecycle with owners and adders", func(t *testing.T) {
@@ -2982,7 +3063,7 @@ func testIntegrationLLOTombstone(t *testing.T, v31 bool) {
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_tombstone", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo_tombstone", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	packetCh := make(chan *packet, 100000)
@@ -3192,7 +3273,7 @@ func TestIntegration_LLO_bridgeConnManagerHappyPath(t *testing.T) {
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_bridgeconnmanager", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo_bridgeconnmanager", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	packetCh := make(chan *packet, 100000)
@@ -3295,11 +3376,11 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 func setupNodesWithRestart(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config), deps ...any) (oracles []confighelper.OracleIdentityExtra, nodes []Node, restarts []func(t *testing.T, whileDown func()) chainlink.Application) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
-		app, peerID, transmitter, kb, observedLogs, restart := setupRestartableNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f, deps...)
+		app, peerID, transmitter, kb, restart := setupRestartableNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f, deps...)
 		restarts = append(restarts, restart)
 
 		nodes = append(nodes, Node{
-			app, transmitter, kb, observedLogs,
+			app, transmitter, kb,
 		})
 		offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 		require.NoError(t, err)
@@ -3373,41 +3454,6 @@ func newSingleABIEncoder(typ string, multiplier *sqlutil.Big) (enc lloevm.ABIEnc
 	return enc
 }
 
-// TestIntegration_LLO_aggregation_fault_tolerance exercises the v31 contribution
-// floor. aggregationFaultTolerance sets the fewest contributions an aggregate may
-// be built from (2*aft+1), so a stream observed by too few oracles must not
-// produce an aggregate and its channel must not report, while a stream observed
-// by the whole DON keeps reporting.
-//
-// With nNodes=4 and F=1, aft=1 sets a floor of 3 contributions. A stream whose
-// job exists on only 2 nodes is therefore withheld, and one whose job exists on
-// 3 nodes reports. aft=0 is not exercised: v31 rejects it when F is non-zero.
-func TestIntegration_LLO_aggregation_fault_tolerance(t *testing.T) {
-	t.Parallel()
-	tcs := []struct {
-		name string
-		// aft is the aggregationFaultTolerance set in the offchain config.
-		aft uint32
-		// partialObservers is how many of the 4 oracles observe the partial
-		// stream.
-		partialObservers int
-		// partialReports is whether the channel of the partial stream is
-		// expected to produce reports.
-		partialReports bool
-		salt           int64
-		donID          uint32
-	}{
-		{name: "floor of 3 withholds a stream with 2 observers", aft: 1, partialObservers: 2, partialReports: false, salt: 700, donID: uint32(555111)},
-		{name: "floor of 3 admits a stream with 3 observers", aft: 1, partialObservers: 3, partialReports: true, salt: 750, donID: uint32(555222)},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			testIntegrationLLOAggregationFaultTolerance(t, tc.aft, tc.partialObservers, tc.partialReports, tc.salt, tc.donID)
-		})
-	}
-}
-
 func testIntegrationLLOAggregationFaultTolerance(t *testing.T, aft uint32, nPartialObservers int, expectPartialReports bool, salt int64, donID uint32) {
 	const (
 		// streamIDFull has a stream job on every oracle.
@@ -3440,7 +3486,7 @@ func testIntegrationLLOAggregationFaultTolerance(t *testing.T, aft uint32, nPart
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_aft", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo_aft", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	packetCh := make(chan *packet, 100000)
@@ -3541,6 +3587,20 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 		return seen
 	}
 
+	if expectPartialReports {
+		// Both channels must report. Stop as soon as both have been seen instead
+		// of sitting out a fixed window.
+		seen := make(map[uint32]bool)
+		require.Eventually(t, func() bool {
+			for ch := range collectChannels(2 * time.Second) {
+				seen[ch] = true
+			}
+			return seen[channelFull] && seen[channelPartial]
+		}, reportTimeout, 100*time.Millisecond,
+			"fully observed and under-observed channels should both report when the contribution floor is met")
+		return
+	}
+
 	// The fully observed channel must report regardless of the floor. This also
 	// establishes that the DON has reached a reporting steady state before
 	// judging the under-observed channel.
@@ -3548,47 +3608,17 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 		return collectChannels(2 * time.Second)[channelFull]
 	}, reportTimeout, 100*time.Millisecond, "fully observed channel should produce reports")
 
-	// Now judge the under-observed channel over a window that spans many rounds.
-	seen := collectChannels(15 * time.Second)
+	// Now judge the under-observed channel over a window that spans many rounds
+	// (~20 at the 500ms round time and 1s min report interval).
+	seen := collectChannels(10 * time.Second)
 	require.True(t, seen[channelFull], "fully observed channel should keep reporting")
-	if expectPartialReports {
-		require.True(t, seen[channelPartial],
-			"under-observed channel should report when the contribution floor is met")
-	} else {
-		require.False(t, seen[channelPartial],
-			"under-observed channel should not report when it cannot meet the contribution floor")
-	}
+	require.False(t, seen[channelPartial],
+		"under-observed channel should not report when it cannot meet the contribution floor")
 }
 
-// TestIntegration_LLO_v31_blob_catchup covers the v31 blob path for an oracle
-// that is not present for the earlier rounds. v31 disseminates stream values
-// through blobs, so such an oracle can only contribute once it has fetched the
-// blobs and state the running DON produced without it.
-//
-// Two ways in: an oracle whose LLO job is created after the DON is already
-// reporting, and an oracle whose job is deleted mid-run and re-created after
-// the DON has advanced many rounds without it. In both cases the remaining
-// 3 oracles (2F+1) keep the DON reporting throughout.
-func TestIntegration_LLO_v31_blob_catchup(t *testing.T) {
-	t.Parallel()
-	tcs := []struct {
-		name string
-		// rejoin starts the lagging oracle with an LLO job and deletes it
-		// mid-run, instead of never creating it until catch-up time.
-		rejoin bool
-		salt   int64
-		donID  uint32
-	}{
-		{name: "oracle joining after the DON is reporting catches up", rejoin: false, salt: 800, donID: uint32(555333)},
-		{name: "oracle rejoining after its job is deleted catches up", rejoin: true, salt: 850, donID: uint32(555444)},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			testIntegrationLLOV31BlobCatchup(t, tc.rejoin, tc.salt, tc.donID)
-		})
-	}
-}
+// shortEpochRMax gives ~5 s epochs at the default 500ms DeltaRound, so a
+// late or restarted oracle does not wait out a 50 s epoch (RMax 100).
+const shortEpochRMax = uint64(10)
 
 func testIntegrationLLOV31BlobCatchup(t *testing.T, rejoin bool, salt int64, donID uint32) {
 	const (
@@ -3619,7 +3649,7 @@ func testIntegrationLLOV31BlobCatchup(t *testing.T, rejoin bool, salt int64, don
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_catchup", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo_catchup", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	packetCh := make(chan *packet, 100000)
@@ -3710,7 +3740,7 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
-		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(),
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(), WithRMax(shortEpochRMax),
 	)
 
 	// reportsFlowing drains transmitted reports for the channel under test until
@@ -3814,7 +3844,7 @@ func TestIntegration_LLO_v31_restart_resumes(t *testing.T) {
 
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_restart", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_llo_restart", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	packetCh := make(chan *packet, 100000)
@@ -3881,7 +3911,7 @@ pluginVersion = "v31"`, serverURL, serverPubKey, donID, configStoreAddress, from
 
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
-		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(),
+		WithOracles(oracles), WithOffchainConfig(offchainConfig), WithV31(), WithRMax(shortEpochRMax),
 	)
 
 	reportsFlowing := func(d time.Duration) bool {

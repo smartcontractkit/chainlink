@@ -350,7 +350,9 @@ func TestRegistrationCheckTrafficVolume(t *testing.T) {
 			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
 				ctx := t.Context()
-				lggr := logger.Test(t)
+				// The publisher logs every registration at debug (~43 MB across all
+				// cases) and this test only asserts on dispatcher counts.
+				lggr := logger.Nop()
 				dispatcher := newCountingDispatcher()
 
 				capDonMembers := generatePeers(t, tc.capDonSize)

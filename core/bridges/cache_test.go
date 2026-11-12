@@ -165,12 +165,24 @@ func TestBridgeCache_Response(t *testing.T) {
 	t.Run("async upserts bridge response", func(t *testing.T) {
 		t.Parallel()
 
+		// A short tick so the test does not wait out the 5 s default.
+		const upsertInterval = 50 * time.Millisecond
 		mORM := new(mocks.ORM)
 		lggr, _ := logger.NewLogger()
-		cache := bridges.NewCache(mORM, lggr, bridges.DefaultUpsertInterval)
+		cache := bridges.NewCache(mORM, lggr, upsertInterval)
 
 		t.Cleanup(func() {
 			require.NoError(t, cache.Close())
+		})
+
+		chBulkUpsertCalled := make(chan struct{}, 1)
+		// Register the expectation before Start: the 50 ms tick can fire right away.
+		mORM.On("BulkUpsertBridgeResponse", mock.Anything, mock.Anything).Return(nil).Run(func(_ mock.Arguments) {
+			// Non-blocking: the short tick can upsert more than once.
+			select {
+			case chBulkUpsertCalled <- struct{}{}:
+			default:
+			}
 		})
 
 		require.NoError(t, cache.Start(t.Context()))
@@ -179,12 +191,6 @@ func TestBridgeCache_Response(t *testing.T) {
 		dotID := "test"
 		specID := int32(42)
 		expected := []byte("test")
-		chBulkUpsertCalled := make(chan struct{}, 1)
-
-		mORM.On("BulkUpsertBridgeResponse", mock.Anything, mock.Anything).Return(nil).Run(func(_ mock.Arguments) {
-			chBulkUpsertCalled <- struct{}{}
-		})
-
 		require.NoError(t, cache.UpsertBridgeResponse(ctx, dotID, specID, expected))
 
 		response, err := cache.GetCachedResponse(ctx, dotID, specID, time.Second)
@@ -192,7 +198,7 @@ func TestBridgeCache_Response(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, expected, response)
 
-		timer := time.NewTimer(2 * bridges.DefaultUpsertInterval)
+		timer := time.NewTimer(2 * bridges.DefaultUpsertInterval) // generous bound; the upsert normally lands within ~50 ms
 
 		select {
 		case <-chBulkUpsertCalled:

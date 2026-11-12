@@ -36,6 +36,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"go.uber.org/zap/zapcore"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
@@ -252,6 +253,18 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 }
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
+// appLogLevel is the level for the logger of an application that a test did not
+// give one. It follows the config (Info unless the test sets [Log] Level), not
+// Debug: the EVM services alone print thousands of debug lines per second, and each
+// line costs encoding, a stack lookup and the test output lock. Set
+// CL_TEST_DEBUG_LOGS=1 to get debug output back when chasing a failure.
+func appLogLevel(cfg chainlink.GeneralConfig) zapcore.Level {
+	if os.Getenv("CL_TEST_DEBUG_LOGS") != "" {
+		return zapcore.DebugLevel
+	}
+	return cfg.Log().Level()
+}
+
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled.
 func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
@@ -268,7 +281,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 	if lggr == nil {
-		lggr = logger.TestLogger(t)
+		lggr = logger.TestLogger(t, appLogLevel(cfg))
 	}
 
 	var auditLogger audit.Logger
@@ -385,7 +398,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			}
 		}
 	}
-	keyStore := keystore.NewInMemory(ds, commonkeystore.FastScryptParams, lggr.Infof)
+	keyStore := keystore.NewInMemory(ds, TestScryptParams, lggr.Infof)
 	require.NoError(t, keyStore.Unlock(ctx, Password))
 	logPubKeys(t, keyStore)
 
@@ -793,10 +806,16 @@ func (ta *TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Sh
 	return client
 }
 
+// TestScryptParams is the cheapest scrypt cost (N=2^4) for test keystores.
+// The keyring is re-encrypted on every key add, so FastScryptParams (N=2^14,
+// ~16 MB per call) was a measurable share of CPU in suites that start many
+// apps. Tests of encryption itself should use real params.
+var TestScryptParams = commonkeystore.ScryptParams{N: 1 << 4, P: 1}
+
 // NewKeyStore returns a new, unlocked keystore
 func NewKeyStore(t testing.TB, ds sqlutil.DataSource) keystore.Master {
 	ctx := t.Context()
-	keystore := keystore.NewInMemory(ds, commonkeystore.FastScryptParams, logger.TestLogger(t).Infof)
+	keystore := keystore.NewInMemory(ds, TestScryptParams, logger.TestLogger(t).Infof)
 	require.NoError(t, keystore.Unlock(ctx, Password))
 	logPubKeys(t, keystore)
 	return keystore

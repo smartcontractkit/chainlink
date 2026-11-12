@@ -88,6 +88,7 @@ relay				= "evm"
 schemaVersion		= 1
 forwardingAllowed   = true
 contractID			= "%s"
+contractConfigTrackerPollInterval = "1s"
 [relayConfig]
 chainID 			= 1337
 `, ocrContractAddress)
