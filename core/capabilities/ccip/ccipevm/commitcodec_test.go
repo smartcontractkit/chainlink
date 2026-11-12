@@ -76,6 +76,7 @@ var randomCommitReport = func() ccipocr3.CommitPluginReport {
 }
 
 func TestCommitPluginCodecV1(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name   string
 		report func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport
@@ -121,6 +122,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			report := tc.report(randomCommitReport())
 			commitCodec := NewCommitPluginCodecV1()
 			ctx := t.Context()

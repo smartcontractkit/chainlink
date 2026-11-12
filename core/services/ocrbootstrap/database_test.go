@@ -35,7 +35,7 @@ func setupDB(t *testing.T) *sqlx.DB {
 }
 
 func Test_DB_ReadWriteConfig(t *testing.T) {
-	sqlDB := setupDB(t)
+	t.Parallel()
 
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:          testhelpers.MakeConfigDigest(t),
@@ -47,10 +47,13 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		OffchainConfigVersion: 111,
 		OffchainConfig:        []byte{0x03, 0x04},
 	}
-	spec := MustInsertOCRBootstrapSpec(t, sqlDB)
 	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes config", func(t *testing.T) {
+		t.Parallel()
+		// Each subtest writes config for the same spec, so it needs its own database.
+		sqlDB := setupDB(t)
+		spec := MustInsertOCRBootstrapSpec(t, sqlDB)
 		db := ocrbootstrap.NewDB(sqlDB, spec.ID, lggr)
 
 		err := db.WriteConfig(t.Context(), config)
@@ -63,6 +66,9 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("updates config", func(t *testing.T) {
+		t.Parallel()
+		sqlDB := setupDB(t)
+		spec := MustInsertOCRBootstrapSpec(t, sqlDB)
 		db := ocrbootstrap.NewDB(sqlDB, spec.ID, lggr)
 
 		newConfig := ocrtypes.ContractConfig{
@@ -81,6 +87,9 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
+		t.Parallel()
+		sqlDB := setupDB(t)
+		spec := MustInsertOCRBootstrapSpec(t, sqlDB)
 		db := ocrbootstrap.NewDB(sqlDB, spec.ID, lggr)
 
 		err := db.WriteConfig(t.Context(), config)

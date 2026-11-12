@@ -77,6 +77,7 @@ var randomCommitReport = func() ccipocr3.CommitPluginReport {
 }
 
 func TestCommitPluginCodecV1(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name   string
 		report func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport
@@ -122,6 +123,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			report := tc.report(randomCommitReport())
 			commitCodec := NewCommitPluginCodecV1()
 			ctx := t.Context()
@@ -141,6 +143,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 // Go equivalent of test_deserialize_commit_report
 // https://github.com/smartcontractkit/chainlink-aptos/blob/cb70d13f90d16ea7fea7f0f52f02fbebc38d16a9/contracts/ccip/ccip_offramp/tests/offramp_test.move#L525
 func TestCommitPluginCodecV1_Decode(t *testing.T) {
+	t.Parallel()
 	expectedSourceToken := "0x000000000000000000000000000000000000000000000000000000000000000a"
 	expectedUsdPerToken, ok := new(big.Int).SetString("500000000000000000000", 10)
 	require.True(t, ok)

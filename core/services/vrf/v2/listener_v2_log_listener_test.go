@@ -223,9 +223,16 @@ func TestLogPollerFilterRegistered(t *testing.T) {
 
 	func() {
 		// Run the log listener. This should register the log poller filter.
-		go th.Listener.runLogListener(time.Second, 1)
-		// Close the listener to avoid an orphaned goroutine.
-		defer close(th.Listener.chStop)
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			th.Listener.runLogListener(time.Second, 1)
+		}()
+		// Close the listener and wait for it to exit, so it can't log after the test ends.
+		defer func() {
+			close(th.Listener.chStop)
+			<-done
+		}()
 
 		// Wait for the log poller filter to be registered.
 		filterName := th.Listener.getLogPollerFilterName()

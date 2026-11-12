@@ -19,6 +19,7 @@ import (
 )
 
 func TestPluginTypeToTelemetryType(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		pluginType types.PluginType
@@ -46,6 +47,7 @@ func TestPluginTypeToTelemetryType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := pluginTypeToTelemetryType(tt.pluginType)
 			if tt.expectErr {
 				require.Error(t, err, "Expected an error for plugin type %d", tt.pluginType)
@@ -59,6 +61,7 @@ func TestPluginTypeToTelemetryType(t *testing.T) {
 }
 
 func TestPluginOracleCreator_getTransmitterFromPublicConfig(t *testing.T) {
+	t.Parallel()
 	key := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	poc := &pluginOracleCreator{p2pID: key}
 
@@ -114,6 +117,7 @@ func TestPluginOracleCreator_getTransmitterFromPublicConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := poc.getTransmitterFromPublicConfig(tt.publicConfig)
 			if tt.expectErr {
 				require.Error(t, err)
@@ -129,6 +133,7 @@ func TestPluginOracleCreator_getTransmitterFromPublicConfig(t *testing.T) {
 
 // Sanity-check that these parameters are not accidentally changed without breaking CI
 func Test_defaultLocalConfigProperties(t *testing.T) {
+	t.Parallel()
 	lc := defaultLocalConfig()
 
 	assert.Equal(t, 30*time.Second, lc.DefaultMaxDurationInitialization)

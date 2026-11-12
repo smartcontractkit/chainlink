@@ -1025,3 +1025,31 @@ func Test_DataSource_StagingDoesNotObserve(t *testing.T) {
 	require.Nil(t, vals[1], "staging instance must not populate stream values")
 	require.Zero(t, reg.pipelines[1].runCount.Load(), "staging instance must not run pipelines")
 }
+
+// Test_DataSource_CloseIsFinal asserts that Close is idempotent and that an
+// Observe call racing with shutdown cannot start a new observation loop. A
+// late-started loop would run pipeline work (and log through the plugin
+// logger) after Close returned, which is what leaked goroutines writing to
+// test loggers after the owning test finished.
+func Test_DataSource_CloseIsFinal(t *testing.T) {
+	t.Parallel()
+	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+	reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(42), nil)
+	ds := newDataSource(logger.NullLogger, reg, telem.NullTelemeter)
+
+	require.NoError(t, ds.Observe(t.Context(), makeStreamValues(1), &mockOpts{}))
+	require.Positive(t, reg.pipelines[1].runCount.Load(), "observation loop should have run the pipeline")
+
+	require.NoError(t, ds.Close())
+
+	closedRuns := reg.pipelines[1].runCount.Load()
+	for range 3 {
+		require.NoError(t, ds.Observe(t.Context(), makeStreamValues(1), &mockOpts{}))
+	}
+	require.Never(t, func() bool {
+		return reg.pipelines[1].runCount.Load() != closedRuns
+	}, 500*time.Millisecond, 50*time.Millisecond, "no pipeline may run after Close")
+
+	// Shutdown is idempotent; a second Close must not panic on a double channel close.
+	require.NoError(t, ds.Close())
+}

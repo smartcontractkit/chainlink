@@ -2,6 +2,7 @@ package ring
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -49,6 +50,7 @@ func toShardStatus(m map[uint32]bool) map[uint32]*ringpb.ShardStatus {
 }
 
 func TestPlugin_Outcome(t *testing.T) {
+	t.Parallel()
 	t.Run("WithMultiNodeObservations", func(t *testing.T) {
 		lggr := logger.Test(t)
 		store := NewStore()
@@ -166,6 +168,7 @@ func TestPlugin_Outcome(t *testing.T) {
 }
 
 func TestPlugin_StateTransitions(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 
@@ -185,6 +188,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 
 	// Test 1: Initial state with no previous outcome
 	t.Run("initial_state", func(t *testing.T) {
+		t.Parallel()
 		outcomeCtx := ocr3types.OutcomeContext{
 			SeqNr:           1,
 			PreviousOutcome: nil,
@@ -212,6 +216,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 
 	// Test 2: Transition triggered when wantShards changes
 	t.Run("transition_triggered", func(t *testing.T) {
+		t.Parallel()
 		// Start with 1 shard in stable state
 		priorOutcome := &ringpb.Outcome{
 			State: &ringpb.RoutingState{
@@ -251,6 +256,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 
 	// Test 3: Stay in transition during safety period
 	t.Run("stay_in_transition", func(t *testing.T) {
+		t.Parallel()
 		safeAfter := now.Add(1 * time.Hour)
 		priorOutcome := &ringpb.Outcome{
 			State: &ringpb.RoutingState{
@@ -292,6 +298,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 
 	// Test 4: Complete transition after safety period
 	t.Run("complete_transition", func(t *testing.T) {
+		t.Parallel()
 		safeAfter := now.Add(-1 * time.Second) // Safety period already passed
 		priorOutcome := &ringpb.Outcome{
 			State: &ringpb.RoutingState{
@@ -332,6 +339,7 @@ func TestPlugin_StateTransitions(t *testing.T) {
 
 	// Test 5: Stay stable when wantShards matches current
 	t.Run("stay_stable", func(t *testing.T) {
+		t.Parallel()
 		priorOutcome := &ringpb.Outcome{
 			State: &ringpb.RoutingState{
 				Id: 3,
@@ -388,6 +396,7 @@ func makeObservationsWithWantShards(t *testing.T, shardStatuses []map[uint32]*ri
 }
 
 func TestPlugin_NewPlugin_NilArbiter(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	config := ocr3types.ReportingPluginConfig{N: 4, F: 1}
@@ -398,6 +407,7 @@ func TestPlugin_NewPlugin_NilArbiter(t *testing.T) {
 }
 
 func TestPlugin_getHealthyShards(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		votes map[uint32]int // donID -> vote count
@@ -412,6 +422,7 @@ func TestPlugin_getHealthyShards(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			plugin := &Plugin{
 				store:  NewStore(),
 				config: ocr3types.ReportingPluginConfig{F: tc.f},
@@ -423,6 +434,7 @@ func TestPlugin_getHealthyShards(t *testing.T) {
 }
 
 func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 
@@ -457,12 +469,10 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 		resultCh <- shard
 	}()
 
-	// Give goroutine time to enqueue request
-	time.Sleep(10 * time.Millisecond)
-
-	// Verify request is pending for OCR consensus
-	pending := store.GetPendingAllocations()
-	require.Contains(t, pending, "workflow-123")
+	// Wait for the goroutine to enqueue its request for OCR consensus
+	require.Eventually(t, func() bool {
+		return slices.Contains(store.GetPendingAllocations(), "workflow-123")
+	}, 5*time.Second, time.Millisecond)
 
 	// Simulate OCR round with observations showing no healthy shards
 	// The pending allocation "workflow-123" should be included in observation
@@ -531,6 +541,7 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservation_RejectsWantShardsZero(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	config := ocr3types.ReportingPluginConfig{N: 4, F: 1}
@@ -551,6 +562,7 @@ func TestPlugin_ValidateObservation_RejectsWantShardsZero(t *testing.T) {
 }
 
 func TestPlugin_ObservationQuorum(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	store := NewStore()
 	config := ocr3types.ReportingPluginConfig{N: 4, F: 1}
@@ -561,6 +573,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 	outctx := ocr3types.OutcomeContext{}
 
 	t.Run("quorum_reached", func(t *testing.T) {
+		t.Parallel()
 		// Need 2F+1 = 3 observations for quorum with N=4, F=1
 		aos := make([]types.AttributedObservation, 3)
 		for i := range aos {
@@ -573,6 +586,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 	})
 
 	t.Run("quorum_not_reached", func(t *testing.T) {
+		t.Parallel()
 		// Only 2 observations - not enough for quorum
 		aos := make([]types.AttributedObservation, 2)
 		for i := range aos {
@@ -585,6 +599,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 	})
 
 	t.Run("exact_quorum", func(t *testing.T) {
+		t.Parallel()
 		// Exactly 2F+1 = 3 observations
 		aos := make([]types.AttributedObservation, 3)
 		for i := range aos {
@@ -597,6 +612,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 	})
 
 	t.Run("all_observations", func(t *testing.T) {
+		t.Parallel()
 		// All N=4 observations
 		aos := make([]types.AttributedObservation, 4)
 		for i := range aos {
@@ -609,7 +625,9 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // subtests are sequential steps that build on the shared ring store
 func TestPlugin_RingStoreIntegration(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 
 	ringStore := NewStore()

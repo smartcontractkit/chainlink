@@ -16,6 +16,7 @@ import (
 )
 
 func Test_HashedCapabilityId(t *testing.T) {
+	t.Parallel()
 	transactor := testutils.MustNewSimTransactor(t)
 	b := simulated.NewBackend(types.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},

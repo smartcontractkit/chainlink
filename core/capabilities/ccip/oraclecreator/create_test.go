@@ -134,6 +134,7 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			cfg := cctypes.OCR3ConfigWithMeta{
 				Config: ccipreaderpkg.OCR3Config{
 					PluginType: uint8(tc.pluginType),

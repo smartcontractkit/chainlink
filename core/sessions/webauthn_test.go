@@ -16,6 +16,7 @@ import (
 )
 
 func TestWebAuthnSessionStore(t *testing.T) {
+	t.Parallel()
 	const key = "test-key"
 	data := webauthn.SessionData{
 		Challenge: "challenge-string",
