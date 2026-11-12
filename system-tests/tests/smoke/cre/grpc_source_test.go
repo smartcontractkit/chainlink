@@ -45,6 +45,8 @@ const (
 // To run locally:
 //  1. Start the test (it will start the environment automatically):
 //     go test -timeout 20m -run "^Test_CRE_GRPCSource_Lifecycle$" ./smoke/cre/...
+//
+//nolint:paralleltest // owns the mock source on a fixed port and shared registry state
 func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 	t.Skip("Skipping: gRPC source tests require V2 workflow registry syncer - needs investigation for CI environment differences")
 
@@ -91,6 +93,8 @@ func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 // To run locally:
 //  1. Start CRE: go run . env start --with-chip-ingress-stack (deprecated: --with-beholder)
 //  2. Run test: go test -timeout 15m -run "^Test_CRE_GRPCSource_AuthRejection$"
+//
+//nolint:paralleltest // uses the shared environment and root signing key
 func Test_CRE_GRPCSource_AuthRejection(t *testing.T) {
 	// Set up test environment
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))

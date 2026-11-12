@@ -353,10 +353,15 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 	if moduleExecuteMaxResponseSizeBytes < 0 {
 		return nil, fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 	}
+
+	// No executionID exists unless startExecution is called.
+	// Hence, we initialize it as an empty string.
+	executionID := ""
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
-		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
-		Config:          e.cfg.WorkflowConfig,
+		Request:           &sdkpb.ExecuteRequest_Subscribe{},
+		ExecutionMetadata: e.getExecutionMetadata(executionID),
+		MaxResponseSize:   uint64(moduleExecuteMaxResponseSizeBytes),
+		Config:            e.cfg.WorkflowConfig,
 	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider))
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute subscribe: %w", err)
@@ -781,8 +786,10 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, event.TriggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
+	executionMetadata := e.getExecutionMetadata(executionID)
 	var result *sdkpb.ExecutionResult
 	result, execErr = e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
+		ExecutionMetadata: executionMetadata,
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
 				Id:      tid,
@@ -1185,4 +1192,15 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, e
 		"value", valueMs,
 		"orgID", e.orgID,
 	)
+}
+
+func (e *baseEngine) getExecutionMetadata(executionID string) *sdkpb.WorkflowExecutionMetadata {
+	node := e.localNode.Load()
+	return &sdkpb.WorkflowExecutionMetadata{
+		WorkflowId:    e.cfg.WorkflowID,
+		ExecutionId:   executionID,
+		WorkflowOwner: e.cfg.WorkflowOwner,
+		DonId:         node.WorkflowDON.ID,
+		DonF:          uint32(node.WorkflowDON.F),
+	}
 }

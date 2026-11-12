@@ -15,6 +15,7 @@ const (
 	SuiteScenarioConsensus
 	SuiteScenarioVaultDirectRead
 	SuiteScenarioVaultDirectReadErrors
+	SuiteScenarioExecutionMetadata
 	SuiteScenarioLen
 )
 
@@ -34,6 +35,8 @@ func (s SuiteScenario) String() string {
 		return "HTTPActionMultiGateway"
 	case SuiteScenarioDONTime:
 		return "DONTime"
+	case SuiteScenarioExecutionMetadata:
+		return "ExecutionMetadata"
 	case SuiteScenarioConsensus:
 		return "Consensus"
 	case SuiteScenarioVaultDirectRead:
@@ -74,6 +77,7 @@ var suiteBucketRegistry = []suiteBucketDefinition{
 			SuiteScenarioHTTPTriggerAction,
 			SuiteScenarioDONTime,
 			SuiteScenarioConsensus,
+			SuiteScenarioExecutionMetadata,
 		},
 	},
 	{

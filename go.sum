@@ -1168,8 +1168,8 @@ github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260716214810-db5ecc
 github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260716214810-db5ecc877490/go.mod h1:WjihFo64itMaOcaDMJ97iz0cJYO2zlLfPdUkF7/mQNo=
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20261013132128-58831cfe6302 h1:P9n78iQkXTWnbpyYDCI/MZ7is+s/b/Z+o0NG/rSyBPU=
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20261013132128-58831cfe6302/go.mod h1:u6jCOdMYI7QEZHMqh/Kt5zslk7xvieSlhSzbUUIGZEs=
-github.com/smartcontractkit/cre-sdk-go v1.17.0-capdev.1 h1:8ts9cl7bOopbOALhXHMTgZy8w1VU/bEuY8It2T0Lwdk=
-github.com/smartcontractkit/cre-sdk-go v1.17.0-capdev.1/go.mod h1:FDmcK/My08vBNWqpKUQGtSxVEmECzPye3tpGOzVxw/k=
+github.com/smartcontractkit/cre-sdk-go v1.22.1-capdev.1 h1:mMMAFJ/uZJcGHYJdG7oghEJKb3LRLodI1nNykK7KSUc=
+github.com/smartcontractkit/cre-sdk-go v1.22.1-capdev.1/go.mod h1:kWKvngGj/LQ19QnRd+8ctJ6e8IUMkrRtXLaYAYL7cU0=
 github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.0 h1:m0OkXuaLtIcYvBrLtxSfygrGtBJvPwaSoANe48434BA=
 github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.0/go.mod h1:QpLhMGMa//e4G9qMmmCK4NPMcadRBaWC2FDV9hniMrI=
 github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0 h1:qBZ4y6qlTOynSpU1QAi2Fgr3tUZQ332b6hit9EVZqkk=
