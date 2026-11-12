@@ -1167,6 +1167,8 @@ func TestSync_V2_ComputesOCR3ConfigDigests(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: tc.reader}, testChainID, address, tc.orm(t))
 			require.NoError(t, err)
 

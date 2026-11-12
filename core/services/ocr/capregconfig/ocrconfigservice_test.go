@@ -136,6 +136,7 @@ func registryOCR3ConfigDigest(donID uint32, capabilityID string, cfg *capabiliti
 }
 
 func TestOCRConfigService_OnNewRegistry_MissingDigestInputs(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider())
 
