@@ -2123,10 +2123,8 @@ func Test_Handler_OrganizationID(t *testing.T) {
 
 	linkingClient := linkingclient.NewLinkingServiceClient(conn)
 	orgResolverConfig := orgresolver.Config{
-		URL:                           linkingURL,
-		TLSEnabled:                    false,
-		WorkflowRegistryAddress:       "0x1234567890abcdef",
-		WorkflowRegistryChainSelector: 1,
+		URL:        linkingURL,
+		TLSEnabled: false,
 	}
 	orgResolver, err := orgresolver.NewOrgResolverWithClient(orgResolverConfig, linkingClient, lggr)
 	require.NoError(t, err)
