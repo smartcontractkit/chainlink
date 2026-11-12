@@ -6,7 +6,7 @@
 # Stage: deps-base — module downloads, no source tree.
 # Stages that don't need the full source (remote plugins, delve) branch from
 # here so that source-only changes never invalidate their layer cache.
-FROM golang:1.27.3-bookworm@sha256:5c3e9b43cfd3bb95c7937462e29d87ada57b481a96fa23ad0eb61778d7a00110 AS deps-base
+FROM golang:1.27.3-bookworm@sha256:dc0963f32053e4bc451d24d87e3892d42d01021b61f093e98eb95c0352bb84b0 AS deps-base
 # Build-only tooling; never shipped, so versions are intentionally unpinned.
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends jq && rm -rf /var/lib/apt/lists/*
@@ -110,7 +110,7 @@ RUN --mount=type=cache,id=go-mod-cache,target=/go/pkg/mod \
 ##
 # Final Image
 ##
-FROM ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3 AS final
+FROM ubuntu:24.04@sha256:2198e4c65076e9cb0b3d695219df667c0e3b0072da64ca3c2648aca17dcecaf5 AS final
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG CHAINLINK_USER=root
