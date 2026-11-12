@@ -81,6 +81,13 @@ func New(
 	registryAddress string,
 	orm registrysyncer.ORM,
 ) (RegistrySyncer, error) {
+	if chainID == 0 {
+		return nil, errors.New("capabilities registry chain ID must be set")
+	}
+	if registryAddress == "" {
+		return nil, errors.New("capabilities registry address must be set")
+	}
+
 	metricLabeler, err := newSyncerMetricLabeler()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create syncer metric labeler: %w", err)
@@ -268,8 +275,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.R
 		cc := map[string]registry.CapabilityConfiguration{}
 		for _, dc := range d.CapabilityConfigurations {
 			cc[dc.CapabilityId] = registry.CapabilityConfiguration{
-				Config:           dc.Config,
-				OCR3DigestInputs: s.ocr3DigestInputs(d.Id, dc.CapabilityId),
+				Config: dc.Config,
 			}
 		}
 
@@ -353,25 +359,24 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		} else {
 			latestRegistry.Logger = s.lggr
 			latestRegistry.GetPeerID = s.getPeerID
-			// Persisted state may predate the digest inputs, so always restamp them.
-			s.setOCR3DigestInputs(latestRegistry)
 		}
 	}
 
 	if latestRegistry == nil {
 		s.lggr.Debug("syncing with remote registry")
-		importedRegistry, err := s.importOnchainRegistry(ctx)
+		latestRegistry, err = s.importOnchainRegistry(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to sync with remote registry: %w", err)
 		}
-		latestRegistry = importedRegistry
+
+		persisted := registry.DeepCopyRegistryMetadata(latestRegistry)
 		// Attempt to send local registry to the update channel without blocking
 		// This is to prevent the tests from hanging if they are not calling `Start()` on the syncer
 		select {
 		case <-s.stopCh:
 			s.lggr.Debug("sync cancelled, stopping")
 			return nil
-		case s.updateChan <- latestRegistry:
+		case s.updateChan <- &persisted:
 			// Successfully sent state
 			s.lggr.Debug("remote registry update triggered successfully")
 		default:
@@ -380,6 +385,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		}
 	}
 
+	s.setOCR3DigestInputs(latestRegistry)
 	for _, listener := range s.listeners {
 		lrCopy := registry.DeepCopyRegistryMetadata(latestRegistry)
 		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
@@ -391,19 +397,15 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	return nil
 }
 
-func (s *registrySyncer) ocr3DigestInputs(donID uint32, capabilityID string) registry.OCR3DigestInputs {
-	return registry.OCR3DigestInputs{
-		ChainID:         s.chainID,
-		RegistryAddress: s.capabilitiesContract.Address,
-		DonID:           donID,
-		CapabilityID:    capabilityID,
-	}
-}
-
 func (s *registrySyncer) setOCR3DigestInputs(md *registry.RegistryMetadata) {
 	for donID, don := range md.IDsToDONs {
 		for capID, cc := range don.CapabilityConfigurations {
-			cc.OCR3DigestInputs = s.ocr3DigestInputs(uint32(donID), capID)
+			cc.OCR3DigestInputs = registry.OCR3DigestInputs{
+				ChainID:         s.chainID,
+				RegistryAddress: s.capabilitiesContract.Address,
+				DonID:           uint32(donID),
+				CapabilityID:    capID,
+			}
 			don.CapabilityConfigurations[capID] = cc
 		}
 	}

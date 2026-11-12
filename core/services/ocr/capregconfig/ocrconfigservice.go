@@ -182,6 +182,11 @@ func (s *ocrConfigService) processCapabilityConfig(ctx context.Context, capabili
 		return nil
 	}
 
+	unmarshalled, err := capCfg.Unmarshal()
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal capability configuration: %w", err)
+	}
+
 	for ocrKey, ocrConfig := range capConfig.Ocr3Configs {
 		key := configKey{
 			CapabilityID: capabilityID,
@@ -222,7 +227,7 @@ func (s *ocrConfigService) processCapabilityConfig(ctx context.Context, capabili
 			continue
 		}
 
-		contractConfig, err := parseOCR3Config(capCfg.OCR3DigestInputs, ocrKey, ocrConfig)
+		contractConfig, err := parseOCR3Config(unmarshalled.Ocr3Configs[ocrKey].ConfigDigest, ocrConfig)
 		if err != nil {
 			s.metrics.IncrementParseErrors(ctx, capabilityID, donID, ocrKey)
 			s.lggr.Errorw("failed to parse OCR3 config",
@@ -257,12 +262,11 @@ func (s *ocrConfigService) processCapabilityConfig(ctx context.Context, capabili
 
 // convert a protobuf OCR3Config to a libocr ContractConfig
 func parseOCR3Config(
-	digestInputs registry.OCR3DigestInputs,
-	ocrConfigKey string,
+	digest ocrtypes.ConfigDigest,
 	cfg *capabilitiespb.OCR3Config,
 ) (ocrtypes.ContractConfig, error) {
-	if digestInputs.ChainID == 0 || digestInputs.RegistryAddress == "" {
-		return ocrtypes.ContractConfig{}, errors.New("registry did not provide OCR3 digest inputs")
+	if digest == (ocrtypes.ConfigDigest{}) {
+		return ocrtypes.ContractConfig{}, errors.New("registry did not provide an OCR3 config digest")
 	}
 
 	signers := make([]ocrtypes.OnchainPublicKey, len(cfg.Signers))
@@ -274,11 +278,6 @@ func parseOCR3Config(
 	for i, transmitter := range cfg.Transmitters {
 		// Accounts have to be checksummed hex strings with a "0x" prefix, to match the format expected by libocr.
 		transmitters[i] = ocrtypes.Account(gethCommon.BytesToAddress(transmitter).Hex())
-	}
-
-	digest, err := registry.OCR3ConfigDigest(digestInputs, ocrConfigKey, cfg)
-	if err != nil {
-		return ocrtypes.ContractConfig{}, fmt.Errorf("failed to compute config digest: %w", err)
 	}
 
 	if cfg.F > math.MaxUint8 {

@@ -1061,6 +1061,7 @@ func (r *CapabilitiesRegistryReader) GetHistoricalDONInfo(ctx context.Context, d
 type stubReader struct {
 	types.UnimplementedContractReader
 	nodes []capabilities_registry_v2.INodeInfoProviderNodeInfo
+	dons  []capabilities_registry_v2.CapabilitiesRegistryDONInfo
 }
 
 func (r *stubReader) Bind(context.Context, []types.BoundContract) error { return nil }
@@ -1068,6 +1069,9 @@ func (r *stubReader) Bind(context.Context, []types.BoundContract) error { return
 func (r *stubReader) GetLatestValue(_ context.Context, _ string, _ primitives.ConfidenceLevel, _, out any) error {
 	if nodes, ok := out.(*[]capabilities_registry_v2.INodeInfoProviderNodeInfo); ok {
 		*nodes = r.nodes
+	}
+	if dons, ok := out.(*[]capabilities_registry_v2.CapabilitiesRegistryDONInfo); ok {
+		*dons = r.dons
 	}
 	return nil
 }
@@ -1105,34 +1109,89 @@ func TestSync_V2_PreservesNodeCapabilitiesDONIds(t *testing.T) {
 	require.Equal(t, donIDs, got.CapabilitiesDONIds)
 }
 
-func TestSync_V2_RestampsOCR3DigestInputsOnLocalRegistry(t *testing.T) {
+func TestSync_V2_ComputesOCR3ConfigDigests(t *testing.T) {
 	t.Parallel()
 
-	capID := "consensus@1.0.0"
-	persisted := &registry.RegistryMetadata{
-		IDsToDONs: map[registry.DonID]registry.DON{
-			3: {CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
-				capID: {Config: []byte{0x01}},
-			}},
-		},
-	}
-	ormMock := syncerMocks.NewORM(t)
-	ormMock.On("LatestRegistryMetadata", mock.Anything).Return(persisted, nil)
-
-	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: &stubReader{}}, testChainID, "0xabc", ormMock)
+	const (
+		donID   = 3
+		capID   = "consensus@1.0.0"
+		address = "0xabc"
+	)
+	ocrConfig := &capabilitiespb.OCR3Config{F: 1, ConfigCount: 2, Signers: [][]byte{{0x01}}, Transmitters: [][]byte{{0x02}}}
+	config, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		Ocr3Configs: map[string]*capabilitiespb.OCR3Config{capabilitiespb.OCR3ConfigDefaultKey: ocrConfig},
+	})
 	require.NoError(t, err)
 
-	l := &launcher{}
-	syncer.AddListener(l)
-	require.NoError(t, syncer.Sync(t.Context(), true))
-
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	require.NotNil(t, l.localRegistry)
-	assert.Equal(t, registry.OCR3DigestInputs{
+	wantDigest, err := registry.OCR3ConfigDigest(registry.OCR3DigestInputs{
 		ChainID:         testChainID,
-		RegistryAddress: "0xabc",
-		DonID:           3,
+		RegistryAddress: address,
+		DonID:           donID,
 		CapabilityID:    capID,
-	}, l.localRegistry.IDsToDONs[3].CapabilityConfigurations[capID].OCR3DigestInputs)
+	}, capabilitiespb.OCR3ConfigDefaultKey, ocrConfig)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name          string
+		isInitialSync bool
+		reader        *stubReader
+		orm           func(t *testing.T) registrysyncer.ORM
+	}{
+		{
+			name: "remote registry",
+			reader: &stubReader{dons: []capabilities_registry_v2.CapabilitiesRegistryDONInfo{{
+				Id: donID,
+				CapabilityConfigurations: []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{
+					{CapabilityId: capID, Config: config},
+				},
+			}}},
+			orm: func(*testing.T) registrysyncer.ORM { return nil },
+		},
+		{
+			name:          "local registry",
+			isInitialSync: true,
+			reader:        &stubReader{},
+			orm: func(t *testing.T) registrysyncer.ORM {
+				ormMock := syncerMocks.NewORM(t)
+				ormMock.On("LatestRegistryMetadata", mock.Anything).Return(&registry.RegistryMetadata{
+					IDsToDONs: map[registry.DonID]registry.DON{
+						donID: {CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
+							capID: {Config: config},
+						}},
+					},
+				}, nil)
+				return ormMock
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: tc.reader}, testChainID, address, tc.orm(t))
+			require.NoError(t, err)
+
+			l := &launcher{}
+			syncer.AddListener(l)
+			require.NoError(t, syncer.Sync(t.Context(), tc.isInitialSync))
+
+			l.mu.RLock()
+			defer l.mu.RUnlock()
+			require.NotNil(t, l.localRegistry)
+			got, err := l.localRegistry.IDsToDONs[donID].CapabilityConfigurations[capID].Unmarshal()
+			require.NoError(t, err)
+			assert.Equal(t, wantDigest, got.Ocr3Configs[capabilitiespb.OCR3ConfigDefaultKey].ConfigDigest)
+		})
+	}
+}
+
+func TestNew_V2_RequiresOCR3DigestInputs(t *testing.T) {
+	t.Parallel()
+
+	getPeerID := func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }
+
+	_, err := registrysyncer_v2.New(logger.Test(t), getPeerID, &stubReaderFactory{}, 0, "0xabc", nil)
+	require.ErrorContains(t, err, "chain ID")
+
+	_, err = registrysyncer_v2.New(logger.Test(t), getPeerID, &stubReaderFactory{}, testChainID, "", nil)
+	require.ErrorContains(t, err, "address")
 }
