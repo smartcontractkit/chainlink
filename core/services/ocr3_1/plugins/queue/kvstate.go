@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"container/heap"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -17,51 +18,61 @@ import (
 
 // KV store Keys
 const (
-	observedEventsKey  = "observed_events::index"  // observed events waiting for consensus (<f+1 observers)
+	observedEventsKey  = "observed_events::index"  // observed events waiting for consensus (<2f+1 observers)
 	priorityQueueKey   = "priority_queue::index"   // priority queue of events waiting for capacity
 	consensusEventsKey = "consensus_events::index" // events the plugin committed to sending to nodes
 )
 
-func (s stateReader) readObservedEvents() (*pb.ConsensusQueueObservedEvents, error) {
-	return s.readValue[*pb.ConsensusQueueObservedEvents](observedEventsKey)
-}
-
-func (s stateReadWriter) writeObservedEvents(events *pb.ConsensusQueueObservedEvents) error {
-	return s.writeValue(observedEventsKey, events)
-}
-
-func (s stateReader) readPriorityQueue() (priorityQueue, error) {
-	list, err := s.readValue[*pb.ConsensusQueueEventList](priorityQueueKey)
+// readObservedAndQueued reads both observed events and priority queue events from the KV store.
+func (s stateReader) readObservedAndQueued() (*observedAndQueued, error) {
+	var obsQ observedAndQueued
+	v, err := s.kv.Read([]byte(observedEventsKey))
 	if err != nil {
 		return nil, err
 	}
-	return list.Events, nil
+	if v != nil {
+		var queued *pb.ConsensusQueueObservedEvents
+		if err = proto.Unmarshal(v, queued); err != nil {
+			return nil, err
+		}
+		obsQ.observedEvents = queued.Observations
+	} else {
+		obsQ.observedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
+	}
+
+	v, err = s.kv.Read([]byte(priorityQueueKey))
+	if err != nil {
+		return nil, err
+	}
+	if v != nil {
+		var consensus *pb.ConsensusQueueEventList
+		if err = proto.Unmarshal(v, consensus); err != nil {
+			return nil, err
+		}
+		obsQ.queuedEvents = new(priorityQueue(consensus.Events))
+	}
+
+	return &obsQ, nil
 }
 
-func (s stateReadWriter) writePriorityQueue(queue priorityQueue) error {
-	return s.writeValue(priorityQueueKey, &pb.ConsensusQueueEventList{Events: queue})
-}
-
-func (s stateReader) readConsensusEvents() (*pb.ConsensusQueueEventList, error) {
-	return s.readValue[*pb.ConsensusQueueEventList](consensusEventsKey)
-}
-
-func (s stateReadWriter) writeConsensusEvents(events *pb.ConsensusQueueEventList) error {
-	return s.writeValue(consensusEventsKey, events)
+func (s stateReadWriter) update(state *observedAndQueued, consensus []*pb.ConsensusQueueEvent) error {
+	err := s.writeValue(observedEventsKey, &pb.ConsensusQueueObservedEvents{Observations: state.observedEvents})
+	if err != nil {
+		return fmt.Errorf("failed to write observed events: %w", err)
+	}
+	err = s.writeValue(priorityQueueKey, &pb.ConsensusQueueEventList{Events: *state.queuedEvents})
+	if err != nil {
+		return fmt.Errorf("failed to write queued events: %w", err)
+	}
+	err = s.writeValue(consensusEventsKey, &pb.ConsensusQueueEventList{Events: consensus})
+	if err != nil {
+		return fmt.Errorf("failed to write consensus events: %w", err)
+	}
+	return nil
 }
 
 type stateReader struct {
 	kv ocr3_1types.KeyValueStateReader
-}
-
-// readValue unmarshals the given proto message if one exists for the given key, otherwise it returns a zero value.
-func (s stateReader) readValue[M proto.Message](key string) (m M, err error) {
-	val, err := s.kv.Read([]byte(key))
-	if err != nil || len(val) == 0 {
-		return
-	}
-	err = proto.Unmarshal(val, m)
-	return
 }
 
 type stateReadWriter struct {
@@ -108,17 +119,28 @@ func (p *priorityQueue) Pop() any {
 	return (*p)[len(*p)-1]
 }
 
-// PopCap pops up to capacity events from the queue, each of which must have wf capacity. Mutates capPerWF.
-func (p *priorityQueue) PopCap(capacity uint32, capPerWF map[string]uint32) ([]*pb.ConsensusQueueEvent, error) {
+func (p *priorityQueue) push(x *pb.ConsensusQueueEvent) { heap.Push(p, x) }
+
+func (p *priorityQueue) mustPop() *pb.ConsensusQueueEvent {
+	if len(*p) == 0 {
+		return nil
+	}
+	return heap.Pop(p).(*pb.ConsensusQueueEvent)
+}
+
+// popLimited pops up to capacity events from the queue, each of which must also have sufficient wf capacity.
+// Note: capPerWF is mutated.
+func (p *priorityQueue) popLimited(capacity uint32, capPerWF map[string]uint32, expiration time.Time) ([]*pb.ConsensusQueueEvent, error) {
 	var events []*pb.ConsensusQueueEvent
 	var wfLimited []*pb.ConsensusQueueEvent // omitted due to workflow limit
 	for len(events) < int(capacity) {
-		if len(*p) == 0 {
+		next := p.mustPop()
+		if next == nil {
 			break
 		}
-		next, ok := heap.Pop(p).(*pb.ConsensusQueueEvent)
-		if !ok {
-			return nil, fmt.Errorf("failed to cast *pb.CoordinatedEvent: got type %T", next)
+		if next.Deadline.AsTime().Before(expiration) {
+			// drop expired
+			continue
 		}
 		if capPerWF[next.WorkflowID] == 0 {
 			wfLimited = append(wfLimited, next)
@@ -129,30 +151,56 @@ func (p *priorityQueue) PopCap(capacity uint32, capPerWF map[string]uint32) ([]*
 	}
 	// restore omitted for next time
 	for _, event := range wfLimited {
-		heap.Push(p, event)
+		p.push(event)
 	}
 	return events, nil
 }
 
 type observedAndQueued struct {
-	observedEvents *pb.ConsensusQueueObservedEvents
+	observedEvents map[string]*pb.ConsensusQueueObservedEvent // key: blobHash
 	queuedEvents   *priorityQueue
 }
 
-func (s observedAndQueued) addObservedEvents(f int, observedEvents map[string]*pb.ConsensusQueueObservedEvent) {
-	for id, event := range observedEvents {
-		obs, ok := s.observedEvents.Observations[id]
-		if !ok && len(event.NodeIds) >= f+1 {
+func (s *observedAndQueued) pruneExpiredObservations(expiration time.Time) {
+	unexpiredFn := func(t *timestamppb.Timestamp) bool { return t.AsTime().After(expiration) }
+	maps.DeleteFunc(s.observedEvents, func(k string, v *pb.ConsensusQueueObservedEvent) bool {
+		if !slices.ContainsFunc(v.Deadlines, unexpiredFn) {
+			return false // no unexpired deadlines, so delete the whole thing
+		}
+
+		// some expired, so prune them
+		var toDelete []int
+		for i, d := range v.Deadlines {
+			if !unexpiredFn(d) {
+				toDelete = append(toDelete, i)
+			}
+		}
+		for _, i := range toDelete {
+			v.Deadlines = slices.Delete(v.Deadlines, i, i+1)
+			v.ObservedAts = slices.Delete(v.ObservedAts, i, i+1)
+			v.NodeIds = slices.Delete(v.NodeIds, i, i+1)
+		}
+
+		return false
+	})
+}
+
+// TODO on promotion to priority queue, ack the trigger coordinator
+func (s *observedAndQueued) addObservedEvents(f int, observedEvents map[string]*pb.ConsensusQueueObservedEvent) {
+	for blobHash, event := range observedEvents {
+		obs, ok := s.observedEvents[blobHash]
+		if !ok && len(event.NodeIds) >= 2*f+1 {
 			// new proposal straight to priority queue
-			heap.Push(s.queuedEvents, &pb.ConsensusQueueEvent{
-				WorkflowID:     "", //TODO parse?
-				TriggerEventID: "", //TODO parse?
+			s.queuedEvents.push(&pb.ConsensusQueueEvent{
+				WorkflowID:     event.WorkflowID,
+				TriggerEventID: event.TriggerEventID,
+				ObservedAt:     medianTimestamp(event.ObservedAts),
 				Deadline:       medianTimestamp(event.Deadlines),
 				Blobs:          event.Blobs,
 			})
 		} else if !ok {
 			// new proposal < f + 1
-			s.observedEvents.Observations[id] = event
+			s.observedEvents[blobHash] = event
 		} else {
 			// update proposal
 			// TODO opt: build a map to avoid n^2?
@@ -163,12 +211,13 @@ func (s observedAndQueued) addObservedEvents(f int, observedEvents map[string]*p
 					obs.Blobs = append(obs.Blobs, event.Blobs[i])
 				} //TODO what if a node reports twice with different deadline or nodeID? do we need to overwrite?
 			}
-			if len(obs.NodeIds) >= f+1 {
+			if len(obs.NodeIds) >= 2*f+1 {
 				// promote proposal to priority queue
-				delete(s.observedEvents.Observations, id)
-				heap.Push(s.queuedEvents, &pb.ConsensusQueueEvent{
-					WorkflowID:     "", //TODO
-					TriggerEventID: "", //TODO
+				delete(s.observedEvents, blobHash)
+				s.queuedEvents.push(&pb.ConsensusQueueEvent{
+					WorkflowID:     event.WorkflowID,
+					TriggerEventID: event.TriggerEventID,
+					ObservedAt:     medianTimestamp(event.ObservedAts),
 					Deadline:       medianTimestamp(event.Deadlines),
 					Blobs:          event.Blobs,
 				})
