@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 )
 
 // TestResolverMetrics_SettingsArrivalToApply proves the arrival wiring end to
@@ -18,8 +18,8 @@ func TestResolverMetrics_SettingsArrivalToApply(t *testing.T) {
 	ctx := t.Context()
 	f := newAssignmentMetricsFixture(t)
 
-	settings := &loop.AtomicSettings{}
-	r := f.manualResolver(settings, nil, nopLogger)
+	shardSettings := &settings.Atomic{}
+	r := f.manualResolver(shardSettings, nil, nopLogger)
 
 	blobA := `
 static_default_assignment = [0]
@@ -30,7 +30,7 @@ static_default_assignment = [0]
 	// The delegate records the arrival before Store; a resolve can only see
 	// the config after Store, so the arrival always precedes the apply.
 	f.metrics.RecordSettingsArrival(blobA, time.Now())
-	storeShardAssignment(t, settings, blobA)
+	storeShardAssignment(t, shardSettings, blobA)
 	donID, found, err := r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 	require.True(t, found)
@@ -52,7 +52,7 @@ static_default_assignment = [0]
   ` + ownerA + ` = [2]
 `
 	f.metrics.RecordSettingsArrival(blobB, time.Now())
-	storeShardAssignment(t, settings, blobB)
+	storeShardAssignment(t, shardSettings, blobB)
 	donID, found, err = r.ResolveShard(ctx, "wf-a", ownerA)
 	require.NoError(t, err)
 	require.True(t, found)

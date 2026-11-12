@@ -52,6 +52,30 @@ func TestMessageCache_InsertReady(t *testing.T) {
 	require.True(t, cache.WasReady(eventID1))
 }
 
+func TestMessageCache_Peers(t *testing.T) {
+	t.Parallel()
+
+	cache := messagecache.NewMessageCache[string, string]()
+	require.Nil(t, cache.Peers(eventID1))
+
+	cache.Insert(eventID1, peerID1, 100, []byte(payloadA))
+	cache.Insert(eventID1, peerID1, 110, []byte(payloadA)) // re-insert from the same peer
+	cache.Insert(eventID1, peerID2, 120, []byte(payloadA))
+	cache.Insert(eventID2, peerID1, 130, []byte(payloadA))
+	require.Equal(t, map[string]bool{peerID1: true, peerID2: true}, cache.Peers(eventID1))
+
+	// the result is a snapshot
+	peers := cache.Peers(eventID1)
+	delete(peers, peerID1)
+	require.Len(t, cache.Peers(eventID1), 2)
+
+	cache.MarkDelivered(eventID1)
+	cache.Delete(eventID1)
+	require.Nil(t, cache.Peers(eventID1))
+	require.False(t, cache.WasReady(eventID1))
+	require.Len(t, cache.Peers(eventID2), 1)
+}
+
 func TestMessageCache_DeleteOlderThan(t *testing.T) {
 	t.Parallel()
 

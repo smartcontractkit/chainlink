@@ -1848,6 +1848,7 @@ func (d *Delegate) newServicesLLO(
 		ContractConfigTrackers:       provider.ContractConfigTrackers(),
 		LocalConfig:                  lc,
 		OCR3MonitoringEndpoint:       d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.OCR3Mercury),
+		OCR3_1MonitoringEndpoint:     d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.OCR3_1Mercury),
 		OffchainConfigDigester:       provider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kr,

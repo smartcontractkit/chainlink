@@ -742,6 +742,7 @@ func TestShardFailoverManager_CachedEventOnStatusUpdate(t *testing.T) {
 				TriggerEventId: "evt-1",
 				Status:         tc.status,
 			})
+			m.replayWG.Wait()
 
 			assert.Equal(t, tc.wantExecuted, engine.executedIDs(), "events delivered to the engine")
 			_, gotCached := m.cache["evt-1"]
@@ -922,6 +923,7 @@ func TestShardFailoverManager_SystemErrorReplay_ExecutesWithTenantContext(t *tes
 		ExecutionId:    "exec-1",
 		Status:         ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR,
 	})
+	m.replayWG.Wait()
 
 	assert.Equal(t, []string{"evt-1"}, eng.executedIDs(), "the SYSTEM_ERROR replay did not execute the cached event")
 
@@ -930,6 +932,55 @@ func TestShardFailoverManager_SystemErrorReplay_ExecutesWithTenantContext(t *tes
 	wantTenant := contexts.CREValue(contexts.WithCRE(context.Background(), eng.Tenant()))
 	assert.Equal(t, wantTenant, tenants[0],
 		"replayed event ran without the workflow tenant on the context")
+}
+
+// blockingEngine blocks ExecuteTrigger until ctx is done.
+type blockingEngine struct {
+	recordingEngine
+	started chan struct{}
+}
+
+func (e *blockingEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	_ = e.recordingEngine.ExecuteTrigger(ctx, event)
+	close(e.started)
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+// TestShardFailoverManager_SystemErrorReplay_DoesNotBlockHandler covers the
+// handler running on the dispatcher's shared receive goroutine: it must return
+// while the replay is still executing, and Close must cancel the replay.
+func TestShardFailoverManager_SystemErrorReplay_DoesNotBlockHandler(t *testing.T) {
+	t.Parallel()
+
+	eng := &blockingEngine{started: make(chan struct{})}
+	m := newFailoverTestManager(t, &eng.recordingEngine)
+	m.SetEngine(eng)
+	require.NoError(t, m.Start(t.Context()))
+	require.ErrorIs(t, m.Admit(t.Context(), testCoordinatedEvent("evt-1")), triggers.ErrAdmissionCached)
+
+	m.HandleExecutionStatusUpdate(&ringpb.ExecutionStatusUpdate{
+		WorkflowId:     "wf-1",
+		TriggerEventId: "evt-1",
+		Status:         ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR,
+	})
+
+	select {
+	case <-eng.started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("replay never started")
+	}
+	assert.Equal(t, []string{"evt-1"}, eng.executedIDs())
+
+	require.NoError(t, m.Close())
+
+	// a SYSTEM_ERROR after close does not start a replay
+	m.HandleExecutionStatusUpdate(&ringpb.ExecutionStatusUpdate{
+		WorkflowId:     "wf-1",
+		TriggerEventId: "evt-1",
+		Status:         ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR,
+	})
+	assert.Equal(t, []string{"evt-1"}, eng.executedIDs())
 }
 
 func TestShardFailoverManager_TimeoutBasedFailover_DropsCachedEventWhenOwnerAgain(t *testing.T) {

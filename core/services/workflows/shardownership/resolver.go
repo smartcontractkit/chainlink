@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
@@ -126,7 +126,7 @@ func (r *ringOCRShardResolver) GetRoutingResponse(ctx context.Context, workflowI
 }
 
 type manualShardResolver struct {
-	settings         *loop.AtomicSettings
+	settings         *settings.Atomic
 	orgResolver      OrgResolver
 	shardIndexMapper *ShardIndexMapper
 	lggr             logger.Logger
@@ -144,11 +144,11 @@ type manualShardResolver struct {
 	lastAppliedCfg *cresettings.ShardAssignmentConfig
 }
 
-func NewManualShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, lggr logger.Logger) ShardResolver {
+func NewManualShardResolver(settings *settings.Atomic, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, lggr logger.Logger) ShardResolver {
 	return newManualShardResolver(settings, orgResolver, shardIndexMapper, logger.Named(lggr, "ManualShardResolver"), globalShardAssignmentMetrics(lggr))
 }
 
-func newManualShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, lggr logger.Logger, metrics *wfmon.ShardAssignmentMetrics) *manualShardResolver {
+func newManualShardResolver(settings *settings.Atomic, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, lggr logger.Logger, metrics *wfmon.ShardAssignmentMetrics) *manualShardResolver {
 	return &manualShardResolver{
 		settings:         settings,
 		orgResolver:      orgResolver,
@@ -467,7 +467,7 @@ type overrideShardResolver struct {
 	metrics     *wfmon.ShardAssignmentMetrics
 }
 
-func NewOverrideShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, ringOCR ShardResolver, lggr logger.Logger) ShardResolver {
+func NewOverrideShardResolver(settings *settings.Atomic, orgResolver OrgResolver, shardIndexMapper *ShardIndexMapper, ringOCR ShardResolver, lggr logger.Logger) ShardResolver {
 	// One fetch shared by the override and its inner manual resolver so a
 	// registration failure warns once and both see the same instruments.
 	metrics := globalShardAssignmentMetrics(lggr)

@@ -586,6 +586,8 @@ flowchart LR
 	chainlink/system-tests/tests/smoke/cre/evmread --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/system-tests/tests/smoke/cre/evmread --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/evmread href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/executiometadata --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/executiometadata href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/httpaction --> cre-sdk-go/capabilities/networking/http
 	chainlink/system-tests/tests/smoke/cre/httpaction --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/httpaction href "https://github.com/smartcontractkit/chainlink"
@@ -703,6 +705,7 @@ flowchart LR
 		 chainlink/system-tests/tests/smoke/cre/evm/evmread
 		 chainlink/system-tests/tests/smoke/cre/evm/logtrigger
 		 chainlink/system-tests/tests/smoke/cre/evmread
+		 chainlink/system-tests/tests/smoke/cre/executiometadata
 		 chainlink/system-tests/tests/smoke/cre/httpaction
 		 chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger
 		 chainlink/system-tests/tests/smoke/cre/solana/solread

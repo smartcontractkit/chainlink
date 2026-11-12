@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/storage"
@@ -111,7 +112,7 @@ type Opts struct {
 
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 
-	ShardAssignmentSettings *loop.AtomicSettings
+	ShardAssignmentSettings *settings.Atomic
 
 	// OffchainCapabilitiesRegistry holds the offchain capabilities registry config delivered
 	// via the cresettings job (config_type=capabilities_registry). Read by the Launcher.
@@ -240,7 +241,7 @@ func (s *Services) newSubservices(
 
 	if cfg.CRE().Linking().URL() != "" {
 		lggr.Debugw("Creating OrgResolver")
-		resolver, ierr := newOrgResolver(cfg, capCfg, opts, ds, lggr)
+		resolver, ierr := newOrgResolver(cfg, opts, ds, lggr)
 		if ierr != nil {
 			return nil, fmt.Errorf("could not create org resolver: %w", ierr)
 		}
@@ -584,32 +585,19 @@ func newDispatcherWrapper(
 // newOrgResolver creates a new OrgResolver if configured
 func newOrgResolver(
 	cfg Config,
-	capCfg config.Capabilities,
 	opts Opts,
 	ds sqlutil.DataSource,
 	lggr logger.Logger,
 ) (orgresolver.OrgResolver, error) {
-	var wrChainDetails chainselectors.ChainDetails
-	if capCfg.WorkflowRegistry().Address() != "" {
-		var err error
-		wrChainDetails, err = chainselectors.GetChainDetailsByChainIDAndFamily(
-			capCfg.WorkflowRegistry().ChainID(),
-			capCfg.WorkflowRegistry().NetworkID(),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
-		}
-	}
-
+	// Workflow registry address and chain selector are intentionally left empty;
+	// the linking service falls back to its own configured registry.
 	orgResolverConfig := orgresolver.Config{
-		URL:                           cfg.CRE().Linking().URL(),
-		TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
-		RequestTimeout:                cfg.CRE().Linking().RequestTimeout(),
-		WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
-		WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
-		JWTGenerator:                  opts.JWTGenerator,
-		Client:                        opts.LinkingClient,
-		Meter:                         opts.Meter,
+		URL:            cfg.CRE().Linking().URL(),
+		TLSEnabled:     cfg.CRE().Linking().TLSEnabled(),
+		RequestTimeout: cfg.CRE().Linking().RequestTimeout(),
+		JWTGenerator:   opts.JWTGenerator,
+		Client:         opts.LinkingClient,
+		Meter:          opts.Meter,
 	}
 
 	resolver, err := orgResolverConfig.New(lggr)

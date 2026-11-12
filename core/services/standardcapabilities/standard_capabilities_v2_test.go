@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	settingsremote "github.com/smartcontractkit/chainlink-common/pkg/settings/remote"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -26,6 +27,8 @@ func TestStandardCapabilitiesV2_Start(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	local := registry.NewRegistry(lggr)
+	creSettings := &settings.Atomic{}
+	require.NoError(t, creSettings.Store(settings.Snapshot{Settings: `Foo = "initial"`, Hash: "initial"}))
 
 	var checked bool
 	var proxyURL string
@@ -46,6 +49,19 @@ func TestStandardCapabilitiesV2_Start(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, id, info.ID)
 		})
+
+		// The subtest's context and connection end with it, so the stream does not hold up the
+		// server stopping after the launch fails.
+		t.Run("the process receives CRE settings", func(t *testing.T) {
+			assert.Equal(t, proxyURL, env["CL_SETTINGS_URL"], "settings are served on the registry proxy's server")
+			updates, err := settingsremote.NewSettingsClient(lggr, dial(t, env["CL_SETTINGS_URL"])).Subscribe(t.Context())
+			require.NoError(t, err)
+			requireSnapshot(t, updates, settings.Snapshot{Settings: `Foo = "initial"`, Hash: "initial"})
+
+			next := settings.Snapshot{Settings: `Foo = "next"`, Hash: "next"}
+			require.NoError(t, creSettings.Store(next))
+			requireSnapshot(t, updates, next)
+		})
 		checked = true
 	}}
 
@@ -57,6 +73,7 @@ func TestStandardCapabilitiesV2_Start(t *testing.T) {
 		CapDonIDResolver: &staticCapDonIDResolver{donID: 7},
 		PluginRegistrar:  registrar,
 		Registry:         local,
+		CRESettings:      creSettings,
 	})
 	require.NoError(t, err)
 	require.NoError(t, s.Start(t.Context()))
@@ -80,7 +97,30 @@ func TestStandardCapabilitiesV2_NoServers(t *testing.T) {
 	require.NoError(t, s.Close())
 
 	assert.NotContains(t, env, "CL_CAPABILITIES_PROXY_URL")
+	assert.NotContains(t, env, "CL_SETTINGS_URL")
 	assert.NotContains(t, env, "CL_CAPABILITIES_CAPABILITY_DON_ID")
+}
+
+func TestDelegate_NewServicesV2_ForwardsCRESettings(t *testing.T) {
+	t.Parallel()
+	creSettings := &settings.Atomic{}
+	d := &Delegate{logger: logger.Test(t), creSettings: creSettings}
+	svcs, err := d.newServicesV2(t.Context(), logger.Test(t), "cronv2", "cron", "", 7)
+	require.NoError(t, err)
+	require.Len(t, svcs, 1)
+	v2, ok := svcs[0].(*V2)
+	require.True(t, ok)
+	assert.Same(t, creSettings, v2.creSettings)
+}
+
+func requireSnapshot(t *testing.T, updates <-chan settings.Snapshot, want settings.Snapshot) {
+	t.Helper()
+	select {
+	case got := <-updates:
+		require.Equal(t, want, got)
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for settings %q", want.Hash)
+	}
 }
 
 // chanCapDonIDResolver blocks until a DON ID is sent, so tests control when it resolves.

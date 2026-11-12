@@ -111,13 +111,14 @@ type EngineLimiters struct {
 	// Settings is the CRE dynamic settings getter from [limits.Factory.Settings] (optional).
 	Settings settings.Getter
 
-	ExecutionResponse        limits.BoundLimiter[commonconfig.Size]
-	TriggerSubscriptionTime  limits.TimeLimiter
-	TriggerRegistrationsTime limits.TimeLimiter
-	TriggerSubscription      limits.BoundLimiter[int]
-	TriggerEventQueue        limits.QueueLimiter[triggers.CoordinatedEvent]
-	TriggerEventQueueTimeout limits.BoundLimiter[time.Duration]
-	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
+	ExecutionResponse             limits.BoundLimiter[commonconfig.Size]
+	ExecutionResponseSizeEnforced limits.GateLimiter
+	TriggerSubscriptionTime       limits.TimeLimiter
+	TriggerRegistrationsTime      limits.TimeLimiter
+	TriggerSubscription           limits.BoundLimiter[int]
+	TriggerEventQueue             limits.QueueLimiter[triggers.CoordinatedEvent]
+	TriggerEventQueueTimeout      limits.BoundLimiter[time.Duration]
+	ExecutionConcurrency          limits.ResourcePoolLimiter[int]
 
 	WASMBinarySize           limits.BoundLimiter[commonconfig.Size]
 	WASMCompressedBinarySize limits.BoundLimiter[commonconfig.Size]
@@ -183,6 +184,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 		cfgFn(&cfg)
 	}
 	l.ExecutionResponse, err = limits.MakeUpperBoundLimiter(lf, cfg.ExecutionResponseLimit)
+	if err != nil {
+		return err
+	}
+	l.ExecutionResponseSizeEnforced, err = limits.MakeGateLimiter(lf, cfg.ExecutionResponseLimitEnforced)
 	if err != nil {
 		return err
 	}
@@ -378,6 +383,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 	evictables := []any{
 		l.ExecutionResponse,
+		l.ExecutionResponseSizeEnforced,
 		l.TriggerSubscriptionTime,
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,
@@ -424,6 +430,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 func (l *EngineLimiters) Close() error {
 	return services.CloseAll(
 		l.ExecutionResponse,
+		l.ExecutionResponseSizeEnforced,
 		l.TriggerSubscriptionTime,
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,

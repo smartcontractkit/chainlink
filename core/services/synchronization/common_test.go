@@ -52,6 +52,12 @@ func TestTelemetryTypeToDomainAndEntity(t *testing.T) {
 			expectedEntity: "offchainreporting3.TelemetryWrapper",
 		},
 		{
+			name:           "OCR3_1Mercury",
+			telemType:      OCR3_1Mercury,
+			expectedDomain: "data-streams.telemetry.ocr3_1-mercury",
+			expectedEntity: "offchainreporting3_1.TelemetryWrapper",
+		},
+		{
 			name:           "OCR3CCIPCommit",
 			telemType:      OCR3CCIPCommit,
 			expectedDomain: "ccip.telemetry.ocr3",

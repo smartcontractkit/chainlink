@@ -14,12 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
@@ -2036,12 +2035,12 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 
 	t.Run("manual-only: nil client does not auto-wire; explicit resolver used", func(t *testing.T) {
 		t.Parallel()
-		settings := &loop.AtomicSettings{}
-		require.NoError(t, settings.Store(core.SettingsUpdate{
+		shardSettings := &settings.Atomic{}
+		require.NoError(t, shardSettings.Store(settings.Snapshot{
 			Settings: manualConfigTOML,
 			Hash:     "test",
 		}))
-		manual := shardownership.NewManualShardResolver(settings, nil, nil, logger.TestLogger(t))
+		manual := shardownership.NewManualShardResolver(shardSettings, nil, nil, logger.TestLogger(t))
 		wr := newReg(t,
 			WithShardEnabled(true),
 			WithShardOrchestratorClient(nil),
@@ -2058,8 +2057,8 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 
 	t.Run("ringocr-with-overrides: explicit resolver not overwritten by auto-wire", func(t *testing.T) {
 		t.Parallel()
-		settings := &loop.AtomicSettings{}
-		require.NoError(t, settings.Store(core.SettingsUpdate{
+		shardSettings := &settings.Atomic{}
+		require.NoError(t, shardSettings.Store(settings.Snapshot{
 			Settings: manualConfigTOML,
 			Hash:     "test",
 		}))
@@ -2067,7 +2066,7 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 			wf1.Hex(): 0,
 			wf2.Hex(): 1,
 		}}
-		override := shardownership.NewOverrideShardResolver(settings, nil, nil,
+		override := shardownership.NewOverrideShardResolver(shardSettings, nil, nil,
 			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
 			logger.TestLogger(t))
 		wr := newReg(t,
@@ -2087,15 +2086,15 @@ func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
 
 	t.Run("explicit resolver before WithShardOrchestratorClient is preserved", func(t *testing.T) {
 		t.Parallel()
-		settings := &loop.AtomicSettings{}
-		require.NoError(t, settings.Store(core.SettingsUpdate{
+		shardSettings := &settings.Atomic{}
+		require.NoError(t, shardSettings.Store(settings.Snapshot{
 			Settings: manualConfigTOML,
 			Hash:     "test",
 		}))
 		ringClient := &mockShardMappingClient{mappings: map[string]uint32{
 			wf1.Hex(): 0,
 		}}
-		override := shardownership.NewOverrideShardResolver(settings, nil, nil,
+		override := shardownership.NewOverrideShardResolver(shardSettings, nil, nil,
 			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
 			logger.TestLogger(t))
 		wr := newReg(t,

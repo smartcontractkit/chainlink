@@ -256,15 +256,6 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 	if cfg == nil {
 		return errors.New("config not set - call SetConfig() before Start()")
 	}
-	if cfg.remoteConfig == nil {
-		return errors.New("remoteConfig not set - call SetConfig() before Start()")
-	}
-	if cfg.underlying == nil {
-		return errors.New("underlying trigger capability not set - call SetConfig() before Start()")
-	}
-	if len(cfg.capDonInfo.Members) == 0 {
-		return errors.New("capability DON info not set - call SetConfig() before Start()")
-	}
 	if p.dispatcher == nil {
 		return errors.New("dispatcher set to nil, cannot start triggerPublisher")
 	}
@@ -531,7 +522,6 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		delete(p.registrations, key)
 		p.pendingUnregs[key] = reg // retried by CloseAndUnregister if this call fails
 		p.inflightUnregs.Add(1)
-		p.unregisterCache.MarkDelivered(key)
 		p.unregisterCache.Delete(key)
 		p.messageCache.Delete(key)
 		p.mu.Unlock()
@@ -759,14 +749,7 @@ func (p *triggerPublisher) sendRegistrationChecks() {
 		"nWorkflowDONs", len(grouped))
 
 	for callerDonID, keys := range grouped {
-		if len(keys) == 0 {
-			continue
-		}
-
 		chunkSize := int(cfg.remoteConfig.MaxBatchSize)
-		if chunkSize < 1 {
-			chunkSize = commoncap.DefaultBatchSize
-		}
 
 		don, ok := cfg.workflowDONs[callerDonID]
 		if !ok {

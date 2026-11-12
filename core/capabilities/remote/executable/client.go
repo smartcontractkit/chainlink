@@ -133,15 +133,6 @@ func (c *client) Start(ctx context.Context) error {
 		if cfg == nil {
 			return errors.New("config not set - call SetConfig() before Start()")
 		}
-		if cfg.remoteCapabilityInfo.ID == "" {
-			return errors.New("remote capability info not set - call SetConfig() before Start()")
-		}
-		if len(cfg.localDONInfo.Members) == 0 {
-			return errors.New("local DON info not set - call SetConfig() before Start()")
-		}
-		if cfg.requestTimeout <= 0 {
-			return errors.New("request timeout not set - call SetConfig() before Start()")
-		}
 		if c.dispatcher == nil {
 			return errors.New("dispatcher set to nil, cannot start client")
 		}

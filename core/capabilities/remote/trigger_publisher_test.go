@@ -95,7 +95,6 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 		}).Return(nil).Once()
 		underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
 		underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
-		time.Sleep(batchPeriod)
 		<-awaitOutgoingMessageCh
 
 		// if there are fewer pending event than the batch size,
@@ -107,7 +106,6 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 			awaitOutgoingMessageCh <- struct{}{}
 		}).Return(nil).Once()
 		underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
-		time.Sleep(batchPeriod)
 		<-awaitOutgoingMessageCh
 	})
 }
@@ -337,10 +335,29 @@ func newServices(t *testing.T, capabilityDONID, workflowDONID, maxBatchSize uint
 	return underlying, publisher, dispatcher, peers
 }
 
-func allowRegistrationChecks(dispatcher *mocks.Dispatcher) {
+// allowRegistrationChecks accepts registration checks and returns a channel that signals each one.
+func allowRegistrationChecks(dispatcher *mocks.Dispatcher) <-chan struct{} {
+	checks := make(chan struct{}, 1)
 	dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
 		return m.Method == remotetypes.MethodTriggerRegistrationCheck
-	})).Return(nil).Maybe()
+	})).Run(func(mock.Arguments) {
+		select {
+		case checks <- struct{}{}:
+		default:
+		}
+	}).Return(nil).Maybe()
+	return checks
+}
+
+// waitForPublisherRegistered waits for a registration check, which the publisher only sends for
+// registrations it has already recorded (RegisterTrigger returning on the mock is not enough).
+func waitForPublisherRegistered(t *testing.T, checks <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-checks:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for registration check")
+	}
 }
 
 func newRegisterTriggerMessage(t *testing.T, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
@@ -1102,7 +1119,7 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 
 	underlying := newMultiTrigger(capInfo)
 	dispatcher := mocks.NewDispatcher(t)
-	allowRegistrationChecks(dispatcher)
+	checks := allowRegistrationChecks(dispatcher)
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
@@ -1121,6 +1138,7 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA")
 	publisher.Receive(ctx, regEvent)
 	waitForRegistration(t, underlying.registrationsCh)
+	waitForPublisherRegistered(t, checks)
 
 	// Send unregister from a peer NOT in the workflow DON — should be ignored
 	unregMsg := &remotetypes.MessageBody{
@@ -1185,7 +1203,7 @@ func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
 	}
 
 	dispatcher := mocks.NewDispatcher(t)
-	allowRegistrationChecks(dispatcher)
+	checks := allowRegistrationChecks(dispatcher)
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
@@ -1205,6 +1223,7 @@ func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
 		publisher.Receive(ctx, newRegisterTriggerMessageWithTriggerID(t, workflowDONID, p, "triggerA"))
 	}
 	require.Equal(t, "triggerA", waitForRegistration(t, underlying.registrationsCh).TriggerID)
+	waitForPublisherRegistered(t, checks)
 
 	unregMeta := &remotetypes.MessageBody_TriggerEventMetadata{
 		TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
@@ -1295,98 +1314,57 @@ func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
 	}
 }
 
-func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
-	if testing.Short() {
-		t.Skip("too slow for testing.Short")
-	}
-
+func TestTriggerPublisher_AckCacheExpiry_AllowsForwardingAgain(t *testing.T) {
 	t.Parallel()
-	ctx := t.Context()
-	lggr := logger.Test(t)
-
-	capabilityDONID, workflowDONID := uint32(1), uint32(2)
-
-	capInfo := commoncap.CapabilityInfo{
-		ID:             capID,
-		CapabilityType: commoncap.CapabilityTypeTrigger,
-		Description:    "Remote Trigger",
-	}
-
-	peers := make([]p2ptypes.PeerID, 2)
-	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
-	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
-
-	capDonInfo := commoncap.DON{
-		ID:      capabilityDONID,
-		Members: []p2ptypes.PeerID{peers[0]},
-		F:       0,
-	}
-	workflowDonInfo := commoncap.DON{
-		ID:      workflowDONID,
-		Members: []p2ptypes.PeerID{peers[0], peers[1]},
-		F:       0,
-	}
-	workflowDONs := map[uint32]commoncap.DON{
-		workflowDonInfo.ID: workflowDonInfo,
-	}
-
-	underlying := newMultiTrigger(capInfo)
-	dispatcher := mocks.NewDispatcher(t)
-
-	triggerEventSent := make(chan p2ptypes.PeerID, 10)
-	dispatcher.On("Send", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		msg := args.Get(1).(*remotetypes.MessageBody)
-		if msg.Method == remotetypes.MethodTriggerEvent {
-			triggerEventSent <- args.Get(0).(p2ptypes.PeerID)
+	synctest.Test(t, func(t *testing.T) {
+		ctx := t.Context()
+		const messageExpiry = 200 * time.Millisecond
+		capabilityDONID, workflowDONID := uint32(1), uint32(2)
+		capInfo := commoncap.CapabilityInfo{
+			ID:             capID,
+			CapabilityType: commoncap.CapabilityTypeTrigger,
+			Description:    "Remote Trigger",
 		}
-	}).Return(nil).Maybe()
 
-	// Very short MessageExpiry so ACK entries expire quickly
-	config := &commoncap.RemoteTriggerConfig{
-		RegistrationRefresh:     200 * time.Millisecond,
-		RegistrationExpiry:      100 * time.Second,
-		MinResponsesToAggregate: 1,
-		MessageExpiry:           200 * time.Millisecond,
-		MaxBatchSize:            1,
-		BatchCollectionPeriod:   time.Second,
-	}
+		peers := make([]p2ptypes.PeerID, 2)
+		require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+		require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+		capDonInfo := commoncap.DON{ID: capabilityDONID, Members: []p2ptypes.PeerID{peers[0]}}
+		workflowDonInfo := commoncap.DON{ID: workflowDONID, Members: []p2ptypes.PeerID{peers[1]}}
 
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
-	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+		dispatcher := mocks.NewDispatcher(t)
+		allowRegistrationChecks(dispatcher)
+		config := &commoncap.RemoteTriggerConfig{
+			RegistrationRefresh:     100 * time.Millisecond,
+			RegistrationExpiry:      100 * time.Second,
+			MinResponsesToAggregate: 1,
+			MessageExpiry:           messageExpiry,
+			MaxBatchSize:            1,
+			BatchCollectionPeriod:   time.Second,
+		}
+		underlying := &testTrigger{
+			info:            capInfo,
+			registrationsCh: make(chan commoncap.TriggerRegistrationRequest, 2),
+			eventCh:         make(chan commoncap.TriggerResponse, 2),
+		}
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, logger.Test(t))
+		require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, map[uint32]commoncap.DON{workflowDONID: workflowDonInfo}))
+		servicetest.Run(t, publisher)
 
-	// Start before Receive so initMetrics() has run on registration and ACK paths.
-	servicetest.Run(t, publisher)
+		ack := newAckEventMessage(t, "evt-1", "trigA", workflowDONID, peers[1])
+		publisher.Receive(ctx, ack)
+		require.Eventually(t, func() bool { return underlying.ackCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
 
-	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[0], "triggerA")
-	publisher.Receive(ctx, regEvent)
-	waitForRegistration(t, underlying.registrationsCh)
+		// a repeated ACK is not forwarded again while the cache entry exists
+		publisher.Receive(ctx, ack)
+		synctest.Wait()
+		require.Equal(t, int32(1), underlying.ackCount.Load())
 
-	ackMsg := newAckEventMessage(t, "event1", "triggerA", workflowDONID, peers[0])
-	publisher.Receive(ctx, ackMsg)
-
-	// cacheCleanupLoop ticks on MessageExpiry (200ms) and removes expired ack cache
-	// entries so a later trigger event is not suppressed.
-
-	// Wait long enough for the ack cache entry to expire and be cleaned up
-	time.Sleep(500 * time.Millisecond)
-
-	// Send a new trigger event for the same event ID and verify it gets sent to
-	// peers[0] again (not suppressed by the old ACK), proving the cleanup worked.
-	underlying.SendEvent("triggerA", commoncap.TriggerResponse{
-		Event: commoncap.TriggerEvent{ID: "event1"},
+		// after the entry expires and is cleaned up, the same ACK is forwarded again
+		time.Sleep(3 * messageExpiry)
+		publisher.Receive(ctx, ack)
+		require.Eventually(t, func() bool { return underlying.ackCount.Load() == 2 }, 2*time.Second, 10*time.Millisecond)
 	})
-
-	sentTo := make(map[p2ptypes.PeerID]bool)
-	for range 2 {
-		select {
-		case peer := <-triggerEventSent:
-			sentTo[peer] = true
-		case <-time.After(2 * time.Second):
-			t.Fatal("timed out waiting for trigger event sends")
-		}
-	}
-	require.True(t, sentTo[peers[0]], "event should be re-sent to peers[0] after ack cache cleanup")
-	require.True(t, sentTo[peers[1]], "event should be sent to peers[1]")
 }
 
 func TestTriggerPublisher_SecondDeliveryAfterFullAck_ReachesAllPeers(t *testing.T) {

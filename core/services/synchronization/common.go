@@ -22,6 +22,7 @@ const (
 	OCR2S4            TelemetryType = "ocr2-s4"
 	OCR2Median        TelemetryType = "ocr2-median"
 	OCR3Mercury       TelemetryType = "ocr3-mercury"
+	OCR3_1Mercury     TelemetryType = "ocr3_1-mercury"
 	OCR3DataFeeds     TelemetryType = "ocr3-data-feeds"
 	OCR3Rebalancer    TelemetryType = "ocr3-rebalancer"
 	OCR3CCIPCommit    TelemetryType = "ocr3-ccip-commit"
@@ -79,6 +80,8 @@ func TelemetryTypeToDomainAndEntity(telemType TelemetryType) (domain, entity str
 		return "functions.telemetry.ocr2-functions", ocr2Entity, nil
 	case OCR3Mercury:
 		return "data-streams.telemetry.ocr3-mercury", ocr3Entity, nil
+	case OCR3_1Mercury:
+		return "data-streams.telemetry.ocr3_1-mercury", "offchainreporting3_1.TelemetryWrapper", nil
 	case OCR3CCIPCommit:
 		return "ccip.telemetry.ocr3", ocr3Entity, nil
 	case OCR3CCIPExec:

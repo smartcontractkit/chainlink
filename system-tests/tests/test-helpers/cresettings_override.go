@@ -3,9 +3,9 @@ package helpers
 // Runtime CRE-settings overrides for Local CRE e2e tests.
 //
 // A node applies CRE settings live — without a restart — when it receives a job of
-// type `cresettings`: the node's delegate calls loop.AtomicSettings.Store, which
+// type `cresettings`: the node's delegate calls settings.Atomic.Store, which
 // hot-swaps the in-memory settings getter (see core/services/cresettings/delegate.go
-// and chainlink-common/pkg/loop/settings.go). This is the same mechanism prod uses to
+// and chainlink-common/pkg/settings/atomic.go). This is the same mechanism prod uses to
 // roll out limit changes (the durable-pipeline `cre-settings` job proposed to
 // all-nodes). Here we reuse the deployment changeset to propose that job to every node
 // of a DON at test time, and restore the pre-test baseline on cleanup.
