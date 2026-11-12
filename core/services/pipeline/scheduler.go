@@ -160,7 +160,10 @@ func (s *scheduler) reconstructResults() {
 	}
 }
 
-func (s *scheduler) Run() {
+// Run drives the pipeline until all tasks report. Once runCtx is done, retries
+// cannot succeed (task contexts derive from it), so they are not attempted and
+// pending backoff waits are cut short.
+func (s *scheduler) Run(runCtx context.Context) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	for s.waiting > 0 {
@@ -220,7 +223,7 @@ func (s *scheduler) Run() {
 		}
 
 		// if task hasn't reached it's max retry count yet, we schedule it again
-		if result.Attempts < uint(result.Task.TaskRetries()) && result.Result.Error != nil {
+		if result.Attempts < uint(result.Task.TaskRetries()) && result.Result.Error != nil && runCtx.Err() == nil {
 			// we immediately increase the in-flight counter so the pipeline doesn't terminate
 			// while we wait for the next retry
 			s.waiting++
@@ -240,6 +243,15 @@ func (s *scheduler) Run() {
 						Task:       result.Task,
 						Result:     Result{Error: ErrCancelled},
 						CreatedAt:  now, // TODO: more accurate start time
+						FinishedAt: null.TimeFrom(now),
+					})
+				case <-runCtx.Done():
+					// the run's context expired while waiting to retry, a retry cannot succeed
+					now := time.Now()
+					s.report(context.Background(), TaskRunResult{
+						Task:       result.Task,
+						Result:     Result{Error: ErrCancelled},
+						CreatedAt:  now,
 						FinishedAt: null.TimeFrom(now),
 					})
 				case <-time.After(backoff.ForAttempt(float64(result.Attempts - 1))): // we subtract 1 because backoff 0-indexes

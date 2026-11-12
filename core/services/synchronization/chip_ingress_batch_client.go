@@ -26,9 +26,14 @@ type chipIngressBatchClient struct {
 	telemSendInterval time.Duration
 	telemSendTimeout  time.Duration
 
+	// healthCheckInterval is how often the connection is pinged.
+	healthCheckInterval time.Duration
+
 	workers      map[string]*chipIngressBatchWorker
 	workersMutex sync.RWMutex
 }
+
+const defaultHealthCheckInterval = 5 * time.Second
 
 // NewChipIngressBatchClient returns a client backed by chipingress.Client that
 // can send telemetry to the chip ingress server
@@ -41,6 +46,8 @@ func NewChipIngressBatchClient(chipClient chipingress.Client, logging bool, lggr
 		chipClient:        chipClient,
 		logging:           logging,
 		workers:           make(map[string]*chipIngressBatchWorker),
+
+		healthCheckInterval: defaultHealthCheckInterval,
 	}
 	c.Service, c.eng = services.Config{
 		Name:  "ChipIngressBatchClient",
@@ -105,10 +112,10 @@ func (cc *chipIngressBatchClient) findOrCreateWorker(payload TelemPayload) *chip
 	return worker
 }
 
-// startHealthMonitoring starts a goroutine to monitor the connection state and update other relevant metrics every 5 seconds
+// startHealthMonitoring starts a goroutine to monitor the connection state and update other relevant metrics every healthCheckInterval (5 seconds by default)
 func (cc *chipIngressBatchClient) startHealthMonitoring(_ context.Context, chipClient chipingress.Client) {
 	cc.eng.GoTick(timeutil.NewTicker(func() time.Duration {
-		return 5 * time.Second
+		return cc.healthCheckInterval
 	}), func(ctx context.Context) {
 		connected := float64(0)
 		pingCtx, pingCancel := context.WithTimeout(ctx, 2*time.Second)
