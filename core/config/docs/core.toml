@@ -923,10 +923,10 @@ foo = "bar" # Example
 [Telemetry.PrometheusBridge]
 # **ADVANCED**
 # Enabled enables the Promtheus bridge.
-Enabled = false # Default
+Enabled = true # Default
 # Prefixes is a set of filters to restrict which prometheus metrics are forwarded based on prefix matching.
 # By default, we only forward the go runtime metrics. Empty means forward everything.
-Prefixes = ["go_"] # Default
+Prefixes = ["go_","ocr_","ocr2_","ocr3_"] # Default
 
 # Metering configures durable resource metering emission and the coarse
 # deployment/node identity dimensions stamped on emitted MeterRecords and
