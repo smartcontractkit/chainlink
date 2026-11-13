@@ -74,6 +74,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/jobsync"
+	"github.com/smartcontractkit/chainlink/v2/core/services/jobvalidation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/bridgestatus"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec"
@@ -129,6 +131,9 @@ type Application interface {
 	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
+	// ReloadDynamicConfig reconciles the node's jobs against the Dynamic Config
+	// file the sidecar rendered. It is a no-op when Dynamic Config is disabled.
+	ReloadDynamicConfig(ctx context.Context) (jobsync.Applied, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]any) (int64, error)
@@ -160,6 +165,7 @@ type Node struct {
 	relayers                *CoreRelayerChainInteroperators
 	jobORM                  job.ORM
 	jobSpawner              job.Spawner
+	dynamicConfig           *jobsync.Reconciler
 	pipelineORM             pipeline.ORM
 	pipelineRunner          pipeline.Runner
 	bridgeORM               bridges.ORM
@@ -924,6 +930,14 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, globalLogger, lbs)
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
+	var dynamicConfig *jobsync.Reconciler
+	if cfg.DynamicConfig().Enabled() {
+		validator := jobvalidation.New(cfg, legacyEVMChains, loopRegistrarConfig)
+		dynamicConfig = jobsync.New(jobORM, jobSpawner, validator, cfg.DynamicConfig().ManagedJobPrefix(), globalLogger)
+		globalLogger.Infow("Dynamic Config enabled; jobs are reconciled from the sidecar's config file",
+			"path", cfg.DynamicConfig().Path(), "managed_job_prefix", cfg.DynamicConfig().ManagedJobPrefix())
+	}
+
 	var feedsService feeds.Service
 	var feedsORM feeds.ORM
 	if cfg.Feature().FeedsManager() {
@@ -976,6 +990,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		relayers:                relayChainInterops,
 		jobORM:                  jobORM,
 		jobSpawner:              jobSpawner,
+		dynamicConfig:           dynamicConfig,
 		pipelineRunner:          pipelineRunner,
 		pipelineORM:             pipelineORM,
 		bridgeORM:               bridgeORM,
@@ -1203,6 +1218,15 @@ func (app *Node) DeleteJob(ctx context.Context, jobID int32) error {
 	}
 
 	return app.jobSpawner.DeleteJob(ctx, nil, jobID)
+}
+
+// ReloadDynamicConfig reconciles the node's jobs against the Dynamic Config
+// file the sidecar rendered. It is a no-op when Dynamic Config is disabled.
+func (app *Node) ReloadDynamicConfig(ctx context.Context) (jobsync.Applied, error) {
+	if app.dynamicConfig == nil {
+		return jobsync.Applied{}, errors.New("dynamic config is disabled")
+	}
+	return app.dynamicConfig.Reload(ctx, app.Config.DynamicConfig().Path())
 }
 
 // Only used for local testing, not supported by the UI.

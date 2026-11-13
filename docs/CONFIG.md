@@ -2790,6 +2790,37 @@ EnabledOCR2PluginTypes = ["median"] # Default
 EnabledOCR2PluginTypes restricts OCR2 telemetry to jobs with these plugin types.
 An empty list disables all OCR2 telemetry. Use ["all"] to enable all OCR2 plugin types.
 
+## DynamicConfig
+```toml
+[DynamicConfig]
+Enabled = false # Default
+Path = "/config/runtime.json" # Default
+ManagedJobPrefix = "dyncfg-" # Default
+```
+DynamicConfig holds the node's side of the Dynamic Config contract: a signed
+config file, rendered by the dynamic-config-sidecar, that lists the jobs the
+node must run. The node reconciles its jobs against that file on POST /reload
+instead of receiving them over the Job Distributor websocket.
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled turns the reconciler and the /reload endpoint on.
+
+### Path
+```toml
+Path = "/config/runtime.json" # Default
+```
+Path is the rendered config file (DYNCONFIG_CONFIG_PATH on the sidecar).
+
+### ManagedJobPrefix
+```toml
+ManagedJobPrefix = "dyncfg-" # Default
+```
+ManagedJobPrefix scopes reconciliation: only jobs whose name starts with it
+are created or deleted, so the node keeps every other job.
+
 ## CRE
 ```toml
 [CRE]

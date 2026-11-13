@@ -17,6 +17,8 @@ import (
 
 	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
 
+	jobsync "github.com/smartcontractkit/chainlink/v2/core/services/jobsync"
+
 	keystore "github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -1244,6 +1246,62 @@ func (_c *Application_ReplayFromBlock_Call) Return(_a0 error) *Application_Repla
 }
 
 func (_c *Application_ReplayFromBlock_Call) RunAndReturn(run func(context.Context, string, string, uint64, bool) error) *Application_ReplayFromBlock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ReloadDynamicConfig provides a mock function with given fields: ctx
+func (_m *Application) ReloadDynamicConfig(ctx context.Context) (jobsync.Applied, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReloadDynamicConfig")
+	}
+
+	var r0 jobsync.Applied
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (jobsync.Applied, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) jobsync.Applied); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(jobsync.Applied)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Application_ReloadDynamicConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReloadDynamicConfig'
+type Application_ReloadDynamicConfig_Call struct {
+	*mock.Call
+}
+
+// ReloadDynamicConfig is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *Application_Expecter) ReloadDynamicConfig(ctx interface{}) *Application_ReloadDynamicConfig_Call {
+	return &Application_ReloadDynamicConfig_Call{Call: _e.mock.On("ReloadDynamicConfig", ctx)}
+}
+
+func (_c *Application_ReloadDynamicConfig_Call) Run(run func(ctx context.Context)) *Application_ReloadDynamicConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Application_ReloadDynamicConfig_Call) Return(_a0 jobsync.Applied, _a1 error) *Application_ReloadDynamicConfig_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Application_ReloadDynamicConfig_Call) RunAndReturn(run func(context.Context) (jobsync.Applied, error)) *Application_ReloadDynamicConfig_Call {
 	_c.Call.Return(run)
 	return _c
 }

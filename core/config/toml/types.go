@@ -72,6 +72,7 @@ type Core struct {
 	Billing              Billing              `toml:",omitempty"`
 	BridgeStatusReporter BridgeStatusReporter `toml:",omitempty"`
 	JobSpecReporter      JobSpecReporter      `toml:",omitempty"`
+	DynamicConfig        DynamicConfig        `toml:",omitempty"`
 	Sharding             Sharding             `toml:",omitempty"`
 	LOOPP                LOOPP                `toml:",omitempty"`
 }
@@ -120,6 +121,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Billing.setFrom(&f.Billing)
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
 	c.JobSpecReporter.setFrom(&f.JobSpecReporter)
+	c.DynamicConfig.setFrom(&f.DynamicConfig)
 
 	c.Sharding.setFrom(&f.Sharding)
 	c.LOOPP.setFrom(&f.LOOPP)
@@ -3455,6 +3457,24 @@ type JobDistributor struct {
 func (jd *JobDistributor) setFrom(f *JobDistributor) {
 	if f.DisplayName != nil {
 		jd.DisplayName = f.DisplayName
+	}
+}
+
+type DynamicConfig struct {
+	Enabled          *bool
+	Path             *string
+	ManagedJobPrefix *string
+}
+
+func (d *DynamicConfig) setFrom(f *DynamicConfig) {
+	if f.Enabled != nil {
+		d.Enabled = f.Enabled
+	}
+	if f.Path != nil {
+		d.Path = f.Path
+	}
+	if f.ManagedJobPrefix != nil {
+		d.ManagedJobPrefix = f.ManagedJobPrefix
 	}
 }
 

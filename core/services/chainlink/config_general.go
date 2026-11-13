@@ -608,6 +608,10 @@ func (g *generalConfig) JobSpecReporter() coreconfig.JobSpecReporter {
 	return &jobSpecReporterConfig{c: g.c.JobSpecReporter}
 }
 
+func (g *generalConfig) DynamicConfig() coreconfig.DynamicConfig {
+	return &dynamicConfigConfig{c: g.c.DynamicConfig}
+}
+
 func (g *generalConfig) Sharding() coreconfig.Sharding {
 	return &shardingConfig{s: g.c.Sharding}
 }

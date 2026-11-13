@@ -615,6 +615,11 @@ func TestConfig_Marshal(t *testing.T) {
 		PollingInterval:        commonconfig.MustNewDuration(time.Hour),
 		EnabledOCR2PluginTypes: &enabledOCR2PluginTypes,
 	}
+	full.DynamicConfig = toml.DynamicConfig{
+		Enabled:          new(true),
+		Path:             new("/config/runtime.json"),
+		ManagedJobPrefix: new("dyncfg-"),
+	}
 	mode := "manual-only"
 	full.Sharding = toml.Sharding{
 		ShardingEnabled:          new(false),
@@ -1044,6 +1049,11 @@ KeyValueStoreRootDir = '~/.chainlink-data'
 `},
 		{"JobDistributor", Config{Core: toml.Core{JobDistributor: full.JobDistributor}}, `[JobDistributor]
 DisplayName = 'test-node'
+`},
+		{"DynamicConfig", Config{Core: toml.Core{DynamicConfig: full.DynamicConfig}}, `[DynamicConfig]
+Enabled = true
+Path = '/config/runtime.json'
+ManagedJobPrefix = 'dyncfg-'
 `},
 		{"P2P", Config{Core: toml.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13

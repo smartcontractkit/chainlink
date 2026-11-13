@@ -86,6 +86,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 
 	debugRoutes(app, api)
 	healthRoutes(app, api)
+	reloadRoutes(app, api)
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 	loopRoutes(app, api)
@@ -224,6 +225,14 @@ func healthRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	r.GET("/health.txt", func(context *gin.Context) {
 		context.Request.Header.Set("Accept", gin.MIMEPlain)
 	}, hc.Health)
+}
+
+// reloadRoutes serves the Dynamic Config reload hook. The endpoint is
+// unauthenticated because the sidecar calls it from the Pod's loopback
+// interface; the handler rejects every other source.
+func reloadRoutes(app chainlink.Application, r *gin.RouterGroup) {
+	rc := ReloadController{App: app}
+	r.POST("/reload", rc.Reload)
 }
 
 func loopRoutes(app chainlink.Application, r *gin.RouterGroup) {

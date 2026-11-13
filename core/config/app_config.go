@@ -66,6 +66,7 @@ type AppConfig interface {
 	Billing() Billing
 	BridgeStatusReporter() BridgeStatusReporter
 	JobSpecReporter() JobSpecReporter
+	DynamicConfig() DynamicConfig
 	Sharding() Sharding
 	ResourceAttributes() map[string]string
 	LOOPP() LOOPP

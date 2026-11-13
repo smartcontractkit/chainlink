@@ -441,6 +441,11 @@ Enabled = true
 PollingInterval = '1h0m0s'
 EnabledOCR2PluginTypes = ['median']
 
+[DynamicConfig]
+Enabled = true
+Path = '/config/runtime.json'
+ManagedJobPrefix = 'dyncfg-'
+
 [Sharding]
 ShardingEnabled = false
 ArbiterPort = 9876

@@ -1000,6 +1000,19 @@ PollingInterval = "1h" # Default
 # An empty list disables all OCR2 telemetry. Use ["all"] to enable all OCR2 plugin types.
 EnabledOCR2PluginTypes = ["median"] # Default
 
+# DynamicConfig holds the node's side of the Dynamic Config contract: a signed
+# config file, rendered by the dynamic-config-sidecar, that lists the jobs the
+# node must run. The node reconciles its jobs against that file on POST /reload
+# instead of receiving them over the Job Distributor websocket.
+[DynamicConfig]
+# Enabled turns the reconciler and the /reload endpoint on.
+Enabled = false # Default
+# Path is the rendered config file (DYNCONFIG_CONFIG_PATH on the sidecar).
+Path = "/config/runtime.json" # Default
+# ManagedJobPrefix scopes reconciliation: only jobs whose name starts with it
+# are created or deleted, so the node keeps every other job.
+ManagedJobPrefix = "dyncfg-" # Default
+
 [CRE]
 # UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not running
 UseLocalTimeProvider = true # Default
