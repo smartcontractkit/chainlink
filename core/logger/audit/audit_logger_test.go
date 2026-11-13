@@ -131,7 +131,7 @@ func TestNewAuditLogger_RegistersWithUnnamedLogger(t *testing.T) {
 	svc, ok := auditLogger.(*audit.LoggerService)
 	require.True(t, ok)
 	assert.NotEmpty(t, svc.Name())
-	require.NoError(t, services.NewChecker("", "").Register(svc))
+	require.NoError(t, services.HealthCheckerConfig{}.New().Register(svc))
 }
 
 func TestCheckLoginAuditLog(t *testing.T) {
