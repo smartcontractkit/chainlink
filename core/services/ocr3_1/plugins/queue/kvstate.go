@@ -16,60 +16,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 )
 
-// KV store Keys
+// KV store keys
 const (
-	observedEventsKey  = "observed_events::index"  // observed events waiting for consensus (<2f+1 observers)
-	priorityQueueKey   = "priority_queue::index"   // priority queue of events waiting for capacity
-	consensusEventsKey = "consensus_events::index" // events the plugin committed to sending to nodes
+	// observed events waiting for consensus (<2f+1 observers)
+	observedEventsKey = "observed_events::index" // pb.ConsensusQueueObservedEvents { map[string]*pb.ConsensusQueueObservedEvent }
+	// priority queue of events waiting for capacity
+	priorityQueueKey = "priority_queue::index" // pb.ConsensusQueueEventList { []*pb.ConsensusQueueEvent }
+	// events the plugin committed to sending to nodes
+	consensusEventsKey = "consensus_events::index" // pb.ConsensusQueueEventList { []*pb.ConsensusQueueEvent }
 )
-
-// readObservedAndQueued reads both observed events and priority queue events from the KV store.
-func (s stateReader) readObservedAndQueued() (*observedAndQueued, error) {
-	var obsQ observedAndQueued
-	v, err := s.kv.Read([]byte(observedEventsKey))
-	if err != nil {
-		return nil, err
-	}
-	if v != nil {
-		var queued *pb.ConsensusQueueObservedEvents
-		if err = proto.Unmarshal(v, queued); err != nil {
-			return nil, err
-		}
-		obsQ.observedEvents = queued.Observations
-	} else {
-		obsQ.observedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
-	}
-
-	v, err = s.kv.Read([]byte(priorityQueueKey))
-	if err != nil {
-		return nil, err
-	}
-	if v != nil {
-		var consensus *pb.ConsensusQueueEventList
-		if err = proto.Unmarshal(v, consensus); err != nil {
-			return nil, err
-		}
-		obsQ.queuedEvents = new(priorityQueue(consensus.Events))
-	}
-
-	return &obsQ, nil
-}
-
-func (s stateReadWriter) update(state *observedAndQueued, consensus []*pb.ConsensusQueueEvent) error {
-	err := s.writeValue(observedEventsKey, &pb.ConsensusQueueObservedEvents{Observations: state.observedEvents})
-	if err != nil {
-		return fmt.Errorf("failed to write observed events: %w", err)
-	}
-	err = s.writeValue(priorityQueueKey, &pb.ConsensusQueueEventList{Events: *state.queuedEvents})
-	if err != nil {
-		return fmt.Errorf("failed to write queued events: %w", err)
-	}
-	err = s.writeValue(consensusEventsKey, &pb.ConsensusQueueEventList{Events: consensus})
-	if err != nil {
-		return fmt.Errorf("failed to write consensus events: %w", err)
-	}
-	return nil
-}
 
 type stateReader struct {
 	kv ocr3_1types.KeyValueStateReader
@@ -87,9 +42,57 @@ func newStateReadWriter(kv ocr3_1types.KeyValueStateReadWriter) stateReadWriter 
 func (s stateReadWriter) writeValue[M proto.Message](key string, m M) error {
 	val, err := proto.MarshalOptions{Deterministic: true}.Marshal(m)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal %T: %w", m, err)
 	}
 	return s.kv.Write([]byte(key), val)
+}
+
+// readObservedAndQueued reads both observed events and priority queue events from the KV store.
+func (s stateReader) readObservedAndQueued() (*observedAndQueued, error) {
+	var obsQ observedAndQueued
+	v, err := s.kv.Read([]byte(observedEventsKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read observed events: %w", err)
+	}
+	if v != nil {
+		var observed *pb.ConsensusQueueObservedEvents
+		if err = proto.Unmarshal(v, observed); err != nil {
+			return nil, err
+		}
+		obsQ.observedEvents = observed.GetObservations()
+	} else {
+		obsQ.observedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
+	}
+
+	v, err = s.kv.Read([]byte(priorityQueueKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read queued events: %w", err)
+	}
+	if v != nil {
+		var queued *pb.ConsensusQueueEventList
+		if err = proto.Unmarshal(v, queued); err != nil {
+			return nil, err
+		}
+		obsQ.queuedEvents = new(priorityQueue(queued.GetEvents()))
+	}
+
+	return &obsQ, nil
+}
+
+func (s stateReadWriter) writeAll(state *observedAndQueued, consensus []*pb.ConsensusQueueEvent) error {
+	err := s.writeValue(observedEventsKey, &pb.ConsensusQueueObservedEvents{Observations: state.observedEvents})
+	if err != nil {
+		return fmt.Errorf("failed to write observed events: %w", err)
+	}
+	err = s.writeValue(priorityQueueKey, &pb.ConsensusQueueEventList{Events: *state.queuedEvents})
+	if err != nil {
+		return fmt.Errorf("failed to write queued events: %w", err)
+	}
+	err = s.writeValue(consensusEventsKey, &pb.ConsensusQueueEventList{Events: consensus})
+	if err != nil {
+		return fmt.Errorf("failed to write consensus events: %w", err)
+	}
+	return nil
 }
 
 var _ heap.Interface = (*priorityQueue)(nil)
@@ -121,6 +124,19 @@ func (p *priorityQueue) Pop() any {
 
 func (p *priorityQueue) push(x *pb.ConsensusQueueEvent) { heap.Push(p, x) }
 
+func (p *priorityQueue) pushObservations(blobHash string, event *pb.ConsensusQueueObservedEvent) {
+	p.push(&pb.ConsensusQueueEvent{
+		WorkflowID:     event.WorkflowID,
+		TriggerEventID: event.TriggerEventID,
+		ObservedAt:     medianTimestamp(event.ObservedAts),
+		Deadline:       medianTimestamp(event.Deadlines),
+		BlobHash:       []byte(blobHash),
+		Blobs:          event.Blobs,
+	})
+}
+
+// mustPop pops the next event from the queue, or returns nil if the queue is empty.
+// The value must be of type *pb.ConsensusQueueEvent. Use push to ensure this.
 func (p *priorityQueue) mustPop() *pb.ConsensusQueueEvent {
 	if len(*p) == 0 {
 		return nil
@@ -176,9 +192,10 @@ func (s *observedAndQueued) pruneExpiredObservations(expiration time.Time) {
 			}
 		}
 		for _, i := range toDelete {
-			v.Deadlines = slices.Delete(v.Deadlines, i, i+1)
-			v.ObservedAts = slices.Delete(v.ObservedAts, i, i+1)
 			v.NodeIds = slices.Delete(v.NodeIds, i, i+1)
+			v.ObservedAts = slices.Delete(v.ObservedAts, i, i+1)
+			v.Deadlines = slices.Delete(v.Deadlines, i, i+1)
+			v.Blobs = slices.Delete(v.Blobs, i, i+1)
 		}
 
 		return false
@@ -186,54 +203,31 @@ func (s *observedAndQueued) pruneExpiredObservations(expiration time.Time) {
 }
 
 // TODO on promotion to priority queue, ack the trigger coordinator
-func (s *observedAndQueued) addObservedEvents(f int, observedEvents map[string]*pb.ConsensusQueueObservedEvent) {
-	for blobHash, event := range observedEvents {
-		obs, ok := s.observedEvents[blobHash]
-		if !ok && len(event.NodeIds) >= 2*f+1 {
+func (s *observedAndQueued) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueObservedEvent) {
+	for blobHash, eventToAdd := range toAdd {
+		obsEvent, ok := s.observedEvents[blobHash]
+		if !ok && len(eventToAdd.NodeIds) >= 2*f+1 {
 			// new proposal straight to priority queue
-			s.queuedEvents.push(&pb.ConsensusQueueEvent{
-				WorkflowID:     event.WorkflowID,
-				TriggerEventID: event.TriggerEventID,
-				ObservedAt:     medianTimestamp(event.ObservedAts),
-				Deadline:       medianTimestamp(event.Deadlines),
-				Blobs:          event.Blobs,
-			})
+			s.queuedEvents.pushObservations(blobHash, eventToAdd)
 		} else if !ok {
 			// new proposal < f + 1
-			s.observedEvents[blobHash] = event
+			s.observedEvents[blobHash] = eventToAdd
 		} else {
 			// update proposal
 			// TODO opt: build a map to avoid n^2?
-			for i, node := range event.NodeIds {
-				if !slices.Contains(obs.NodeIds, node) {
-					obs.NodeIds = append(obs.NodeIds, node)
-					obs.Deadlines = append(obs.Deadlines, event.Deadlines[i])
-					obs.Blobs = append(obs.Blobs, event.Blobs[i])
+			for i, node := range eventToAdd.NodeIds {
+				if !slices.Contains(obsEvent.NodeIds, node) {
+					obsEvent.NodeIds = append(obsEvent.NodeIds, node)
+					obsEvent.ObservedAts = append(obsEvent.ObservedAts, eventToAdd.ObservedAts[i])
+					obsEvent.Deadlines = append(obsEvent.Deadlines, eventToAdd.Deadlines[i])
+					obsEvent.Blobs = append(obsEvent.Blobs, eventToAdd.Blobs[i])
 				} //TODO what if a node reports twice with different deadline or nodeID? do we need to overwrite?
 			}
-			if len(obs.NodeIds) >= 2*f+1 {
+			if len(obsEvent.NodeIds) >= 2*f+1 {
 				// promote proposal to priority queue
 				delete(s.observedEvents, blobHash)
-				s.queuedEvents.push(&pb.ConsensusQueueEvent{
-					WorkflowID:     event.WorkflowID,
-					TriggerEventID: event.TriggerEventID,
-					ObservedAt:     medianTimestamp(event.ObservedAts),
-					Deadline:       medianTimestamp(event.Deadlines),
-					Blobs:          event.Blobs,
-				})
+				s.queuedEvents.pushObservations(blobHash, obsEvent)
 			}
 		}
 	}
-}
-
-func medianTimestamp(s []*timestamppb.Timestamp) *timestamppb.Timestamp {
-	var times []time.Time
-	for _, t := range s {
-		times = append(times, time.Unix(t.Seconds, int64(t.Nanos)))
-	}
-	slices.SortFunc(times, time.Time.Compare)
-
-	a, b := times[len(times)/2], times[len(times)/2-1]
-	diff := a.Sub(b)
-	return timestamppb.New(a.Add(diff / 2))
 }

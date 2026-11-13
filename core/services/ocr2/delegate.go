@@ -877,17 +877,16 @@ func (d *Delegate) newServicesConsensusQueue(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
-		//TODO pass engine as EventSink
-		ContractTransmitter:     queue.NewTransmitter(lggr, ocrtypes.Account(spec.TransmitterID.String), nil),
-		Database:                ocrDB,
-		KeyValueDatabaseFactory: kvFactory,
-		LocalConfig:             lc,
-		Logger:                  ocrLogger,
-		MonitoringEndpoint:      oracleEndpoint,
-		OffchainConfigDigester:  configDigester,
-		OffchainKeyring:         kb,
-		OnchainKeyring:          ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
-		MetricsRegisterer:       prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
+		ContractTransmitter:          queue.NewTransmitter(ocrtypes.Account(spec.TransmitterID.String)),
+		Database:                     ocrDB,
+		KeyValueDatabaseFactory:      kvFactory,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           oracleEndpoint,
+		OffchainConfigDigester:       configDigester,
+		OffchainKeyring:              kb,
+		OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
 	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, cfg, d.limitsFactory, d.triggerCoordinator)
