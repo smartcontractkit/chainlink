@@ -162,8 +162,10 @@ func Test_LeaseLock(t *testing.T) {
 
 	t.Run("release lock with Release() func", func(t *testing.T) {
 		cfg := pg.LeaseLockConfig{
-			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
-			LeaseDuration:        15 * time.Second,
+			DefaultQueryTimeout: cfg.Database().DefaultQueryTimeout(),
+			// Release races the refresh loop; if the refresh wins, the next lock
+			// waits out the lease. Keep the duration short so that is cheap.
+			LeaseDuration:        2 * time.Second,
 			LeaseRefreshInterval: 100 * time.Millisecond,
 		}
 		leaseLock := newLeaseLock(t, db, cfg)
