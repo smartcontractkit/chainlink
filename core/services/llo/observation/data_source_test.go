@@ -1026,6 +1026,70 @@ func Test_DataSource_StagingDoesNotObserve(t *testing.T) {
 	require.Zero(t, reg.pipelines[1].runCount.Load(), "staging instance must not run pipelines")
 }
 
+// Test_DataSource_StaleObservableStreamsStopLoop asserts that a node the plugin stops calling Observe on (for
+// example one lagging behind in consensus) stops polling pipelines once its observable stream set goes stale,
+// rather than polling streams that were since tombstoned or removed forever. A later Observe restarts the loop.
+func Test_DataSource_StaleObservableStreamsStopLoop(t *testing.T) {
+	t.Parallel()
+	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+	reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(42), nil)
+	ds := newDataSource(logger.NullLogger, reg, telem.NullTelemeter)
+	ds.observableStreamsStaleAfterOverride = 300 * time.Millisecond
+	defer ds.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), observationTimeout)
+	defer cancel()
+	require.NoError(t, ds.Observe(ctx, makeStreamValues(1), &mockOpts{}))
+	require.Positive(t, reg.pipelines[1].runCount.Load(), "observation loop should have run the pipeline")
+
+	// No further Observe calls: the set goes stale and the loop stops.
+	require.Eventually(t, func() bool {
+		return ds.getObservableStreams() == nil && !ds.observationLoopStarted.Load()
+	}, 5*time.Second, 10*time.Millisecond, "stale observable streams should stop the loop")
+
+	stoppedRuns := reg.pipelines[1].runCount.Load()
+	require.Never(t, func() bool {
+		return reg.pipelines[1].runCount.Load() != stoppedRuns
+	}, 500*time.Millisecond, 25*time.Millisecond, "no pipeline may run once the loop has stopped")
+
+	// The next Observe restarts the loop with a fresh set.
+	require.NoError(t, ds.Observe(ctx, makeStreamValues(1), &mockOpts{}))
+	require.NotNil(t, ds.getObservableStreams(), "Observe should set a fresh observable set")
+	require.True(t, ds.observationLoopStarted.Load(), "Observe should restart the loop")
+	// Cached values from before the stop may still be fresh, so the pipeline only reruns once they expire.
+	// Keep calling Observe, as the plugin does each round, so the set stays fresh meanwhile.
+	require.Eventually(t, func() bool {
+		_ = ds.Observe(ctx, makeStreamValues(1), &mockOpts{})
+		return reg.pipelines[1].runCount.Load() > stoppedRuns
+	}, 5*time.Second, 20*time.Millisecond, "restarted loop should run the pipeline again")
+}
+
+// Test_DataSource_RefreshedObservableStreamsKeepLoopRunning asserts that regular Observe calls keep the loop
+// alive for far longer than the stale window.
+func Test_DataSource_RefreshedObservableStreamsKeepLoopRunning(t *testing.T) {
+	t.Parallel()
+	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+	reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(42), nil)
+	ds := newDataSource(logger.NullLogger, reg, telem.NullTelemeter)
+	ds.observableStreamsStaleAfterOverride = 300 * time.Millisecond
+	defer ds.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), observationTimeout)
+	defer cancel()
+	for range 30 { // 30 * 40ms = 1.2s, 4x the stale window
+		require.NoError(t, ds.Observe(ctx, makeStreamValues(1), &mockOpts{}))
+		require.NotNil(t, ds.getObservableStreams(), "refreshed set must not be expired")
+		time.Sleep(40 * time.Millisecond)
+	}
+}
+
+func Test_observableStreamsStaleAfter(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, observableStreamsStaleFloor, observableStreamsStaleAfter(0))
+	assert.Equal(t, observableStreamsStaleFloor, observableStreamsStaleAfter(250*time.Millisecond))
+	assert.Equal(t, 10*time.Second, observableStreamsStaleAfter(time.Second))
+}
+
 // Test_DataSource_CloseIsFinal asserts that Close is idempotent and that an
 // Observe call racing with shutdown cannot start a new observation loop. A
 // late-started loop would run pipeline work (and log through the plugin
