@@ -66,6 +66,10 @@ type UpdateDONInput struct {
 	// the same capability to multiple DONs within a DON family.
 	SkipDuplicateCapabilityValidation bool `json:"skipDuplicateCapabilityValidation,omitempty" yaml:"skipDuplicateCapabilityValidation,omitempty"`
 
+	// SkipJobAcceptanceCheck disables the precondition check that every DON node has accepted all
+	// of its job proposals in JD. Use only for emergencies.
+	SkipJobAcceptanceCheck bool `json:"skipJobAcceptanceCheck,omitempty" yaml:"skipJobAcceptanceCheck,omitempty"`
+
 	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
 
@@ -88,7 +92,37 @@ func (u UpdateDON) VerifyPreconditions(e cldf.Environment, config UpdateDONInput
 		}
 	}
 
+	if !config.SkipJobAcceptanceCheck {
+		p2pIDs, err := updateDONTargetP2PIDs(e, config)
+		if err != nil {
+			return err
+		}
+		if err := verifyNoPendingJobProposals(e, p2pIDs); err != nil {
+			return fmt.Errorf("UpdateDON precondition failed: %w", err)
+		}
+	}
+
 	return nil
+}
+
+// updateDONTargetP2PIDs returns the nodes the update touches: the new node set if given, else the
+// DON's current on-chain nodes.
+func updateDONTargetP2PIDs(e cldf.Environment, config UpdateDONInput) ([]string, error) {
+	if len(config.Nodes) > 0 {
+		return config.Nodes, nil
+	}
+	capReg, err := capRegForPreconditionCheck(e, config.RegistryChainSel, config.RegistryQualifier)
+	if err != nil {
+		return nil, err
+	}
+	// By name, not the first-32 DON list, so DONs beyond that window resolve.
+	don, _, err := sequences.GetDonNodes(config.DONName, capReg)
+	if err != nil {
+		return nil, fmt.Errorf("DON %q not found on-chain: %w", config.DONName, err)
+	}
+	ids, _ := donNodeP2PIDs([]capabilities_registry_v2.CapabilitiesRegistryDONInfo{*don}, config.DONName)
+
+	return ids, nil
 }
 
 func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.ChangesetOutput, error) {
