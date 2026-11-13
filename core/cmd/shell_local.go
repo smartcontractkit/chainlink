@@ -428,7 +428,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		os.Exit(-1)
 	})
 
-	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
+	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore, s.BeholderClient)
 	if err != nil {
 		return s.errorOut(fmt.Errorf("fatal error instantiating application: %w", err))
 	}
@@ -780,7 +780,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	lggr := logger.Sugared(s.Logger.Named("RebroadcastTransactions"))
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, s.Registerer, s.DS, s.KeyStore)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, s.Registerer, s.DS, s.KeyStore, s.BeholderClient)
 	if err != nil {
 		return s.errorOut(fmt.Errorf("fatal error instantiating application: %w", err))
 	}
@@ -1145,7 +1145,7 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 		s.afterNode(lggr)
 	})
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, s.Registerer, s.DS, s.KeyStore, s.BeholderClient)
 	if err != nil {
 		return s.errorOut(fmt.Errorf("fatal error instantiating application: %w", err))
 	}

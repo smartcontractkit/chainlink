@@ -15,6 +15,7 @@ type TelemetryIngress interface {
 	UseBatchSend() bool
 	Endpoints() []TelemetryIngressEndpoint
 	ChipIngressEnabled() bool
+	BeholderEnabled() bool
 }
 
 type TelemetryIngressEndpoint interface {
