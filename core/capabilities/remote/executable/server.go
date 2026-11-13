@@ -153,24 +153,6 @@ func (r *server) Start(ctx context.Context) error {
 		if cfg == nil {
 			return errors.New("config not set - call SetConfig() before Start()")
 		}
-		if cfg.remoteExecutableConfig == nil {
-			return errors.New("remote executable config not set - call SetConfig() before Start()")
-		}
-		if cfg.underlying == nil {
-			return errors.New("underlying capability not set - call SetConfig() before Start()")
-		}
-		if cfg.capInfo.ID == "" {
-			return errors.New("capability info not set - call SetConfig() before Start()")
-		}
-		if len(cfg.localDonInfo.Members) == 0 {
-			return errors.New("local DON info not set - call SetConfig() before Start()")
-		}
-		if cfg.remoteExecutableConfig.RequestTimeout <= 0 {
-			return errors.New("cfg.RequestTimeout not set - call SetConfig() before Start()")
-		}
-		if cfg.remoteExecutableConfig.ServerMaxParallelRequests <= 0 {
-			return errors.New("cfg.ServerMaxParallelRequests not set - call SetConfig() before Start()")
-		}
 		if r.dispatcher == nil {
 			return errors.New("dispatcher set to nil, cannot start server")
 		}
@@ -315,7 +297,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 			}
 		}
 
-		sr, ierr := request.NewServerRequest(cfg.underlying, msg.Method, cfg.capInfo.ID, cfg.localDonInfo.ID, r.peerID,
+		sr, ierr := request.NewServerRequest(cfg.underlying, cfg.capInfo.ID, cfg.localDonInfo.ID, r.peerID,
 			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.workflowDONBindingGate, accumulator, r.lggr)
 		if ierr != nil {
 			r.lggr.Errorw("failed to instantiate server request", "err", ierr)

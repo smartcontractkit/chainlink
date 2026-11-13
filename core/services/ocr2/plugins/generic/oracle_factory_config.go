@@ -16,6 +16,7 @@ import (
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 type ResolveOracleFactoryConfigParams struct {
@@ -121,7 +122,8 @@ func matchSigner(bundles []ocr2key.KeyBundle, signer ocrtypes.OnchainPublicKey) 
 	if len(signer) == 0 {
 		return nil, false
 	}
-	pubKeys, err := ocr2key.UnmarshalMultichainPublicKey(signer)
+	var pubKeys ocr2key.MultichainPublicKey
+	err := pubKeys.UnmarshalBinary(signer)
 	if err != nil || len(pubKeys) == 0 {
 		return nil, false
 	}
@@ -139,7 +141,7 @@ func matchSigner(bundles []ocr2key.KeyBundle, signer ocrtypes.OnchainPublicKey) 
 	}
 	// Unmarshalling skips unknown families, so re-encode and compare to make sure the
 	// matched bundles produce exactly the signer in the config.
-	encoded, err := ocr2key.MarshalMultichainKeyBundle(matched)
+	encoded, err := ocrcommon.MarshalMultichainKeyBundle(matched)
 	if err != nil || !bytes.Equal(encoded, signer) {
 		return nil, false
 	}

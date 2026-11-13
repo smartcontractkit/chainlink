@@ -135,8 +135,8 @@ func TestMakeIdentities_Stellar(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, identities, 1)
 
-		keys, err := ocr2key.UnmarshalMultichainPublicKey(identities[0].OnchainPublicKey)
-		require.NoError(t, err)
+		var keys ocr2key.MultichainPublicKey
+		require.NoError(t, keys.UnmarshalBinary(identities[0].OnchainPublicKey))
 
 		stellarBytes, err := hex.DecodeString(stellarHex)
 		require.NoError(t, err)
@@ -148,8 +148,8 @@ func TestMakeIdentities_Stellar(t *testing.T) {
 		identities, err := MakeIdentities([]NodeKeys{baseNode()})
 		require.NoError(t, err)
 
-		keys, err := ocr2key.UnmarshalMultichainPublicKey(identities[0].OnchainPublicKey)
-		require.NoError(t, err)
+		var keys ocr2key.MultichainPublicKey
+		require.NoError(t, keys.UnmarshalBinary(identities[0].OnchainPublicKey))
 		_, ok := keys[string(corekeys.Stellar)]
 		require.False(t, ok, "stellar key must be absent when StellarOnchainPublicKey is unset")
 	})

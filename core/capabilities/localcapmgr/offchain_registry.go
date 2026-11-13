@@ -16,11 +16,18 @@ const (
 	divergenceMissing = "missing"
 	// divergenceMismatch: the offchain launch or remote config differs from the on-chain one.
 	divergenceMismatch = "mismatch"
+	// divergenceSpecMismatch: the offchain spec_config would launch the capability with a
+	// different config than on-chain. A subset of mismatch that ignores method_configs and
+	// localOnly, so it is the signal for a spec_config-only rollout.
+	divergenceSpecMismatch = "spec_config_mismatch"
+	// divergenceEmptySpec: on-chain has a non-empty spec_config but, with the gate on, the
+	// capability would launch with an empty one (offchain entry missing or without spec_config).
+	divergenceEmptySpec = "empty_spec_config"
 )
 
 // offchainDivergences counts this node's allowlisted capabilities per divergence kind.
 func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*capabilitiespb.DONConfig, allMyDONs []registry.DON) map[string]int64 {
-	out := map[string]int64{divergenceMissing: 0, divergenceMismatch: 0}
+	out := map[string]int64{divergenceMissing: 0, divergenceMismatch: 0, divergenceSpecMismatch: 0, divergenceEmptySpec: 0}
 	for _, don := range allMyDONs {
 		offDON := offchainDONs[don.ID]
 		for capID, onchain := range don.CapabilityConfigurations {
@@ -28,15 +35,20 @@ func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*ca
 				continue
 			}
 			offCap, ok := offDON.GetCapabilities()[capID]
-			if !ok {
-				out[divergenceMissing]++
-				m.lggr.Debugw("Offchain registry has no config for capability", "donID", don.ID, "capID", capID)
-				continue
-			}
 			info := &capabilityInfo{capID: capID, donID: don.ID, config: onchain}
 			legacy, err := m.buildConfigJSON(info)
 			if err != nil {
 				m.lggr.Warnw("Failed to build on-chain spec config for cross-validation", "donID", don.ID, "capID", capID, "error", err)
+				continue
+			}
+			if !ok {
+				out[divergenceMissing]++
+				if legacy != "{}" {
+					out[divergenceEmptySpec]++
+					m.lggr.Debugw("Offchain registry has no config for capability; with the gate on it would launch with an empty spec_config", "donID", don.ID, "capID", capID)
+				} else {
+					m.lggr.Debugw("Offchain registry has no config for capability", "donID", don.ID, "capID", capID)
+				}
 				continue
 			}
 			info.useOffchain = true
@@ -49,6 +61,12 @@ func (m *localCapabilityManager) offchainDivergences(offchainDONs map[uint32]*ca
 			// A mismatch means turning the gate on changes this capability: either the launch
 			// config (spec_config) or the don2don config would differ.
 			remoteConfigDiffers := offchainRemoteConfigDiffers(onchain, offCap)
+			if cutover != legacy {
+				out[divergenceSpecMismatch]++
+				if cutover == "{}" {
+					out[divergenceEmptySpec]++
+				}
+			}
 			if cutover != legacy || remoteConfigDiffers {
 				out[divergenceMismatch]++
 				m.lggr.Debugw("Offchain config differs from on-chain", "donID", don.ID, "capID", capID, "specConfigDiffers", cutover != legacy, "remoteConfigDiffers", remoteConfigDiffers)

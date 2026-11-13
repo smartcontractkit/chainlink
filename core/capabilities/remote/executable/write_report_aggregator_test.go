@@ -93,7 +93,7 @@ func newWRFixture(t *testing.T, family wrFamily, n int, f uint8) wrFixture {
 			require.NoError(t, err)
 			keys[string(fam.chainType)] = kb
 		}
-		signer, err := ocr2key.MarshalMultichainKeyBundle(keys)
+		signer, err := ocrcommon.MarshalMultichainKeyBundle(keys)
 		require.NoError(t, err)
 		fx.keys = append(fx.keys, keys)
 		fx.signers = append(fx.signers, signer)
@@ -387,7 +387,7 @@ func TestWriteReportSignatureAggregator(t *testing.T) {
 		signers := make([]ocrtypes.OnchainPublicKey, len(fx.keys))
 		for i, keys := range fx.keys {
 			var err error
-			signers[i], err = ocr2key.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{string(corekeys.EVM): keys[string(corekeys.EVM)]})
+			signers[i], err = ocrcommon.MarshalMultichainKeyBundle(map[string]ocr2key.KeyBundle{string(corekeys.EVM): keys[string(corekeys.EVM)]})
 			require.NoError(t, err)
 		}
 		acc := fx.newAccumulatorWithSigners(t, map[uint32][]ocrtypes.OnchainPublicKey{wrDonID: signers})
@@ -445,7 +445,7 @@ func TestServerRequest_WriteReportSignatureAggregation(t *testing.T) {
 	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil)
 
 	capability := &recordingCapability{}
-	sr, err := request.NewServerRequest(capability, types.MethodExecute, evmFamily.capabilityID, 2, capabilityPeerID, fx.callingDon,
+	sr, err := request.NewServerRequest(capability, evmFamily.capabilityID, 2, capabilityPeerID, fx.callingDon,
 		"requestMessageID", dispatcher, time.Minute, "WriteReport", limits.NewGateLimiter(false), fx.newAccumulator(t), logger.Test(t))
 	require.NoError(t, err)
 

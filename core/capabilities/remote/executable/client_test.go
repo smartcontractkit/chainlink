@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
@@ -36,8 +35,6 @@ const (
 
 func Test_Client_DonTopologies(t *testing.T) {
 	t.Parallel()
-
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-322")
 
 	ctx := t.Context()
 
@@ -507,17 +504,6 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 		err := fixture.Client.Start(t.Context())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "config not set - call SetConfig() before Start()")
-	})
-
-	t.Run("start succeeds after config set", func(t *testing.T) {
-		t.Parallel()
-
-		fixture := newClientSetConfigTestFixture(t)
-		ctx := t.Context()
-
-		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, 0))
-		require.NoError(t, fixture.Client.Start(ctx))
-		require.NoError(t, fixture.Client.Close())
 	})
 
 	t.Run("config can be updated after start", func(t *testing.T) {

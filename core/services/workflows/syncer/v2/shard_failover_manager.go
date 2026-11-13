@@ -76,6 +76,12 @@ type ShardFailoverManager struct {
 
 	mu    sync.RWMutex
 	cache map[string]cachedEvent
+
+	// replayMu orders replay spawns with close, so no replay starts after
+	// close waits for replayWG.
+	replayMu     sync.Mutex
+	replayClosed bool
+	replayWG     sync.WaitGroup
 }
 
 type cachedEvent struct {
@@ -181,6 +187,13 @@ func (m *ShardFailoverManager) start(ctx context.Context) error {
 }
 
 func (m *ShardFailoverManager) close() error {
+	// The service stop context is already cancelled, so in-flight replays
+	// return promptly.
+	m.replayMu.Lock()
+	m.replayClosed = true
+	m.replayMu.Unlock()
+	m.replayWG.Wait()
+
 	// Stop admitting first: close the engine and unregister the handler so no
 	// trigger can be cached after the cache is cleared below. A trigger admitted
 	// between clearing and engine stop would increment cachedEvents with nothing
@@ -275,6 +288,9 @@ func (m *ShardFailoverManager) forwardExecutionStatus(workflowID string, executi
 // cached trigger event through the engine. Replay calls the wrapped engine
 // directly, not ExecuteTrigger: this node is still not the owner, so the
 // admission check would only cache the event again.
+//
+// It runs on the dispatcher's shared receive goroutine, so it must not block:
+// the replay runs in the background.
 func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.ExecutionStatusUpdate) {
 	switch msg.Status {
 	case ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED:
@@ -283,6 +299,12 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 		m.removeCachedEvent(msg.TriggerEventId)
 
 	case ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR:
+		m.replayMu.Lock()
+		defer m.replayMu.Unlock()
+		if m.replayClosed {
+			// close drains the cache as closed exits
+			return
+		}
 		event, ok := m.popCachedEvent(msg.TriggerEventId, monitoring.ShardFailoverCacheExitReplayed)
 		if !ok {
 			m.cfg.Logger.Warnw("failover: no cached event for triggerEventID, cannot replay",
@@ -292,25 +314,33 @@ func (m *ShardFailoverManager) HandleExecutionStatusUpdate(msg *ringpb.Execution
 			shardFailoverMetrics().RecordReplay(context.Background(), monitoring.ShardFailoverReplayMiss)
 			return
 		}
-		m.cfg.Logger.Infow("failover: replaying cached trigger event after system error",
+		m.replayWG.Go(func() {
+			ctx, cancel := m.eng.NewCtx()
+			defer cancel()
+			m.replay(ctx, msg, event)
+		})
+	}
+}
+
+func (m *ShardFailoverManager) replay(ctx context.Context, msg *ringpb.ExecutionStatusUpdate, event triggers.CoordinatedEvent) {
+	m.cfg.Logger.Infow("failover: replaying cached trigger event after system error",
+		"triggerEventID", msg.TriggerEventId,
+		"workflowID", msg.WorkflowId,
+		"executionID", msg.ExecutionId)
+	replayStart := time.Now()
+	err := m.engine.ExecuteTrigger(m.replayExecCtx(ctx), event)
+	outcome := monitoring.ShardFailoverReplaySucceeded
+	if err != nil {
+		outcome = monitoring.ShardFailoverReplayFailed
+		m.cfg.Logger.Errorw("failover: failed to replay cached trigger event",
 			"triggerEventID", msg.TriggerEventId,
 			"workflowID", msg.WorkflowId,
-			"executionID", msg.ExecutionId)
-		replayStart := time.Now()
-		err := m.engine.ExecuteTrigger(m.replayExecCtx(context.Background()), event)
-		outcome := monitoring.ShardFailoverReplaySucceeded
-		if err != nil {
-			outcome = monitoring.ShardFailoverReplayFailed
-			m.cfg.Logger.Errorw("failover: failed to replay cached trigger event",
-				"triggerEventID", msg.TriggerEventId,
-				"workflowID", msg.WorkflowId,
-				"executionID", msg.ExecutionId,
-				"err", err)
-		}
-		fm := shardFailoverMetrics()
-		fm.RecordReplay(context.Background(), outcome)
-		fm.RecordReplayDuration(context.Background(), outcome, time.Since(replayStart))
+			"executionID", msg.ExecutionId,
+			"err", err)
 	}
+	fm := shardFailoverMetrics()
+	fm.RecordReplay(context.Background(), outcome)
+	fm.RecordReplayDuration(context.Background(), outcome, time.Since(replayStart))
 }
 
 // replayExecCtx stamps the workflow's tenant identity onto the replay context,

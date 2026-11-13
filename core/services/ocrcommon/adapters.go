@@ -86,6 +86,18 @@ var (
 	_ ocr3types.OnchainKeyring2[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
 )
 
+func MarshalMultichainKeyBundle(ost map[string]ocr2key.KeyBundle) (ocrtypes.OnchainPublicKey, error) {
+	pubKeys := map[string]ocrtypes.OnchainPublicKey{}
+	for k, b := range ost {
+		pubKeys[k] = []byte(b.PublicKey())
+	}
+	return MarshalMultichainPublicKey(pubKeys)
+}
+
+func MarshalMultichainPublicKey(ost map[string]ocrtypes.OnchainPublicKey) (ocrtypes.OnchainPublicKey, error) {
+	return ocr2key.MultichainPublicKey(ost).MarshalBinary()
+}
+
 type OCR3OnchainKeyringMultiChainAdapter struct {
 	keyBundles map[string]ocr2key.KeyBundle
 	publicKey  ocrtypes.OnchainPublicKey
@@ -96,7 +108,7 @@ func NewOCR3OnchainKeyringMultiChainAdapter(ost map[string]ocr2key.KeyBundle, lg
 	if len(ost) == 0 {
 		return nil, errors.New("no key bundles provided")
 	}
-	publicKey, err := ocr2key.MarshalMultichainKeyBundle(ost)
+	publicKey, err := MarshalMultichainKeyBundle(ost)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +124,8 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Has(k ocrtypes.OnchainPublicKey) b
 	if len(k) == 0 {
 		return false
 	}
-	keys, err := ocr2key.UnmarshalMultichainPublicKey(k)
+	var keys ocr2key.MultichainPublicKey
+	err := keys.UnmarshalBinary(k)
 	if err != nil {
 		return bytes.Equal(k, a.publicKey)
 	}
@@ -162,16 +175,41 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 	if err != nil {
 		return nil, fmt.Errorf("sign: failed to get key bundle from report info: %w", err)
 	}
-	return kb.Sign(ocr2key.OCR3ReportContext(digest, seqNr), r.Report)
+	return kb.Sign(ocrtypes.ReportContext{
+		ReportTimestamp: ocrtypes.ReportTimestamp{
+			ConfigDigest: digest,
+			Epoch:        uint32(seqNr), //nolint:gosec // seqNr maps to the uint32 epoch field
+			Round:        0,
+		},
+		ExtraHash: [32]byte(make([]byte, 32)),
+	}, r.Report)
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[[]byte], signature []byte) bool {
-	kbName, _, err := a.getKeyBundleFromInfo(ri.Info)
+	kbName, kb, err := a.getKeyBundleFromInfo(ri.Info)
 	if err != nil {
 		a.lggr.Warnf("verify: failed to get key bundle from report info: %v", err)
 		return false
 	}
-	return ocr2key.VerifyOCR3(kbName, opk, digest, seqNr, ri.Report, signature)
+	var keys ocr2key.MultichainPublicKey
+	err = keys.UnmarshalBinary(opk)
+	if err != nil {
+		a.lggr.Warnf("verify: failed to unmarshal public keys: %v", err)
+		return false
+	}
+	publicKey, ok := keys[kbName]
+	if !ok {
+		a.lggr.Warnf("verify: publicKey not found: %v", kbName)
+		return false
+	}
+	return kb.Verify(publicKey, ocrtypes.ReportContext{
+		ReportTimestamp: ocrtypes.ReportTimestamp{
+			ConfigDigest: digest,
+			Epoch:        uint32(seqNr), //nolint:gosec // seqNr maps to the uint32 epoch field
+			Round:        0,
+		},
+		ExtraHash: [32]byte(make([]byte, 32)),
+	}, ri.Report, signature)
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) MaxSignatureLength() int {

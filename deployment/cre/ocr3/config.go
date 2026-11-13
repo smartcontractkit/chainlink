@@ -12,16 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"google.golang.org/protobuf/proto"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -31,6 +29,7 @@ import (
 	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 var OCR3Capability cldf.ContractType = "OCR3Capability" // https://github.com/smartcontractkit/chainlink/blob/50c1b3dbf31bd145b312739b08967600a5c67f30/contracts/src/v0.8/keystone/OCR3Capability.sol#L12
@@ -494,7 +493,7 @@ func MakeIdentities(nca []NodeKeys) ([]confighelper.OracleIdentityExtra, error) 
 			}
 			allPubKeys[raw] = struct{}{}
 		}
-		pubKey, err := ocr2key.MarshalMultichainPublicKey(pubKeys)
+		pubKey, err := ocrcommon.MarshalMultichainPublicKey(pubKeys)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal multichain public key: %w", err)
 		}

@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
@@ -28,7 +29,7 @@ func TestRegistryOCRKeyBundles(t *testing.T) {
 	otherEVMKey, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
 
-	multichainSigner, err := ocr2key.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
+	multichainSigner, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
 		string(corekeys.EVM):    evmKey.PublicKey(),
 		string(corekeys.Solana): solKey.PublicKey(),
 	})
