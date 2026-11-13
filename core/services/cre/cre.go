@@ -643,27 +643,13 @@ func newOrgResolver(
 	ds sqlutil.DataSource,
 	lggr logger.Logger,
 ) (orgresolver.OrgResolver, error) {
-	var wrChainDetails chainselectors.ChainDetails
-	if capCfg.WorkflowRegistry().Address() != "" {
-		var err error
-		wrChainDetails, err = chainselectors.GetChainDetailsByChainIDAndFamily(
-			capCfg.WorkflowRegistry().ChainID(),
-			capCfg.WorkflowRegistry().NetworkID(),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
-		}
-	}
-
 	orgResolverConfig := orgresolver.Config{
-		URL:                           cfg.CRE().Linking().URL(),
-		TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
-		RequestTimeout:                cfg.CRE().Linking().RequestTimeout(),
-		WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
-		WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
-		JWTGenerator:                  opts.JWTGenerator,
-		Client:                        opts.LinkingClient,
-		Meter:                         opts.Meter,
+		URL:            cfg.CRE().Linking().URL(),
+		TLSEnabled:     cfg.CRE().Linking().TLSEnabled(),
+		RequestTimeout: cfg.CRE().Linking().RequestTimeout(),
+		JWTGenerator:   opts.JWTGenerator,
+		Client:         opts.LinkingClient,
+		Meter:          opts.Meter,
 	}
 
 	resolver, err := orgResolverConfig.New(lggr)
