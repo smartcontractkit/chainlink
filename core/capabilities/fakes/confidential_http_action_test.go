@@ -18,7 +18,9 @@ import (
 )
 
 func TestHasEncryptionSecret(t *testing.T) {
+	t.Parallel()
 	t.Run("returns true when magic key exists", func(t *testing.T) {
+		t.Parallel()
 		secrets := []*confidentialhttp.SecretIdentifier{
 			{Key: "other-key"},
 			{Key: AESGCMEncryptionKeyName},
@@ -27,6 +29,7 @@ func TestHasEncryptionSecret(t *testing.T) {
 	})
 
 	t.Run("returns false when magic key does not exist", func(t *testing.T) {
+		t.Parallel()
 		secrets := []*confidentialhttp.SecretIdentifier{
 			{Key: "other-key"},
 			{Key: "another-key"},
@@ -35,6 +38,7 @@ func TestHasEncryptionSecret(t *testing.T) {
 	})
 
 	t.Run("returns false for empty secrets", func(t *testing.T) {
+		t.Parallel()
 		assert.False(t, hasEncryptionSecret(nil))
 		assert.False(t, hasEncryptionSecret([]*confidentialhttp.SecretIdentifier{}))
 	})
@@ -67,6 +71,7 @@ secretsNames:
 }
 
 func TestDirectConfidentialHTTPAction_SecretsLoading_MissingEnv(t *testing.T) {
+	t.Parallel()
 	// Create a temporary secrets.yaml
 	tmpDir := t.TempDir()
 	secretsFile := filepath.Join(tmpDir, "secrets.yaml")

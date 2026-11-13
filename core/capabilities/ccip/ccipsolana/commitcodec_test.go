@@ -55,6 +55,7 @@ var randomBlessedCommitReport = func() ccipocr3.CommitPluginReport {
 }
 
 func TestCommitPluginCodecV1(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name   string
 		report func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport
@@ -143,6 +144,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			report := tc.report(randomBlessedCommitReport())
 			commitCodec := NewCommitPluginCodecV1()
 			ctx := t.Context()
@@ -197,7 +199,9 @@ func BenchmarkCommitPluginCodecV1_Encode_Decode(b *testing.B) {
 }
 
 func Test_DecodingCommitReport(t *testing.T) {
+	t.Parallel()
 	t.Run("decode on-chain commit report", func(t *testing.T) {
+		t.Parallel()
 		chainSel := ccipocr3.ChainSelector(rand.Uint64())
 		minSeqNr := rand.Uint64()
 		maxSeqNr := minSeqNr + 10
@@ -264,6 +268,7 @@ func Test_DecodingCommitReport(t *testing.T) {
 	})
 
 	t.Run("decode on-chain commit report with no MerkleRoot", func(t *testing.T) {
+		t.Parallel()
 		chainSel := ccipocr3.ChainSelector(rand.Uint64())
 
 		tokenSource := solanago.MustPublicKeyFromBase58("C8WSPj3yyus1YN3yNB6YA5zStYtbjQWtpmKadmvyUXq8")
@@ -314,6 +319,7 @@ func Test_DecodingCommitReport(t *testing.T) {
 	})
 
 	t.Run("decode Borsh encoded commit report", func(t *testing.T) {
+		t.Parallel()
 		rep := randomBlessedCommitReport()
 		commitCodec := NewCommitPluginCodecV1()
 		decode, err := commitCodec.Encode(t.Context(), rep)

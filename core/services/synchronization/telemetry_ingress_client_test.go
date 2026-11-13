@@ -21,6 +21,7 @@ import (
 )
 
 func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
+	t.Parallel()
 	// Create mocks
 	telemClient := mocks.NewTelemClient(t)
 

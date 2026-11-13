@@ -66,6 +66,7 @@ func TestORM_FindUser_Single(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_Success(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -83,6 +84,7 @@ func TestORM_FindUserByAPIToken_Success(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	// Init OIDC authenticator
 	cfg := oidcauth.TestConfig{}
@@ -100,6 +102,7 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 }
 
 func TestORM_DeleteAuthToken(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	// Init OIDC authenticator
@@ -126,6 +129,7 @@ func TestORM_DeleteAuthToken(t *testing.T) {
 }
 
 func TestORM_ListUsers(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -400,6 +404,7 @@ func Test_IDClaimsToUserRole(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			gotRole, err := oidcAuthProvider.IDClaimsToUserRole(tt.idClaims, tt.adminClaim, tt.editClaim, tt.runClaim, tt.readClaim)
 			if !errors.Is(err, nil) && !errors.Is(err, tt.wantErr) {
 				t.Errorf("err %v", err)
@@ -471,6 +476,7 @@ func Test_ExtractIDClaimValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, gotErr := oidcAuthProvider.ExtractIDClaimValues(tt.claims, tt.key)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("extractIDClaimValues() got = %v, want %v", got, tt.want)

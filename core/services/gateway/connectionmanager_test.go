@@ -111,6 +111,7 @@ Address = "0x68902D681c28119f9b2531473a417088bf008E59"
 
 	for name, config := range invalidCases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			fullConfig := `
 [nodeServerConfig]
 Path = "/node"` + config

@@ -163,6 +163,7 @@ func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
 }
 
 func TestReader_Integration(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)
 
@@ -383,6 +384,7 @@ func TestReader_Integration(t *testing.T) {
 }
 
 func TestSyncer_V2_DBIntegration(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)
 
@@ -543,6 +545,7 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 }
 
 func TestSyncer_V2_LocalNode(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)
 
@@ -658,6 +661,7 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 }
 
 func TestReader_V2_FamilyOperations(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)
 
@@ -919,6 +923,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 
 	// Test GetDONsInFamily functionality
 	t.Run("GetDONsInFamily_SingleFamily", func(t *testing.T) {
+		t.Parallel()
 		// Query "workflow-family-a" -> should return DON IDs [1, 3] (don-family-a and don-multi-family)
 		familyADONs, err := capabilitiesRegistryReader.GetDONsInFamily(ctx, "workflow-family-a")
 		require.NoError(t, err)
@@ -940,6 +945,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	})
 
 	t.Run("GetDONsInFamily_NonExistentFamily", func(t *testing.T) {
+		t.Parallel()
 		// Query "non-existent-family" -> should return empty
 		nonExistentDONs, err := capabilitiesRegistryReader.GetDONsInFamily(ctx, "non-existent-family")
 		require.NoError(t, err)
@@ -947,6 +953,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	})
 
 	t.Run("GetHistoricalDONInfo_FamilyData", func(t *testing.T) {
+		t.Parallel()
 		// Test GetHistoricalDONInfo with configCount=1 for each DON
 		for donID := uint32(1); donID <= 4; donID++ {
 			historicalDON, err := capabilitiesRegistryReader.GetHistoricalDONInfo(ctx, donID, 1)
@@ -974,6 +981,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	})
 
 	t.Run("GetHistoricalDONInfo_InvalidConfigCount", func(t *testing.T) {
+		t.Parallel()
 		// Test with invalid configCount -> should handle gracefully
 		_, err := capabilitiesRegistryReader.GetHistoricalDONInfo(ctx, 1, 999)
 		require.Error(t, err, "Should return error for invalid configCount")
@@ -982,6 +990,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 
 	// Verify synced data integrity in local registry
 	t.Run("LocalRegistry_FamilyIntegrity", func(t *testing.T) {
+		t.Parallel()
 		// Verify each DON has correct family data
 		don1 := s.IDsToDONs[1].DON
 		assert.Equal(t, "don-family-a", don1.Name)
