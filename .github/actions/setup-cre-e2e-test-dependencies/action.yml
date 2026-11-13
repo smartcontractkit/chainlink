@@ -51,9 +51,21 @@ runs:
         key: ${{ steps.setup-cache-dir-key.outputs.cache-key }}
         path: ${{ steps.setup-cache-dir-key.outputs.download-path }}
 
+    # GATI occasionally returns an empty 200; one retry covers it.
     - name: Setup GitHub token using GATI
       if: ${{ steps.cache-restore.outputs.cache-hit != 'true' }}
       id: setup-gati-token
+      continue-on-error: true
+      uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+      with:
+        aws-role-arn: ${{ inputs.gati-role-arn }}
+        aws-lambda-url: ${{ inputs.gati-lambda-url }}
+        aws-region: ${{ inputs.gati-region }}
+        aws-role-duration-seconds: "1800"
+
+    - name: Setup GitHub token using GATI (retry)
+      if: ${{ steps.cache-restore.outputs.cache-hit != 'true' && steps.setup-gati-token.outcome == 'failure' }}
+      id: setup-gati-token-retry
       uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
       with:
         aws-role-arn: ${{ inputs.gati-role-arn }}
@@ -66,7 +78,7 @@ runs:
       shell: bash
       working-directory: system-tests/tests/smoke/cre/cmd
       env:
-        GITHUB_API_TOKEN: ${{ steps.setup-gati-token.outputs.access-token }}
+        GITHUB_API_TOKEN: ${{ steps.setup-gati-token.outputs.access-token || steps.setup-gati-token-retry.outputs.access-token }}
         MAX_RETRIES: 3
         CAPABILITY_NAMES: ${{ inputs.capability-names }}
         CAPABILITY_VERSION: ${{ inputs.capability-version }}
