@@ -19,7 +19,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	commonocr "github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr/keyring"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr/network"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/remote"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -82,14 +83,16 @@ type V2Params struct {
 
 // OCR is what the node lends a process that runs its own OCR oracle, and where the oracle finds itself in the DON.
 type OCR struct {
-	Node            func(context.Context) (commonocr.Node, error)
+	Network         func(context.Context) (ocrtypes.BinaryNetworkEndpointFactory, error)
+	Keyrings        keyring.Keyrings
 	PeerID          string
 	TransmitAccount string
 	Bootstrappers   []commontypes.BootstrapperLocator
 }
 
-// envVars are the env vars the process reads its OCR config from, with the node serving its OCR at proxyURL.
-func (o *OCR) envVars(proxyURL string) ([]string, error) {
+// envVars are the env vars the process reads its OCR config from, with the node serving its peer's networking at
+// networkURL and its OCR keys at keyringURL.
+func (o *OCR) envVars(networkURL, keyringURL string) ([]string, error) {
 	bootstrappers := make([]string, len(o.Bootstrappers))
 	for i, b := range o.Bootstrappers {
 		text, err := b.MarshalText()
@@ -101,7 +104,8 @@ func (o *OCR) envVars(proxyURL string) ([]string, error) {
 	}
 
 	return []string{
-		"CL_OCR_PROXY_URL=" + proxyURL,
+		"CL_OCR_NETWORK_URL=" + networkURL,
+		"CL_OCR_KEYRING_URL=" + keyringURL,
 		"CL_OCR_PEER_ID=" + o.PeerID,
 		"CL_OCR_TRANSMIT_ACCOUNT=" + o.TransmitAccount,
 		"CL_OCR_BOOTSTRAPPERS=" + strings.Join(bootstrappers, ","),
@@ -182,13 +186,14 @@ func (s *V2) Start(ctx context.Context) error {
 		}
 
 		if s.ocr != nil {
-			ocrEnv, err := s.ocr.envVars(srv.addr())
+			ocrEnv, err := s.ocr.envVars(srv.addr(), srv.addr())
 			if err != nil {
 				srv.close()
 				return fmt.Errorf("failed to prepare OCR env vars: %w", err)
 			}
 
-			commonocr.RegisterServer(srv.Server, s.log, s.ocr.Node)
+			network.RegisterServer(srv.Server, s.log, s.ocr.Network)
+			keyring.RegisterServer(srv.Server, s.ocr.Keyrings)
 			envVars = append(envVars, ocrEnv...)
 		}
 
@@ -273,7 +278,7 @@ func (s *V2) newGRPCServer(ctx context.Context) (*server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen for the server: %w", err)
 	}
-	srv := grpc.NewServer(commonocr.ServerOptions()...)
+	srv := grpc.NewServer(grpc.MaxRecvMsgSize(max(network.MaxMessageSize, keyring.MaxMessageSize)))
 	return &server{listener: listener, Server: srv}, nil
 }
 

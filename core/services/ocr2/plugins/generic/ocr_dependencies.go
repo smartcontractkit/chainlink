@@ -12,30 +12,28 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
-	commonocr "github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr/keyring"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
-type OCRNodeParams struct {
+type OCRKeyringsParams struct {
 	Logger                 logger.Logger
 	KB                     ocr2key.KeyBundle
 	OnchainSigningStrategy job.OnchainSigningStrategy
-	PeerWrapper            *ocrcommon.SingletonPeerWrapper
 	OcrKeystore            keystore.OCR2
 }
 
-// NewOCRNode returns what the node lends a capability that runs its own OCR oracle: its peer's networking and the
-// OCR keys the oracle factory gives the oracles it makes. The peer wrapper only has a peer once it is started, so the
-// node is read when asked.
-func NewOCRNode(params OCRNodeParams) (func(context.Context) (commonocr.Node, error), error) {
+// NewOCRKeyrings returns the OCR keys the node lends a capability that runs its own OCR oracle: those the oracle
+// factory gives the oracles it makes.
+func NewOCRKeyrings(params OCRKeyringsParams) (keyring.Keyrings, error) {
 	keyBundles := map[string]ocr2key.KeyBundle{}
 	for name, kbID := range params.OnchainSigningStrategy.Config {
 		kb, err := params.OcrKeystore.Get(kbID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get ocr key for key bundle ID '%s': %w", kbID, err)
+			return keyring.Keyrings{}, fmt.Errorf("failed to get ocr key for key bundle ID '%s': %w", kbID, err)
 		}
 
 		keyBundles[name] = kb
@@ -43,20 +41,22 @@ func NewOCRNode(params OCRNodeParams) (func(context.Context) (commonocr.Node, er
 
 	onchainKeyring, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, params.Logger)
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate onchain keyring with multi chain adapter: %w", err)
+		return keyring.Keyrings{}, fmt.Errorf("failed to instantiate onchain keyring with multi chain adapter: %w", err)
 	}
 
-	return func(context.Context) (commonocr.Node, error) {
-		if !params.PeerWrapper.IsStarted() {
-			return commonocr.Node{}, errors.New("peer wrapper not started")
+	return keyring.Keyrings{OffchainKeyring: params.KB, OnchainKeyring: keyBundleKeyring{keyring: onchainKeyring}}, nil
+}
+
+// NewOCRNetwork returns the networking the node lends a capability that runs its own OCR oracle: its peer's. The peer
+// wrapper only has a peer once it is started, so the peer is read when asked.
+func NewOCRNetwork(peerWrapper *ocrcommon.SingletonPeerWrapper) func(context.Context) (ocrtypes.BinaryNetworkEndpointFactory, error) {
+	return func(context.Context) (ocrtypes.BinaryNetworkEndpointFactory, error) {
+		if !peerWrapper.IsStarted() {
+			return nil, errors.New("peer wrapper not started")
 		}
 
-		return commonocr.Node{
-			BinaryNetworkEndpointFactory: params.PeerWrapper.Peer2,
-			OffchainKeyring:              params.KB,
-			OnchainKeyring:               keyBundleKeyring{keyring: onchainKeyring},
-		}, nil
-	}, nil
+		return peerWrapper.Peer2, nil
+	}
 }
 
 // keyBundleKeyring signs with the key bundle a report's info names, such as evm. The multi-chain adapter reads the

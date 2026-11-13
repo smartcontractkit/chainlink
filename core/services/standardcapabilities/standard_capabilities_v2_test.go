@@ -17,7 +17,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	commonocr "github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr/keyring"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr/network"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/remote"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -104,7 +105,8 @@ func TestStandardCapabilitiesV2_NoServers(t *testing.T) {
 
 	assert.NotContains(t, env, "CL_CAPABILITIES_PROXY_URL")
 	assert.NotContains(t, env, "CL_SETTINGS_URL")
-	assert.NotContains(t, env, "CL_OCR_PROXY_URL")
+	assert.NotContains(t, env, "CL_OCR_NETWORK_URL")
+	assert.NotContains(t, env, "CL_OCR_KEYRING_URL")
 	assert.NotContains(t, env, "CL_CAPABILITIES_CAPABILITY_DON_ID")
 }
 
@@ -134,12 +136,14 @@ func TestStandardCapabilitiesV2_OCR(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	var env map[string]string
-	var node commonocr.Node
+	var factory ocrtypes.BinaryNetworkEndpointFactory
+	var keyrings keyring.Keyrings
 	registrar := &capturingRegistrar{onRegister: func(cfg plugins.CmdConfig) {
 		env = envMap(cfg.Env)
 		var err error
-		node, err = commonocr.Connect(t.Context(), lggr, dial(t, env["CL_OCR_PROXY_URL"]), env["CL_OCR_PEER_ID"],
-			commonocr.Config{}, staticOCR{}.Verify)
+		factory, err = network.Connect(lggr, dial(t, env["CL_OCR_NETWORK_URL"]), env["CL_OCR_PEER_ID"], network.Config{})
+		require.NoError(t, err)
+		keyrings, err = keyring.Connect(t.Context(), dial(t, env["CL_OCR_KEYRING_URL"]), keyring.Config{}, staticOCR{}.Verify)
 		require.NoError(t, err)
 	}}
 
@@ -150,9 +154,10 @@ func TestStandardCapabilitiesV2_OCR(t *testing.T) {
 		CapDonIDResolver: &staticCapDonIDResolver{},
 		PluginRegistrar:  registrar,
 		OCR: &OCR{
-			Node: func(context.Context) (commonocr.Node, error) {
-				return commonocr.Node{BinaryNetworkEndpointFactory: staticOCR{}, OffchainKeyring: staticOCR{}, OnchainKeyring: staticOCR{}}, nil
+			Network: func(context.Context) (ocrtypes.BinaryNetworkEndpointFactory, error) {
+				return staticOCR{}, nil
 			},
+			Keyrings:        keyring.Keyrings{OffchainKeyring: staticOCR{}, OnchainKeyring: staticOCR{}},
 			PeerID:          "12D3KooWPeer",
 			TransmitAccount: "0xabc",
 			Bootstrappers: []ocrcommontypes.BootstrapperLocator{
@@ -169,7 +174,8 @@ func TestStandardCapabilitiesV2_OCR(t *testing.T) {
 	assert.Equal(t, "12D3KooWPeer", env["CL_OCR_PEER_ID"])
 	assert.Equal(t, "0xabc", env["CL_OCR_TRANSMIT_ACCOUNT"])
 	assert.Equal(t, "12D3KooWBoot@127.0.0.1:6690,12D3KooWOther@127.0.0.1:6691/127.0.0.1:6692", env["CL_OCR_BOOTSTRAPPERS"])
-	assert.Equal(t, "12D3KooWPeer", node.BinaryNetworkEndpointFactory.PeerID())
+	assert.Equal(t, "12D3KooWPeer", factory.PeerID())
+	assert.Equal(t, staticOCR{}.OffchainPublicKey(), keyrings.OffchainKeyring.OffchainPublicKey())
 }
 
 type staticOCR struct{}

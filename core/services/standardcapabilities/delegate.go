@@ -393,15 +393,14 @@ func (d *Delegate) NewServices(
 			return nil, errors.New("consensus v2 needs the oracle factory enabled, a P2P stack, and the OCR config service")
 		}
 
-		node, err := generic.NewOCRNode(generic.OCRNodeParams{
+		keyrings, err := generic.NewOCRKeyrings(generic.OCRKeyringsParams{
 			Logger:                 log,
 			KB:                     offchainKB,
 			OnchainSigningStrategy: resolvedSigning,
-			PeerWrapper:            d.ocrPeerWrapper,
 			OcrKeystore:            d.ks.OCR2(),
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to create the node's OCR: %w", err)
+			return nil, fmt.Errorf("failed to create the node's OCR keyrings: %w", err)
 		}
 
 		peerID, err := d.getPeerID()
@@ -419,7 +418,8 @@ func (d *Delegate) NewServices(
 		}
 
 		ocr := &OCR{
-			Node:            node,
+			Network:         generic.NewOCRNetwork(d.ocrPeerWrapper),
+			Keyrings:        keyrings,
 			PeerID:          peerID.String(),
 			TransmitAccount: oracleFactoryCfg.TransmitterID,
 			Bootstrappers:   bootstrappers,
