@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 	"strconv"
 
 	"github.com/BurntSushi/toml"
@@ -72,14 +73,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to validate executor monitoring config: %w", err)
 	}
 
-	// Chains in the executor configuration should dictate what we end up verifying for.
-	chainsInConfig := make([]protocol.ChainSelector, 0, len(decodedCfg.ChainConfiguration))
-	for chainSelStr := range decodedCfg.ChainConfiguration {
-		parsed, err2 := strconv.ParseUint(chainSelStr, 10, 64)
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to parse chain selector string from executor config (%s): %w", chainSelStr, err)
-		}
-		chainsInConfig = append(chainsInConfig, protocol.ChainSelector(parsed))
+	chainsInConfig, err := memberChains(decodedCfg)
+	if err != nil {
+		return nil, err
 	}
 
 	legacyChains, missingChains, err := ccvcommon.GetLegacyChains(ctx, d.lggr, d.chainServices, chainsInConfig)
@@ -189,4 +185,21 @@ func NewRoundRobin(ks keystore.Eth, chainID *big.Int) *roundRobin {
 
 func (r *roundRobin) GetNextAddress(ctx context.Context, addresses ...common.Address) (common.Address, error) {
 	return r.ks.GetRoundRobinAddress(ctx, r.chainID, addresses...)
+}
+
+// memberChains returns the chains where this executor is in the pool, so only those need a chain client.
+// Other chains stay in the config because their default executor address validates inbound messages.
+func memberChains(cfg executor.Configuration) ([]protocol.ChainSelector, error) {
+	chains := make([]protocol.ChainSelector, 0, len(cfg.ChainConfiguration))
+	for chainSelStr, chainCfg := range cfg.ChainConfiguration {
+		if !slices.Contains(chainCfg.ExecutorPool, cfg.ExecutorID) {
+			continue
+		}
+		parsed, err := strconv.ParseUint(chainSelStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse chain selector string from executor config (%s): %w", chainSelStr, err)
+		}
+		chains = append(chains, protocol.ChainSelector(parsed))
+	}
+	return chains, nil
 }
