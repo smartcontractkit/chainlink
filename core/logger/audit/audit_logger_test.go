@@ -15,6 +15,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -119,6 +120,20 @@ func TestNewAuditLogger_ConfigErrors(t *testing.T) {
 	})
 }
 
+// The node passes its unnamed root logger. The service must still report a
+// non-empty name, or health-check registration fails and the node won't boot.
+func TestNewAuditLogger_RegistersWithUnnamedLogger(t *testing.T) {
+	t.Parallel()
+
+	auditLogger, err := audit.NewAuditLogger(logger.Test(t), &Config{})
+	require.NoError(t, err)
+
+	svc, ok := auditLogger.(*audit.LoggerService)
+	require.True(t, ok)
+	assert.NotEmpty(t, svc.Name())
+	require.NoError(t, services.NewChecker("", "").Register(svc))
+}
+
 func TestCheckLoginAuditLog(t *testing.T) {
 	t.Parallel()
 
@@ -137,7 +152,7 @@ func TestCheckLoginAuditLog(t *testing.T) {
 	auditLoggerTestConfig := Config{}
 
 	// Create new AuditLoggerService
-	auditLogger, err := audit.NewAuditLogger(lggr.Named("AuditLogger"), &auditLoggerTestConfig)
+	auditLogger, err := audit.NewAuditLogger(lggr, &auditLoggerTestConfig)
 	require.NoError(t, err)
 
 	// Cast to concrete type so we can swap out the internals
