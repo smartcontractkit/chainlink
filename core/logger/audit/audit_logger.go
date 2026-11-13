@@ -101,7 +101,7 @@ func NewAuditLogger(lggr logger.Logger, config coreconfig.AuditLogger) (Logger, 
 
 	// Create new LoggerService
 	auditLogger := LoggerService{
-		logger:          logger.Helper(lggr, 1),
+		logger:          logger.Helper(logger.Named(lggr, "AuditLogger"), 1),
 		enabled:         true,
 		forwardToURL:    forwardToURL,
 		headers:         headers,
