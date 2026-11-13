@@ -1,5 +1,41 @@
 # Changelog Chainlink Core
 
+## 2.73.0
+
+### Minor Changes
+
+- [#24150](https://github.com/smartcontractkit/chainlink/pull/24150) [`66f34a7`](https://github.com/smartcontractkit/chainlink/commit/66f34a78b49e2de3168aaa8ec7e0a103e0c28205) - Minor bump to start next version
+
+### Patch Changes
+
+- [#24170](https://github.com/smartcontractkit/chainlink/pull/24170) [`2f4ae42`](https://github.com/smartcontractkit/chainlink/commit/2f4ae428b4e4e9c306607401d4948db9437c329d) - #internal CRE OrgResolver no longer depends on workflow registry config; the linking service uses its own configured registry
+
+- [#24169](https://github.com/smartcontractkit/chainlink/pull/24169) [`8fb3422`](https://github.com/smartcontractkit/chainlink/commit/8fb3422526b3ce5c2003cd65f69dc4702b916027) - #bugfix Remote executable client fails a request early when a mix of OK and error responses makes every quorum unreachable, instead of waiting for the request to expire.
+
+- [#24129](https://github.com/smartcontractkit/chainlink/pull/24129) [`774baaa`](https://github.com/smartcontractkit/chainlink/commit/774baaaf33e96b5b0d780313e50423c890575fa8) - #bugfix Remote trigger subscriber no longer leaves its mutex held when an event arrives for a trigger that was unregistered between the workflow and registration lookups, which blocked all later events, registrations and shutdown for that capability on the node.
+
+- [#23954](https://github.com/smartcontractkit/chainlink/pull/23954) [`16821d0`](https://github.com/smartcontractkit/chainlink/commit/16821d0f4aaf99facc74432e3ea10802733731f1) - #bugfix Restore VRF v2/v2.5 retry backoff state across log poller ticks so unfulfillable requests are no longer re-simulated every poll
+
+## 2.72.0
+
+### Minor Changes
+
+- [#24095](https://github.com/smartcontractkit/chainlink/pull/24095) [`b420458`](https://github.com/smartcontractkit/chainlink/commit/b42045871838afb2ce2b26dc4627c43c695ccb0e) - Minor bump to start next version
+
+### Patch Changes
+
+- [#24144](https://github.com/smartcontractkit/chainlink/pull/24144) [`56c57fb`](https://github.com/smartcontractkit/chainlink/commit/56c57fbc826fe007304c004a5548c7903399c844) - Give the confidential relay request latency and confidential workflows enclave execution histograms explicit buckets up to 90s and 300s. The SDK default buckets stopped at 10s, which pinned their P99 at 10,000ms. #bugfix
+
+- [#24136](https://github.com/smartcontractkit/chainlink/pull/24136) [`3a0dcc2`](https://github.com/smartcontractkit/chainlink/commit/3a0dcc284fe29b45a378b03711a6dc9b5e82fba9) - Fix flaky TestDispatcher_DropsWhenReceiverBufferFull. #internal
+
+- [#23946](https://github.com/smartcontractkit/chainlink/pull/23946) [`7d31f23`](https://github.com/smartcontractkit/chainlink/commit/7d31f230e273b703821402aa5c4e87697e133b00) - Bump libocr to the October 30, 2026 release (199a6f17c59863999480e990c7c0b6ba7796ec92), replacing the alpha pin. The vault oracle now uses the released `OCR3_1OracleArgs3` (previously `OCR3_1OracleArgs109Alpha`).
+
+  #updated
+
+- [#24134](https://github.com/smartcontractkit/chainlink/pull/24134) [`f25542b`](https://github.com/smartcontractkit/chainlink/commit/f25542b1e814c7392f24cafc713517d510b58127) - Log user-origin vault errors in the confidential relay (e.g. a missing secret) at info instead of error, and the metering mode switch at debug. #internal
+
+- [#24115](https://github.com/smartcontractkit/chainlink/pull/24115) [`062e15e`](https://github.com/smartcontractkit/chainlink/commit/062e15efb6c1c5f37c4f29a903a35aa05b37674a) - Classify the per-execution secrets call limit as a user LimitExceeded error, so the confidential relay answers it with invalid params instead of an internal error. #bugfix
+
 ## 2.71.0
 
 ### Minor Changes

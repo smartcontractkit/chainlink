@@ -56,7 +56,8 @@ type EngineMetrics struct {
 	// family can serve as both numerator and denominator without vector(0) joins.
 	workflowExecutionFinishedCounter metric.Int64Counter
 
-	getSecretsDuration metric.Int64Histogram
+	getSecretsDuration  metric.Int64Histogram
+	getSecretsSkewRetry metric.Int64Counter
 
 	executionTimestampAssignedCounter metric.Int64Counter
 	executionTimestampFallbackCounter metric.Int64Counter
@@ -70,6 +71,8 @@ type EngineMetrics struct {
 	triggerEventAckSuccessCounter       metric.Int64Counter
 	triggerEventAckFailureCounter       metric.Int64Counter
 	triggerEventEnqueuedCounter         metric.Int64Counter
+	triggerEventShadowedCounter         metric.Int64Counter
+	triggerEventShadowFailedCounter     metric.Int64Counter
 	triggerEventEnqueueDroppedCounter   metric.Int64Counter
 	triggerEventDequeueDroppedCounter   metric.Int64Counter
 	triggerEventDroppedTotal            metric.Int64Counter
@@ -315,6 +318,14 @@ func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, er
 		return nil, fmt.Errorf("failed to create platform_engine_get_secrets_duration_ms metric: %w", err)
 	}
 
+	em.getSecretsSkewRetry, err = meter.Int64Counter(
+		"platform_engine_get_secrets_version_skew_retry_total",
+		metric.WithDescription("Direct GetSecrets requests retried because Vault nodes disagreed on a secret's version, by retry outcome"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create platform_engine_get_secrets_version_skew_retry_total metric: %w", err)
+	}
+
 	em.executionTimestampAssignedCounter, err = meter.Int64Counter("platform_engine_execution_timestamp_assigned")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution timestamp assigned counter: %w", err)
@@ -375,6 +386,22 @@ func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, er
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger event enqueued counter: %w", err)
+	}
+
+	em.triggerEventShadowedCounter, err = meter.Int64Counter(
+		"platform_engine_trigger_event_shadowed_total",
+		metric.WithDescription("Trigger events copied to the central trigger queue in shadow mode"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event shadowed counter: %w", err)
+	}
+
+	em.triggerEventShadowFailedCounter, err = meter.Int64Counter(
+		"platform_engine_trigger_event_shadow_failed_total",
+		metric.WithDescription("Trigger events that should have been copied to the central trigger queue in shadow mode but were not, by dropReason"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event shadow failed counter: %w", err)
 	}
 
 	em.triggerEventEnqueueDroppedCounter, err = meter.Int64Counter(
@@ -771,6 +798,11 @@ func (c WorkflowsMetricLabeler) RecordGetSecretsDuration(ctx context.Context, du
 	c.em.getSecretsDuration.Record(ctx, duration, metric.WithAttributes(otelLabels...))
 }
 
+func (c WorkflowsMetricLabeler) IncrementGetSecretsSkewRetryCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.getSecretsSkewRetry.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
 func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionFailedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowExecutionFailedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
@@ -841,6 +873,21 @@ func (c WorkflowsMetricLabeler) IncrementTriggerEventAckFailureCounter(ctx conte
 func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueuedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.triggerEventEnqueuedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementTriggerEventShadowedCounter counts one event accepted by the central trigger queue in shadow mode.
+// It carries the workflow labels, so per-workflow load on the node-wide queue can be graphed.
+func (c WorkflowsMetricLabeler) IncrementTriggerEventShadowedCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventShadowedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementTriggerEventShadowFailedCounter counts one event that was not copied to the central trigger queue in
+// shadow mode. The event itself still executes. Use the ShadowFailReason* constants.
+func (c WorkflowsMetricLabeler) IncrementTriggerEventShadowFailedCounter(ctx context.Context, reason string) {
+	lc := c.With(platform.KeyTriggerDropReason, reason)
+	otelLabels := beholder.OtelAttributes(lc.Labels).AsStringAttributes()
+	lc.em.triggerEventShadowFailedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueueDroppedCounter(ctx context.Context) {

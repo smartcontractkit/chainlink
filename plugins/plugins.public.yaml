@@ -28,7 +28,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.3.1-0.20260915153909-e434f8636b23"
+      gitRef: "v1.3.1-0.20261029182832-ae2ca5ac5292"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
@@ -38,12 +38,12 @@ plugins:
 
   stellar:
     - moduleURI: "github.com/smartcontractkit/chainlink-stellar/relayer"
-      gitRef: "498bbc882c92ecbe0acb86cfb6deaec104def12f"
+      gitRef: "b0c194ffac3f229af7da9195d0ff87f82fdaffb3"
       installPath: "./cmd/chainlink-stellar"
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v1.1.2-0.20261009064810-68424c714170"
+      gitRef: "v1.1.3"
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:
@@ -58,38 +58,44 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20261022195454-600e2b321c7a"
+      gitRef: "v0.3.4-0.20261109182726-4d83db28afc6"
       installPath: "./pkg/cmd/chainlink-evm"
 
   capability-cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "e6f512fbf3bdc3adaa96bfdd1d497c4507eab05d"
+      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
       installPath: "."
+      flags: "-tags timetzdata"
+
+  capability-cronv2:
+    - moduleURI: "github.com/smartcontractkit/capabilities/cron"
+      gitRef: "12ca7f9cba40dea8ad4ce1661e8459b05cbb1761"
+      installPath: "./cmd/cronv2"
       flags: "-tags timetzdata"
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "e6f512fbf3bdc3adaa96bfdd1d497c4507eab05d"
+      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
       installPath: "."
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "e6f512fbf3bdc3adaa96bfdd1d497c4507eab05d"
+      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
       installPath: "."
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "e6f512fbf3bdc3adaa96bfdd1d497c4507eab05d"
+      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
       installPath: "."
 
   capability-evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "2951f2cf06c3c0d52fe8b738764218cdb571635c"
+      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
       installPath: "."
 
   capability-solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "2951f2cf06c3c0d52fe8b738764218cdb571635c"
+      gitRef: "e8826a0426f7e4ec6e96ada0c61937de5d4cda19"
       installPath: "."
 
   capability-aptos:
@@ -99,15 +105,15 @@ plugins:
 
   capability-stellar:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/stellar"
-      gitRef: "1e2cce66de95fed63d5057139227d0e1c4a8ba0b"
+      gitRef: "26c8e99df572df10b8ff05ddc38dfa70f1afa5ef"
       installPath: "."
 
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/chainlink-confidential-compute/enclave/apps/confidential-http/capability"
-      gitRef: "c81a7a6bd15999eb3136e7526e8d833d3760755e"
+      gitRef: "aee12ace07681e06c7ba309cf361d72b131c250b"
       installPath: "./cmd/confidential-http"
 
   confidential-workflows:
     - moduleURI: "github.com/smartcontractkit/chainlink-confidential-compute/enclave/apps/confidential-workflows/capability"
-      gitRef: "c81a7a6bd15999eb3136e7526e8d833d3760755e"
+      gitRef: "aee12ace07681e06c7ba309cf361d72b131c250b"
       installPath: "./cmd/confidential-workflows"

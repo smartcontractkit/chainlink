@@ -1,6 +1,6 @@
 {
   "name": "chainlink",
-  "version": "2.71.0",
+  "version": "2.73.0",
   "description": "node of the decentralized oracle network, bridging on and off-chain computation",
   "main": "index.js",
   "scripts": {
@@ -27,7 +27,7 @@
     }
   },
   "devDependencies": {
-    "@changesets/cli": "~2.28.1",
+    "@changesets/cli": "~3.0.3",
     "@changesets/get-github-info": "^0.6.0",
     "semver": "^7.7.1"
   },

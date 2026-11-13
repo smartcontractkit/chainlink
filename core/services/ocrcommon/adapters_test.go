@@ -204,8 +204,8 @@ func TestNewOCR3OnchainKeyringMultiChainAdapter_Stellar(t *testing.T) {
 
 	// The stellar pubkey must be embedded in the adapter's multichain public key, proving the
 	// stellar bundle is wired into selection.
-	keys, err := ocrcommon.UnmarshalMultichainPublicKey(adapter.PublicKey())
-	require.NoError(t, err)
+	var keys ocr2key.MultichainPublicKey
+	require.NoError(t, keys.UnmarshalBinary(adapter.PublicKey()))
 	assert.Equal(t, stellarBundle.PublicKey(), keys[string(corekeys.Stellar)])
 }
 
@@ -215,8 +215,8 @@ func TestOCR3OnchainKeyringMultiChainAdapter_Has(t *testing.T) {
 	require.True(t, adapter.Has(adapter.PublicKey()))
 	assert.NotEmpty(t, adapter.DebugIdentifier())
 
-	keys, err := ocrcommon.UnmarshalMultichainPublicKey(adapter.PublicKey())
-	require.NoError(t, err)
+	var keys ocr2key.MultichainPublicKey
+	require.NoError(t, keys.UnmarshalBinary(adapter.PublicKey()))
 	evmOnly, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
 		"evm": keys["evm"],
 	})

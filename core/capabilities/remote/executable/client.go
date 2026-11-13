@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,6 +32,8 @@ type client struct {
 	dispatcher    types.Dispatcher
 	cfg           atomic.Pointer[dynamicConfig]
 	lggr          logger.Logger
+
+	aggregatorFactory request.AggregatorFactory
 
 	requestIDToCallerRequest map[string]*request.ClientRequest
 	mutex                    sync.Mutex
@@ -68,7 +71,17 @@ var (
 	ErrContextDoneBeforeResponseQuorum = errors.New("context done before remote client received a quorum of responses")
 )
 
-func NewClient(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *client {
+// ClientOption configures a client.
+type ClientOption func(*client)
+
+// WithAggregatorFactory overrides the response aggregator used to decide the
+// outcome of requests created through this client. Nil keeps the default
+// quorum aggregator.
+func WithAggregatorFactory(f request.AggregatorFactory) ClientOption {
+	return func(c *client) { c.aggregatorFactory = f }
+}
+
+func NewClient(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger, opts ...ClientOption) *client {
 	c := &client{
 		capabilityID:             capabilityID,
 		capMethodName:            capMethodName,
@@ -76,6 +89,9 @@ func NewClient(capabilityID, capMethodName string, dispatcher types.Dispatcher, 
 		lggr:                     logger.With(logger.Named(lggr, "ExecutableCapabilityClient"), "capabilityID", capabilityID, "capMethodName", capMethodName),
 		requestIDToCallerRequest: make(map[string]*request.ClientRequest),
 		stopCh:                   make(services.StopChan),
+	}
+	for _, opt := range opts {
+		opt(c)
 	}
 	return c
 }
@@ -95,15 +111,17 @@ func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localD
 		return errors.New("requestTimeout must be positive")
 	}
 
-	// always replace the whole dynamicConfig object to avoid inconsistent state
-	c.cfg.Store(&dynamicConfig{
+	newCfg := &dynamicConfig{
 		remoteCapabilityInfo:    remoteCapabilityInfo,
 		localDONInfo:            localDonInfo,
 		requestTimeout:          requestTimeout,
 		signers:                 signers,
 		minResponsesToAggregate: minResponsesToAggregate,
-	})
-	c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout)
+	}
+	// always replace the whole dynamicConfig object to avoid inconsistent state
+	if prev := c.cfg.Swap(newCfg); prev == nil || !reflect.DeepEqual(*prev, *newCfg) {
+		c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout, "minResponsesToAggregate", minResponsesToAggregate)
+	}
 	return nil
 }
 
@@ -114,15 +132,6 @@ func (c *client) Start(ctx context.Context) error {
 		// Validate that all required fields are set before starting
 		if cfg == nil {
 			return errors.New("config not set - call SetConfig() before Start()")
-		}
-		if cfg.remoteCapabilityInfo.ID == "" {
-			return errors.New("remote capability info not set - call SetConfig() before Start()")
-		}
-		if len(cfg.localDONInfo.Members) == 0 {
-			return errors.New("local DON info not set - call SetConfig() before Start()")
-		}
-		if cfg.requestTimeout <= 0 {
-			return errors.New("request timeout not set - call SetConfig() before Start()")
 		}
 		if c.dispatcher == nil {
 			return errors.New("dispatcher set to nil, cannot start client")
@@ -237,8 +246,20 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 		return commoncap.CapabilityResponse{}, errors.New("config not set - call SetConfig() before Execute()")
 	}
 
-	req, err := request.NewClientExecuteRequest(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
-		cfg.requestTimeout, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate)
+	var agg request.ResponseAggregator
+	if c.aggregatorFactory != nil {
+		agg = c.aggregatorFactory(capReq, *cfg.remoteCapabilityInfo.DON)
+	}
+
+	var req *request.ClientRequest
+	var err error
+	if agg != nil {
+		req, err = request.NewClientExecuteRequestWithAggregator(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
+			cfg.requestTimeout, c.capMethodName, agg)
+	} else {
+		req, err = request.NewClientExecuteRequest(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
+			cfg.requestTimeout, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate)
+	}
 	if err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to create client request: %w", err)
 	}

@@ -13,6 +13,9 @@ const (
 	SuiteScenarioHTTPActionMultiGateway
 	SuiteScenarioDONTime
 	SuiteScenarioConsensus
+	SuiteScenarioVaultDirectRead
+	SuiteScenarioVaultDirectReadErrors
+	SuiteScenarioExecutionMetadata
 	SuiteScenarioLen
 )
 
@@ -32,8 +35,14 @@ func (s SuiteScenario) String() string {
 		return "HTTPActionMultiGateway"
 	case SuiteScenarioDONTime:
 		return "DONTime"
+	case SuiteScenarioExecutionMetadata:
+		return "ExecutionMetadata"
 	case SuiteScenarioConsensus:
 		return "Consensus"
+	case SuiteScenarioVaultDirectRead:
+		return "VaultDirectRead"
+	case SuiteScenarioVaultDirectReadErrors:
+		return "VaultDirectReadErrors"
 	default:
 		return fmt.Sprintf("unknown SuiteScenario: %d", s)
 	}
@@ -46,6 +55,9 @@ const (
 	SuiteBucketA SuiteBucket = "suite-bucket-a"
 	SuiteBucketB SuiteBucket = "suite-bucket-b"
 	SuiteBucketC SuiteBucket = "suite-bucket-c"
+
+	SuiteBucketVaultDirectRead       SuiteBucket = "suite-bucket-vault-direct-read"
+	SuiteBucketVaultDirectReadErrors SuiteBucket = "suite-bucket-vault-direct-read-errors"
 )
 
 type suiteBucketDefinition struct {
@@ -65,6 +77,7 @@ var suiteBucketRegistry = []suiteBucketDefinition{
 			SuiteScenarioHTTPTriggerAction,
 			SuiteScenarioDONTime,
 			SuiteScenarioConsensus,
+			SuiteScenarioExecutionMetadata,
 		},
 	},
 	{
@@ -79,6 +92,18 @@ var suiteBucketRegistry = []suiteBucketDefinition{
 			SuiteScenarioCronChipIngressStack,
 			SuiteScenarioHTTPActionCRUD,
 			SuiteScenarioHTTPActionMultiGateway,
+		},
+	},
+	{
+		Bucket: SuiteBucketVaultDirectRead,
+		Scenarios: []SuiteScenario{
+			SuiteScenarioVaultDirectRead,
+		},
+	},
+	{
+		Bucket: SuiteBucketVaultDirectReadErrors,
+		Scenarios: []SuiteScenario{
+			SuiteScenarioVaultDirectReadErrors,
 		},
 	},
 }

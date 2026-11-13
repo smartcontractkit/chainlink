@@ -1906,7 +1906,7 @@ This allows staged rollout: capabilities not matching any pattern continue launc
 while matching capabilities transition to registry-based launching.
 Examples (using single-quoted TOML strings where backslashes are literal):
 - '^cron@1\.0\.0$' matches exactly "cron@1.0.0"
-- '^http-action@.*$' matches any version of http-action
+- '^http-actions@.*$' matches any version of http-actions
 - '.*' matches all capabilities
 
 ### UseOffchainRegistry
@@ -16625,6 +16625,7 @@ ReadRequestsToMultipleNodes = false # Example
 Bundles = false # Example
 FastlaneAuctionRequestTimeout = '5s' # Example
 FeeBoost = false # Default
+FeeMultiplier = '1' # Example
 ```
 
 
@@ -16681,6 +16682,16 @@ FastlaneAuctionRequestTimeout configures the timeout for fastlane auction reques
 FeeBoost = false # Default
 ```
 FeeBoost enables node to immediately boost txs to the max gas price configured
+
+### FeeMultiplier
+```toml
+FeeMultiplier = '1' # Example
+```
+FeeMultiplier multiplies freshly estimated TxM v2 priority fees and legacy gas prices.
+For EIP-1559, the priority fee increase is added to the fee cap, preserving its existing base-fee buffer.
+Values must be at least 1. Results are rounded down to whole wei and capped by the sender's maximum gas price.
+With FeeBoost enabled, GasEstimator.PriceDefault is a floor for the multiplied priority fee or legacy gas price.
+Applies with or without FeeBoost. Replacement bumps use the multiplied fee without applying the multiplier again.
 
 ## EVM.BalanceMonitor
 ```toml

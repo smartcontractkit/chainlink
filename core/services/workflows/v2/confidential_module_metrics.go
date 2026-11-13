@@ -13,6 +13,13 @@ import (
 
 const enclaveLastFailureTimestamp = "enclave_execution_last_failure_timestamp_seconds"
 
+// enclaveExecutionBucketsMs spans HTTP-speed round trips through multi-minute
+// workflow executions; the SDK default buckets stop at 10s.
+var enclaveExecutionBucketsMs = []float64{
+	10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000,
+	15_000, 20_000, 30_000, 45_000, 60_000, 90_000, 120_000, 300_000,
+}
+
 // These metrics measure the enclave round-trip on the node, not in the enclave.
 type confidentialModuleMetrics struct {
 	executionDuration metric.Int64Histogram
@@ -28,7 +35,8 @@ type confidentialModuleMetrics struct {
 }
 
 func newConfidentialModuleMetrics(meter metric.Meter, workflowID, workflowOwner, workflowName string) (*confidentialModuleMetrics, error) {
-	executionDuration, err := meter.Int64Histogram("enclave_execution_time_ms")
+	executionDuration, err := meter.Int64Histogram("enclave_execution_time_ms",
+		metric.WithExplicitBucketBoundaries(enclaveExecutionBucketsMs...))
 	if err != nil {
 		return nil, err
 	}

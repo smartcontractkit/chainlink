@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
@@ -38,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/beholderhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/otelhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/promhealth"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	commoncresettings "github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -213,6 +215,12 @@ type ApplicationOpts struct {
 	DonTimeStore           *dontime.Store
 	// BeholderClient is the node's Beholder client. Required when TelemetryIngress.BeholderEnabled is set.
 	BeholderClient *beholder.Client
+	// LLOKeyValueDatabaseFactory replaces the on-disk store LLO v31 jobs use.
+	// Tests only.
+	LLOKeyValueDatabaseFactory ocr3_1types.KeyValueDatabaseFactory
+	// LLONetworkEndpointWrapper wraps the network endpoint factories LLO jobs
+	// use. Tests only.
+	LLONetworkEndpointWrapper ocr2.LLONetworkEndpointWrapper
 }
 
 // safeDefaultBootstrappers returns the configured default bootstrappers from
@@ -240,6 +248,14 @@ func safeExternalRegistryChainID(cfg GeneralConfig) string {
 		return ""
 	}
 	return cfg.Capabilities().ExternalRegistry().ChainID()
+}
+
+// localShardIndex returns this node's shard index, or 0 when sharding is disabled.
+func localShardIndex(s config.Sharding) uint32 {
+	if s == nil || !s.ShardingEnabled() {
+		return 0
+	}
+	return uint32(s.ShardIndex())
 }
 
 // NewApplication initializes a new store if one is not already
@@ -312,9 +328,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to marshal cre settings TOML: %w", err)
 	}
 	globalLogger.Debugf("# CRESettings defaults: \n%s", creSettingsTOML)
-	atomicSettings := &loop.AtomicSettings{}
+	atomicSettings := &settings.Atomic{}
 	atomicSettings.SetGetter(commoncresettings.DefaultGetter)
-	shardAssignmentSettings := &loop.AtomicSettings{}
+	shardAssignmentSettings := &settings.Atomic{}
 	offchainCapRegistry := globalconfig.New()
 	limitsFactory := limits.Factory{
 		Meter:    meter,
@@ -746,7 +762,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings, offchainCapRegistry)
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
-	stdcapDelegate := standardcapabilities.NewDelegate(
+	stdcapDelegate, err := standardcapabilities.NewDelegate(
 		globalLogger,
 		opts.DS, jobORM,
 		opts.CapabilitiesRegistry,
@@ -764,7 +780,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		safeDefaultBootstrappers(cfg),
 		safeExternalRegistryAddress(cfg),
 		safeExternalRegistryChainID(cfg),
+		localShardIndex(cfg.Sharding()),
+		limitsFactory,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create standard capabilities delegate: %w", err)
+	}
 	delegates[job.StandardCapabilities] = stdcapDelegate
 	if creServices.SetDelegatesDeps != nil {
 		depSvc, depErr := creServices.SetDelegatesDeps(stdcapDelegate)
@@ -828,6 +849,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				CapRegistryAddress:             safeExternalRegistryAddress(cfg),
 				CapRegistryChainID:             safeExternalRegistryChainID(cfg),
 				LocalCfg:                       cfg.Capabilities().Local(),
+				LLOKeyValueDatabaseFactory:     opts.LLOKeyValueDatabaseFactory,
+				LLONetworkEndpointWrapper:      opts.LLONetworkEndpointWrapper,
 			},
 			ocr2DelegateConfig,
 		)

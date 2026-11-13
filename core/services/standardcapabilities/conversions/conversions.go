@@ -9,6 +9,11 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 )
 
+const (
+	CronCmd   = "cron"
+	CronV2Cmd = "cronv2"
+)
+
 // WARNING: Hacky and brittle - used during the current std-capability transition to map
 // job commands back to capability IDs. The standard-capability delegate still needs this
 // for registry-based launch allowlisting and OCR config wiring, including remote caps like Aptos.
@@ -68,7 +73,9 @@ func GetCapabilityIDFromCommand(command string, config string) string {
 		return "stellar:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
 	case "consensus":
 		return "consensus@1.0.0-alpha"
-	case "cron":
+	case CronCmd:
+		return "cron-trigger@1.0.0"
+	case CronV2Cmd:
 		return "cron-trigger@1.0.0"
 	case "http_trigger":
 		return "http-trigger@1.0.0-alpha"
@@ -101,7 +108,7 @@ func GetCommandFromCapabilityID(capabilityID string) string {
 		// mapping exists for completeness of the conversion table.
 		return "dontime"
 	case strings.HasPrefix(capabilityID, "cron-trigger"):
-		return "cron"
+		return CronCmd
 	case strings.HasPrefix(capabilityID, "http-trigger"):
 		return "http_trigger"
 	case strings.HasPrefix(capabilityID, "http-actions"):

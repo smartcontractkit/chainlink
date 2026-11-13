@@ -6,11 +6,11 @@ import (
 	"crypto/rand"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	dispatchermocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -110,34 +109,6 @@ func makeStatusMsg(workflowID, triggerEventID, executionID string, status ringpb
 
 // --- tests ---
 
-func TestShardFailoverCommunicator_SendSetsCapabilityID(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-
-	mockDisp := dispatchermocks.NewDispatcher(t)
-	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12), makeTestPeerID(13))
-	secondaryDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22), makeTestPeerID(23))
-
-	var sentBodies []*remotetypes.MessageBody
-	mockDisp.On("Send", mock.Anything, mock.MatchedBy(func(body *remotetypes.MessageBody) bool {
-		sentBodies = append(sentBodies, body)
-		return true
-	})).Return(nil)
-
-	comm := NewShardFailoverCommunicator(mockDisp, primaryDON.ID, logger.Test(t))
-
-	msg := makeStatusMsg("wf-1", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
-	comm.Send(ctx, msg, secondaryDON)
-
-	require.Len(t, sentBodies, len(secondaryDON.Members), "should send to all secondary members")
-	for _, body := range sentBodies {
-		assert.Equal(t, ShardExecutionStatusUpdateCapabilityID, body.CapabilityId)
-		assert.Equal(t, remotetypes.MethodExecutionStatusUpdate, body.CapabilityMethod)
-		assert.Equal(t, secondaryDON.ID, body.CapabilityDonId)
-		assert.Equal(t, primaryDON.ID, body.CallerDonId)
-	}
-}
-
 func TestShardFailoverCommunicator_MultipleWorkflowsNoConflict(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
@@ -162,18 +133,9 @@ func TestShardFailoverCommunicator_MultipleWorkflowsNoConflict(t *testing.T) {
 
 	sendStatusUpdate := func(workflowID, triggerEventID, executionID string) {
 		msg := makeStatusMsg(workflowID, triggerEventID, executionID, ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
-		payload, _ := proto.Marshal(msg)
 		// 2F+1 = 3 matching messages needed for quorum
 		for _, peer := range primaryDON.Members[:3] {
-			require.NoError(t, disp.Send(peer, &remotetypes.MessageBody{
-				CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
-				Method:           remotetypes.MethodExecutionStatusUpdate,
-				CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
-				CapabilityDonId:  localDON.ID,
-				CallerDonId:      primaryDON.ID,
-				Payload:          payload,
-				Sender:           peer[:],
-			}))
+			require.NoError(t, disp.Send(peer, statusBody(t, localDON, primaryDON, peer, msg)))
 		}
 	}
 
@@ -223,6 +185,9 @@ func TestShardFailoverCommunicator_EndToEndSendReceive(t *testing.T) {
 
 	sentBodies := disp.getSentBodies()
 	require.Len(t, sentBodies, len(secondaryDON.Members))
+	for _, body := range sentBodies {
+		assert.Equal(t, primaryDON.ID, body.CallerDonId)
+	}
 
 	// Feed 3 messages from different primary peers (2F+1 = 3 quorum).
 	for i := range 3 {
@@ -258,27 +223,15 @@ func TestShardFailoverCommunicator_QuorumRequired(t *testing.T) {
 	})
 
 	msg := makeStatusMsg("wf-1", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
-	payload, _ := proto.Marshal(msg)
-
-	body := &remotetypes.MessageBody{
-		CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
-		Method:           remotetypes.MethodExecutionStatusUpdate,
-		CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
-		CapabilityDonId:  localDON.ID,
-		CallerDonId:      primaryDON.ID,
-		Payload:          payload,
-		Sender:           primaryDON.Members[0][:],
-	}
+	body := statusBody(t, localDON, primaryDON, primaryDON.Members[0], msg)
 	comm.Receive(ctx, body)
 
-	time.Sleep(100 * time.Millisecond)
 	assert.False(t, handlerCalled, "handler should not be called before quorum")
 
 	// Send second message — 2 votes, still not enough (need 2F+1 = 3).
 	body.Sender = primaryDON.Members[1][:]
 	comm.Receive(ctx, body)
 
-	time.Sleep(100 * time.Millisecond)
 	assert.False(t, handlerCalled, "handler should not be called with only 2 matching")
 
 	// Third message reaches 2F+1 = 3 quorum.
@@ -288,33 +241,108 @@ func TestShardFailoverCommunicator_QuorumRequired(t *testing.T) {
 	assert.True(t, handlerCalled, "handler should be called after 2F+1 quorum")
 }
 
-func TestShardFailoverCommunicator_UnregisteredWorkflowDropped(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-
-	disp := newInMemDispatcher()
-	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
-	primaryDON := makeTestDON(1, 0, makeTestPeerID(10))
-
-	comm := NewShardFailoverCommunicator(disp, localDON.ID, logger.Test(t))
-	require.NoError(t, comm.Start(ctx))
-	t.Cleanup(func() { _ = comm.Close() })
-
-	msg := makeStatusMsg("wf-unknown", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
-	payload, _ := proto.Marshal(msg)
-
-	body := &remotetypes.MessageBody{
+func statusBody(t *testing.T, localDON, primaryDON commoncap.DON, sender ragetypes.PeerID, msg *ringpb.ExecutionStatusUpdate) *remotetypes.MessageBody {
+	t.Helper()
+	payload, err := proto.Marshal(msg)
+	require.NoError(t, err)
+	return &remotetypes.MessageBody{
 		CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
 		Method:           remotetypes.MethodExecutionStatusUpdate,
 		CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
 		CapabilityDonId:  localDON.ID,
 		CallerDonId:      primaryDON.ID,
 		Payload:          payload,
-		Sender:           primaryDON.Members[0][:],
+		Sender:           sender[:],
 	}
-	assert.NotPanics(t, func() {
-		comm.Receive(ctx, body)
-	})
+}
+
+func TestShardFailoverCommunicator_NoRedeliveryAfterQuorum(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+
+	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22), makeTestPeerID(23))
+	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12), makeTestPeerID(13))
+
+	comm := NewShardFailoverCommunicator(newInMemDispatcher(), localDON.ID, logger.Test(t))
+	require.NoError(t, comm.Start(ctx))
+	t.Cleanup(func() { _ = comm.Close() })
+
+	var calls atomic.Int32
+	comm.RegisterHandler("wf-1", primaryDON, func(*ringpb.ExecutionStatusUpdate) { calls.Add(1) })
+
+	msg := makeStatusMsg("wf-1", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
+	for _, sender := range primaryDON.Members[:3] {
+		comm.Receive(ctx, statusBody(t, localDON, primaryDON, sender, msg))
+	}
+	require.Equal(t, int32(1), calls.Load())
+
+	// replaying the same report from every primary peer is enough votes for
+	// another quorum, but it must not redeliver
+	for _, sender := range primaryDON.Members {
+		comm.Receive(ctx, statusBody(t, localDON, primaryDON, sender, msg))
+	}
+	require.Equal(t, int32(1), calls.Load())
+}
+
+func TestShardFailoverCommunicator_PrunesExpiredEntries(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+
+	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22), makeTestPeerID(23))
+	primaryDON := makeTestDON(1, 1, makeTestPeerID(10), makeTestPeerID(11), makeTestPeerID(12), makeTestPeerID(13))
+
+	comm := NewShardFailoverCommunicator(newInMemDispatcher(), localDON.ID, logger.Test(t))
+	comm.expiryDuration = 50 * time.Millisecond
+	require.NoError(t, comm.Start(ctx))
+	t.Cleanup(func() { _ = comm.Close() })
+
+	var calls atomic.Int32
+	comm.RegisterHandler("wf-1", primaryDON, func(*ringpb.ExecutionStatusUpdate) { calls.Add(1) })
+	sizes := func() (pending, delivered int) {
+		comm.quorumMu.Lock()
+		defer comm.quorumMu.Unlock()
+		return len(comm.pending), len(comm.delivered)
+	}
+
+	// a report that never reaches quorum is dropped from pending
+	partial := makeStatusMsg("wf-1", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
+	comm.Receive(ctx, statusBody(t, localDON, primaryDON, primaryDON.Members[0], partial))
+	pending, _ := sizes()
+	require.Equal(t, 1, pending)
+	require.Eventually(t, func() bool { p, _ := sizes(); return p == 0 }, 2*time.Second, 10*time.Millisecond)
+
+	// a delivered update is forgotten, so the same quorum can fire again
+	done := makeStatusMsg("wf-1", "evt-2", "exec-2", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
+	deliver := func() {
+		for _, sender := range primaryDON.Members[:3] {
+			comm.Receive(ctx, statusBody(t, localDON, primaryDON, sender, done))
+		}
+	}
+	deliver()
+	require.Equal(t, int32(1), calls.Load())
+	require.Eventually(t, func() bool { _, d := sizes(); return d == 0 }, 2*time.Second, 10*time.Millisecond)
+	deliver()
+	require.Equal(t, int32(2), calls.Load())
+}
+
+func TestShardFailoverCommunicator_UnregisteredWorkflowDropped(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+
+	localDON := makeTestDON(2, 1, makeTestPeerID(20), makeTestPeerID(21), makeTestPeerID(22))
+	primaryDON := makeTestDON(1, 0, makeTestPeerID(10))
+
+	comm := NewShardFailoverCommunicator(newInMemDispatcher(), localDON.ID, logger.Test(t))
+	require.NoError(t, comm.Start(ctx))
+	t.Cleanup(func() { _ = comm.Close() })
+
+	msg := makeStatusMsg("wf-unknown", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
+	comm.Receive(ctx, statusBody(t, localDON, primaryDON, primaryDON.Members[0], msg))
+
+	comm.quorumMu.Lock()
+	defer comm.quorumMu.Unlock()
+	assert.Empty(t, comm.pending, "report for an unregistered workflow must not be tracked")
+	assert.Empty(t, comm.delivered)
 }
 
 func TestShardFailoverCommunicator_UnregisterHandler(t *testing.T) {
@@ -336,17 +364,7 @@ func TestShardFailoverCommunicator_UnregisterHandler(t *testing.T) {
 	comm.UnregisterHandler("wf-1")
 
 	msg := makeStatusMsg("wf-1", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
-	payload, _ := proto.Marshal(msg)
-
-	body := &remotetypes.MessageBody{
-		CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
-		Method:           remotetypes.MethodExecutionStatusUpdate,
-		CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
-		CapabilityDonId:  localDON.ID,
-		CallerDonId:      primaryDON.ID,
-		Payload:          payload,
-		Sender:           primaryDON.Members[0][:],
-	}
+	body := statusBody(t, localDON, primaryDON, primaryDON.Members[0], msg)
 	comm.Receive(ctx, body)
 	assert.False(t, handlerCalled, "handler should not be called after unregister")
 }
@@ -374,17 +392,7 @@ func TestShardFailoverCommunicator_IgnoresUnknownPeer(t *testing.T) {
 	require.NoError(t, err)
 
 	msg := makeStatusMsg("wf-1", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
-	payload, _ := proto.Marshal(msg)
-
-	body := &remotetypes.MessageBody{
-		CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
-		Method:           remotetypes.MethodExecutionStatusUpdate,
-		CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
-		CapabilityDonId:  localDON.ID,
-		CallerDonId:      primaryDON.ID,
-		Payload:          payload,
-		Sender:           unknownRagePeerID[:],
-	}
+	body := statusBody(t, localDON, primaryDON, unknownRagePeerID, msg)
 	comm.Receive(ctx, body)
 	assert.False(t, handlerCalled, "handler should not be called for unknown peer")
 }
@@ -416,17 +424,8 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 
 	// Send from primaryDONA members for wf-A
 	msgA := makeStatusMsg("wf-A", "evt-A", "exec-A", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDONA.ID)
-	payloadA, _ := proto.Marshal(msgA)
 	for _, peer := range primaryDONA.Members[:3] {
-		require.NoError(t, disp.Send(peer, &remotetypes.MessageBody{
-			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
-			Method:           remotetypes.MethodExecutionStatusUpdate,
-			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
-			CapabilityDonId:  localDON.ID,
-			CallerDonId:      primaryDONA.ID,
-			Payload:          payloadA,
-			Sender:           peer[:],
-		}))
+		require.NoError(t, disp.Send(peer, statusBody(t, localDON, primaryDONA, peer, msgA)))
 	}
 	select {
 	case got := <-wfAReceived:
@@ -437,17 +436,8 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 
 	// Send from primaryDONB members for wf-B
 	msgB := makeStatusMsg("wf-B", "evt-B", "exec-B", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDONB.ID)
-	payloadB, _ := proto.Marshal(msgB)
 	for _, peer := range primaryDONB.Members[:3] {
-		require.NoError(t, disp.Send(peer, &remotetypes.MessageBody{
-			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
-			Method:           remotetypes.MethodExecutionStatusUpdate,
-			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
-			CapabilityDonId:  localDON.ID,
-			CallerDonId:      primaryDONB.ID,
-			Payload:          payloadB,
-			Sender:           peer[:],
-		}))
+		require.NoError(t, disp.Send(peer, statusBody(t, localDON, primaryDONB, peer, msgB)))
 	}
 	select {
 	case got := <-wfBReceived:
@@ -457,15 +447,7 @@ func TestShardFailoverCommunicator_DifferentWorkflowsDifferentPrimaryDONs(t *tes
 	}
 
 	// Verify messages from primaryDONA are rejected for wf-B (different primary)
-	bodyFromA := &remotetypes.MessageBody{
-		CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
-		Method:           remotetypes.MethodExecutionStatusUpdate,
-		CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
-		CapabilityDonId:  localDON.ID,
-		CallerDonId:      primaryDONA.ID,
-		Payload:          payloadB,
-		Sender:           primaryDONA.Members[0][:],
-	}
+	bodyFromA := statusBody(t, localDON, primaryDONA, primaryDONA.Members[0], msgB)
 	comm.Receive(ctx, bodyFromA)
 	select {
 	case <-wfBReceived:
@@ -498,47 +480,33 @@ func TestShardFailoverCommunicator_MixedStatusesCountedSeparately(t *testing.T) 
 	msgSuccess := makeStatusMsg("wf-1", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, primaryDON.ID)
 	msgError := makeStatusMsg("wf-1", "evt-1", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR, primaryDON.ID)
 
-	payloadSuccess, _ := proto.Marshal(msgSuccess)
-	payloadError, _ := proto.Marshal(msgError)
-
-	makeBody := func(payload []byte, senderIdx int) *remotetypes.MessageBody {
-		return &remotetypes.MessageBody{
-			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
-			Method:           remotetypes.MethodExecutionStatusUpdate,
-			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
-			CapabilityDonId:  localDON.ID,
-			CallerDonId:      primaryDON.ID,
-			Payload:          payload,
-			Sender:           primaryDON.Members[senderIdx][:],
-		}
+	makeBody := func(msg *ringpb.ExecutionStatusUpdate, senderIdx int) *remotetypes.MessageBody {
+		return statusBody(t, localDON, primaryDON, primaryDON.Members[senderIdx], msg)
 	}
 
 	// Peer 0 reports SUCCESS — 1 vote for SUCCESS (quorum = 3, not reached).
-	comm.Receive(ctx, makeBody(payloadSuccess, 0))
-	time.Sleep(50 * time.Millisecond)
+	comm.Receive(ctx, makeBody(msgSuccess, 0))
 	receivedMu.Lock()
 	assert.Equal(t, ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED, receivedStatus,
 		"handler should not be called yet — no status has 2F+1 votes")
 	receivedMu.Unlock()
 
 	// Peer 1 reports SYSTEM_ERROR — 1 vote for SYSTEM_ERROR (still not reached).
-	comm.Receive(ctx, makeBody(payloadError, 1))
-	time.Sleep(50 * time.Millisecond)
+	comm.Receive(ctx, makeBody(msgError, 1))
 	receivedMu.Lock()
 	assert.Equal(t, ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED, receivedStatus,
 		"handler should not be called — neither status has 2F+1 votes")
 	receivedMu.Unlock()
 
 	// Peer 2 reports SYSTEM_ERROR — 2 votes for SYSTEM_ERROR (still not enough).
-	comm.Receive(ctx, makeBody(payloadError, 2))
-	time.Sleep(50 * time.Millisecond)
+	comm.Receive(ctx, makeBody(msgError, 2))
 	receivedMu.Lock()
 	assert.Equal(t, ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED, receivedStatus,
 		"handler should not be called — SYSTEM_ERROR has only 2 votes, need 3")
 	receivedMu.Unlock()
 
 	// Peer 3 reports SYSTEM_ERROR — 3 votes for SYSTEM_ERROR (2F+1 quorum reached).
-	comm.Receive(ctx, makeBody(payloadError, 3))
+	comm.Receive(ctx, makeBody(msgError, 3))
 
 	receivedMu.Lock()
 	assert.Equal(t, ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR, receivedStatus,
@@ -574,34 +542,21 @@ func TestShardFailoverCommunicator_FaultyPeerCannotForgeTriggerEventID(t *testin
 	// Same workflow and execution ID, different trigger event ID.
 	forged := makeStatusMsg("wf-1", "evt-forged", "exec-1", ringpb.ExecutionStatus_EXECUTION_STATUS_SYSTEM_ERROR, primaryDON.ID)
 
-	honestPayload, err := proto.Marshal(honest)
-	require.NoError(t, err)
-	forgedPayload, err := proto.Marshal(forged)
-	require.NoError(t, err)
-
-	makeBody := func(payload []byte, senderIdx int) *remotetypes.MessageBody {
-		return &remotetypes.MessageBody{
-			CapabilityId:     ShardExecutionStatusUpdateCapabilityID,
-			Method:           remotetypes.MethodExecutionStatusUpdate,
-			CapabilityMethod: remotetypes.MethodExecutionStatusUpdate,
-			CapabilityDonId:  localDON.ID,
-			CallerDonId:      primaryDON.ID,
-			Payload:          payload,
-			Sender:           primaryDON.Members[senderIdx][:],
-		}
+	makeBody := func(msg *ringpb.ExecutionStatusUpdate, senderIdx int) *remotetypes.MessageBody {
+		return statusBody(t, localDON, primaryDON, primaryDON.Members[senderIdx], msg)
 	}
 
 	// Two honest votes, then the faulty peer casts the third vote.
-	comm.Receive(ctx, makeBody(honestPayload, 0))
-	comm.Receive(ctx, makeBody(honestPayload, 1))
-	comm.Receive(ctx, makeBody(forgedPayload, 3))
+	comm.Receive(ctx, makeBody(honest, 0))
+	comm.Receive(ctx, makeBody(honest, 1))
+	comm.Receive(ctx, makeBody(forged, 3))
 
 	receivedMu.Lock()
 	assert.Empty(t, received, "forged vote must not complete quorum for the honest update")
 	receivedMu.Unlock()
 
 	// Third honest vote reaches quorum.
-	comm.Receive(ctx, makeBody(honestPayload, 2))
+	comm.Receive(ctx, makeBody(honest, 2))
 
 	receivedMu.Lock()
 	defer receivedMu.Unlock()

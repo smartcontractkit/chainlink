@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/config"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
@@ -33,16 +36,29 @@ To execute tests start the local CRE first:
  1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-chip-ingress-stack` (deprecated: `--with-beholder`)
  2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_"`.
 */
+//nolint:paralleltest // scenario runner manages configured parallelism
 func Test_CRE_V2_Suite_Bucket_A(t *testing.T) {
 	runSuiteBucket(t, suite_config.SuiteBucketA)
 }
 
+//nolint:paralleltest // scenario runner manages configured parallelism
 func Test_CRE_V2_Suite_Bucket_B(t *testing.T) {
 	runSuiteBucket(t, suite_config.SuiteBucketB)
 }
 
+//nolint:paralleltest // scenario runner manages configured parallelism
 func Test_CRE_V2_Suite_Bucket_C(t *testing.T) {
 	runSuiteBucket(t, suite_config.SuiteBucketC)
+}
+
+//nolint:paralleltest // suite runner owns environment setup; parallelism is managed by the scenario runner
+func Test_CRE_V2_Suite_VaultDirectRead(t *testing.T) {
+	runSuiteBucket(t, suite_config.SuiteBucketVaultDirectRead)
+}
+
+//nolint:paralleltest // suite runner owns environment setup; parallelism is managed by the scenario runner
+func Test_CRE_V2_Suite_VaultDirectReadErrors(t *testing.T) {
+	runSuiteBucket(t, suite_config.SuiteBucketVaultDirectReadErrors)
 }
 
 func runSuiteBucket(t *testing.T, bucket suite_config.SuiteBucket) {
@@ -138,6 +154,31 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				ExecuteVaultReadSecretsWithReshareFlagsTest(t, fixture, reshareEnv)
 			})
 		})
+	case suite_config.SuiteScenarioVaultDirectRead:
+		t.Run("Vault Direct Read - "+topology, func(t *testing.T) {
+			t_helpers.SkipIfMixedEnv(t, "vault direct-read behavior is absent in baseline images; the direct-path log assertions cannot pass until the feature lands in develop")
+			if parallelEnabled {
+				t.Parallel()
+			}
+			fixture := setupVaultSharedScenarioFixture(t, getVaultDefaultTestConfig(t))
+			testEnv := fixture.TestEnv
+			if parallelEnabled {
+				testEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+			}
+			ExecuteVaultDirectReadTests(t, fixture, testEnv)
+		})
+	case suite_config.SuiteScenarioVaultDirectReadErrors:
+		t.Run("Vault Direct Read Errors - "+topology, func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
+			fixture := setupVaultSharedScenarioFixture(t, getVaultDefaultTestConfig(t))
+			testEnv := fixture.TestEnv
+			if parallelEnabled {
+				testEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+			}
+			ExecuteVaultDirectReadErrorsTests(t, fixture, testEnv)
+		})
 	case suite_config.SuiteScenarioCronChipIngressStack:
 		t.Run("Cron Beholder - "+topology, func(t *testing.T) {
 			if parallelEnabled {
@@ -179,8 +220,35 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			if parallelEnabled {
 				t.Parallel()
 			}
+			for _, tc := range []struct {
+				name      string
+				sequenced bool
+			}{
+				{"sequenced", true},
+				{"unsequenced", false},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					if parallelEnabled {
+						t.Parallel()
+					}
+					testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
+					if tc.sequenced {
+						t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(fmt.Sprintf(`DonTimeSequencedTimestampsActivePeriod = '%s'`,
+							settings.Range[config.Timestamp]{Lower: config.NewTimestamp(time.Now()), Upper: config.NewTimestamp(time.Now().Add(1 * time.Hour))}.String())))
+					}
+					ExecuteDonTimeTest(t, testEnv)
+				})
+			}
+		})
+	case suite_config.SuiteScenarioExecutionMetadata:
+		t.Run("Workflow Execution Metadata - "+topology, func(t *testing.T) {
+			// TODO: (CRE-5839) Remove this skip once baseline images supply execution metadata.
+			t_helpers.SkipIfMixedEnv(t, "baseline nodes do not generate execution metadata, hence failing consensus; enable in version 2.75.0+")
+			if parallelEnabled {
+				t.Parallel()
+			}
 			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
-			ExecuteDonTimeTest(t, testEnv)
+			ExecuteWorkflowExecutionMetadataTest(t, testEnv)
 		})
 	case suite_config.SuiteScenarioConsensus:
 		t.Run("Consensus - "+topology, func(t *testing.T) {
@@ -214,14 +282,17 @@ func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // read cases share one environment and run sequentially
 func Test_CRE_V2_EVM_Read_HeavyCalls(t *testing.T) {
 	runEVMReadBucket(t, evm_config.ReadBucketHeavyCalls)
 }
 
+//nolint:paralleltest // read cases share one environment and run sequentially
 func Test_CRE_V2_EVM_Read_StateQueries(t *testing.T) {
 	runEVMReadBucket(t, evm_config.ReadBucketStateQueries)
 }
 
+//nolint:paralleltest // read cases share one environment and run sequentially
 func Test_CRE_V2_EVM_Read_TxArtifacts(t *testing.T) {
 	runEVMReadBucket(t, evm_config.ReadBucketTxArtifacts)
 }
@@ -248,6 +319,7 @@ func Test_CRE_V2_Solana_Write(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // subtests share the environment and root signing key
 func Test_CRE_V2_Solana_LogTrigger(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana LogTrigger", func(t *testing.T) {
@@ -285,6 +357,7 @@ func runSolanaReadBucket(t *testing.T, bucket solana_config.ReadBucket) {
 	})
 }
 
+//nolint:paralleltest // uses the shared environment and root signing key
 func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-aptos.toml"))
 	t.Run("Aptos", func(t *testing.T) {
@@ -320,24 +393,28 @@ func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // uses the shared environment and root signing key
 func Test_CRE_V2_Module_Cache(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-cache-test.toml"))
 
 	ExecuteModuleCacheTest(t, testEnv)
 }
 
+//nolint:paralleltest // uses the shared environment and root signing key
 func Test_CRE_V2_HTTP_Action_Regression_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	ExecuteHTTPActionRegressionTest(t, testEnv)
 }
 
+//nolint:paralleltest // uses the shared environment and observability stack
 func Test_CRE_V2_Beholder_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), "--with-dashboards")
 
 	ExecuteLogStreamingTest(t, testEnv)
 }
 
+//nolint:paralleltest // uses the shared environment and root signing key
 func Test_CRE_V2_DurableEmitter(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	ExecuteDurableEmitterTest(t, testEnv)

@@ -36,6 +36,11 @@ var (
 	// event back for possible replay (e.g. shard failover). The caller drops it
 	// without ACKing.
 	ErrAdmissionCached = errors.New("admission: event cached for failover")
+
+	// ErrShardDeniedNotOwner and ErrShardDeniedOrchestrator are the shard
+	// ownership denials. They wrap ErrAdmissionDenied.
+	ErrShardDeniedNotOwner     = fmt.Errorf("shard ownership denied: not owner: %w", ErrAdmissionDenied)
+	ErrShardDeniedOrchestrator = fmt.Errorf("shard ownership denied: orchestrator error: %w", ErrAdmissionDenied)
 )
 
 // Handle is a registered trigger capability plus the registration
@@ -82,10 +87,8 @@ var (
 
 // EventSink is how trigger events are delivered to an engine for execution.
 type EventSink interface {
-	// ExecuteTrigger should start a workflow execution. Engines perform no
-	// admission checks; a wrapper that does (e.g. the shard failover manager)
-	// reports the outcome with the admission errors below and leaves acting on
-	// it to the caller, which holds the trigger handles.
+	// ExecuteTrigger should start a workflow execution. It performs no
+	// admission checks. Those run earlier, in Admitter.Admit.
 	//
 	// Expected errors:
 	//   - ErrDuplicateExecution — the event was already executed.
@@ -94,13 +97,28 @@ type EventSink interface {
 	//     events after the caller already resolved it. Neither is retried.
 	//   - ErrMeteringReserveFailed — metering report reservation failed.
 	//     Implementation should not ACK; the caller may retry.
-	//   - ErrAdmissionDenied — an admission check rejected the event; it will
-	//     never execute. The caller ACKs and drops it.
-	//   - ErrAdmissionCached — an admission check held the event back for
-	//     replay. The caller drops it without ACKing.
 	//
 	// Any other error is unexpected and should be logged as a failure.
 	ExecuteTrigger(ctx context.Context, event CoordinatedEvent) error
+}
+
+// Admitter is implemented by an EventSink that decides whether an event may
+// run at all (e.g. the shard failover manager on a sharded node). The trigger
+// coordinator calls Admit before the event is queued, on the context of the
+// reader that received it. Unregistering cancels that context, and the check
+// holds no execution slot. Admit only decides. The caller holds the trigger
+// handles and acts on the outcome.
+//
+// Expected errors:
+//   - ErrAdmissionDenied — the event will never execute. The caller ACKs and drops it.
+//   - ErrAdmissionCached — the event is held back for replay. The caller drops
+//     it without ACKing.
+//   - ctx.Err() — the check was cut short and nothing was decided. The caller
+//     drops the event without ACKing.
+//
+// Any other error is unexpected. The caller logs it and drops the event without ACKing.
+type Admitter interface {
+	Admit(ctx context.Context, event CoordinatedEvent) error
 }
 
 // Ack acknowledges a trigger event against the given handle, logging and
@@ -127,6 +145,22 @@ func Ack(
 	}
 	tm.IncrementTriggerEventAckSuccessCounter(ctx)
 	return nil
+}
+
+// CountAdmissionDenied counts a trigger event that an admission check denied
+// with err. A shard denial gets its own drop reason and shard-denial counter.
+// Any other denial is dropped as admission_denied.
+func CountAdmissionDenied(ctx context.Context, tm *monitoring.WorkflowsMetricLabeler, err error) {
+	switch {
+	case errors.Is(err, ErrShardDeniedNotOwner):
+		tm.IncrementShardExecutionDeniedNotOwnerCounter(ctx)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonShardDeniedNotOwner)
+	case errors.Is(err, ErrShardDeniedOrchestrator):
+		tm.IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonShardDeniedOrchestrator)
+	default:
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonAdmissionDenied)
+	}
 }
 
 // CoordinatedEvent is the canonical trigger event type that flows

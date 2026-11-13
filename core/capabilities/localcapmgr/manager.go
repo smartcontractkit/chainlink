@@ -40,6 +40,8 @@ type runningCapability struct {
 	donID      uint32
 	services   []job.ServiceCtx
 	configHash string
+	// useOffchain is true when the capability was launched with the offchain spec_config.
+	useOffchain bool
 }
 
 // capabilityInfo describes a capability that should be running.
@@ -100,7 +102,7 @@ func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabili
 	named := logger.Named(lggr, "LocalCapabilityManager")
 
 	if useOffchainRegistry {
-		named.Info("Offchain capabilities registry cutover ENABLED: offchain spec_config wins over on-chain")
+		named.Info("Offchain capabilities registry cutover ENABLED: spec_config comes from the offchain registry only")
 	}
 
 	return &localCapabilityManager{
@@ -163,8 +165,10 @@ func (m *localCapabilityManager) Reconcile(
 	allMyDONs = uniqueDONsByID(allMyDONs)
 	offchainDONs := m.offchainDONsByID(offchainReg, allMyDONs)
 	m.recordOffchainDivergences(ctx, m.offchainDivergences(offchainDONs, allMyDONs))
+	m.metrics.recordGate(ctx, m.useOffchainRegistry)
 
 	if m.useOffchainRegistry && offchainReg == nil {
+		m.metrics.recordReconcileSkipped(ctx)
 		m.lggr.Warn("Offchain capabilities registry cutover is enabled but no payload is applied; skipping reconcile")
 		return nil
 	}
@@ -214,6 +218,15 @@ func (m *localCapabilityManager) Reconcile(
 	}
 
 	m.metrics.recordRunning(ctx, int64(len(m.runningCapabilities)))
+	var onchainCount, offchainCount int64
+	for _, rc := range m.runningCapabilities {
+		if rc.useOffchain {
+			offchainCount++
+		} else {
+			onchainCount++
+		}
+	}
+	m.metrics.recordRunningBySource(ctx, onchainCount, offchainCount)
 	return nil
 }
 
@@ -298,10 +311,11 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 		"duration", duration, "configHash", info.configHash)
 
 	return &runningCapability{
-		capID:      info.capID,
-		donID:      info.donID,
-		services:   svcs,
-		configHash: info.configHash,
+		capID:       info.capID,
+		donID:       info.donID,
+		services:    svcs,
+		configHash:  info.configHash,
+		useOffchain: info.useOffchain,
 	}, nil
 }
 

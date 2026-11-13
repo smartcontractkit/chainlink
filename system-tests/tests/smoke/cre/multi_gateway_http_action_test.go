@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
@@ -108,6 +108,8 @@ func TestMultiGatewayTopology_LoadExpectedConfig(t *testing.T) {
 // to multi-don-test-org (linking service + CL_CRE_SETTINGS override to gateway_don_eu), runs an
 // HTTP GET workflow, and expects EU gateway outbound logs while the US gateway stays idle.
 // Skips unless TOPOLOGY_NAME contains "multi-gateway".
+//
+//nolint:paralleltest // updates shared gateway routing settings
 func Test_CRE_V2_HTTP_Action_Multi_Gateway(t *testing.T) {
 	if !isMultiGatewayTopology(topology) {
 		t.Skipf("skipping multi-gateway HTTP action test: TOPOLOGY_NAME=%q does not match %q", topology, multiGatewayTopologyMarker)
@@ -153,7 +155,7 @@ func ExecuteHTTPActionMultiGatewayRoutingTest(t *testing.T, testEnv *ttypes.Test
 	workflowName := "http-action-mgw-eu-" + testID
 	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {

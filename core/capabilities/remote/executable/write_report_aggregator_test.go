@@ -445,7 +445,7 @@ func TestServerRequest_WriteReportSignatureAggregation(t *testing.T) {
 	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil)
 
 	capability := &recordingCapability{}
-	sr, err := request.NewServerRequest(capability, types.MethodExecute, evmFamily.capabilityID, 2, capabilityPeerID, fx.callingDon,
+	sr, err := request.NewServerRequest(capability, evmFamily.capabilityID, 2, capabilityPeerID, fx.callingDon,
 		"requestMessageID", dispatcher, time.Minute, "WriteReport", limits.NewGateLimiter(false), fx.newAccumulator(t), logger.Test(t))
 	require.NoError(t, err)
 

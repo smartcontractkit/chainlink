@@ -140,7 +140,6 @@ type ServerRequest struct {
 	callingDon capabilities.DON
 
 	requestMessageID string
-	method           string
 	requestTimeout   time.Duration
 	capMethodName    string
 
@@ -168,7 +167,7 @@ type ServerRequest struct {
 	metrics *srMetrics
 }
 
-func NewServerRequest(capability capabilities.ExecutableCapability, method, capabilityID string, capabilityDonID uint32,
+func NewServerRequest(capability capabilities.ExecutableCapability, capabilityID string, capabilityDonID uint32,
 	capabilityPeerID p2ptypes.PeerID,
 	callingDon capabilities.DON, requestID string,
 	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string,
@@ -199,7 +198,6 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method, capa
 		responseSentToRequester: map[p2ptypes.PeerID]bool{},
 		callingDon:              callingDon,
 		requestMessageID:        requestID,
-		method:                  method,
 		requestTimeout:          requestTimeout,
 		capMethodName:           capMethodName,
 		workflowDONBindingGate:  workflowDONBindingGate,
@@ -274,38 +272,31 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 	// and either wait for the executor's fan-out or self-send if the response
 	// is already available.
 	if quorumReached && payloadReady && !hasResponse && e.executionClaimed.CompareAndSwap(false, true) {
-		switch e.method {
-		case types.MethodExecute:
-			ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
-			defer cancel()
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
+		defer cancel()
 
-			// Expose the cancel func so Cancel can stop the in-flight execution early.
-			e.stateMux.Lock()
-			e.executionCancel = cancel
-			e.stateMux.Unlock()
-			success := false
-			start := time.Now()
-			responsePayload, responseErr := executeCapabilityRequest(ctxWithTimeout, e.lggr, e.capability, payload, e.callingDon.ID, e.workflowDONBindingGate, e.metrics)
-			e.stateMux.Lock()
-			// Cancel may have already set a timeout error response; never overwrite an
-			// existing response.
-			if !e.hasResponse() {
-				if responseErr != nil {
-					e.setError(types.Error_INTERNAL_ERROR, responseErr.Error())
-				} else {
-					success = true
-					e.setResult(responsePayload)
-				}
+		// Expose the cancel func so Cancel can stop the in-flight execution early.
+		e.stateMux.Lock()
+		e.executionCancel = cancel
+		e.stateMux.Unlock()
+		success := false
+		start := time.Now()
+		responsePayload, responseErr := executeCapabilityRequest(ctxWithTimeout, e.lggr, e.capability, payload, e.callingDon.ID, e.workflowDONBindingGate, e.metrics)
+		e.stateMux.Lock()
+		// Cancel may have already set a timeout error response; never overwrite an
+		// existing response.
+		if !e.hasResponse() {
+			if responseErr != nil {
+				e.setError(types.Error_INTERNAL_ERROR, responseErr.Error())
+			} else {
+				success = true
+				e.setResult(responsePayload)
 			}
-			e.stateMux.Unlock()
-
-			e.metrics.countExecution(ctxWithTimeout, success)
-			e.metrics.recordExecutionDuration(ctxWithTimeout, time.Since(start), success)
-		default:
-			e.stateMux.Lock()
-			e.setError(types.Error_INTERNAL_ERROR, "unknown method %s"+e.method)
-			e.stateMux.Unlock()
 		}
+		e.stateMux.Unlock()
+
+		e.metrics.countExecution(ctxWithTimeout, success)
+		e.metrics.recordExecutionDuration(ctxWithTimeout, time.Since(start), success)
 	}
 
 	e.stateMux.Lock()
