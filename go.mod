@@ -48,6 +48,7 @@ require (
 	github.com/hashicorp/go-envparse v0.1.0
 	github.com/hashicorp/go-plugin v1.8.0
 	github.com/holiman/uint256 v1.3.2
+	github.com/iancoleman/strcase v0.3.0
 	github.com/imdario/mergo v0.3.16
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/jmoiron/sqlx v1.4.0
@@ -273,7 +274,6 @@ require (
 	github.com/holiman/billy v0.0.0-20250707135307-f2f9b9aae7db // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
-	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/influxdata/tdigest v0.0.1 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
@@ -414,3 +414,7 @@ tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
 // Exclude Juno's placeholder dependency. It is only intended to be resolved via
 // Juno's local replace directive and is not used directly by chainlink
 exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
+
+replace github.com/smartcontractkit/chainlink-common => ../ocr-remote-common
+
+replace github.com/smartcontractkit/chainlink-common/keystore => ../ocr-remote-common/keystore

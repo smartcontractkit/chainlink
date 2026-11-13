@@ -830,3 +830,7 @@ replace github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.3.1-
 exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write => ./smoke/cre/stellar/datafeeds/write
+
+replace github.com/smartcontractkit/chainlink-common => ../../../ocr-remote-common
+
+replace github.com/smartcontractkit/chainlink-common/keystore => ../../../ocr-remote-common/keystore

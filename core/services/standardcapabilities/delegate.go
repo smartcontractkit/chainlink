@@ -188,7 +188,7 @@ func (d *Delegate) NewServices(
 
 	if filepath.Base(command) == conversions.CronCmd && d.cronV2Active(ctx) {
 		v2cmd := filepath.Join(filepath.Dir(command), conversions.CronV2Cmd)
-		return d.newServicesV2(ctx, log, v2cmd, conversions.CronV2Cmd, configJSON, capabilityDonID)
+		return d.newServicesV2(ctx, log, v2cmd, conversions.CronCmd, configJSON, capabilityDonID, nil)
 	}
 
 	// Warn when neither the job spec nor the TOML config provide bootstrap peers.
@@ -387,6 +387,48 @@ func (d *Delegate) NewServices(
 			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
 		}
 	}
+
+	if filepath.Base(command) == conversions.ConsensusCmd && d.consensusV2Active(ctx) {
+		if !oracleFactoryCfg.Enabled || d.ocrPeerWrapper == nil || d.ocrConfigService == nil {
+			return nil, errors.New("consensus v2 needs the oracle factory enabled, a P2P stack, and the OCR config service")
+		}
+
+		keyrings, err := generic.NewOCRKeyrings(generic.OCRKeyringsParams{
+			Logger:                 log,
+			KB:                     offchainKB,
+			OnchainSigningStrategy: resolvedSigning,
+			OcrKeystore:            d.ks.OCR2(),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create the node's OCR keyrings: %w", err)
+		}
+
+		peerID, err := d.getPeerID()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get the node's peer ID: %w", err)
+		}
+
+		bootstrappers, err := ocrcommon.ParseBootstrapPeers(oracleFactoryCfg.BootstrapPeers)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse bootstrap peers: %w", err)
+		}
+
+		if len(bootstrappers) == 0 {
+			bootstrappers = d.defaultBootstrappers
+		}
+
+		ocr := &OCR{
+			Network:         generic.NewOCRNetwork(d.ocrPeerWrapper),
+			Keyrings:        keyrings,
+			PeerID:          peerID.String(),
+			TransmitAccount: oracleFactoryCfg.TransmitterID,
+			Bootstrappers:   bootstrappers,
+		}
+
+		v2cmd := filepath.Join(filepath.Dir(command), conversions.ConsensusV2Cmd)
+		return d.newServicesV2(ctx, log, v2cmd, conversions.ConsensusCmd, configJSON, capabilityDonID, ocr)
+	}
+
 	var cntor connector.GatewayConnector
 	if d.gatewayConnectorWrapper != nil {
 		cntor = d.gatewayConnectorWrapper.GetGatewayConnector()
@@ -412,7 +454,8 @@ func (d *Delegate) NewServices(
 	return []job.ServiceCtx{standardCapability}, nil
 }
 
-func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command, app, configJSON string, capabilityDonID uint32) ([]job.ServiceCtx, error) {
+func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command, app, configJSON string, capabilityDonID uint32,
+	ocr *OCR) ([]job.ServiceCtx, error) {
 	// The capability ID depends on the capability, not on how it runs, so look it up by app name.
 	capabilityID := conversions.GetCapabilityIDFromCommand(app, configJSON)
 
@@ -425,13 +468,24 @@ func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command
 		ConfigJSON:       configJSON,
 		CapDonIDResolver: idResolver,
 		PluginRegistrar:  d.cfg,
-		Registry:         d.registry,
+		Registry:         d.registryForV2(),
 		CRESettings:      d.creSettings,
+		OCR:              ocr,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return []job.ServiceCtx{s}, nil
+}
+
+// registryForV2 is the registry a v2 process is served: OCR3 configs come as the node's oracles run them, digest
+// included, since only the node knows the registry's chain and address the digest is computed from.
+func (d *Delegate) registryForV2() registry.CapabilitiesRegistry {
+	if d.registry == nil || d.ocrConfigService == nil {
+		return d.registry
+	}
+
+	return ocrConfigRegistry{CapabilitiesRegistry: d.registry, ocrConfigs: d.ocrConfigService}
 }
 
 // newCapDonIDResolver picks how the capability DON ID is obtained. On the job-spec
@@ -447,9 +501,17 @@ func (d *Delegate) newCapDonIDResolver(log logger.Logger, capabilityID string, c
 }
 
 func (d *Delegate) cronV2Active(ctx context.Context) bool {
-	flag, err := limits.MakeRangeLimiter(d.limitsFactory, cresettings.Default.CRONV2ActivePeriod)
+	return d.v2Active(ctx, "cron", cresettings.Default.CRONV2ActivePeriod)
+}
+
+func (d *Delegate) consensusV2Active(ctx context.Context) bool {
+	return d.v2Active(ctx, "consensus", cresettings.Default.ConsensusV2ActivePeriod)
+}
+
+func (d *Delegate) v2Active(ctx context.Context, name string, period settings.IsSetting[settings.Range[commonconfig.Timestamp]]) bool {
+	flag, err := limits.MakeRangeLimiter(d.limitsFactory, period)
 	if err != nil {
-		d.logger.Errorw("Failed to create cron v2 flag; using cron v1", "err", err)
+		d.logger.Errorw("Failed to create "+name+" v2 flag; using "+name+" v1", "err", err)
 		return false
 	}
 	defer flag.Close()

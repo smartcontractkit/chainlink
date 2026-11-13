@@ -10,8 +10,10 @@ import (
 )
 
 const (
-	CronCmd   = "cron"
-	CronV2Cmd = "cronv2"
+	CronCmd        = "cron"
+	CronV2Cmd      = "cronv2"
+	ConsensusCmd   = "consensus"
+	ConsensusV2Cmd = "consensusv2"
 )
 
 // WARNING: Hacky and brittle - used during the current std-capability transition to map
@@ -71,7 +73,7 @@ func GetCapabilityIDFromCommand(command string, config string) string {
 			return ""
 		}
 		return "stellar:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
-	case "consensus":
+	case ConsensusCmd, ConsensusV2Cmd:
 		return "consensus@1.0.0-alpha"
 	case CronCmd:
 		return "cron-trigger@1.0.0"
@@ -101,7 +103,7 @@ func GetCommandFromCapabilityID(capabilityID string) string {
 	case strings.HasPrefix(capabilityID, "stellar:ChainSelector:"):
 		return "stellar"
 	case strings.HasPrefix(capabilityID, "consensus"):
-		return "consensus"
+		return ConsensusCmd
 	case strings.HasPrefix(capabilityID, "dontime"):
 		// dontime is an OCR2 plugin (pluginType = "dontime"), not a standard
 		// capability binary; it runs in-process via the OCR2 delegate. The

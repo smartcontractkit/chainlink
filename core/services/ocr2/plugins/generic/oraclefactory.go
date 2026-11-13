@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/ocrutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -67,7 +68,7 @@ type OracleFactoryParams struct {
 
 func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 	return &oracleFactory{
-		database:               OracleFactoryDB(params.JobID, params.Logger),
+		database:               ocrutil.NewMemoryDB(strconv.Itoa(int(params.JobID)), params.Logger),
 		jobID:                  params.JobID,
 		jobName:                params.JobName,
 		jobORM:                 params.JobORM,
@@ -83,15 +84,6 @@ func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 		capabilityID:           params.CapabilityID,
 		defaultBootstrappers:   params.DefaultBootstrappers,
 	}, nil
-}
-
-func AdjustLocalConfigForRegistryBasedConfig(lc ocrtypes.LocalConfig) ocrtypes.LocalConfig {
-	// block confirmations are irrelevant when using registry-based config
-	// this also works with legacy config contracts, simply doesn't wait for extra confirmations
-	lc.SkipContractConfigConfirmations = true
-	// poll frequently to react to config changes quickly
-	lc.ContractConfigTrackerPollInterval = 5 * time.Second
-	return lc
 }
 
 func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (core.Oracle, error) {
@@ -189,8 +181,8 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs2[[]byte]{
 		ContractConfigTracker:        configTracker,
 		OffchainConfigDigester:       configDigester,
-		LocalConfig:                  AdjustLocalConfigForRegistryBasedConfig(args.LocalConfig),
-		ContractTransmitter:          NewContractTransmitter(of.config.TransmitterID, args.ContractTransmitter),
+		LocalConfig:                  ocrutil.ForRegistryConfig(args.LocalConfig),
+		ContractTransmitter:          ocrutil.TransmitterWithAccount(ocrtypes.Account(of.config.TransmitterID), args.ContractTransmitter),
 		ReportingPluginFactory:       args.ReportingPluginFactoryService,
 		BinaryNetworkEndpointFactory: of.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
