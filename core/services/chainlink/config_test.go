@@ -321,8 +321,10 @@ func TestConfig_Marshal(t *testing.T) {
 			RunClaim:             new("NodeRunners"),
 			ReadClaim:            new("NodeReadOnly"),
 			SessionTimeout:       commonconfig.MustNewDuration(15 * time.Minute),
-			UserAPITokenEnabled:  new(false),
-			UserAPITokenDuration: commonconfig.MustNewDuration(240 * time.Hour),
+			UserAPITokenEnabled:    new(false),
+			UserAPITokenDuration:   commonconfig.MustNewDuration(240 * time.Hour),
+			DeviceFlowAllowedCIDRs: &[]string{"10.8.0.0/16"},
+			TrustedProxyCIDRs:      &[]string{"10.0.0.0/8"},
 		},
 		RateLimit: toml.WebServerRateLimit{
 			Authenticated:         new(int64(42)),
@@ -978,6 +980,8 @@ ReadClaim = 'NodeReadOnly'
 SessionTimeout = '15m0s'
 UserAPITokenEnabled = false
 UserAPITokenDuration = '240h0m0s'
+DeviceFlowAllowedCIDRs = ['10.8.0.0/16']
+TrustedProxyCIDRs = ['10.0.0.0/8']
 
 [WebServer.MFA]
 RPID = 'test-rpid'

@@ -227,6 +227,20 @@ func (l *ldapConfig) UserAPITokenDuration() commonconfig.Duration {
 	return *l.c.UserAPITokenDuration
 }
 
+func (l *oidcConfig) DeviceFlowAllowedCIDRs() []string {
+	if l.c.DeviceFlowAllowedCIDRs == nil {
+		return nil
+	}
+	return *l.c.DeviceFlowAllowedCIDRs
+}
+
+func (l *oidcConfig) TrustedProxyCIDRs() []string {
+	if l.c.TrustedProxyCIDRs == nil {
+		return nil
+	}
+	return *l.c.TrustedProxyCIDRs
+}
+
 func (l *ldapConfig) BaseUserAttr() string {
 	if l.c.BaseUserAttr == nil {
 		return ""

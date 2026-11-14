@@ -161,7 +161,7 @@ func TestDeviceFlow_EndToEnd(t *testing.T) {
 
 	const handle = "e2e-handle"
 	state := &deviceFlowState{expiresAt: time.Now().Add(time.Minute), clientIP: "127.0.0.1"}
-	require.NoError(t, reserveDeviceFlow(t.Context(), oi.ds, handle, state.clientIP, state.expiresAt))
+	require.NoError(t, reserveDeviceFlow(t.Context(), oi.ds, testReservation(handle, state.clientIP, state.expiresAt)))
 	require.NoError(t, oi.deviceFlows.add(handle, state))
 	oi.pollDeviceToken(handle, state, da)
 
@@ -237,7 +237,7 @@ func TestDeviceFlow_WrongAudienceRejected(t *testing.T) {
 
 	const handle = "e2e-handle-2"
 	state := &deviceFlowState{expiresAt: time.Now().Add(time.Minute), clientIP: "127.0.0.1"}
-	require.NoError(t, reserveDeviceFlow(t.Context(), oi.ds, handle, state.clientIP, state.expiresAt))
+	require.NoError(t, reserveDeviceFlow(t.Context(), oi.ds, testReservation(handle, state.clientIP, state.expiresAt)))
 	require.NoError(t, oi.deviceFlows.add(handle, state))
 	oi.pollDeviceToken(handle, state, da)
 

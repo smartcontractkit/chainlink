@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -25,14 +28,15 @@ import (
 // never holds any token; it receives only an opaque handle and, on success, the
 // same session cookie the browser flow produces.
 
-// oidcDeviceStartResponse mirrors oidcauth.DeviceStartResponse.
+// oidcDeviceStartResponse mirrors oidcauth.DeviceStartResponse. There is no
+// verification_uri_complete: the operator always types the code, and a
+// pre-filled link from an older node is ignored.
 type oidcDeviceStartResponse struct {
-	DeviceHandle            string `json:"device_handle"`
-	UserCode                string `json:"user_code"`
-	VerificationURI         string `json:"verification_uri"`
-	VerificationURIComplete string `json:"verification_uri_complete,omitempty"`
-	ExpiresIn               int64  `json:"expires_in"`
-	Interval                int64  `json:"interval"`
+	DeviceHandle    string `json:"device_handle"`
+	UserCode        string `json:"user_code"`
+	VerificationURI string `json:"verification_uri"`
+	ExpiresIn       int64  `json:"expires_in"`
+	Interval        int64  `json:"interval"`
 }
 
 // oidcDevicePollResponse mirrors oidcauth.DevicePollResponse.
@@ -114,9 +118,18 @@ func (o *OIDCDeviceCookieAuthenticator) Login(ctx context.Context) error {
 	if o.config.InsecureSkipVerify {
 		return errors.New("device login requires TLS verification; do not set insecure-skip-verify")
 	}
+	if !secureOrLoopback(&o.config.RemoteNodeURL) {
+		return errors.New("device login requires an https remote-node-url (plain http is allowed only for localhost)")
+	}
 	start, err := o.start(ctx)
 	if err != nil {
 		return err
+	}
+	if !secureOrLoopbackString(start.VerificationURI) {
+		return errors.New("node returned a verification URI that is not https; refusing to show it")
+	}
+	if start.UserCode == "" {
+		return errors.New("node returned no user code")
 	}
 
 	o.promptUser(start)
@@ -169,7 +182,10 @@ func (o *OIDCDeviceCookieAuthenticator) start(ctx context.Context) (*oidcDeviceS
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxDeviceResponseBytes))
+	if resp.StatusCode == http.StatusForbidden {
+		return nil, errors.New("this node does not allow device login from your network; connect through the operator VPN or bastion, or log in with a credentials file (-f)")
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("failed to start device authorization (status %d): %s", resp.StatusCode, string(body))
 	}
@@ -201,7 +217,7 @@ func (o *OIDCDeviceCookieAuthenticator) poll(ctx context.Context, handle string)
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxDeviceResponseBytes))
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, "denied", "unknown", nil
 	}
@@ -219,17 +235,41 @@ func (o *OIDCDeviceCookieAuthenticator) poll(ctx context.Context, handle string)
 }
 
 func (o *OIDCDeviceCookieAuthenticator) promptUser(start *oidcDeviceStartResponse) {
-	uri := start.VerificationURIComplete
-	if uri == "" {
-		uri = start.VerificationURI
-	}
 	fmt.Fprintln(o.out, "To log in, open the following URL in a browser and sign in with your identity provider.")
 	fmt.Fprintln(o.out, "Confirm the host is your identity provider before you approve. An approval you did not start is an attack.")
-	fmt.Fprintf(o.out, "\n    %s\n\n", uri)
-	if start.VerificationURIComplete == "" {
-		fmt.Fprintf(o.out, "When prompted, enter the code: %s\n\n", start.UserCode)
-	} else {
-		fmt.Fprintf(o.out, "Verify the code shown matches: %s\n\n", start.UserCode)
-	}
+	fmt.Fprintf(o.out, "\n    %s\n\n", start.VerificationURI)
+	fmt.Fprintf(o.out, "When prompted, enter the code: %s\n\n", start.UserCode)
+	fmt.Fprintln(o.out, "Never enter a code someone else sent you.")
 	fmt.Fprintln(o.out, "Waiting for approval...")
+}
+
+// maxDeviceResponseBytes bounds what the CLI reads from a device endpoint.
+const maxDeviceResponseBytes = 64 << 10
+
+// secureOrLoopback reports whether u is https, or http to a loopback host.
+func secureOrLoopback(u *url.URL) bool {
+	switch u.Scheme {
+	case "https":
+		return u.Hostname() != ""
+	case "http":
+		host := u.Hostname()
+		if strings.EqualFold(host, "localhost") {
+			return true
+		}
+		ip := net.ParseIP(host)
+		return ip != nil && ip.IsLoopback()
+	default:
+		return false
+	}
+}
+
+func secureOrLoopbackString(raw string) bool {
+	if raw == "" {
+		return false
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	return secureOrLoopback(u)
 }

@@ -591,6 +591,8 @@ ReadClaim = 'NodeReadOnly' # Default
 SessionTimeout = '15m0s' # Default
 UserAPITokenEnabled = false # Default
 UserAPITokenDuration = '240h0m0s' # Default
+DeviceFlowAllowedCIDRs = [] # Default
+TrustedProxyCIDRs = [] # Default
 ```
 Optional OIDC config if WebServer.AuthenticationMethod is set to 'oidc'
 
@@ -659,6 +661,23 @@ UserAPITokenEnabled enables the users to issue API tokens with the same access o
 UserAPITokenDuration = '240h0m0s' # Default
 ```
 UserAPITokenDuration is the duration of time an API token is active for before expiring
+
+### DeviceFlowAllowedCIDRs
+```toml
+DeviceFlowAllowedCIDRs = [] # Default
+```
+DeviceFlowAllowedCIDRs lists the client networks, such as an operator VPN or bastion range, that may use the CLI device login
+(`/oidc-device/start` and `/oidc-device/poll`). Requests from any other address get 403. Empty turns the CLI device login off.
+Browser login is not affected. The client address is resolved through TrustedProxyCIDRs.
+
+### TrustedProxyCIDRs
+```toml
+TrustedProxyCIDRs = [] # Default
+```
+TrustedProxyCIDRs lists the proxies and load balancers in front of the node whose `X-Forwarded-For` entries the OIDC login
+routes believe. The node walks `X-Forwarded-For` from the right, skips entries inside these prefixes, and uses the first
+address outside them as the client. With the default empty list the socket peer is the client and the header is ignored.
+List only the proxy addresses: any host inside these ranges can claim any client address. A zero-length prefix is rejected.
 
 ## WebServer.LDAP
 ```toml

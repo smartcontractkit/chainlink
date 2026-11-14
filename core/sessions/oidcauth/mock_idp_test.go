@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -38,6 +39,11 @@ type mockIDP struct {
 	email          string        // email claim
 	nonce          string        // optional "nonce" claim
 	lifetime       time.Duration // exp relative to now; negative => already expired
+	// pending makes the token endpoint answer authorization_pending, as if
+	// nobody has approved the device code yet.
+	pending atomic.Bool
+	// tokenCalls counts token endpoint hits.
+	tokenCalls atomic.Int32
 
 	clientID string
 }
@@ -91,11 +97,20 @@ func newMockIDP(t *testing.T, clientID string) *mockIDP {
 			"device_code":      "test-device-code",
 			"user_code":        "WDJB-MJHT",
 			"verification_uri": base + "/activate",
-			"expires_in":       300,
-			"interval":         1,
+			// The node must not pass this one-click link on.
+			"verification_uri_complete": base + "/activate?user_code=WDJB-MJHT",
+			"expires_in":                300,
+			"interval":                  1,
 		})
 	})
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		m.tokenCalls.Add(1)
+		if m.pending.Load() {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"authorization_pending"}`))
+			return
+		}
 		idToken := m.signIDToken(t)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{

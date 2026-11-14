@@ -132,3 +132,11 @@ func (t *TestConfig) UserAPITokenEnabled() bool {
 func (t *TestConfig) UserAPITokenDuration() commonconfig.Duration {
 	return *commonconfig.MustNewDuration(24 * time.Hour)
 }
+
+func (t *TestConfig) DeviceFlowAllowedCIDRs() []string {
+	return []string{"127.0.0.0/8", "::1/128"}
+}
+
+func (t *TestConfig) TrustedProxyCIDRs() []string {
+	return nil
+}

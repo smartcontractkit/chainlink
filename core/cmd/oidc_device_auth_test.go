@@ -24,6 +24,10 @@ type mockNode struct {
 	pollsPending int32 // number of "pending" polls to return before "complete"
 	denyAfter    bool  // if true, return "denied" instead of completing
 	denyReason   string
+	// verificationURI overrides the URI the start endpoint returns.
+	verificationURI string
+	// startStatus, when set, is returned by the start endpoint instead of 200.
+	startStatus int
 }
 
 func (m *mockNode) handler(t *testing.T) http.Handler {
@@ -40,11 +44,22 @@ func (m *mockNode) handler(t *testing.T) http.Handler {
 		// assert (not require) inside handler goroutines: require calls Goexit
 		// on the wrong goroutine.
 		assert.Equal(t, http.MethodPost, r.Method)
+		if m.startStatus != 0 {
+			w.WriteHeader(m.startStatus)
+			_, _ = w.Write([]byte(`{"error":"node text"}`))
+			return
+		}
+		uri := "https://sso.example.com/activate"
+		if m.verificationURI != "" {
+			uri = m.verificationURI
+		}
+		// An older node may still send verification_uri_complete. The CLI
+		// must ignore it.
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"device_handle":             "test-handle",
 			"user_code":                 "WDJB-MJHT",
-			"verification_uri":          "https://sso.example.com/activate",
-			"verification_uri_complete": "https://sso.example.com/activate?user_code=WDJB-MJHT",
+			"verification_uri":          uri,
+			"verification_uri_complete": uri + "?user_code=WDJB-MJHT",
 			"expires_in":                300,
 			"interval":                  1,
 		})
@@ -128,6 +143,66 @@ func TestOIDCDeviceLogin_Success(t *testing.T) {
 	assert.Contains(t, out.String(), "https://sso.example.com/activate")
 	assert.Contains(t, out.String(), "WDJB-MJHT")
 	assert.Contains(t, out.String(), "An approval you did not start is an attack.")
+	// The pre-filled one-click link must never be shown.
+	assert.NotContains(t, out.String(), "user_code=")
+	assert.Contains(t, out.String(), "When prompted, enter the code: WDJB-MJHT")
+}
+
+func TestOIDCDeviceLogin_RefusesPlaintextNode(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{"http://node.internal:6688", "http://10.0.0.5:6688", "ftp://node.internal", "https://"} {
+		t.Run(raw, func(t *testing.T) {
+			t.Parallel()
+			u, err := url.Parse(raw)
+			require.NoError(t, err)
+			auth := cmd.NewOIDCDeviceCookieAuthenticator(cmd.ClientOpts{RemoteNodeURL: *u}, &cmd.MemoryCookieStore{}, &bytes.Buffer{}, logger.TestLogger(t))
+			err = auth.Login(context.Background())
+			require.ErrorContains(t, err, "requires an https remote-node-url")
+		})
+	}
+}
+
+func TestOIDCDeviceLogin_AllowsLoopbackHTTP(t *testing.T) {
+	t.Parallel()
+	// httptest serves http://127.0.0.1, so the success test covers 127.0.0.1.
+	// localhost and [::1] are covered by rejecting at a later step instead of
+	// the scheme check.
+	for _, raw := range []string{"http://localhost:1", "http://[::1]:1"} {
+		u, err := url.Parse(raw)
+		require.NoError(t, err)
+		auth := cmd.NewOIDCDeviceCookieAuthenticator(cmd.ClientOpts{RemoteNodeURL: *u}, &cmd.MemoryCookieStore{}, &bytes.Buffer{}, logger.TestLogger(t))
+		err = auth.Login(context.Background())
+		require.Error(t, err)
+		assert.NotContains(t, err.Error(), "requires an https remote-node-url", raw)
+	}
+}
+
+func TestOIDCDeviceLogin_RefusesPlaintextVerificationURI(t *testing.T) {
+	t.Parallel()
+	for _, uri := range []string{"http://sso.example.com/activate", "javascript:alert(1)", "sso.example.com/activate"} {
+		t.Run(uri, func(t *testing.T) {
+			t.Parallel()
+			node := &mockNode{oidcEnabled: true, verificationURI: uri}
+			srv := httptest.NewServer(node.handler(t))
+			defer srv.Close()
+			var out bytes.Buffer
+			auth := cmd.NewOIDCDeviceCookieAuthenticator(newClientOpts(t, srv), &cmd.MemoryCookieStore{}, &out, logger.TestLogger(t))
+			err := auth.Login(context.Background())
+			require.ErrorContains(t, err, "verification URI that is not https")
+			assert.NotContains(t, out.String(), "sso.example.com", "a rejected URI must not be printed")
+		})
+	}
+}
+
+func TestOIDCDeviceLogin_NetworkRefused(t *testing.T) {
+	t.Parallel()
+	node := &mockNode{oidcEnabled: true, startStatus: http.StatusForbidden}
+	srv := httptest.NewServer(node.handler(t))
+	defer srv.Close()
+	auth := cmd.NewOIDCDeviceCookieAuthenticator(newClientOpts(t, srv), &cmd.MemoryCookieStore{}, &bytes.Buffer{}, logger.TestLogger(t))
+	err := auth.Login(context.Background())
+	require.ErrorContains(t, err, "does not allow device login from your network")
+	assert.NotContains(t, err.Error(), "node text")
 }
 
 func TestOIDCDeviceLogin_RefusesInsecureSkipVerify(t *testing.T) {

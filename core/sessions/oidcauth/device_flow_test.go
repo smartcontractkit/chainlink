@@ -77,10 +77,10 @@ func TestDeviceFlowStore_ConcurrencyCap(t *testing.T) {
 	t.Parallel()
 	s := newDeviceFlowStore()
 	for i := range maxConcurrentDeviceFlows {
-		require.NoError(t, s.add(handleN(i), &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}))
+		require.NoError(t, s.add(handleN(i), &deviceFlowState{expiresAt: time.Now().Add(time.Minute), bucket: handleN(i)}))
 	}
 	// One past the cap must be refused, not silently dropped.
-	err := s.add("overflow", &deviceFlowState{expiresAt: time.Now().Add(time.Minute)})
+	err := s.add("overflow", &deviceFlowState{expiresAt: time.Now().Add(time.Minute), bucket: "fresh"})
 	require.ErrorIs(t, err, errTooManyDeviceFlows)
 }
 
@@ -91,19 +91,19 @@ func TestDeviceFlowStore_PerIPCap(t *testing.T) {
 	for i := range maxDeviceFlowsPerIP {
 		require.NoError(t, s.add(handleN(i), &deviceFlowState{
 			expiresAt: time.Now().Add(time.Minute),
-			clientIP:  ip,
+			bucket:    ip,
 		}))
 	}
 	err := s.add("overflow-ip", &deviceFlowState{
 		expiresAt: time.Now().Add(time.Minute),
-		clientIP:  ip,
+		bucket:    ip,
 	})
 	require.ErrorIs(t, err, errTooManyDeviceFlowsPerIP)
 
 	// A different IP can still open a flow.
 	require.NoError(t, s.add("other-ip", &deviceFlowState{
 		expiresAt: time.Now().Add(time.Minute),
-		clientIP:  "198.51.100.1",
+		bucket:    "198.51.100.1",
 	}))
 }
 
@@ -220,6 +220,29 @@ func TestDeviceFlowState_ConcurrentAccess(t *testing.T) {
 		}
 	}()
 	wg.Wait()
+}
+
+type cidrConfig struct {
+	*TestConfig
+	trusted []string
+}
+
+func (c cidrConfig) TrustedProxyCIDRs() []string { return c.trusted }
+
+func TestValidateOIDCConfig_RejectsCatchAllProxy(t *testing.T) {
+	t.Parallel()
+	for _, v := range []string{"0.0.0.0/0", "::/0"} {
+		require.ErrorContains(t, validateOIDCConfig(cidrConfig{TestConfig: &TestConfig{}, trusted: []string{v}}), "trusts every address", v)
+	}
+	require.NoError(t, validateOIDCConfig(cidrConfig{TestConfig: &TestConfig{}, trusted: []string{"10.0.0.0/24"}}))
+	require.Error(t, validateOIDCConfig(cidrConfig{TestConfig: &TestConfig{}, trusted: []string{"10.0.0.1"}}))
+}
+
+func TestDevicePollGrace(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, minDevicePollGrace, devicePollGrace(0))
+	assert.Equal(t, minDevicePollGrace, devicePollGrace(5))
+	assert.Equal(t, 60*time.Second, devicePollGrace(20))
 }
 
 func handleN(i int) string {

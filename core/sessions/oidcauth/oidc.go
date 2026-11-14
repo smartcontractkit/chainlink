@@ -16,6 +16,7 @@ import (
 	"log"
 	"net/http"
 	"net/mail"
+	"net/netip"
 	"slices"
 	"strings"
 	"time"
@@ -52,6 +53,13 @@ type oidcAuthenticator struct {
 	lggr         logger.SugaredLogger
 	auditLogger  audit.Logger
 	deviceFlows  *deviceFlowStore
+	// clients resolves the client address on the pre-authentication routes.
+	clients clientResolver
+	// deviceAllowed lists the networks that may use the device login. Empty
+	// turns the device login off.
+	deviceAllowed []netip.Prefix
+	// liveCheckEvery overrides deviceLiveCheckEvery in tests.
+	liveCheckEvery time.Duration
 }
 
 // ExchangeTokenRequest represents the expected JSON payload from the frontend
@@ -89,6 +97,18 @@ func validateOIDCConfig(oidcCfg config.OIDC) error {
 	}
 	if oidcCfg.ClaimName() == "" {
 		return errors.New("OIDC ClaimName config required")
+	}
+	if _, err := parseCIDRs("DeviceFlowAllowedCIDRs", oidcCfg.DeviceFlowAllowedCIDRs()); err != nil {
+		return err
+	}
+	trusted, err := parseCIDRs("TrustedProxyCIDRs", oidcCfg.TrustedProxyCIDRs())
+	if err != nil {
+		return err
+	}
+	for _, p := range trusted {
+		if p.Bits() == 0 {
+			return fmt.Errorf("TrustedProxyCIDRs: %s trusts every address, so any caller could choose its own client address", p)
+		}
 	}
 	return nil
 }
@@ -128,16 +148,25 @@ func NewOIDCAuthenticator(
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email", oidcCfg.ClaimName()},
 	}
 
+	// validateOIDCConfig has already parsed both lists.
+	deviceAllowed, _ := parseCIDRs("DeviceFlowAllowedCIDRs", oidcCfg.DeviceFlowAllowedCIDRs())
+	trustedProxies, _ := parseCIDRs("TrustedProxyCIDRs", oidcCfg.TrustedProxyCIDRs())
+
 	// Create Authenticator struct, with internal HTTP handlers
 	oidcAuth := oidcAuthenticator{
-		ds:           ds,
-		config:       oidcCfg,
-		provider:     provider,
-		oidcConfig:   oidcConfig,
-		oauth2Config: oauth2Config,
-		lggr:         logger.Sugared(lggr).Named("OIDCAuthenticationProvider"),
-		auditLogger:  auditLogger,
-		deviceFlows:  newDeviceFlowStore(),
+		ds:            ds,
+		config:        oidcCfg,
+		provider:      provider,
+		oidcConfig:    oidcConfig,
+		oauth2Config:  oauth2Config,
+		lggr:          logger.Sugared(lggr).Named("OIDCAuthenticationProvider"),
+		auditLogger:   auditLogger,
+		deviceFlows:   newDeviceFlowStore(),
+		clients:       clientResolver{trustedProxies: trustedProxies},
+		deviceAllowed: deviceAllowed,
+	}
+	if len(deviceAllowed) == 0 {
+		oidcAuth.lggr.Infof("OIDC CLI device login is off: WebServer.OIDC.DeviceFlowAllowedCIDRs is empty")
 	}
 
 	// Browser login state and device-flow results live in Postgres, so any
@@ -171,7 +200,14 @@ func (oi *oidcAuthenticator) handleSignIn(c *gin.Context) {
 	state := oi.generateState()
 	verifier := oauth2.GenerateVerifier()
 	nonce := oi.generateState()
-	if err := putPendingAuth(c.Request.Context(), oi.ds, state, verifier, nonce, time.Now().Add(pendingAuthTTL)); err != nil {
+	bucket := clientBucket(oi.clients.clientAddr(c))
+	if err := putPendingAuth(c.Request.Context(), oi.ds, state, verifier, nonce, bucket, time.Now().Add(pendingAuthTTL)); err != nil {
+		if errors.Is(err, errTooManyPendingAuth) || errors.Is(err, errTooManyPendingAuthPerClient) {
+			oi.lggr.Warnf("refusing sign-in client=%s: %v", bucket, err)
+			c.Header("Retry-After", "60")
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Too many sign-ins in progress, try again shortly"})
+			return
+		}
 		oi.lggr.Errorf("failed to store authorization state: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start login"})
 		return
@@ -698,19 +734,28 @@ func constantTimeEmailCompare(left, right string) bool {
 
 func (oi *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
 	api.GET("/oidc-enabled", oi.handleCheckEnabled)
-	api.GET("/oidc-login", oi.handleSignIn)
+	// Sign-in writes a pending-auth row, so it gets its own pre-auth limiter
+	// on top of the outer api limiter.
+	api.GET("/oidc-login",
+		oi.preAuthRateLimit(signInRatePeriod, signInRateLimit),
+		oi.handleSignIn,
+	)
 	api.POST("/oidc-exchange", oi.handleTokenExchange)
 
 	// Device authorization grant for headless clients (the CLI).
 	// Dedicated pre-auth rate limits: start is expensive (outbound IdP call +
 	// background goroutine); poll is cheaper but still unauthenticated.
-	// These nest under the outer api rate limiter so both apply.
+	// These nest under the outer api rate limiter so both apply. The network
+	// allow-list runs first so callers outside it never reach the limiter,
+	// the database, or the identity provider.
 	api.POST("/oidc-device/start",
-		deviceEndpointRateLimit(deviceStartRatePeriod, deviceStartRateLimit, oi.lggr),
+		oi.deviceNetworkGuard(),
+		oi.preAuthRateLimit(deviceStartRatePeriod, deviceStartRateLimit),
 		oi.handleDeviceStart,
 	)
 	api.POST("/oidc-device/poll",
-		deviceEndpointRateLimit(devicePollRatePeriod, devicePollRateLimit, oi.lggr),
+		oi.deviceNetworkGuard(),
+		oi.preAuthRateLimit(devicePollRatePeriod, devicePollRateLimit),
 		oi.handleDevicePoll,
 	)
 
