@@ -358,6 +358,132 @@ observationSource = """` + vrfV2PlusObservation + `"""
 			},
 		},
 		{
+			name: "gas overhead provided",
+			toml: `
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+requestTimeout = "168h" # 7 days
+chunkSize = 25
+backoffInitialDelay = "1m"
+backoffMaxDelay = "2h"
+gasOverhead = 250000
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2PlusObservation + `"""
+`,
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, s.VRFSpec)
+				require.NotNil(t, s.VRFSpec.GasOverhead)
+				require.EqualValues(t, 250000, *s.VRFSpec.GasOverhead)
+			},
+		},
+		{
+			name: "invalid (zero) gas overhead provided",
+			toml: `
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+requestTimeout = "168h" # 7 days
+chunkSize = 25
+backoffInitialDelay = "1m"
+backoffMaxDelay = "2h"
+gasOverhead = 0
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2PlusObservation + `"""
+`,
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "invalid (negative) gas overhead provided",
+			toml: `
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+requestTimeout = "168h" # 7 days
+chunkSize = 25
+backoffInitialDelay = "1m"
+backoffMaxDelay = "2h"
+gasOverhead = -5
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2PlusObservation + `"""
+`,
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "premium percentage provided",
+			toml: `
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+requestTimeout = "168h" # 7 days
+chunkSize = 25
+backoffInitialDelay = "1m"
+backoffMaxDelay = "2h"
+premiumPercentage = 30
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2PlusObservation + `"""
+`,
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, s.VRFSpec)
+				require.NotNil(t, s.VRFSpec.PremiumPercentage)
+				require.EqualValues(t, 30, *s.VRFSpec.PremiumPercentage)
+			},
+		},
+		{
+			name: "invalid (zero) premium percentage provided",
+			toml: `
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+requestTimeout = "168h" # 7 days
+chunkSize = 25
+backoffInitialDelay = "1m"
+backoffMaxDelay = "2h"
+premiumPercentage = 0
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2PlusObservation + `"""
+`,
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "invalid (above maximum) premium percentage provided",
+			toml: `
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+requestTimeout = "168h" # 7 days
+chunkSize = 25
+backoffInitialDelay = "1m"
+backoffMaxDelay = "2h"
+premiumPercentage = 156
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2PlusObservation + `"""
+`,
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
 			name: "legacy vrfv2 observation source is rejected",
 			toml: `
 type            = "vrf"

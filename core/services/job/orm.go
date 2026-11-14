@@ -555,14 +555,14 @@ func (o *orm) insertVRFSpec(ctx context.Context, spec *VRFSpec) (specID int32, e
 				evm_chain_id, from_addresses, poll_period, requested_confs_delay,
 				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled,
 				batch_fulfillment_gas_multiplier, backoff_initial_delay, backoff_max_delay, gas_lane_price,
-                vrf_owner_address, custom_reverts_pipeline_enabled,
+                vrf_owner_address, custom_reverts_pipeline_enabled, gas_overhead, premium_percentage,
 				created_at, updated_at)
 			VALUES (
 				:coordinator_address, :public_key, :min_incoming_confirmations,
 				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay,
 				:request_timeout, :chunk_size, :batch_coordinator_address, :batch_fulfillment_enabled,
 				:batch_fulfillment_gas_multiplier, :backoff_initial_delay, :backoff_max_delay, :gas_lane_price,
-			    :vrf_owner_address, :custom_reverts_pipeline_enabled,
+			    :vrf_owner_address, :custom_reverts_pipeline_enabled, :gas_overhead, :premium_percentage,
 				NOW(), NOW())
 			RETURNING id;`, toVRFSpecRow(spec))
 }
