@@ -244,7 +244,7 @@ func InitColor(c bool) {
 func newZapConfigBase() zap.Config {
 	cfg := zap.NewProductionConfig()
 	cfg.Sampling = nil
-	cfg.EncoderConfig.EncodeLevel = encodeLevel
+	cfg.EncoderConfig.EncodeLevel = common.EncodeLevel
 	return cfg
 }
 
