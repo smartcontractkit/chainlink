@@ -1247,9 +1247,33 @@ func (w *WebServer) ValidateConfig() (err error) {
 		if w.OIDC.UserAPITokenDuration == commonconfig.MustNewDuration(0) {
 			err = errors.Join(err, configutils.InvalidError{Name: "OIDC.UserAPITokenDuration", Msg: "OIDC UserAPITokenDuration can not be empty"})
 		}
+		err = errors.Join(err, validateCIDRList("OIDC.DeviceFlowAllowedCIDRs", w.OIDC.DeviceFlowAllowedCIDRs))
+		err = errors.Join(err, validateCIDRList("OIDC.TrustedProxyCIDRs", w.OIDC.TrustedProxyCIDRs))
+		if w.OIDC.TrustedProxyCIDRs != nil {
+			for i, v := range *w.OIDC.TrustedProxyCIDRs {
+				if _, n, perr := net.ParseCIDR(v); perr == nil {
+					if ones, _ := n.Mask.Size(); ones == 0 {
+						err = errors.Join(err, configutils.InvalidError{Name: fmt.Sprintf("OIDC.TrustedProxyCIDRs[%d]", i), Value: v, Msg: "trusts every address; list only the proxies in front of the node"})
+					}
+				}
+			}
+		}
 		return err
 	}
 
+	return err
+}
+
+// validateCIDRList reports each entry of list that is not a CIDR prefix.
+func validateCIDRList(name string, list *[]string) (err error) {
+	if list == nil {
+		return nil
+	}
+	for i, v := range *list {
+		if _, _, perr := net.ParseCIDR(v); perr != nil {
+			err = errors.Join(err, configutils.InvalidError{Name: fmt.Sprintf("%s[%d]", name, i), Value: v, Msg: "must be a CIDR prefix such as 10.0.0.0/8"})
+		}
+	}
 	return err
 }
 
@@ -1426,6 +1450,12 @@ type WebServerOIDC struct {
 	SessionTimeout       *commonconfig.Duration
 	UserAPITokenEnabled  *bool
 	UserAPITokenDuration *commonconfig.Duration
+	// DeviceFlowAllowedCIDRs lists the client networks that may use the CLI
+	// device login. Empty turns the device login off.
+	DeviceFlowAllowedCIDRs *[]string
+	// TrustedProxyCIDRs lists the proxies whose X-Forwarded-For entries the
+	// OIDC login routes believe.
+	TrustedProxyCIDRs *[]string
 }
 
 func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
@@ -1461,6 +1491,12 @@ func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
 	}
 	if v := f.UserAPITokenDuration; v != nil {
 		w.UserAPITokenDuration = v
+	}
+	if v := f.DeviceFlowAllowedCIDRs; v != nil {
+		w.DeviceFlowAllowedCIDRs = v
+	}
+	if v := f.TrustedProxyCIDRs; v != nil {
+		w.TrustedProxyCIDRs = v
 	}
 }
 

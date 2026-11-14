@@ -113,6 +113,8 @@ ReadClaim = 'NodeReadOnly'
 SessionTimeout = '15m0s'
 UserAPITokenEnabled = false
 UserAPITokenDuration = '240h0m0s'
+DeviceFlowAllowedCIDRs = ['10.8.0.0/16']
+TrustedProxyCIDRs = ['10.0.0.0/8']
 
 [WebServer.MFA]
 RPID = 'test-rpid'
