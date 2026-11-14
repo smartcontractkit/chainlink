@@ -29,7 +29,11 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     && export GIT_CONFIG_GLOBAL=/tmp/gitconfig-go-mod-download \
     && trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT \
     && ./plugins/scripts/setup_git_auth.sh \
-    && go mod download
+    && for i in 1 2 3; do \
+         go mod download && break; \
+         [ "$i" -lt 3 ] || exit 1; \
+         sleep 15; \
+       done
 
 COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
