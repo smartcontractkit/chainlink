@@ -1,0 +1,174 @@
+name: Coverage Collector
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Commit SHA whose coverage artifacts should be collected
+        required: true
+        type: string
+      pr_number:
+        description: PR number to comment on (optional)
+        required: false
+        type: string
+      wait_for_runs:
+        description: Wait for the other watched workflows for this SHA
+        required: false
+        default: true
+        type: boolean
+      update_badge:
+        description: Update the coverage badge branch from this manual run (develop only)
+        required: false
+        default: false
+        type: boolean
+  workflow_run:
+    workflows:
+      - CI Core
+      - Deployment Tests
+      - Integration In-Memory Tests
+      - Integration Tests
+      - CI Tools
+      - CRE System Tests
+      - CRE Regression System Tests
+      - CRE Mixed-Env Tests
+      - CRE Local Environment Tests
+      - CCIP System Tests
+      - Legacy System Tests
+      - Legacy Non Functional Tests
+    types: [completed]
+
+permissions:
+  actions: read
+  # The badge job writes a tiny SVG/JSON to the orphan `coverage` branch.
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: coverage-${{ inputs.target_sha || github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    name: Collect coverage
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || github.event.workflow_run.conclusion != 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Wait for PR workflows to start
+        if: ${{ github.event_name == 'pull_request' }}
+        run: sleep 60
+
+      - name: Collect and publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_SHA: ${{ inputs.target_sha || github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+          PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number || (github.event.workflow_run.pull_requests[0].number || '') }}
+          PATCH_BASE: ""
+          PATCH_HEAD: ""
+          WAIT_FOR_RUNS: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.wait_for_runs == true && 'true' || 'false') }}
+          WAIT_TIMEOUT: "2700"
+        run: ./tools/coverage/collect.sh
+
+      - name: Upload merged report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report-${{ inputs.target_sha || github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}-${{ github.run_id }}
+          path: coverage-report
+          retention-days: 30
+          if-no-files-found: warn
+  badge:
+    name: Update coverage badge
+    needs: [collect]
+    if: |
+      (github.event_name == 'workflow_run' &&
+        github.event.workflow_run.name == 'Integration Tests' &&
+        github.event.workflow_run.event == 'schedule' &&
+        github.event.workflow_run.head_branch == 'develop' &&
+        github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' &&
+        inputs.update_badge &&
+        github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v7
+        with:
+          name: coverage-report-${{ github.event.workflow_run.head_sha || inputs.target_sha }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/coverage-report
+
+      - name: Require a full report
+        id: full
+        run: |
+          set -euo pipefail
+          for file in unit.txt integration.txt e2e.txt any.json; do
+            if [[ ! -f "$RUNNER_TEMP/coverage-report/$file" ]]; then
+              echo "Missing $file; not updating the badge from a partial report."
+              echo "full=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "full=true" >> "$GITHUB_OUTPUT"
+
+      - name: Generate badge and state
+        if: steps.full.outputs.full == 'true'
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT: coverage-report-${{ github.event.workflow_run.head_sha || inputs.target_sha }}-${{ github.run_id }}
+        run: |
+          python3 tools/coverage/badge.py \
+            "$RUNNER_TEMP/coverage-report/any.json" \
+            "$RUNNER_TEMP/coverage-badge.svg" \
+            "$RUNNER_TEMP/coverage-state.json" \
+            "$SHA" "$ARTIFACT" "$REPO" "$RUN_URL"
+
+      - name: Publish coverage branch
+        if: steps.full.outputs.full == 'true'
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
+        run: |
+          set -euo pipefail
+          worktree="$RUNNER_TEMP/coverage-branch"
+          rm -rf "$worktree"
+          if git ls-remote --exit-code --heads origin coverage >/dev/null 2>&1; then
+            git fetch --no-tags origin coverage:refs/remotes/origin/coverage
+            git worktree add --detach "$worktree" refs/remotes/origin/coverage
+          else
+            git worktree add --detach "$worktree"
+            cd "$worktree"
+            git checkout --orphan coverage
+            git rm -rf . >/dev/null 2>&1 || true
+          fi
+          cd "$worktree"
+          mkdir -p latest
+          cp "$RUNNER_TEMP/coverage-badge.svg" latest/badge.svg
+          cp "$RUNNER_TEMP/coverage-state.json" latest/report.json
+          git add latest
+          if git diff --cached --quiet; then
+            echo "Coverage badge unchanged; not committing."
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "coverage: update badge for ${SHA}"
+          git push origin HEAD:refs/heads/coverage

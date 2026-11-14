@@ -32,8 +32,6 @@ GO_TEST_FLAGS="-timeout=${GO_TEST_TIMEOUT}"
 GO_TEST_FLAGS="$GO_TEST_FLAGS -p=2 -parallel=1"
 if [[ "$GITHUB_EVENT_NAME" == 'push' || "$GITHUB_EVENT_NAME" == 'workflow_dispatch' || "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
   GO_TEST_FLAGS="$GO_TEST_FLAGS -count=1"
-elif [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
-  GO_TEST_FLAGS="$GO_TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
 elif [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == 'merge_group' ]]; then
   RERUN_FLAGS=""
   if [[ "$TRUNK_AUTO_QUARANTINE" != "true" ]]; then
@@ -42,6 +40,16 @@ elif [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == 'merge
   else
     echo "TRUNK_AUTO_QUARANTINE enabled, gotestsum will not rerun failed tests"
   fi
+fi
+
+COVERAGE=${COVERAGE:-false}
+COVERAGE_ARGS=""
+if [[ "$COVERAGE" == "true" ]]; then
+  COVERAGE_DIR=${GOCOVERDIR:-$PWD/.covdata}
+  mkdir -p "$COVERAGE_DIR"
+  GO_TEST_FLAGS="$GO_TEST_FLAGS -covermode=atomic -cover -coverpkg=${COVERPKG:-./...}"
+  COVERAGE_ARGS="-args -test.gocoverdir=$COVERAGE_DIR"
+  echo "Coverage enabled: $COVERAGE_DIR"
 fi
 
 if [[ "$PRODUCE_JUNIT_XML" == "true" ]]; then
@@ -88,7 +96,7 @@ gotestsum \
   --jsonfile "$OUTPUT_FILE" \
   --post-run-command "sh -c \"echo; echo 'Slowest tests'; echo '----------------------------------------------'; echo; gotestsum tool slowest --num 20 --jsonfile ${OUTPUT_FILE}\"" \
   "$JUNIT_FLAG" \
-  -- $GO_TEST_FLAGS "${SHARD_PACKAGES[@]}"
+  -- $GO_TEST_FLAGS "${SHARD_PACKAGES[@]}" $COVERAGE_ARGS
 
 EXITCODE=${PIPESTATUS[0]}
 

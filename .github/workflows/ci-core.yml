@@ -16,6 +16,12 @@ on:
   schedule:
     - cron: "0 0,1,2,3,4,5,6,20,21,22,23 * * *" # Run regularly at night to get better flaky test data
   workflow_dispatch:
+    inputs:
+      race_coverage:
+        description: "Run the nightly race-coverage pass on this manual run (test hook)."
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   filter:
@@ -323,6 +329,7 @@ jobs:
             setup-sui: "false"
             install-loopps: "false"
             build-cache-write: always
+            coverage: "true"
 
           - cmd: go_core_tests_integration
             os:
@@ -341,6 +348,7 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             build-cache-write: always
+            coverage: "true"
 
           - cmd: go_core_fuzz
             os:
@@ -379,12 +387,17 @@ jobs:
             install-loopps: "false"
             build-cache-version: go_core_race_tests
             build-cache-write: always
+            # Nightly race runs also produce a coverage artifact so a race-
+            # instrumented run can be inspected later. It is deliberately not
+            # merged into the project coverage calculation; see collect.sh.
+            coverage_on_schedule: "true"
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [filter]
-    timeout-minutes: 60
+    # Scheduled race runs with coverage are much slower than PR runs.
+    timeout-minutes: 120
     # Use ubuntu-latest for jobs that will be skipped
     runs-on: ${{ matrix.type.should-run == 'true' && matrix.type.os ||
       'ubuntu-latest' }}
@@ -487,12 +500,14 @@ jobs:
 
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}
-        timeout-minutes: 50
+        timeout-minutes: 90
         continue-on-error: ${{ matrix.type.trunk-auto-quarantine == 'true' }}
         id: run-tests
         shell: bash
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
+          COVERAGE: ${{ matrix.type.coverage || (matrix.type.coverage_on_schedule == 'true' && (github.event_name == 'schedule' || inputs.race_coverage)) || 'false' }}
+          GOCOVERDIR: ${{ github.workspace }}/.covdata/${{ matrix.type.cmd }}
           OUTPUT_FILE: ./output.txt
           PRODUCE_JUNIT_XML: ${{ matrix.type.trunk-auto-quarantine }}
           TRUNK_AUTO_QUARANTINE: ${{ matrix.type.trunk-auto-quarantine }}
@@ -564,6 +579,27 @@ jobs:
             ./junit.xml
           retention-days: 7
 
+      - name: Store coverage artifacts
+        if:
+          ${{ always() && matrix.type.should-run == 'true' && (matrix.type.coverage
+          == 'true' || (matrix.type.coverage_on_schedule == 'true' &&
+          (github.event_name == 'schedule' || inputs.race_coverage))) }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-core-${{ matrix.type.cmd }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .covdata/${{ matrix.type.cmd }}
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Store test results
+        if: ${{ always() && matrix.type.should-run == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-core-${{ matrix.type.cmd }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: junit.xml
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Notify Slack on Race Test Failure
         if: |
           failure() &&
@@ -599,6 +635,8 @@ jobs:
       - name: Run Tests
         env:
           OUTPUT_FILE: ./output.txt
+          COVERAGE: "true"
+          GOCOVERDIR: ${{ github.workspace }}/.covdata/scripts
         run: ./tools/bin/go_core_scripts_tests ./...
 
       - name: Store test report artifacts
@@ -610,6 +648,15 @@ jobs:
             ./output.txt
             ./coverage.txt
           retention-days: 7
+
+      - name: Store coverage artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-core-scripts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .covdata/scripts
+          retention-days: 7
+          if-no-files-found: warn
 
   clean:
     name: Clean Go Tidy & Generate
