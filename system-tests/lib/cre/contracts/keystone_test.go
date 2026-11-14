@@ -216,7 +216,7 @@ func TestToV2ConfigureInput(t *testing.T) {
 		},
 	}
 
-	result := d.mustToV2ConfigureInput(chainSel, "0x1234567890abcdef", nil, nil)
+	result := d.mustToV2ConfigureInput(chainSel, "0x1234567890abcdef", nil, nil, nil)
 
 	require.Equal(t, chainSel, result.RegistryChainSel)
 
