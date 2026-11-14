@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -34,6 +35,7 @@ var (
 
 // mockGRPCClient is a mock implementation of grpcClient for testing.
 type mockGRPCClient struct {
+	listFn func(context.Context, []string, int64, int64) ([]*pb.WorkflowMetadata, bool, error)
 	// allWorkflows contains all workflows to be returned (used for stateless pagination)
 	allWorkflows []*pb.WorkflowMetadata
 	// err is the error to return (if set, takes precedence)
@@ -48,8 +50,11 @@ type mockGRPCClient struct {
 	closeErr error
 }
 
-func (m *mockGRPCClient) ListWorkflowMetadata(_ context.Context, _ []string, offset, limit int64) ([]*pb.WorkflowMetadata, bool, error) {
+func (m *mockGRPCClient) ListWorkflowMetadata(ctx context.Context, families []string, offset, limit int64) ([]*pb.WorkflowMetadata, bool, error) {
 	callNum := int(m.callCount.Add(1)) - 1 // 0-indexed call number
+	if m.listFn != nil {
+		return m.listFn(ctx, families, offset, limit)
+	}
 
 	// Check if there's a specific error for this call number
 	if callNum < len(m.errSequence) && m.errSequence[callNum] != nil {
@@ -443,6 +448,126 @@ func TestGRPCWorkflowSource_ContextCancellation(t *testing.T) {
 	_, _, err = source.ListWorkflowMetadata(ctx, don)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestGRPCWorkflowSource_OperationTimeout(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		paginate    bool
+		continuous  bool
+		retry       bool
+		backoff     bool
+		lateSuccess bool
+		callerLimit bool
+		cancel      bool
+	}{
+		{name: "stalled first page"},
+		{name: "stalled later page", paginate: true},
+		{name: "continuous pagination", paginate: true, continuous: true},
+		{name: "stalled retry", retry: true},
+		{name: "budget expires during backoff", retry: true, backoff: true},
+		{name: "late success discards partial listing", paginate: true, lateSuccess: true},
+		{name: "earlier caller deadline", callerLimit: true},
+		{name: "caller cancellation", cancel: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				ctx, cancel := context.WithCancel(t.Context())
+				defer cancel()
+				budget := 20 * time.Second
+				if tc.callerLimit {
+					budget = time.Second
+					var stop context.CancelFunc
+					ctx, stop = context.WithTimeout(ctx, budget)
+					defer stop()
+				}
+				started := time.Now()
+				wf := createTestProtoWorkflow("workflow-1", "family-a")
+				client := &mockGRPCClient{allWorkflows: []*pb.WorkflowMetadata{wf}}
+				client.listFn = func(ctx context.Context, families []string, offset, limit int64) ([]*pb.WorkflowMetadata, bool, error) {
+					deadline, ok := ctx.Deadline()
+					require.True(t, ok, "every attempt must inherit the operation deadline")
+					require.Equal(t, started.Add(budget), deadline, "pages and retries must not renew the budget")
+					if client.CallCount() == 1 || tc.continuous {
+						if tc.paginate {
+							time.Sleep(5 * time.Second)
+							synctest.Wait() // The page delay and deadline may fire together.
+							return []*pb.WorkflowMetadata{wf}, true, nil
+						}
+						if tc.retry {
+							return nil, false, status.Error(codes.Unavailable, "unavailable")
+						}
+					}
+					if tc.cancel {
+						cancel()
+					}
+					<-ctx.Done()
+					if tc.lateSuccess {
+						return nil, false, nil
+					}
+					return nil, false, ctx.Err()
+				}
+				cfg := grpcTestSourceConfig("test-source")
+				if tc.backoff {
+					cfg.RetryBaseDelay = time.Minute
+					cfg.RetryMaxDelay = time.Minute
+				}
+				source, err := NewGRPCWorkflowSourceWithClient(logger.TestLogger(t), client, cfg)
+				require.NoError(t, err)
+				views, head, err := source.ListWorkflowMetadata(ctx, capabilities.DON{})
+				if tc.cancel {
+					require.ErrorIs(t, err, context.Canceled)
+					require.Zero(t, time.Since(started))
+				} else {
+					require.ErrorIs(t, err, context.DeadlineExceeded)
+					require.Equal(t, budget, time.Since(started))
+				}
+				require.Nil(t, views)
+				require.Nil(t, head)
+				calls := 1
+				if tc.paginate || (tc.retry && !tc.backoff) {
+					calls = 2
+				}
+				if tc.continuous {
+					calls = 4
+				}
+				require.Equal(t, calls, client.CallCount())
+
+				client.listFn = nil
+				views, head, err = source.ListWorkflowMetadata(t.Context(), capabilities.DON{})
+				require.NoError(t, err)
+				require.Len(t, views, 1)
+				require.NotNil(t, head)
+			})
+		})
+	}
+}
+
+type stalledOwnerVerificationGate struct{ limits.GateLimiter }
+
+func (stalledOwnerVerificationGate) AllowErr(ctx context.Context) error {
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func TestGRPCWorkflowSource_TimeoutDuringConversion(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		cfg := grpcTestSourceConfig("test-source")
+		cfg.CentralizedOwnerVerificationEnabled = stalledOwnerVerificationGate{}
+		client := &mockGRPCClient{allWorkflows: []*pb.WorkflowMetadata{createTestProtoWorkflow("workflow-1", "family-a")}}
+		source, err := NewGRPCWorkflowSourceWithClient(logger.TestLogger(t), client, cfg)
+		require.NoError(t, err)
+		// Bounds the stalled verifier independently of the source's operation timeout.
+		ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+		defer cancel()
+		views, head, err := source.ListWorkflowMetadata(ctx, capabilities.DON{})
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		require.Nil(t, views)
+		require.Nil(t, head)
+	})
 }
 
 func TestGRPCWorkflowSource_ConfigDefaults(t *testing.T) {
