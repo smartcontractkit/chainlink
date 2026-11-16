@@ -14,7 +14,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
-	"github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -25,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -413,7 +413,7 @@ func getBufferFromJSON(s string) (*bytes.Buffer, error) {
 }
 
 func fromFile(arg string) (*bytes.Buffer, error) {
-	dir, err := homedir.Expand(arg)
+	dir, err := utils.ExpandHomeDir(arg)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mitchellh/go-homedir"
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
@@ -103,7 +102,7 @@ func Wei(str string) (w *assets.Wei, err error) {
 }
 
 func HomeDir(str string) (string, error) {
-	exp, err := homedir.Expand(str)
+	exp, err := utils.ExpandHomeDir(str)
 	if err != nil {
 		return "", err
 	}

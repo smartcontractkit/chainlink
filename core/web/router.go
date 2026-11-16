@@ -3,10 +3,10 @@ package web
 import (
 	"bytes"
 	"encoding/json"
+	"expvar"
 	"fmt"
 	"io"
 	"io/fs"
-	"math"
 	"net/http"
 	"net/http/pprof"
 	"net/url"
@@ -15,28 +15,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Depado/ginprom"
-	helmet "github.com/danielkov/gin-helmet"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/expvar"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
-	limits "github.com/gin-contrib/size"
 	"github.com/gin-gonic/gin"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/ulule/limiter/v3"
-	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
-	"github.com/ulule/limiter/v3/drivers/store/memory"
-	"github.com/unrolled/secure"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/ginprom"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
@@ -64,7 +56,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	engine.Use(
 		otelgin.Middleware("chainlink-web-routes",
 			otelgin.WithTracerProvider(otel.GetTracerProvider())),
-		limits.RequestSizeLimiter(config.WebServer().HTTPMaxSize()),
+		requestSizeLimiter(config.WebServer().HTTPMaxSize()),
 		loggerFunc(app.GetLogger()),
 		gin.Recovery(),
 		cors,
@@ -73,7 +65,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	if prometheus != nil {
 		engine.Use(prometheus.Instrument())
 	}
-	engine.Use(helmet.Default())
+	engine.Use(helmetDefault())
 	rl := config.WebServer().RateLimit()
 	api := engine.Group(
 		"/",
@@ -133,52 +125,45 @@ func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 	}
 }
 
-func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
-	store := memory.NewStore()
-	rate := limiter.Rate{
-		Period: period,
-		Limit:  limit,
-	}
-	return mgin.NewMiddleware(limiter.New(store, rate))
-}
-
-// secureOptions configure security options for the secure middleware, mostly
-// for TLS redirection
-func secureOptions(tlsRedirect bool, tlsHost string, devWebServer bool) secure.Options {
-	return secure.Options{
-		FrameDeny:     true,
-		IsDevelopment: devWebServer,
-		SSLRedirect:   tlsRedirect,
-		SSLHost:       tlsHost,
-	}
-}
-
-// secureMiddleware adds a TLS handler and redirector, to button up security
-// for this node
-func secureMiddleware(tlsRedirect bool, tlsHost string, devWebServer bool) gin.HandlerFunc {
-	secureMiddleware := secure.New(secureOptions(tlsRedirect, tlsHost, devWebServer))
-	secureFunc := func() gin.HandlerFunc {
-		return func(c *gin.Context) {
-			err := secureMiddleware.Process(c.Writer, c.Request)
-			// If there was an error, do not continue.
-			if err != nil {
-				c.Abort()
-				return
-			}
-
-			// Avoid header rewrite if response is a redirection.
-			if status := c.Writer.Status(); status > 300 && status < 399 {
-				c.Abort()
-			}
-		}
-	}()
-
-	return secureFunc
-}
-
 func debugRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	group := r.Group("/debug", auth.Authenticate(app.AuthenticationProvider(), auth.AuthenticateBySession))
-	group.GET("/vars", expvar.Handler())
+	group.GET("/vars", expvarHandler(expvar.Do))
+}
+
+// helmetDefault preserves the six default gin-helmet handlers and their order
+// without retaining a separate package for constant HTTP response headers.
+func helmetDefault() (gin.HandlerFunc, gin.HandlerFunc, gin.HandlerFunc, gin.HandlerFunc, gin.HandlerFunc, gin.HandlerFunc) {
+	header := func(key, value string) gin.HandlerFunc {
+		return func(c *gin.Context) {
+			c.Writer.Header().Set(key, value)
+		}
+	}
+	return header("X-Content-Type-Options", "nosniff"),
+		header("X-DNS-Prefetch-Control", "off"),
+		header("X-Frame-Options", "DENY"),
+		header("Strict-Transport-Security", "max-age=5184000; includeSubDomains"),
+		header("X-Download-Options", "noopen"),
+		header("X-XSS-Protection", "1; mode=block")
+}
+
+// expvarHandler preserves gin-contrib/expvar's JSON formatting, write sequence,
+// content type, and terminal handler behavior using the standard library.
+func expvarHandler(do func(func(expvar.KeyValue))) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		w := c.Writer
+		c.Header("Content-Type", "application/json; charset=utf-8")
+		_, _ = w.Write([]byte("{\n"))
+		first := true
+		do(func(kv expvar.KeyValue) {
+			if !first {
+				_, _ = w.Write([]byte(",\n"))
+			}
+			first = false
+			_, _ = fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
+		})
+		_, _ = w.Write([]byte("\n}\n"))
+		c.AbortWithStatus(http.StatusOK)
+	}
 }
 
 func metricRoutes(r *gin.RouterGroup) {
@@ -535,7 +520,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 		buf, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			lggr.Error("Web request log error: ", err.Error())
-			// Implicitly relies on limits.RequestSizeLimiter
+			// Implicitly relies on requestSizeLimiter
 			// overriding of c.Request.Body to abort gin's Context
 			// inside io.ReadAll.
 			// Functions as we would like, but horrible from an architecture
@@ -568,21 +553,6 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 }
 
 // Add CORS headers so UI can make api requests
-func uiCorsHandler(ao string) gin.HandlerFunc {
-	c := cors.Config{
-		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           math.MaxInt32,
-	}
-	if ao == "*" {
-		c.AllowAllOrigins = true
-	} else if allowOrigins := strings.Split(ao, ","); len(allowOrigins) > 0 {
-		c.AllowOrigins = allowOrigins
-	}
-	return cors.New(c)
-}
 
 func readBody(reader io.Reader, lggr logger.Logger) string {
 	buf := new(bytes.Buffer)

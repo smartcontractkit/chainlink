@@ -1,8 +1,6 @@
 package logger
 
 import (
-	"github.com/shirou/gopsutil/v3/disk"
-
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -11,10 +9,9 @@ type diskSpaceAvailableFn func(path string) (utils.FileSize, error)
 
 // diskSpaceAvailable returns the available/free disk space in the requested `path`. Returns an error if it fails to find the path.
 func diskSpaceAvailable(path string) (utils.FileSize, error) {
-	diskUsage, err := disk.Usage(path)
+	free, err := availableDiskSpace(path)
 	if err != nil {
 		return 0, err
 	}
-
-	return utils.FileSize(diskUsage.Free), nil
+	return utils.FileSize(free), nil
 }

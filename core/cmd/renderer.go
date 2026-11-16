@@ -5,10 +5,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/olekukonko/tablewriter"
-	"github.com/olekukonko/tablewriter/renderer"
-	"github.com/olekukonko/tablewriter/tw"
-
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -101,20 +97,9 @@ func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
 	return nil
 }
 
-func render(name string, table *tablewriter.Table) error {
-	symbols := tw.NewSymbolCustom("double-line").
-		WithColumn("║").
-		WithRow("═").
-		WithCenter("╬")
-
+func render(name string, table *cliTable) error {
 	fmt.Println("╔ " + name)
-	return table.Options(
-		tablewriter.WithRenderer(
-			renderer.NewBlueprint(
-				tw.Rendition{Symbols: symbols},
-			),
-		),
-	).Render()
+	return table.render()
 }
 
 func renderList(fields []string, items [][]string, writer io.Writer) {
@@ -165,10 +150,8 @@ func (rt RendererTable) renderExternalInitiatorAuthentication(eia webpresenters.
 	return render("External Initiator Credentials:", table)
 }
 
-func (rt RendererTable) newTable(headers []string) *tablewriter.Table {
-	table := tablewriter.NewWriter(rt)
-	table.Header(headers)
-	return table
+func (rt RendererTable) newTable(headers []string) *cliTable {
+	return newCLITable(rt, headers)
 }
 
 func (rt RendererTable) renderPipelineRun(run webpresenters.PipelineRunResource) error {
