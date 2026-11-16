@@ -2765,7 +2765,7 @@ IgnoreJoblessBridges skips bridges that have no associated jobs.
 ## JobSpecReporter
 ```toml
 [JobSpecReporter]
-Enabled = false # Default
+Enabled = true # Default
 PollingInterval = "1h" # Default
 EnabledOCR2PluginTypes = ["median"] # Default
 ```
@@ -2773,7 +2773,7 @@ JobSpecReporter holds settings for the Job Spec Reporter service, which periodic
 
 ### Enabled
 ```toml
-Enabled = false # Default
+Enabled = true # Default
 ```
 Enabled enables the Job Spec Reporter service.
 
