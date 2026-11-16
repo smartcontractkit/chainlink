@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	capkeystore "github.com/smartcontractkit/capabilities/libs/capability/keystore"
+	capocr "github.com/smartcontractkit/capabilities/libs/capability/keystore/ocr"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -17,28 +17,28 @@ type ocrKeystore struct {
 	ks keystore.OCR2
 }
 
-var _ capkeystore.OCRKeystore = ocrKeystore{}
+var _ capocr.Keystore = ocrKeystore{}
 
-func (s ocrKeystore) List(_ context.Context, chainTypes ...string) ([]capkeystore.OCRKeyBundle, error) {
+func (s ocrKeystore) List(_ context.Context, chainTypes ...string) ([]capocr.KeyBundle, error) {
 	all, err := s.ks.GetAll()
 	if err != nil {
 		return nil, err
 	}
 
-	var kbs []capkeystore.OCRKeyBundle
+	var kbs []capocr.KeyBundle
 	for _, kb := range all {
 		if len(chainTypes) == 0 || slices.Contains(chainTypes, string(kb.ChainType())) {
 			kbs = append(kbs, ocrKeyBundle{kb})
 		}
 	}
 
-	slices.SortFunc(kbs, func(a, b capkeystore.OCRKeyBundle) int { return strings.Compare(a.ID(), b.ID()) })
+	slices.SortFunc(kbs, func(a, b capocr.KeyBundle) int { return strings.Compare(a.ID(), b.ID()) })
 	return kbs, nil
 }
 
 // Get searches every bundle rather than calling keystore.OCR2.Get, whose error does not say whether the bundle is
 // missing or the keystore failed.
-func (s ocrKeystore) Get(_ context.Context, id string) (capkeystore.OCRKeyBundle, error) {
+func (s ocrKeystore) Get(_ context.Context, id string) (capocr.KeyBundle, error) {
 	all, err := s.ks.GetAll()
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (s ocrKeystore) Get(_ context.Context, id string) (capkeystore.OCRKeyBundle
 
 	i := slices.IndexFunc(all, func(kb ocr2key.KeyBundle) bool { return kb.ID() == id })
 	if i < 0 {
-		return nil, fmt.Errorf("%s: %w", id, capkeystore.ErrKeyBundleNotFound)
+		return nil, fmt.Errorf("%s: %w", id, capocr.ErrKeyBundleNotFound)
 	}
 
 	return ocrKeyBundle{all[i]}, nil

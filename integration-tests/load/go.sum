@@ -1614,8 +1614,8 @@ github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w
 github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
 github.com/slack-go/slack v0.23.1 h1:ZS5B96wxxYQRwvJ3/vJFtqtUZi3tXhsZCyT44Nv7M80=
 github.com/slack-go/slack v0.23.1/go.mod h1:H0yR/YBuRJ39RkE+JpV/d/oEsbanzTRowR82bCN0cEs=
-github.com/smartcontractkit/capabilities/libs v0.0.0-20261116155006-ddd9265fd667 h1:mL1+64IAkR0CUHBWa4lKI92X7f/L9HS+tJX/ocsAc0s=
-github.com/smartcontractkit/capabilities/libs v0.0.0-20261116155006-ddd9265fd667/go.mod h1:uVvhpE89qf87sqGbVBA70OVB1bPmoIeV8MBg2i+1GGA=
+github.com/smartcontractkit/capabilities/libs v0.0.0-20261116162535-dfa49137c959 h1:KB2w8nSqBhdH1Lu/OdO2zDbwIeCOHTZ0CntGXNXGrR0=
+github.com/smartcontractkit/capabilities/libs v0.0.0-20261116162535-dfa49137c959/go.mod h1:uVvhpE89qf87sqGbVBA70OVB1bPmoIeV8MBg2i+1GGA=
 github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9 h1:LhmsY89cyMlcORFSxF0p1//Gw34JBTqQ7XaCyLJ6Qpw=
 github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9/go.mod h1:SYc+BvAALmwsx2zMJIAczIyVNwsiXRIBXmejcTORxGE=
 github.com/smartcontractkit/ccip-owner-contracts v0.2.1 h1:HgrVtzpyqrPCQiyIeoUKcPK/S+TQI76F3CNU6/hH+6s=

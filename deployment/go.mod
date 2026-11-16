@@ -430,7 +430,7 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
-	github.com/smartcontractkit/capabilities/libs v0.0.0-20261116155006-ddd9265fd667 // indirect
+	github.com/smartcontractkit/capabilities/libs v0.0.0-20261116162535-dfa49137c959 // indirect
 	github.com/smartcontractkit/chainlink-canton/authentication v1.0.0 // indirect
 	github.com/smartcontractkit/chainlink-canton/contracts/v2 v2.1.0 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.16.0 // indirect

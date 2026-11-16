@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	capkeystore "github.com/smartcontractkit/capabilities/libs/capability/keystore"
+	capocr "github.com/smartcontractkit/capabilities/libs/capability/keystore/ocr"
+	ocrremote "github.com/smartcontractkit/capabilities/libs/capability/keystore/ocr/remote"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -47,7 +49,7 @@ func TestOCRKeystore_ListAndGet(t *testing.T) {
 	assert.Equal(t, evm.PublicKey(), kb.PublicKey())
 
 	_, err = s.Get(t.Context(), "missing")
-	require.ErrorIs(t, err, capkeystore.ErrKeyBundleNotFound)
+	require.ErrorIs(t, err, capocr.ErrKeyBundleNotFound)
 }
 
 func TestOCRKeystore_Locked(t *testing.T) {
@@ -61,7 +63,7 @@ func TestOCRKeystore_Locked(t *testing.T) {
 
 	_, err = s.Get(t.Context(), "any")
 	require.ErrorIs(t, err, keystore.ErrLocked)
-	require.NotErrorIs(t, err, capkeystore.ErrKeyBundleNotFound)
+	require.NotErrorIs(t, err, capocr.ErrKeyBundleNotFound)
 }
 
 func TestStandardCapabilitiesV2_ServesOCRKeystore(t *testing.T) {
@@ -77,13 +79,13 @@ func TestStandardCapabilitiesV2_ServesOCRKeystore(t *testing.T) {
 	report := ocrtypes.Report(bytes.Repeat([]byte{7}, ocr3types.MaxMaxReportLength))
 
 	var env map[string]string
-	var kb capkeystore.OCRKeyBundleClient
+	var kb capocr.KeyBundleClient
 	var onchainSig, offchainSig []byte
 	var secret [32]byte
 	var callErr error
 	registrar := &capturingRegistrar{onRegister: func(cfg plugins.CmdConfig) {
 		env = envMap(cfg.Env)
-		client := capkeystore.NewOCRKeystoreClient(lggr, dial(t, env["CL_KEYSTORE_URL"]))
+		client := ocrremote.NewClient(lggr, dial(t, env["CL_KEYSTORE_URL"]))
 		if kb, callErr = client.GetKeyBundle(t.Context(), evm.ID()); callErr != nil {
 			return
 		}
