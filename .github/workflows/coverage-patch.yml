@@ -45,6 +45,9 @@ jobs:
           # this job, so concurrent PRs cannot race on one key.
           build-cache-write: always
 
+      - name: Test coverage tooling
+        run: python3 -m unittest discover -s tools/coverage -p 'test_*.py' -v
+
       - name: Run affected-package tests and publish patch coverage
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}

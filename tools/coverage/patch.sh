@@ -78,9 +78,17 @@ while IFS= read -r module_dir; do
     packages+=("$import_path")
   done < <(awk -F '\t' -v m="$module_dir" '$1 == m { print $2 }' "$ROWS" | sort -u)
 
-  # Deduplicate package import paths while preserving a stable order.
-  package_list="$(printf '%s\n' "${packages[@]}" | sort -u | paste -sd, -)"
-  [[ -z "$package_list" ]] && continue
+  # Deduplicate test packages as well as the -coverpkg list. Several changed
+  # files in one package must not make go test run that package repeatedly.
+  unique_packages=()
+  while IFS= read -r import_path; do
+    [[ -n "$import_path" ]] && unique_packages+=("$import_path")
+  done < <(printf '%s\n' "${packages[@]}" | sort -u)
+  if [[ ${#unique_packages[@]} -eq 0 ]]; then
+    continue
+  fi
+  packages=("${unique_packages[@]}")
+  package_list="$(IFS=,; printf '%s' "${packages[*]}")"
 
   covdir="$COVDATA_ROOT/$(echo "$module_dir" | tr '/' '_')"
   mkdir -p "$covdir"

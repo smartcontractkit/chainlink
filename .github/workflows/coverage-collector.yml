@@ -41,8 +41,7 @@ on:
 
 permissions:
   actions: read
-  # The badge job writes a tiny SVG/JSON to the orphan `coverage` branch.
-  contents: write
+  contents: read
   pull-requests: write
 
 concurrency:
@@ -103,6 +102,10 @@ jobs:
         github.ref == 'refs/heads/develop')
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      # Only this trusted, scheduled badge job may write the coverage branch.
+      actions: read
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
