@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/ocrutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -942,7 +943,7 @@ func (d *Delegate) maybeWrapConfigService(id, key string, lggr logger.Logger, co
 	if err != nil {
 		return nil, nil, ocrtypes.LocalConfig{}, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
 	}
-	localConfig = generic.AdjustLocalConfigForRegistryBasedConfig(localConfig)
+	localConfig = ocrutil.ForRegistryConfig(localConfig)
 	lggr.Infow("Using dynamic OCR config from registry", "capabilityID", id, "ocrConfigKey", key)
 
 	return configTracker, configDigester, localConfig, nil
@@ -1280,7 +1281,7 @@ func (d *Delegate) newDonTimePlugin(
 		ContractConfigTracker:        configTracker,
 		ContractTransmitter:          transmitter,
 		Database:                     ocrDB,
-		LocalConfig:                  generic.AdjustLocalConfigForRegistryBasedConfig(lc),
+		LocalConfig:                  ocrutil.ForRegistryConfig(lc),
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           oracleEndpoint,
 		OffchainConfigDigester:       configDigester,

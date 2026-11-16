@@ -12,7 +12,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr/keyring"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/ocr/network"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/remote"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -20,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	settingsremote "github.com/smartcontractkit/chainlink-common/pkg/settings/remote"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -98,6 +105,8 @@ func TestStandardCapabilitiesV2_NoServers(t *testing.T) {
 
 	assert.NotContains(t, env, "CL_CAPABILITIES_PROXY_URL")
 	assert.NotContains(t, env, "CL_SETTINGS_URL")
+	assert.NotContains(t, env, "CL_OCR_NETWORK_URL")
+	assert.NotContains(t, env, "CL_OCR_KEYRING_URL")
 	assert.NotContains(t, env, "CL_CAPABILITIES_CAPABILITY_DON_ID")
 }
 
@@ -105,7 +114,7 @@ func TestDelegate_NewServicesV2_ForwardsCRESettings(t *testing.T) {
 	t.Parallel()
 	creSettings := &settings.Atomic{}
 	d := &Delegate{logger: logger.Test(t), creSettings: creSettings}
-	svcs, err := d.newServicesV2(t.Context(), logger.Test(t), "cronv2", "cron", "", 7)
+	svcs, err := d.newServicesV2(t.Context(), logger.Test(t), "cronv2", "cron", "", 7, nil)
 	require.NoError(t, err)
 	require.Len(t, svcs, 1)
 	v2, ok := svcs[0].(*V2)
@@ -122,6 +131,84 @@ func requireSnapshot(t *testing.T, updates <-chan settings.Snapshot, want settin
 		t.Fatalf("timed out waiting for settings %q", want.Hash)
 	}
 }
+
+func TestStandardCapabilitiesV2_OCR(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	var env map[string]string
+	var factory ocrtypes.BinaryNetworkEndpointFactory
+	var keyrings keyring.Keyrings
+	registrar := &capturingRegistrar{onRegister: func(cfg plugins.CmdConfig) {
+		env = envMap(cfg.Env)
+		var err error
+		factory, err = network.Connect(lggr, dial(t, env["CL_OCR_NETWORK_URL"]), env["CL_OCR_PEER_ID"], network.Config{})
+		require.NoError(t, err)
+		keyrings, err = keyring.Connect(t.Context(), dial(t, env["CL_OCR_KEYRING_URL"]), keyring.Config{}, staticOCR{}.Verify)
+		require.NoError(t, err)
+	}}
+
+	s, err := NewV2(V2Params{
+		Log:              lggr,
+		Command:          "consensusv2",
+		App:              "consensus",
+		CapDonIDResolver: &staticCapDonIDResolver{},
+		PluginRegistrar:  registrar,
+		OCR: &OCR{
+			Network: func(context.Context) (ocrtypes.BinaryNetworkEndpointFactory, error) {
+				return staticOCR{}, nil
+			},
+			Keyrings:        keyring.Keyrings{OffchainKeyring: staticOCR{}, OnchainKeyring: staticOCR{}},
+			PeerID:          "12D3KooWPeer",
+			TransmitAccount: "0xabc",
+			Bootstrappers: []ocrcommontypes.BootstrapperLocator{
+				{PeerID: "12D3KooWBoot", Addrs: []string{"127.0.0.1:6690"}},
+				{PeerID: "12D3KooWOther", Addrs: []string{"127.0.0.1:6691", "127.0.0.1:6692"}},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.NoError(t, s.Start(t.Context()))
+	s.launchWG.Wait()
+	require.NoError(t, s.Close())
+
+	assert.Equal(t, "12D3KooWPeer", env["CL_OCR_PEER_ID"])
+	assert.Equal(t, "0xabc", env["CL_OCR_TRANSMIT_ACCOUNT"])
+	assert.Equal(t, "12D3KooWBoot@127.0.0.1:6690,12D3KooWOther@127.0.0.1:6691/127.0.0.1:6692", env["CL_OCR_BOOTSTRAPPERS"])
+	assert.Equal(t, "12D3KooWPeer", factory.PeerID())
+	assert.Equal(t, staticOCR{}.OffchainPublicKey(), keyrings.OffchainKeyring.OffchainPublicKey())
+}
+
+type staticOCR struct{}
+
+func (staticOCR) PeerID() string { return "12D3KooWPeer" }
+
+func (staticOCR) NewEndpoint(ocrtypes.ConfigDigest, []string, []ocrcommontypes.BootstrapperLocator, int,
+	ocrtypes.BinaryNetworkEndpointLimits) (ocrcommontypes.BinaryNetworkEndpoint, error) {
+	return nil, nil
+}
+
+func (staticOCR) OffchainSign([]byte) ([]byte, error) { return nil, nil }
+
+func (staticOCR) ConfigDiffieHellman(p [32]byte) ([32]byte, error) { return p, nil }
+
+func (staticOCR) OffchainPublicKey() ocrtypes.OffchainPublicKey { return ocrtypes.OffchainPublicKey{} }
+
+func (staticOCR) ConfigEncryptionPublicKey() ocrtypes.ConfigEncryptionPublicKey {
+	return ocrtypes.ConfigEncryptionPublicKey{}
+}
+
+func (staticOCR) PublicKey() ocrtypes.OnchainPublicKey { return nil }
+
+func (staticOCR) Sign(ocrtypes.ConfigDigest, uint64, ocr3types.ReportWithInfo[string]) ([]byte, error) {
+	return nil, nil
+}
+
+func (staticOCR) Verify(ocrtypes.OnchainPublicKey, ocrtypes.ConfigDigest, uint64, ocr3types.ReportWithInfo[string],
+	[]byte) bool {
+	return false
+}
+
+func (staticOCR) MaxSignatureLength() int { return 0 }
 
 // chanCapDonIDResolver blocks until a DON ID is sent, so tests control when it resolves.
 type chanCapDonIDResolver chan uint32
@@ -227,7 +314,7 @@ func (c *trigger) UnregisterTrigger(context.Context, capabilities.TriggerRegistr
 
 func (c *trigger) AckEvent(context.Context, string, string, string) error { return nil }
 
-func TestDelegate_CronV2Active(t *testing.T) {
+func TestDelegate_V2Active(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
 	for name, tc := range map[string]struct {
@@ -248,6 +335,7 @@ func TestDelegate_CronV2Active(t *testing.T) {
 			t.Parallel()
 			d := &Delegate{logger: logger.Test(t), limitsFactory: limits.Factory{Settings: tc.settings}}
 			assert.Equal(t, tc.want, d.cronV2Active(t.Context()))
+			assert.Equal(t, tc.want, d.consensusV2Active(t.Context()))
 		})
 	}
 }
@@ -302,9 +390,49 @@ func TestEnvName(t *testing.T) {
 		"cron":                           "CRON",
 		"fastestScheduleIntervalSeconds": "FASTEST_SCHEDULE_INTERVAL_SECONDS",
 		"chainID":                        "CHAIN_ID",
-		"v2Value":                        "V2_VALUE",
+		"v2Value":                        "V_2_VALUE",
+		"KeyBundleIDForValueConsensus":   "KEY_BUNDLE_ID_FOR_VALUE_CONSENSUS",
 		"fastest-schedule.interval":      "FASTEST_SCHEDULE_INTERVAL",
 	} {
 		assert.Equal(t, want, envName(in), in)
 	}
+}
+
+func TestOCRConfigRegistry(t *testing.T) {
+	t.Parallel()
+	raw := ocrtypes.ContractConfig{ConfigCount: 2, Transmitters: []ocrtypes.Account{"f98665742002d7212b9a74c37bb17dcd0f96ff9d"}}
+	node := ocrtypes.ContractConfig{
+		ConfigDigest: ocrtypes.ConfigDigest{0, 14, 1},
+		ConfigCount:  2,
+		Transmitters: []ocrtypes.Account{"0xf98665742002D7212B9a74c37Bb17dcd0f96FF9D"},
+	}
+
+	r := ocrConfigRegistry{
+		CapabilitiesRegistry: &ocr3ConfigRegistry{configs: map[string]ocrtypes.ContractConfig{"__default__": raw, "other": raw}},
+		ocrConfigs:           &staticOCRConfigService{key: "__default__", config: node},
+	}
+
+	cfg, err := r.ConfigForCapability(t.Context(), "consensus@1.0.0-alpha", 1)
+	require.NoError(t, err)
+	assert.Equal(t, node, cfg.Ocr3Configs["__default__"], "the node's config replaces the raw one")
+	assert.Equal(t, raw, cfg.Ocr3Configs["other"], "a config the node does not run is left as it is")
+}
+
+type ocr3ConfigRegistry struct {
+	registry.CapabilitiesRegistry
+	configs map[string]ocrtypes.ContractConfig
+}
+
+func (r *ocr3ConfigRegistry) ConfigForCapability(context.Context, string, uint32) (capabilities.CapabilityConfiguration, error) {
+	return capabilities.CapabilityConfiguration{Ocr3Configs: r.configs}, nil
+}
+
+type staticOCRConfigService struct {
+	capregconfig.OCRConfigService
+	key    string
+	config ocrtypes.ContractConfig
+}
+
+func (s *staticOCRConfigService) GetContractConfig(_ string, key string) (ocrtypes.ContractConfig, bool) {
+	return s.config, key == s.key
 }
