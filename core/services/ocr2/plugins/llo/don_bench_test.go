@@ -1,6 +1,7 @@
 package llo_test
 
 import (
+	"bufio"
 	"crypto/ed25519"
 	"encoding/binary"
 	"fmt"
@@ -71,6 +72,13 @@ const (
 	// donBenchVariantsEnv selects the variants to run, comma separated, from
 	// donBenchVariants. Default v30,v31.
 	donBenchVariantsEnv = "LLO_DON_BENCH_VARIANTS"
+	// donBenchSamplesEnv is a path prefix. When set, each variant writes its
+	// full round samples to <prefix>_<variant>.intervals.csv and
+	// <prefix>_<variant>.latencies.csv, for distributions beyond p50 and p90.
+	donBenchSamplesEnv = "LLO_DON_BENCH_SAMPLES"
+	// donBenchKVStoreEnv selects the v31 key-value store: "memory" (default)
+	// or "pebble", the on-disk store production uses, under a temp dir per node.
+	donBenchKVStoreEnv = "LLO_DON_BENCH_KV_STORE"
 )
 
 // donBenchVariant is one plugin version and channel set to benchmark.
@@ -164,7 +172,7 @@ func TestIntegration_LLO_don_benchmark(t *testing.T) { //nolint:paralleltest // 
 		})
 	}
 
-	t.Logf("DON benchmark: %d oracles, %d channels, %d streams, %d rounds, DeltaRound %s, p2p host %s", nNodes, donBenchChannels, donBenchStreams, donBenchRoundsValue(t), donBenchDeltaRoundValue(t), donBenchP2PHost())
+	t.Logf("DON benchmark: %d oracles, %d channels, %d streams, %d rounds, DeltaRound %s, p2p host %s, kv store %s", nNodes, donBenchChannels, donBenchStreams, donBenchRoundsValue(t), donBenchDeltaRoundValue(t), donBenchP2PHost(), donBenchKVStore(t))
 	for _, r := range results { //nolint:paralleltest // logs results, runs no subtests
 		t.Log(r.String())
 		t.Logf("%s full round message sizes by bytes: %s", r.version, r.sizeProfile)
@@ -242,6 +250,17 @@ func donBenchRoundsValue(t *testing.T) int {
 	require.NoError(t, err, "%s", donBenchRoundsEnv)
 	require.Positive(t, n, "%s", donBenchRoundsEnv)
 	return n
+}
+
+// donBenchKVStore is the v31 key-value store for the run.
+func donBenchKVStore(t *testing.T) string {
+	t.Helper()
+	v := os.Getenv(donBenchKVStoreEnv)
+	if v == "" {
+		return "memory"
+	}
+	require.Contains(t, []string{"memory", "pebble"}, v, "%s", donBenchKVStoreEnv)
+	return v
 }
 
 // donBenchP2PHost is the loopback address the oracles listen and announce on.
@@ -334,14 +353,24 @@ func runDONBench(t *testing.T, variant donBenchVariant) donBenchResult {
 		streams[i] = Stream{id: uint32(1000 + i), baseBenchmarkPrice: decimal.NewFromInt(int64(1000 + i))}
 	}
 
-	// v31 state lives in memory so the round cost excludes disk writes, which
-	// the in-process bench package does not pay either.
+	// v31 state lives in memory by default so the round cost excludes disk
+	// writes, which the in-process bench package does not pay either. With
+	// pebble no factory is injected and the delegate builds the production
+	// store under KeyValueStoreRootDir.
 	wire := &netCounter{peers: nNodes}
+	deps := []any{wire}
+	pebble := donBenchKVStore(t) == "pebble"
+	if !pebble {
+		deps = append(deps, memkvdb.NewStatelessInMemoryKeyValueDatabaseFactory())
+	}
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
 		c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 		c.Log.Level = new(logLevel)
 		onP2PHost(c)
-	}, memkvdb.NewStatelessInMemoryKeyValueDatabaseFactory(), wire)
+		if pebble {
+			c.OCR2.KeyValueStoreRootDir = new(t.TempDir())
+		}
+	}, deps...)
 
 	relayType := "evm"
 	relayConfig := fmt.Sprintf(`
@@ -489,7 +518,9 @@ func decodeDONBenchPayload(variant donBenchVariant, payload []byte) (lloprotocol
 		if err != nil {
 			return lloprotocol.Report{}, err
 		}
-		return donBenchEVMReport(values[1].(uint64), values[6].([]byte))
+		// The Merkle report context keeps seqNr in the last 8 bytes of word 1.
+		reportCtx := values[0].([3][32]byte)
+		return donBenchEVMReport(binary.BigEndian.Uint64(reportCtx[1][24:32]), values[1].([]byte))
 	default:
 		values, err := lloevm.PayloadTypes.Unpack(payload)
 		if err != nil {
@@ -539,9 +570,10 @@ func summarizeDONBench(t *testing.T, version string, byOracle map[string][]donBe
 	// Agreed observation timestamp per seqNr, same on every oracle.
 	obsTsBySeqNr := map[uint64]uint64{}
 	var latencies []time.Duration
+	var latencySamples []donBenchLatencySample
 	var spanStart, spanEnd time.Time
 	total := 0
-	for _, reports := range byOracle {
+	for addr, reports := range byOracle {
 		for _, dr := range reports {
 			if !fullRound(dr.report.SeqNr) {
 				continue
@@ -550,6 +582,7 @@ func summarizeDONBench(t *testing.T, version string, byOracle map[string][]donBe
 			obsTsBySeqNr[dr.report.SeqNr] = dr.report.ObservationTimestampNanoseconds
 			obsAt := time.Unix(0, int64(dr.report.ObservationTimestampNanoseconds)) //nolint:gosec // G115: wall-clock nanoseconds fit int64
 			latencies = append(latencies, dr.receivedAt.Sub(obsAt))
+			latencySamples = append(latencySamples, donBenchLatencySample{oracle: addr, report: dr.report, latency: dr.receivedAt.Sub(obsAt)})
 			if spanStart.IsZero() || dr.receivedAt.Before(spanStart) {
 				spanStart = dr.receivedAt
 			}
@@ -577,6 +610,7 @@ func summarizeDONBench(t *testing.T, version string, byOracle map[string][]donBe
 	}
 	slices.Sort(seqNrs)
 	var intervals []time.Duration
+	var intervalSeqNrs []uint64
 	for i := 1; i < len(seqNrs); i++ {
 		// Only consecutive rounds measure cadence; a gap is a round that
 		// reported nothing or whose transmissions were still queued.
@@ -584,6 +618,10 @@ func summarizeDONBench(t *testing.T, version string, byOracle map[string][]donBe
 			continue
 		}
 		intervals = append(intervals, time.Duration(obsTsBySeqNr[seqNrs[i]]-obsTsBySeqNr[seqNrs[i-1]])) //nolint:gosec // G115: agreed timestamps are monotonic
+		intervalSeqNrs = append(intervalSeqNrs, seqNrs[i])
+	}
+	if prefix := os.Getenv(donBenchSamplesEnv); prefix != "" {
+		writeDONBenchSamples(t, fmt.Sprintf("%s_%s", prefix, version), obsTsBySeqNr, intervalSeqNrs, intervals, latencySamples)
 	}
 
 	res.rounds = len(seqNrs)
@@ -594,6 +632,39 @@ func summarizeDONBench(t *testing.T, version string, byOracle map[string][]donBe
 		res.reportsPerSecond = float64(res.reportsPerOracle) / span.Seconds()
 	}
 	return res
+}
+
+// donBenchLatencySample is one delivered report's transmit latency.
+type donBenchLatencySample struct {
+	oracle  string
+	report  lloprotocol.Report
+	latency time.Duration
+}
+
+// writeDONBenchSamples writes the full round samples behind the summary: one
+// row per round interval, keyed by the later seqNr, and one row per delivered
+// report. Timestamps and durations are in nanoseconds.
+func writeDONBenchSamples(t *testing.T, prefix string, obsTsBySeqNr map[uint64]uint64, intervalSeqNrs []uint64, intervals []time.Duration, latencies []donBenchLatencySample) {
+	t.Helper()
+	write := func(path, header string, rows func(w *bufio.Writer)) {
+		f, err := os.Create(path)
+		require.NoError(t, err)
+		w := bufio.NewWriter(f)
+		fmt.Fprintln(w, header)
+		rows(w)
+		require.NoError(t, w.Flush())
+		require.NoError(t, f.Close())
+	}
+	write(prefix+".intervals.csv", "seq_nr,obs_ts_ns,interval_ns", func(w *bufio.Writer) {
+		for i, seqNr := range intervalSeqNrs {
+			fmt.Fprintf(w, "%d,%d,%d\n", seqNr, obsTsBySeqNr[seqNr], intervals[i])
+		}
+	})
+	write(prefix+".latencies.csv", "oracle,seq_nr,channel_id,latency_ns", func(w *bufio.Writer) {
+		for _, s := range latencies {
+			fmt.Fprintf(w, "%s,%d,%d,%d\n", s.oracle, s.report.SeqNr, s.report.ChannelID, s.latency)
+		}
+	})
 }
 
 // percentiles returns the median and p90 of ds, zero when empty.
