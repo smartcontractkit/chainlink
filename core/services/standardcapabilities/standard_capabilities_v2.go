@@ -129,7 +129,7 @@ func (s *V2) Start(ctx context.Context) error {
 		}
 
 		if s.keystores != (capkeystore.Keystores{}) {
-			capkeystore.RegisterServers(srv.Server, s.log, s.keystores)
+			capkeystore.RegisterServers(srv.Server, s.keystores)
 			envVars = append(envVars, "CL_KEYSTORE_URL="+srv.addr())
 		}
 
