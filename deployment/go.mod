@@ -319,6 +319,7 @@ require (
 	github.com/holiman/billy v0.0.0-20250707135307-f2f9b9aae7db // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
+	github.com/huandu/go-clone v1.7.3 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/icza/gox v0.2.14 // indirect
@@ -417,6 +418,8 @@ require (
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
+	github.com/samber/do/v2 v2.1.0 // indirect
+	github.com/samber/go-type-to-string v1.8.0 // indirect
 	github.com/samber/lo v1.53.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
@@ -427,11 +430,12 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
+	github.com/smartcontractkit/capabilities/libs v0.0.0-20261116155006-ddd9265fd667 // indirect
 	github.com/smartcontractkit/chainlink-canton/authentication v1.0.0 // indirect
 	github.com/smartcontractkit/chainlink-canton/contracts/v2 v2.1.0 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.16.0 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261106154152-9426766b30a9 // indirect
-	github.com/smartcontractkit/chainlink-common/x/config v0.0.0-20260928140953-a9b0d3a04daa // indirect
+	github.com/smartcontractkit/chainlink-common/x/config v0.0.0-20261102161601-beffc93e226e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20261009212658-df7dcfcb7a77 // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260814143946-b5a88c16af02 // indirect
