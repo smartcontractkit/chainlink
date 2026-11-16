@@ -97,7 +97,7 @@ type DomainManager struct {
 	now             func() time.Time
 	reported        sync.Map // keys of unsupported types, chains and refusals already logged
 	unsupportedOpts sync.Map // "<type>/<reason>" -> otelmetric.AddOption
-	metricOpts      sync.Map // "<selector>\x00<type>\x00<error code>" -> otelmetric.AddOption
+	metricOpts      sync.Map // metricKey -> otelmetric.AddOption
 }
 
 // telemetryRoute is where one telemetry type goes, with its metric handles precomputed.
@@ -327,10 +327,18 @@ func (m *DomainManager) recordDropped(ctx context.Context, route *telemetryRoute
 	route.promDropped.Inc()
 }
 
+// metricKey identifies a cached metric option: the target chain's selector, the route's
+// telemetry type and the error code ("" for the sent counter).
+type metricKey struct {
+	selector  string
+	telemType synchronization.TelemetryType
+	errorCode string
+}
+
 // metricOpt returns the route's attributes plus the target chain's chain_selector and, when code
-// is non-empty, the error code. Cached per (selector, telemetry type, error code): a bounded set.
+// is non-empty, the error code. Cached per metricKey: a bounded set.
 func (m *DomainManager) metricOpt(route *telemetryRoute, target eventTarget, code string) otelmetric.AddOption {
-	key := target.selector + "\x00" + string(route.telemType) + "\x00" + code
+	key := metricKey{selector: target.selector, telemType: route.telemType, errorCode: code}
 	if v, ok := m.metricOpts.Load(key); ok {
 		return v.(otelmetric.AddOption)
 	}
