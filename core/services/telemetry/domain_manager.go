@@ -57,7 +57,8 @@ func supportedTelemetryDomains() map[synchronization.TelemetryType]beholder.Doma
 }
 
 // Metric names and attribute values. The manager's metrics are OTel (Beholder) metrics, so they
-// reach us from every node.
+// reach us from every node. The counters carry the route's domain and telemetry_type, the target
+// chain's chain_selector, and error_code or reason where they apply.
 //
 // It also increments the existing Prometheus telemetry_client_messages_{sent,send_errors,dropped}
 // counters for node-local dashboards, with two differences from the WSRPC path: they count
@@ -96,6 +97,7 @@ type DomainManager struct {
 	now             func() time.Time
 	reported        sync.Map // keys of unsupported types, chains and refusals already logged
 	unsupportedOpts sync.Map // "<type>/<reason>" -> otelmetric.AddOption
+	metricOpts      sync.Map // "<selector>\x00<type>\x00<error code>" -> otelmetric.AddOption
 }
 
 // telemetryRoute is where one telemetry type goes, with its metric handles precomputed.
@@ -106,9 +108,7 @@ type telemetryRoute struct {
 	entity    string
 	emitter   beholder.DomainEmitter
 
-	attrs     attribute.Set
-	okOpt     otelmetric.AddOption
-	errorOpts sync.Map // error code -> otelmetric.AddOption
+	attrs attribute.Set
 
 	promSent, promSendErrors, promDropped prometheus.Counter
 }
@@ -189,7 +189,6 @@ func NewDomainManager(src DomainEmitterSource, csaPubKeyHex string, lggr logger.
 			entity:         entity,
 			emitter:        emitters[d],
 			attrs:          attrs,
-			okOpt:          otelmetric.WithAttributeSet(attrs),
 			promSent:       synchronization.TelemetryClientMessagesSent.WithLabelValues(endpoint, string(telemType)),
 			promSendErrors: synchronization.TelemetryClientMessagesSendErrors.WithLabelValues(endpoint, string(telemType)),
 			promDropped:    synchronization.TelemetryClientMessagesDropped.WithLabelValues(endpoint, string(telemType)),
@@ -290,18 +289,18 @@ func (m *DomainManager) send(route *telemetryRoute, target eventTarget, telemetr
 	ctx := context.Background()
 	ev, err := m.newEvent(route, target, telemetry)
 	if err != nil {
-		m.refused(ctx, route, errorCodeEventBuild, err)
+		m.refused(ctx, route, target, errorCodeEventBuild, err)
 		return
 	}
-	if err := route.emitter.EmitEvent(ctx, ev, func(sendErr error) { m.recordFate(ctx, route, sendErr) }); err != nil {
-		m.refused(ctx, route, errorCodeEmitRejected, err)
+	if err := route.emitter.EmitEvent(ctx, ev, func(sendErr error) { m.recordFate(ctx, route, target, sendErr) }); err != nil {
+		m.refused(ctx, route, target, errorCodeEmitRejected, err)
 	}
 }
 
 // refused counts an event that never reached the emitter's buffer and logs the first one per
 // route and error code at Error.
-func (m *DomainManager) refused(ctx context.Context, route *telemetryRoute, code string, err error) {
-	m.recordDropped(ctx, route, code)
+func (m *DomainManager) refused(ctx context.Context, route *telemetryRoute, target eventTarget, code string, err error) {
+	m.recordDropped(ctx, route, target, code)
 	m.reportOnce("refused:"+string(route.telemType)+"/"+code, func() {
 		m.eng.Errorw("Telemetry refused: it is being dropped (further refusals are only counted)",
 			"telemType", route.telemType, "domain", route.domain, "errorCode", code, "err", err)
@@ -310,31 +309,36 @@ func (m *DomainManager) refused(ctx context.Context, route *telemetryRoute, code
 
 // recordFate counts an event's fate as reported by the emitter: published, failed to publish,
 // or dropped before publishing (full buffer or shutdown).
-func (m *DomainManager) recordFate(ctx context.Context, route *telemetryRoute, err error) {
+func (m *DomainManager) recordFate(ctx context.Context, route *telemetryRoute, target eventTarget, err error) {
 	switch {
 	case err == nil:
-		m.metrics.sent.Add(ctx, 1, route.okOpt)
+		m.metrics.sent.Add(ctx, 1, m.metricOpt(route, target, ""))
 		route.promSent.Inc()
 	case errors.Is(err, batch.ErrMessageBufferFull), errors.Is(err, batch.ErrClientShutdown):
-		m.recordDropped(ctx, route, batch.ErrorCodeFor(err))
+		m.recordDropped(ctx, route, target, batch.ErrorCodeFor(err))
 	default:
-		m.metrics.sendErrors.Add(ctx, 1, route.errorOpt(batch.ErrorCodeFor(err)))
+		m.metrics.sendErrors.Add(ctx, 1, m.metricOpt(route, target, batch.ErrorCodeFor(err)))
 		route.promSendErrors.Inc()
 	}
 }
 
-func (m *DomainManager) recordDropped(ctx context.Context, route *telemetryRoute, code string) {
-	m.metrics.dropped.Add(ctx, 1, route.errorOpt(code))
+func (m *DomainManager) recordDropped(ctx context.Context, route *telemetryRoute, target eventTarget, code string) {
+	m.metrics.dropped.Add(ctx, 1, m.metricOpt(route, target, code))
 	route.promDropped.Inc()
 }
 
-// errorOpt returns the route's attributes plus error_code, cached per code (a bounded set).
-func (r *telemetryRoute) errorOpt(code string) otelmetric.AddOption {
-	if v, ok := r.errorOpts.Load(code); ok {
+// metricOpt returns the route's attributes plus the target chain's chain_selector and, when code
+// is non-empty, the error code. Cached per (selector, telemetry type, error code): a bounded set.
+func (m *DomainManager) metricOpt(route *telemetryRoute, target eventTarget, code string) otelmetric.AddOption {
+	key := target.selector + "\x00" + string(route.telemType) + "\x00" + code
+	if v, ok := m.metricOpts.Load(key); ok {
 		return v.(otelmetric.AddOption)
 	}
-	opt := otelmetric.WithAttributes(append(r.attrs.ToSlice(), attribute.String("error_code", code))...)
-	v, _ := r.errorOpts.LoadOrStore(code, opt)
+	kvs := append(route.attrs.ToSlice(), attribute.String("chain_selector", target.selector))
+	if code != "" {
+		kvs = append(kvs, attribute.String("error_code", code))
+	}
+	v, _ := m.metricOpts.LoadOrStore(key, otelmetric.WithAttributes(kvs...))
 	return v.(otelmetric.AddOption)
 }
 

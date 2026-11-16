@@ -131,6 +131,8 @@ func counterValue(t *testing.T, reader *sdkmetric.ManualReader, name string, wan
 
 var ethMainnetChainID = strconv.FormatUint(chainselectors.ETHEREUM_MAINNET.EvmChainID, 10)
 
+var ethMainnetSelector = strconv.FormatUint(chainselectors.ETHEREUM_MAINNET.Selector, 10)
+
 func TestNewDomainManager_RequiresEveryDomain(t *testing.T) {
 	t.Parallel()
 	src := newFakeEmitterSource()

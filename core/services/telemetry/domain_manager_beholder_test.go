@@ -180,6 +180,8 @@ func TestDomainManager_ThroughRealBeholderClient(t *testing.T) {
 	requireCleanClose(t, closeClient())
 	// Nothing is counted twice, and nothing else is counted, once the emitters have drained.
 	assert.Equal(t, int64(total), counterValue(t, reader, metricMessagesSent))
+	assert.Equal(t, int64(total), counterValue(t, reader, metricMessagesSent,
+		attribute.String("chain_selector", ethMainnetSelector)), "sent counts carry the chain selector")
 	assert.Zero(t, counterValue(t, reader, metricMessagesSendErrors))
 	assert.Zero(t, counterValue(t, reader, metricMessagesDropped))
 }
@@ -202,7 +204,8 @@ func TestDomainManager_ThroughRealBeholderClient_BufferFull(t *testing.T) {
 		ep.SendLog([]byte("p"))
 	}
 	bufferFull := attribute.String("error_code", batch.ErrorCodeFor(batch.ErrMessageBufferFull))
-	require.Positive(t, counterValue(t, reader, metricMessagesDropped, bufferFull), "drops are counted as dropped, not send errors")
+	require.Positive(t, counterValue(t, reader, metricMessagesDropped, bufferFull,
+		attribute.String("chain_selector", ethMainnetSelector)), "drops are counted as dropped, not send errors")
 
 	close(chip.hold) // let the held and queued events through, then drain on close
 	requireCleanClose(t, closeClient())
