@@ -436,9 +436,9 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 	switch {
 	case IsAvaxNetwork(env.ChainID):
 		return getRlpHeaders[*AvaHeader](env, blockNumbers, offset)
-	case IsAvaxSubnet(env.ChainID) &&
-		// For some reason, Nexon chain does not work with AvaSubnetHeader
-		!IsNexonChain(env.ChainID):
+	case IsNexonChain(env.ChainID):
+		return getRlpHeaders[*NexonHeader](env, blockNumbers, offset)
+	case IsAvaxSubnet(env.ChainID):
 		return getRlpHeaders[*AvaSubnetHeader](env, blockNumbers, offset)
 	case IsPolygonEdgeNetwork(env.ChainID):
 		hs := make([]*PolygonEdgeHeader, len(blockNumbers))
