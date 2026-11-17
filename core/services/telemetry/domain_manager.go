@@ -43,6 +43,7 @@ var supportedTelemetryDomains = map[synchronization.TelemetryType]beholder.Domai
 	synchronization.OCR3DataFeeds:     beholder.DomainDataFeeds,
 	synchronization.EnhancedEA:        beholder.DomainDataFeeds,
 	synchronization.OCR3Mercury:       beholder.DomainDataStreams,
+	synchronization.OCR3_1Mercury:     beholder.DomainDataStreams,
 	synchronization.EnhancedEAMercury: beholder.DomainDataStreams,
 	synchronization.LLOObservation:    beholder.DomainDataStreams,
 	synchronization.LLOOutcome:        beholder.DomainDataStreams,

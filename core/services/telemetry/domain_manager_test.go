@@ -166,6 +166,7 @@ func TestDomainManager_RoutesEachTypeToItsDomain(t *testing.T) {
 		{synchronization.OCR3DataFeeds, beholder.DomainDataFeeds, "data-feeds.telemetry.ocr3-data-feeds", ocr3},
 		{synchronization.EnhancedEA, beholder.DomainDataFeeds, "data-feeds.telemetry.enhanced-ea", "telem.EnhancedEA"},
 		{synchronization.OCR3Mercury, beholder.DomainDataStreams, "data-streams.telemetry.ocr3-mercury", ocr3},
+		{synchronization.OCR3_1Mercury, beholder.DomainDataStreams, "data-streams.telemetry.ocr3_1-mercury", "offchainreporting3_1.TelemetryWrapper"},
 		{synchronization.EnhancedEAMercury, beholder.DomainDataStreams, "data-streams.telemetry.enhanced-ea-mercury", "telem.EnhancedEAMercury"},
 		{synchronization.LLOObservation, beholder.DomainDataStreams, "data-streams.telemetry.llo-observation", "telem.LLOObservationTelemetry"},
 		{synchronization.LLOOutcome, beholder.DomainDataStreams, "data-streams.telemetry.llo-outcome", "telem.LLOOutcomeTelemetry"},

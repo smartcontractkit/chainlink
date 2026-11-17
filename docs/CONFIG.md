@@ -343,8 +343,8 @@ are ignored: the Telemetry.ChipIngress* settings size one buffer per domain, sha
 Requires Telemetry.Enabled and Telemetry.ChipIngressEndpoint, and chip ingress that serves PublishBatchNoAck for every domain
 (there is no fallback). Cannot be combined with ChipIngressEnabled.
 Telemetry is sent for every chain the node's jobs run on: Endpoints no longer select chains. Supported types are ocr,
-ocr2-median, ocr3-data-feeds, enhanced-ea, ocr3-mercury, enhanced-ea-mercury, llo-observation, llo-outcome, pipeline-bridge,
-ocr2-ccip-commit, ocr2-ccip-exec, ocr3-ccip-commit, ocr3-ccip-exec and head-report; other types are dropped.
+ocr2-median, ocr3-data-feeds, enhanced-ea, ocr3-mercury, ocr3_1-mercury, enhanced-ea-mercury, llo-observation, llo-outcome,
+pipeline-bridge, ocr2-ccip-commit, ocr2-ccip-exec, ocr3-ccip-commit, ocr3-ccip-exec and head-report; other types are dropped.
 
 ## TelemetryIngress.Endpoints
 ```toml
