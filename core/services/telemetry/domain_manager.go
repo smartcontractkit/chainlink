@@ -35,25 +35,24 @@ type DomainEmitterSource interface {
 // whose emitter carries each: the types ingested in production. Their CloudEvent source and type
 // come from synchronization.TelemetryTypeToDomainAndEntity. Every other type is dropped and counted.
 // The TelemetryIngress.BeholderEnabled docs (core/config/docs/core.toml) list these types: keep them in sync.
-func supportedTelemetryDomains() map[synchronization.TelemetryType]beholder.Domain {
-	return map[synchronization.TelemetryType]beholder.Domain{
-		synchronization.OCR:               beholder.DomainDataFeeds,
-		synchronization.OCR2Median:        beholder.DomainDataFeeds,
-		synchronization.OCR3DataFeeds:     beholder.DomainDataFeeds,
-		synchronization.EnhancedEA:        beholder.DomainDataFeeds,
-		synchronization.OCR3Mercury:       beholder.DomainDataStreams,
-		synchronization.EnhancedEAMercury: beholder.DomainDataStreams,
-		synchronization.LLOObservation:    beholder.DomainDataStreams,
-		synchronization.LLOOutcome:        beholder.DomainDataStreams,
-		synchronization.PipelineBridge:    beholder.DomainDataStreams,
-		synchronization.OCR2CCIPCommit:    beholder.DomainCCIP,
-		synchronization.OCR2CCIPExec:      beholder.DomainCCIP,
-		synchronization.OCR3CCIPCommit:    beholder.DomainCCIP,
-		synchronization.OCR3CCIPExec:      beholder.DomainCCIP,
-		// TODO(INFOPLAT-19709): head reports are emitted for every chain on every node; confirm
-		// ccip is their domain.
-		synchronization.HeadReport: beholder.DomainCCIP,
-	}
+// A package-level map: countUnsupported reads it per message and must not allocate.
+var supportedTelemetryDomains = map[synchronization.TelemetryType]beholder.Domain{
+	synchronization.OCR:               beholder.DomainDataFeeds,
+	synchronization.OCR2Median:        beholder.DomainDataFeeds,
+	synchronization.OCR3DataFeeds:     beholder.DomainDataFeeds,
+	synchronization.EnhancedEA:        beholder.DomainDataFeeds,
+	synchronization.OCR3Mercury:       beholder.DomainDataStreams,
+	synchronization.EnhancedEAMercury: beholder.DomainDataStreams,
+	synchronization.LLOObservation:    beholder.DomainDataStreams,
+	synchronization.LLOOutcome:        beholder.DomainDataStreams,
+	synchronization.PipelineBridge:    beholder.DomainDataStreams,
+	synchronization.OCR2CCIPCommit:    beholder.DomainCCIP,
+	synchronization.OCR2CCIPExec:      beholder.DomainCCIP,
+	synchronization.OCR3CCIPCommit:    beholder.DomainCCIP,
+	synchronization.OCR3CCIPExec:      beholder.DomainCCIP,
+	// TODO(INFOPLAT-19709): head reports are emitted for every chain on every node; confirm
+	// ccip is their domain.
+	synchronization.HeadReport: beholder.DomainCCIP,
 }
 
 // Metric names and attribute values. The manager's metrics are OTel (Beholder) metrics, so they
@@ -96,7 +95,7 @@ type DomainManager struct {
 	metrics         domainManagerMetrics
 	now             func() time.Time
 	reported        sync.Map // keys of unsupported types, chains and refusals already logged
-	unsupportedOpts sync.Map // "<type>/<reason>" -> otelmetric.AddOption
+	unsupportedOpts sync.Map // unsupportedKey -> otelmetric.AddOption
 	metricOpts      sync.Map // metricKey -> otelmetric.AddOption
 }
 
@@ -153,10 +152,9 @@ func NewDomainManager(src DomainEmitterSource, csaPubKeyHex string, lggr logger.
 	}
 	m.metrics = metrics
 
-	supported := supportedTelemetryDomains()
 	// Resolve domains in a stable order so a missing one is reported the same way every time.
 	var domains []beholder.Domain
-	for _, d := range supported {
+	for _, d := range supportedTelemetryDomains {
 		if !slices.Contains(domains, d) {
 			domains = append(domains, d)
 		}
@@ -171,8 +169,8 @@ func NewDomainManager(src DomainEmitterSource, csaPubKeyHex string, lggr logger.
 		emitters[d] = em
 	}
 
-	m.routes = make(map[synchronization.TelemetryType]*telemetryRoute, len(supported))
-	for telemType, d := range supported {
+	m.routes = make(map[synchronization.TelemetryType]*telemetryRoute, len(supportedTelemetryDomains))
+	for telemType, d := range supportedTelemetryDomains {
 		source, entity, err := synchronization.TelemetryTypeToDomainAndEntity(telemType)
 		if err != nil {
 			return nil, fmt.Errorf("telemetry: no CloudEvent source for %q: %w", telemType, err)
@@ -350,22 +348,50 @@ func (m *DomainManager) metricOpt(route *telemetryRoute, target eventTarget, cod
 	return v.(otelmetric.AddOption)
 }
 
-// countUnsupported counts a dropped message whose type or chain is not supported. The metric
-// option is cached per (type, reason): unsupported LLO types arrive on the hot path.
+// unsupportedTypeLabel clamps an unsupported telemetry type for metric labels and log
+// dedup keys: the generic telemetry adapter accepts arbitrary strings, so a raw value
+// would grow the metric series and the option cache without bound. Types with a
+// CloudEvent mapping (synchronization.TelemetryTypeToDomainAndEntity is the registry)
+// keep their label; anything else is "unknown" — its raw value is logged once by
+// warnUnsupportedType.
+func unsupportedTypeLabel(telemType synchronization.TelemetryType) string {
+	if _, _, err := synchronization.TelemetryTypeToDomainAndEntity(telemType); err == nil {
+		return string(telemType)
+	}
+	return "unknown"
+}
+
+// countUnsupported counts a dropped message whose type or chain is not supported. The
+// telemetry_type label is clamped (see unsupportedTypeLabel) and the domain is recorded
+// whenever the type maps to one, so domain-filtered loss dashboards see chain-reason
+// drops of mapped types. The option is cached per (label, reason): hot path.
+// unsupportedKey identifies a cached unsupported-metric option: the clamped telemetry
+// type label and the drop reason. Bounded by construction — labels come from the
+// CloudEvent registry plus "unknown", reasons from a fixed set.
+type unsupportedKey struct {
+	telemType string
+	reason    string
+}
+
 func (m *DomainManager) countUnsupported(telemType synchronization.TelemetryType, reason string) {
-	key := string(telemType) + "/" + reason
+	label := unsupportedTypeLabel(telemType)
+	key := unsupportedKey{telemType: label, reason: reason}
 	v, ok := m.unsupportedOpts.Load(key)
 	if !ok {
-		v, _ = m.unsupportedOpts.LoadOrStore(key, otelmetric.WithAttributes(
-			attribute.String("telemetry_type", string(telemType)),
+		attrs := []attribute.KeyValue{
+			attribute.String("telemetry_type", label),
 			attribute.String("reason", reason),
-		))
+		}
+		if d, mapped := supportedTelemetryDomains[telemType]; mapped {
+			attrs = append(attrs, attribute.String("domain", string(d)))
+		}
+		v, _ = m.unsupportedOpts.LoadOrStore(key, otelmetric.WithAttributes(attrs...))
 	}
 	m.metrics.unsupported.Add(context.Background(), 1, v.(otelmetric.AddOption))
 }
 
 func (m *DomainManager) warnUnsupportedType(telemType synchronization.TelemetryType) {
-	m.reportOnce("type:"+string(telemType), func() {
+	m.reportOnce("type:"+unsupportedTypeLabel(telemType), func() {
 		m.eng.Warnw("Telemetry type is not supported: its telemetry will be dropped", "telemType", telemType)
 	})
 }
