@@ -35,6 +35,7 @@ import (
 	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 )
 
 /*
@@ -60,27 +61,8 @@ func ExecuteShardingTestWithCronTrigger(t *testing.T, testEnv *ttypes.TestEnviro
 	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: "*/30 * * * * *",
 	}
-	// TODO: 16 workflows is a statistical workaround, not a fix. Step 8 requires the mapping
-	// to span both shards, but placement is consistent hashing over workflow IDs
-	// (core/services/ring/utils.go), and the IDs embed the compiled WASM, so they re-roll
-	// with the Go toolchain and checkout path (system-tests/lib/cre/workflow/compile.go
-	// builds without -trimpath). With 5 workflows all-on-one-shard happens ~1 in 15 runs;
-	// with 16 it is ~1 in 15,000-40,000. The flake is rare, not gone, and the count adds
-	// deploy/registry/cleanup runtime to every run.
-	// Real fixes, in order of preference:
-	//  1. Expose healthy shard/ring membership on the shard orchestrator API and assert
-	//     shard 1 joined the ring after scale-up. That checks the actual regression
-	//     ("second shard never receives auto-sharded work") with zero hash-ring luck, and
-	//     would let step 8 drop the both-shards requirement entirely.
-	//  2. Add -trimpath -buildvcs=false to the workflow build so IDs stop depending on the
-	//     checkout path (toolchain re-rolls would still happen).
-	//  3. Cover the distribution property in ring unit tests (deterministic, in-package)
-	//     instead of sampling a hash ring through a Docker system test.
-	const numWorkflows = 16
-	workflowNames := make([]string, numWorkflows)
-	for i := range numWorkflows {
-		workflowNames[i] = fmt.Sprintf("shardtest-cron-%d", i)
-	}
+	const numWorkflows = 5
+	workflowNames := pickShardSpanningWorkflowNames(t, testEnv, workflowFileLocation, &workflowConfig, "shardtest-cron", numWorkflows)
 	ExecuteShardingTemplate(t, testEnv, workflowFileLocation, &workflowConfig, workflowNames, "Amazing workflow user log")
 }
 
@@ -111,10 +93,7 @@ func ExecuteShardingTestWithEVMLogTrigger(t *testing.T, testEnv *ttypes.TestEnvi
 	workflowFileLocation := "./evm/logtrigger/main.go"
 
 	const numWorkflows = 10
-	workflowNames := make([]string, numWorkflows)
-	for i := range numWorkflows {
-		workflowNames[i] = fmt.Sprintf("shardtest-evmlogtrigger-%d", i)
-	}
+	workflowNames := pickShardSpanningWorkflowNames(t, testEnv, workflowFileLocation, &workflowConfig, "shardtest-evmlogtrigger", numWorkflows)
 	ExecuteShardingTemplate(t, testEnv, workflowFileLocation, &workflowConfig, workflowNames, expectedMessage)
 
 	requireTriggerEventACKLog(t, testLogger, singleAckFound)
@@ -158,15 +137,46 @@ func ExecuteShardingTestWithHTTPTrigger(t *testing.T, testEnv *ttypes.TestEnviro
 	workflowOwnerAddress := strings.ToLower(crypto.PubkeyToAddress(workflowOwner.PublicKey).Hex())
 
 	const numWorkflows = 5
-	workflowNames := make([]string, numWorkflows)
+	workflowNames := pickShardSpanningWorkflowNames(t, testEnv, workflowFileLocation, &httpWorkflowConfig, "shard-httptrigger", numWorkflows)
 	for i := range numWorkflows {
-		workflowNames[i] = fmt.Sprintf("shard-httptrigger-%d", i)
 		go executeHTTPTriggerRequest(t, testEnv, gatewayURL, workflowNames[i], "", signingKey, workflowOwnerAddress) //nolint:testifylint // require.Eventually inside a goroutine is unsafe
 	}
 
 	ExecuteShardingTemplate(t, testEnv, workflowFileLocation, &httpWorkflowConfig, workflowNames, "Successfully processed order")
 
 	validateHTTPWorkflowRequest(t, testEnv)
+}
+
+// pickShardSpanningWorkflowNames returns count workflow names split evenly between the first
+// two shards. Shard placement hashes the workflow ID, which depends on the name, so fixed
+// names occasionally put every workflow on one shard and fail the scale-up check.
+func pickShardSpanningWorkflowNames[T t_helpers.WorkflowConfig](t *testing.T, testEnv *ttypes.TestEnvironment, workflowFileLocation string, workflowConfig *T, namePrefix string, count int) []string {
+	t.Helper()
+	testLogger := framework.L
+
+	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
+	require.GreaterOrEqual(t, len(shardDONs), 2, "expected at least two shard DONs")
+	shardDONIDs := []uint32{uint32(shardDONs[0].ID), uint32(shardDONs[1].ID)} //nolint:gosec // G115: overflow is unrealistic
+	predictWorkflowID := t_helpers.WorkflowIDPredictor(t, testEnv, testLogger, workflowConfig, workflowFileLocation)
+
+	const maxCandidates = 100
+	perShard := map[uint32]int{}
+	names := make([]string, 0, count)
+	for i := 0; len(names) < count; i++ {
+		require.Less(t, i, maxCandidates, "could not pick %d workflow names spanning shards %v", count, shardDONIDs)
+		name := fmt.Sprintf("%s-%d", namePrefix, i)
+		shard, err := ring.LocateShard(shardDONIDs, predictWorkflowID(name))
+		require.NoError(t, err)
+		if perShard[shard] < (count+1)/2 {
+			perShard[shard]++
+			names = append(names, name)
+		}
+	}
+	testLogger.Info().
+		Strs("workflowNames", names).
+		Interface("distribution", perShard).
+		Msg("Picked workflow names spanning both shards")
+	return names
 }
 
 func ExecuteShardingTemplate[T t_helpers.WorkflowConfig](t *testing.T, testEnv *ttypes.TestEnvironment, workflowFileLocation string, workflowConfig *T, workflowNames []string, expectedMessage string) {

@@ -51,6 +51,10 @@ func newShardRing(healthyShards []uint32) *consistent.Consistent {
 	return consistent.New(members, consistentHashConfig())
 }
 
+func LocateShard(healthyShards []uint32, workflowID string) (uint32, error) {
+	return locateShard(newShardRing(healthyShards), workflowID)
+}
+
 func locateShard(ring *consistent.Consistent, workflowID string) (uint32, error) {
 	if ring == nil {
 		return 0, ErrNoHealthyShards
