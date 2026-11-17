@@ -374,10 +374,6 @@ func unsupportedTypeLabel(telemType synchronization.TelemetryType) string {
 	return "unknown"
 }
 
-// countUnsupported counts a dropped message whose type or chain is not supported. The
-// telemetry_type label is clamped (see unsupportedTypeLabel) and the domain is always
-// recorded ("unknown" when the type maps to none), so domain-filtered loss dashboards
-// see every drop. The option is cached per (label, reason): hot path.
 // unsupportedKey identifies a cached unsupported-metric option: the clamped telemetry
 // type label and the drop reason. Bounded by construction — labels come from the
 // CloudEvent registry plus "unknown", reasons from a fixed set.
@@ -386,6 +382,10 @@ type unsupportedKey struct {
 	reason    string
 }
 
+// countUnsupported counts a dropped message whose type or chain is not supported. The
+// telemetry_type label is clamped (see unsupportedTypeLabel) and the domain is always
+// recorded ("unknown" when the type maps to none), so domain-filtered loss dashboards
+// see every drop. The option is cached per (label, reason): hot path.
 func (m *DomainManager) countUnsupported(telemType synchronization.TelemetryType, reason string) {
 	label := unsupportedTypeLabel(telemType)
 	key := unsupportedKey{telemType: label, reason: reason}
@@ -418,7 +418,7 @@ func (m *DomainManager) newEvent(route *telemetryRoute, target eventTarget, tele
 	now := m.now()
 	event, err := chipingress.NewEvent(route.source, route.entity, telemetry, map[string]any{
 		"time":         now.UTC(),
-		"recordedtime": now,
+		"recordedtime": now.UTC(),
 	})
 	if err != nil {
 		return event, fmt.Errorf("failed creating CloudEvent: %w", err)
