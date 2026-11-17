@@ -71,6 +71,7 @@ func singleShardEndpoints(t *testing.T, donConfig *config.DONConfig, mockDon *mo
 }
 
 func TestSyncMetadata(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	// Test when aggregator has no data
@@ -124,6 +125,7 @@ func TestSyncMetadata(t *testing.T) {
 }
 
 func TestSyncMetadataMultipleWorkflows(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	ctx := t.Context()
@@ -187,6 +189,7 @@ func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 }
 
 func TestSendMetadataPullRequest(t *testing.T) {
+	t.Parallel()
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
 	for _, member := range donConfig.Members {
 		mockDon.EXPECT().SendToNode(mock.Anything, member.Address, mock.Anything).Return(nil).Once()
@@ -198,6 +201,7 @@ func TestSendMetadataPullRequest(t *testing.T) {
 }
 
 func TestSendMetadataPullRequestWithErrors(t *testing.T) {
+	t.Parallel()
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
 
 	// Mock errors for some nodes
@@ -220,6 +224,7 @@ func TestSendMetadataPullRequestWithErrors(t *testing.T) {
 }
 
 func TestSendMetadataPullRequestVerifyPayload(t *testing.T) {
+	t.Parallel()
 	handler, mockDon, donConfig := createTestWorkflowMetadataHandler(t)
 	// Capture the request payload
 	var capturedReq *jsonrpc.Request[json.RawMessage]
@@ -317,6 +322,7 @@ func TestSendMetadataPullRequestMultiShard(t *testing.T) {
 }
 
 func TestOnMetadataPush(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := t.Context()
 
@@ -361,6 +367,7 @@ func TestOnMetadataPush(t *testing.T) {
 }
 
 func TestOnMetadataPushInvalidJSON(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := t.Context()
 
@@ -375,6 +382,7 @@ func TestOnMetadataPushInvalidJSON(t *testing.T) {
 }
 
 func TestOnMetadataPullResponse(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := t.Context()
 
@@ -472,6 +480,7 @@ func TestOnMetadataPullResponse(t *testing.T) {
 }
 
 func TestOnMetadataPullResponseInvalidJSON(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := t.Context()
 
@@ -486,6 +495,7 @@ func TestOnMetadataPullResponseInvalidJSON(t *testing.T) {
 }
 
 func TestStartAndClose(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := t.Context()
 
@@ -503,6 +513,7 @@ func TestStartAndClose(t *testing.T) {
 }
 
 func TestValidateAuthMetadata(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	tests := []struct {
@@ -892,6 +903,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := handler.validateAuthMetadata(tt.metadata)
 			if tt.expectError {
 				require.Error(t, err)
@@ -904,6 +916,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 }
 
 func TestOnMetadataPushWithValidation(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := t.Context()
 
@@ -912,6 +925,7 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 	defer handler.aggs[handler.shards[0].DonID].Close()
 
 	t.Run("valid metadata passes validation", func(t *testing.T) {
+		t.Parallel()
 		metadata := gateway_common.WorkflowMetadata{
 			WorkflowSelector: gateway_common.WorkflowSelector{
 				WorkflowID:    testWorkflowID1,
@@ -940,6 +954,7 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 	})
 
 	t.Run("invalid metadata fails validation", func(t *testing.T) {
+		t.Parallel()
 		metadata := gateway_common.WorkflowMetadata{
 			WorkflowSelector: gateway_common.WorkflowSelector{
 				WorkflowID:    "", // Invalid: empty workflow ID
@@ -970,6 +985,7 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 }
 
 func TestOnMetadataPullResponseWithValidation(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	ctx := t.Context()
 
@@ -978,6 +994,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 	defer handler.aggs[handler.shards[0].DonID].Close()
 
 	t.Run("valid metadata array passes validation", func(t *testing.T) {
+		t.Parallel()
 		metadata := []gateway_common.WorkflowMetadata{
 			{
 				WorkflowSelector: gateway_common.WorkflowSelector{
@@ -1022,6 +1039,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 	})
 
 	t.Run("invalid metadata in array fails validation", func(t *testing.T) {
+		t.Parallel()
 		metadata := []gateway_common.WorkflowMetadata{
 			{
 				WorkflowSelector: gateway_common.WorkflowSelector{
@@ -1068,6 +1086,7 @@ func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 }
 
 func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -1083,6 +1102,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 	}
 
 	t.Run("successful authorization", func(t *testing.T) {
+		t.Parallel()
 		params := json.RawMessage(`{"test": "data"}`)
 		req := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
@@ -1105,6 +1125,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 	})
 
 	t.Run("invalid JWT token", func(t *testing.T) {
+		t.Parallel()
 		params := json.RawMessage(`{"test": "data"}`)
 		req := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
@@ -1119,6 +1140,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 	})
 
 	t.Run("workflow not found in authorized keys", func(t *testing.T) {
+		t.Parallel()
 		nonExistentWorkflowID := "0x123456"
 
 		params := json.RawMessage(`{"test": "data"}`)
@@ -1142,6 +1164,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 	})
 
 	t.Run("unauthorized signer", func(t *testing.T) {
+		t.Parallel()
 		unauthorizedKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
 
@@ -1166,6 +1189,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 	})
 
 	t.Run("JWT digest mismatch", func(t *testing.T) {
+		t.Parallel()
 		params := json.RawMessage(`{"test": "data"}`)
 		req := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
@@ -1195,6 +1219,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 	})
 
 	t.Run("JWT replay protection", func(t *testing.T) {
+		t.Parallel()
 		params := json.RawMessage(`{"test": "data"}`)
 		req := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
@@ -1221,6 +1246,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 	})
 
 	t.Run("different JWT IDs should work", func(t *testing.T) {
+		t.Parallel()
 		params := json.RawMessage(`{"test": "data"}`)
 		req1 := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
@@ -1257,6 +1283,7 @@ func TestWorkflowMetadataHandler_Authorize(t *testing.T) {
 }
 
 func TestWorkflowMetadataHandler_GetWorkflowID(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	workflowOwner := testWorkflowOwner1
@@ -1275,24 +1302,28 @@ func TestWorkflowMetadataHandler_GetWorkflowID(t *testing.T) {
 	}
 
 	t.Run("successful workflow lookup", func(t *testing.T) {
+		t.Parallel()
 		id, found := handler.GetWorkflowID(workflowOwner, workflowNameHash, workflowTag)
 		require.True(t, found)
 		require.Equal(t, workflowID, id)
 	})
 
 	t.Run("workflow not found", func(t *testing.T) {
+		t.Parallel()
 		id, found := handler.GetWorkflowID(workflowOwner, "nonexistent-workflow", workflowTag)
 		require.False(t, found)
 		require.Empty(t, id)
 	})
 
 	t.Run("workflow not found - different owner", func(t *testing.T) {
+		t.Parallel()
 		id, found := handler.GetWorkflowID("0xdifferentowner", workflowName, workflowTag)
 		require.False(t, found)
 		require.Empty(t, id)
 	})
 
 	t.Run("workflow not found - different tag", func(t *testing.T) {
+		t.Parallel()
 		id, found := handler.GetWorkflowID(workflowOwner, workflowName, "v2.0")
 		require.False(t, found)
 		require.Empty(t, id)
@@ -1300,6 +1331,7 @@ func TestWorkflowMetadataHandler_GetWorkflowID(t *testing.T) {
 }
 
 func TestWorkflowMetadataHandler_GetWorkflowReference(t *testing.T) {
+	t.Parallel()
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	workflowOwner := testWorkflowOwner1
@@ -1317,12 +1349,14 @@ func TestWorkflowMetadataHandler_GetWorkflowReference(t *testing.T) {
 	}
 
 	t.Run("successful reference lookup", func(t *testing.T) {
+		t.Parallel()
 		ref, found := handler.GetWorkflowReference(workflowID)
 		require.True(t, found)
 		require.Equal(t, expectedRef, ref)
 	})
 
 	t.Run("reference not found", func(t *testing.T) {
+		t.Parallel()
 		nonExistentID := "0x123456"
 		_, found := handler.GetWorkflowReference(nonExistentID)
 		require.False(t, found)

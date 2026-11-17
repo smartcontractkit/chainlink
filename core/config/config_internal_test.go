@@ -13,6 +13,7 @@ import (
 )
 
 func TestStore_bigIntParser(t *testing.T) {
+	t.Parallel()
 	val, err := parse.BigInt("0")
 	require.NoError(t, err)
 	assert.Equal(t, new(big.Int).SetInt64(0), val)
@@ -31,6 +32,7 @@ func TestStore_bigIntParser(t *testing.T) {
 }
 
 func TestStore_levelParser(t *testing.T) {
+	t.Parallel()
 	val, err := parse.LogLevel("ERROR")
 	require.NoError(t, err)
 	assert.Equal(t, zapcore.ErrorLevel, val)
@@ -45,6 +47,7 @@ func TestStore_levelParser(t *testing.T) {
 }
 
 func TestStore_urlParser(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		input     string
@@ -57,6 +60,7 @@ func TestStore_urlParser(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			i, err := parse.URL(test.input)
 
 			if test.wantError {
@@ -72,6 +76,7 @@ func TestStore_urlParser(t *testing.T) {
 }
 
 func TestStore_boolParser(t *testing.T) {
+	t.Parallel()
 	val, err := parse.Bool("true")
 	require.NoError(t, err)
 	assert.Equal(t, true, val)

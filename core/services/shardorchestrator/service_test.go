@@ -12,7 +12,9 @@ import (
 )
 
 func TestServer_GetWorkflowShardMapping(t *testing.T) {
+	t.Parallel()
 	t.Run("returns_mappings_for_multiple_workflows", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		lggr := logger.Test(t)
 		ringStore := ring.NewStore()
@@ -37,6 +39,7 @@ func TestServer_GetWorkflowShardMapping(t *testing.T) {
 	})
 
 	t.Run("rejects_empty_workflow_ids", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		lggr := logger.Test(t)
 		ringStore := ring.NewStore()
@@ -53,6 +56,7 @@ func TestServer_GetWorkflowShardMapping(t *testing.T) {
 	})
 
 	t.Run("handles_partial_results_for_nonexistent_workflows", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		lggr := logger.Test(t)
 		ringStore := ring.NewStore()

@@ -34,6 +34,7 @@ func generateAddressString() string {
 }
 
 func TestAddressBytesToString(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		inHex    string
@@ -69,6 +70,7 @@ func TestAddressBytesToString(t *testing.T) {
 	codec := AddressCodec{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			bytes, err := hex.DecodeString(test.inHex)
 			require.NoError(t, err)
 
@@ -85,6 +87,7 @@ func TestAddressBytesToString(t *testing.T) {
 }
 
 func TestAddressStringToBytes(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		in          string
@@ -115,6 +118,7 @@ func TestAddressStringToBytes(t *testing.T) {
 	codec := AddressCodec{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			actual, err := codec.AddressStringToBytes(test.in)
 			if test.expectedErr == nil {
 				require.NoError(t, err)

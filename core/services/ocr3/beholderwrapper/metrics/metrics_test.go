@@ -9,12 +9,14 @@ import (
 )
 
 func TestNewPluginMetrics(t *testing.T) {
+	t.Parallel()
 	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123")
 	require.NoError(t, err)
 	require.NotNil(t, metrics)
 }
 
 func TestRecordDuration(t *testing.T) {
+	t.Parallel()
 	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123")
 	require.NoError(t, err)
 
@@ -29,6 +31,7 @@ func TestRecordDuration(t *testing.T) {
 }
 
 func TestTrackReports(t *testing.T) {
+	t.Parallel()
 	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123")
 	require.NoError(t, err)
 
@@ -39,6 +42,7 @@ func TestTrackReports(t *testing.T) {
 }
 
 func TestTrackSize(t *testing.T) {
+	t.Parallel()
 	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123")
 	require.NoError(t, err)
 
@@ -48,6 +52,7 @@ func TestTrackSize(t *testing.T) {
 }
 
 func TestUpdateStatus(t *testing.T) {
+	t.Parallel()
 	metrics, err := NewPluginMetrics("platform_ocr3_reporting_plugin", "test-plugin", "abc123")
 	require.NoError(t, err)
 
@@ -57,11 +62,13 @@ func TestUpdateStatus(t *testing.T) {
 }
 
 func TestMetricViews(t *testing.T) {
+	t.Parallel()
 	views := MetricViews("platform_ocr3_reporting_plugin")
 	require.Len(t, views, 2)
 }
 
 func TestFunctionTypeConstants(t *testing.T) {
+	t.Parallel()
 	// Verify all expected function types exist
 	require.Equal(t, Query, FunctionType("query"))
 	require.Equal(t, Observation, FunctionType("observation"))

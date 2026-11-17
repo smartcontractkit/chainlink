@@ -93,6 +93,7 @@ func requiresMasterPublicKey(method string) bool {
 }
 
 func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 	authResult := func(orgID, workflowOwner string) *vaultcap.AuthResult {
@@ -649,6 +650,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			secretsService := vaulttypesmocks.NewSecretsService(t)
 			gwConnector := connector_mocks.NewGatewayConnector(t)
 			allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
@@ -837,7 +839,9 @@ func TestGatewayHandler_CreateUpdateReusesCachedPublicKey(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // subtests start and close the same handler in order
 func TestGatewayHandler_Lifecycle(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -876,6 +880,7 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 }
 
 func TestGatewayHandler_Lifecycle_DefaultAuthorizer_NoJWTConfig(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 

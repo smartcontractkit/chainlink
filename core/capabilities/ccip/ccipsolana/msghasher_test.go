@@ -25,6 +25,7 @@ import (
 )
 
 func TestMessageHasher_EVM2SVM(t *testing.T) {
+	t.Parallel()
 	registeredExtraDataCodecMap := map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyAptos:  ccipaptos.ExtraDataDecoder{},
 		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
@@ -42,6 +43,7 @@ func TestMessageHasher_EVM2SVM(t *testing.T) {
 }
 
 func TestMessageHasher_InvalidReceiver(t *testing.T) {
+	t.Parallel()
 	any2AnyMsg, _, _ := createEVM2SolanaMessages(t)
 
 	// Set receiver to a []byte of 2 length
@@ -72,6 +74,7 @@ func TestMessageHasher_InvalidReceiver(t *testing.T) {
 }
 
 func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
+	t.Parallel()
 	any2AnyMsg, _, _ := createEVM2SolanaMessages(t)
 
 	// Set DestTokenAddress to a []byte of 2 length
@@ -101,6 +104,7 @@ func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 }
 
 func TestParseExtraDataMap_NativeTypes(t *testing.T) {
+	t.Parallel()
 	// Test with native Go types (in-process codec, no LOOP)
 	account1 := [32]byte{0x01}
 	account2 := [32]byte{0x02}
@@ -125,6 +129,7 @@ func TestParseExtraDataMap_NativeTypes(t *testing.T) {
 }
 
 func TestParseExtraDataMap_LOOPConvertedTypes(t *testing.T) {
+	t.Parallel()
 	// Test with types as they arrive after LOOP gRPC roundtrip:
 	// uint32 -> int64, [32]byte -> []byte, [][32]byte -> []interface{}
 	account1 := make([]byte, 32)
@@ -156,6 +161,7 @@ func TestParseExtraDataMap_LOOPConvertedTypes(t *testing.T) {
 }
 
 func TestParseExtraDataMap_LOOPAccountsAsByteSlice(t *testing.T) {
+	t.Parallel()
 	// Test [][]byte variant (alternative LOOP representation)
 	account1 := make([]byte, 32)
 	account1[0] = 0x01
@@ -174,7 +180,9 @@ func TestParseExtraDataMap_LOOPAccountsAsByteSlice(t *testing.T) {
 }
 
 func TestParseExtraDataMap_InvalidTypes(t *testing.T) {
+	t.Parallel()
 	t.Run("ComputeUnits out of range", func(t *testing.T) {
+		t.Parallel()
 		input := map[string]any{
 			"ComputeUnits": int64(5000000000), // exceeds uint32 max
 		}
@@ -183,6 +191,7 @@ func TestParseExtraDataMap_InvalidTypes(t *testing.T) {
 	})
 
 	t.Run("TokenReceiver wrong length", func(t *testing.T) {
+		t.Parallel()
 		input := map[string]any{
 			"TokenReceiver": []byte{0x01, 0x02}, // not 32 bytes
 		}
@@ -191,6 +200,7 @@ func TestParseExtraDataMap_InvalidTypes(t *testing.T) {
 	})
 
 	t.Run("Accounts element wrong length", func(t *testing.T) {
+		t.Parallel()
 		input := map[string]any{
 			"Accounts": []any{
 				[]byte{0x01, 0x02}, // not 32 bytes
@@ -201,6 +211,7 @@ func TestParseExtraDataMap_InvalidTypes(t *testing.T) {
 	})
 
 	t.Run("Accounts element wrong type", func(t *testing.T) {
+		t.Parallel()
 		input := map[string]any{
 			"Accounts": []any{
 				"not bytes",
@@ -305,6 +316,7 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 }
 
 func TestToLittleEndian(t *testing.T) {
+	t.Parallel()
 	mustSetString := func(s string) *big.Int {
 		b, ok := big.NewInt(0).SetString(s, 10)
 		if !ok {
@@ -329,6 +341,7 @@ func TestToLittleEndian(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.input.String(), func(t *testing.T) {
+			t.Parallel()
 			result := encodeBigIntToFixedLengthLE(test.input, 32)
 			assert.Equal(t, test.expected, result, "expected %x, got %x", test.expected, result)
 		})

@@ -124,6 +124,7 @@ func setupTestServiceWithIgnoreFlags(t *testing.T, enabled bool, pollingInterval
 }
 
 func TestNewBridgeStatusReporter(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, _, _, _ := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -132,6 +133,7 @@ func TestNewBridgeStatusReporter(t *testing.T) {
 }
 
 func TestService_Start_Disabled(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, _, _, _ := setupTestService(t, false, testPollingInterval, httpClient)
 
@@ -144,6 +146,7 @@ func TestService_Start_Disabled(t *testing.T) {
 }
 
 func TestService_Start_Enabled(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, bridgeORM, jobORM, emitter := setupTestService(t, true, 100*time.Millisecond, httpClient)
 
@@ -161,6 +164,7 @@ func TestService_Start_Enabled(t *testing.T) {
 }
 
 func TestService_HealthReport(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, _, _, _ := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -169,6 +173,7 @@ func TestService_HealthReport(t *testing.T) {
 }
 
 func TestService_pollAllBridges_NoBridges(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, bridgeORM, _, _ := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -185,6 +190,7 @@ func TestService_pollAllBridges_NoBridges(t *testing.T) {
 }
 
 func TestService_pollAllBridges_WithBridges(t *testing.T) {
+	t.Parallel()
 	httpClient := mocks.NewMockHTTPClient(loadFixture(t, "bridge_status_response.json"), http.StatusOK)
 	service, bridgeORM, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -204,6 +210,7 @@ func TestService_pollAllBridges_WithBridges(t *testing.T) {
 }
 
 func TestService_pollAllBridges_FetchError(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, bridgeORM, _, _ := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -220,6 +227,7 @@ func TestService_pollAllBridges_FetchError(t *testing.T) {
 }
 
 func TestService_pollBridge_Success(t *testing.T) {
+	t.Parallel()
 	httpClient := mocks.NewMockHTTPClient(loadFixture(t, "bridge_status_response.json"), http.StatusOK)
 	service, _, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -236,6 +244,7 @@ func TestService_pollBridge_Success(t *testing.T) {
 }
 
 func TestService_pollBridge_HTTPError(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, _, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -255,6 +264,7 @@ func TestService_pollBridge_HTTPError(t *testing.T) {
 }
 
 func TestService_pollBridge_InvalidJSON(t *testing.T) {
+	t.Parallel()
 	httpClient := mocks.NewMockHTTPClient("invalid json", http.StatusOK)
 	service, _, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -273,6 +283,7 @@ func TestService_pollBridge_InvalidJSON(t *testing.T) {
 }
 
 func TestService_pollBridge_InvalidURL(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, _, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -292,6 +303,7 @@ func TestService_pollBridge_InvalidURL(t *testing.T) {
 }
 
 func TestService_pollBridge_EmptyURL(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, _, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -311,6 +323,7 @@ func TestService_pollBridge_EmptyURL(t *testing.T) {
 }
 
 func TestService_pollBridge_URLPathPreservation(t *testing.T) {
+	t.Parallel()
 	// Create mock that expects the exact URL with preserved path + status
 	httpClient := mocks.NewMockHTTPClientWithExpectedURL(
 		loadFixture(t, "bridge_status_response.json"),
@@ -333,6 +346,7 @@ func TestService_pollBridge_URLPathPreservation(t *testing.T) {
 }
 
 func TestService_pollBridge_Non200Status(t *testing.T) {
+	t.Parallel()
 	httpClient := mocks.NewMockHTTPClient("Not Found", http.StatusNotFound)
 	service, _, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -351,6 +365,7 @@ func TestService_pollBridge_Non200Status(t *testing.T) {
 }
 
 func TestService_emitBridgeStatus_Success(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, _, _, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -363,6 +378,7 @@ func TestService_emitBridgeStatus_Success(t *testing.T) {
 }
 
 func TestService_pollAllBridges_RefreshError(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, bridgeORM, _, _ := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -380,6 +396,7 @@ func TestService_pollAllBridges_RefreshError(t *testing.T) {
 }
 
 func TestService_pollAllBridges_MultipleBridges(t *testing.T) {
+	t.Parallel()
 	httpClient := mocks.NewMockHTTPClient(loadFixture(t, "bridge_status_response.json"), http.StatusOK)
 	service, bridgeORM, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -419,6 +436,7 @@ func TestService_pollAllBridges_MultipleBridges(t *testing.T) {
 }
 
 func TestService_emitBridgeStatus_CaptureOutput(t *testing.T) {
+	t.Parallel()
 	emitter := mocks.NewBeholderEmitter()
 	var capturedProtobufBytes []byte
 
@@ -497,6 +515,7 @@ func TestService_emitBridgeStatus_CaptureOutput(t *testing.T) {
 }
 
 func TestService_Start_AlreadyStarted(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, bridgeORM, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -519,6 +538,7 @@ func TestService_Start_AlreadyStarted(t *testing.T) {
 }
 
 func TestService_Close_AlreadyClosed(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, bridgeORM, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -541,6 +561,7 @@ func TestService_Close_AlreadyClosed(t *testing.T) {
 }
 
 func TestService_PollAllBridges_3000Bridges(t *testing.T) {
+	t.Parallel()
 	httpClient := mocks.NewMockHTTPClient(loadFixture(t, "bridge_status_response.json"), http.StatusOK)
 	service, mockORM, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -585,6 +606,7 @@ func TestService_PollAllBridges_3000Bridges(t *testing.T) {
 }
 
 func TestService_PollAllBridges_ContextTimeout(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, mockORM, jobORM, _ := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -625,6 +647,7 @@ func TestService_PollAllBridges_ContextTimeout(t *testing.T) {
 }
 
 func TestService_emitBridgeStatus_EmptyFields(t *testing.T) {
+	t.Parallel()
 	emitter := mocks.NewBeholderEmitter()
 	var capturedProtobufBytes []byte
 
@@ -681,6 +704,7 @@ func TestService_emitBridgeStatus_EmptyFields(t *testing.T) {
 
 // Test for external job IDs and job names functionality
 func TestService_pollBridge_WithJobInfo(t *testing.T) {
+	t.Parallel()
 	httpClient := mocks.NewMockHTTPClient(loadFixture(t, "bridge_status_response.json"), http.StatusOK)
 	service, _, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -730,6 +754,7 @@ func TestService_pollBridge_WithJobInfo(t *testing.T) {
 }
 
 func TestService_pollBridge_JobORMError(t *testing.T) {
+	t.Parallel()
 	httpClient := mocks.NewMockHTTPClient(loadFixture(t, "bridge_status_response.json"), http.StatusOK)
 	service, _, jobORM, emitter := setupTestService(t, true, testPollingInterval, httpClient)
 
@@ -748,6 +773,7 @@ func TestService_pollBridge_JobORMError(t *testing.T) {
 
 // Test ignoreJoblessBridges functionality
 func TestService_pollBridge_IgnoreJoblessBridges_Enabled(t *testing.T) {
+	t.Parallel()
 	// Use a nil httpClient since no HTTP request should be made when bridge is skipped for having no jobs
 	httpClient := &http.Client{}
 	service, _, jobORM, emitter := setupTestServiceWithIgnoreFlags(t, true, testPollingInterval, httpClient, true, true)
@@ -766,6 +792,7 @@ func TestService_pollBridge_IgnoreJoblessBridges_Enabled(t *testing.T) {
 }
 
 func TestService_pollBridge_IgnoreJoblessBridges_Disabled(t *testing.T) {
+	t.Parallel()
 	// Use valid HTTP client with successful response since we want the full flow when ignoreJoblessBridges is false
 	httpClient := mocks.NewMockHTTPClient(loadFixture(t, "bridge_status_response.json"), http.StatusOK)
 	service, _, jobORM, emitter := setupTestServiceWithIgnoreFlags(t, true, testPollingInterval, httpClient, true, false)
@@ -785,6 +812,7 @@ func TestService_pollBridge_IgnoreJoblessBridges_Disabled(t *testing.T) {
 
 // Test ignoreInvalidBridges functionality - HTTP error
 func TestService_pollBridge_IgnoreInvalidBridges_HTTPError_Enabled(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, _, jobORM, emitter := setupTestServiceWithIgnoreFlags(t, true, testPollingInterval, httpClient, true, false)
 
@@ -807,6 +835,7 @@ func TestService_pollBridge_IgnoreInvalidBridges_HTTPError_Enabled(t *testing.T)
 }
 
 func TestService_pollBridge_IgnoreInvalidBridges_HTTPError_Disabled(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, _, jobORM, emitter := setupTestServiceWithIgnoreFlags(t, true, testPollingInterval, httpClient, false, false)
 
@@ -829,6 +858,7 @@ func TestService_pollBridge_IgnoreInvalidBridges_HTTPError_Disabled(t *testing.T
 
 // Test ignoreInvalidBridges functionality - Non-200 status
 func TestService_pollBridge_IgnoreInvalidBridges_Non200Status_Enabled(t *testing.T) {
+	t.Parallel()
 	httpClient := mocks.NewMockHTTPClient("Not Found", http.StatusNotFound)
 	service, _, jobORM, emitter := setupTestServiceWithIgnoreFlags(t, true, testPollingInterval, httpClient, true, false)
 
@@ -851,6 +881,7 @@ func TestService_pollBridge_IgnoreInvalidBridges_Non200Status_Enabled(t *testing
 }
 
 func TestService_pollBridge_IgnoreInvalidBridges_Non200Status_Disabled(t *testing.T) {
+	t.Parallel()
 	httpClient := mocks.NewMockHTTPClient("Not Found", http.StatusNotFound)
 	service, _, jobORM, emitter := setupTestServiceWithIgnoreFlags(t, true, testPollingInterval, httpClient, false, false)
 
@@ -873,6 +904,7 @@ func TestService_pollBridge_IgnoreInvalidBridges_Non200Status_Disabled(t *testin
 
 // Test ignoreInvalidBridges functionality - Invalid JSON
 func TestService_pollBridge_IgnoreInvalidBridges_InvalidJSON_Enabled(t *testing.T) {
+	t.Parallel()
 	httpClient := mocks.NewMockHTTPClient("invalid json", http.StatusOK)
 	service, _, jobORM, emitter := setupTestServiceWithIgnoreFlags(t, true, testPollingInterval, httpClient, true, false)
 
@@ -895,6 +927,7 @@ func TestService_pollBridge_IgnoreInvalidBridges_InvalidJSON_Enabled(t *testing.
 }
 
 func TestService_pollBridge_IgnoreInvalidBridges_InvalidJSON_Disabled(t *testing.T) {
+	t.Parallel()
 	httpClient := mocks.NewMockHTTPClient("invalid json", http.StatusOK)
 	service, _, jobORM, emitter := setupTestServiceWithIgnoreFlags(t, true, testPollingInterval, httpClient, false, false)
 
@@ -917,6 +950,7 @@ func TestService_pollBridge_IgnoreInvalidBridges_InvalidJSON_Disabled(t *testing
 
 // Test combined functionality
 func TestService_pollBridge_BothIgnoreFlags_Enabled(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, _, jobORM, emitter := setupTestServiceWithIgnoreFlags(t, true, testPollingInterval, httpClient, true, true)
 
@@ -935,6 +969,7 @@ func TestService_pollBridge_BothIgnoreFlags_Enabled(t *testing.T) {
 }
 
 func TestService_pollBridge_BothIgnoreFlags_Disabled(t *testing.T) {
+	t.Parallel()
 	httpClient := &http.Client{}
 	service, _, jobORM, emitter := setupTestServiceWithIgnoreFlags(t, true, testPollingInterval, httpClient, false, false)
 
@@ -953,6 +988,7 @@ func TestService_pollBridge_BothIgnoreFlags_Disabled(t *testing.T) {
 
 // TestService_pollBridge_EndToEnd_RealWebServer tests the complete flow with a real HTTP server
 func TestService_pollBridge_EndToEnd_RealWebServer(t *testing.T) {
+	t.Parallel()
 	// Create a test HTTP server that serves fixture data
 	fixtureData := loadFixture(t, "bridge_status_response.json")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -102,6 +102,7 @@ var _ ocr3_1types.BlobBroadcastFetcher = (*blobber)(nil)
 var _ ocr3_1types.KeyValueStateReadWriter = (*kv)(nil)
 
 func TestKVStore_Secrets(t *testing.T) {
+	t.Parallel()
 	kv := &kv{
 		m: make(map[string]response),
 	}
@@ -155,6 +156,7 @@ func TestKVStore_Secrets(t *testing.T) {
 }
 
 func TestKVStore_DeleteSecrets(t *testing.T) {
+	t.Parallel()
 	kv := &kv{
 		m: make(map[string]response),
 	}
@@ -180,6 +182,7 @@ func TestKVStore_DeleteSecrets(t *testing.T) {
 }
 
 func TestKVStore_Metadata(t *testing.T) {
+	t.Parallel()
 	owner := "owner"
 	kv := &kv{
 		m: make(map[string]response),
@@ -249,6 +252,7 @@ func TestKVStore_Metadata(t *testing.T) {
 }
 
 func TestKVStore_Metadata_Delete(t *testing.T) {
+	t.Parallel()
 	owner := "owner"
 	kv := &kv{
 		m: make(map[string]response),
@@ -286,6 +290,7 @@ func TestKVStore_Metadata_Delete(t *testing.T) {
 }
 
 func TestKVStore_InconsistentWrites(t *testing.T) {
+	t.Parallel()
 	kv := &kv{
 		m: make(map[string]response),
 	}
@@ -342,6 +347,7 @@ func TestKVStore_InconsistentWrites(t *testing.T) {
 }
 
 func TestKVStore_GetPendingRequests(t *testing.T) {
+	t.Parallel()
 	// Simulating an in-memory kv store.
 	kv := &kv{
 		m: make(map[string]response),
@@ -402,6 +408,7 @@ func TestKVStore_GetPendingRequests(t *testing.T) {
 }
 
 func TestKVStore_WritePendingRequests(t *testing.T) {
+	t.Parallel()
 	// Simulating an in-memory kv store.
 	kv := &kv{
 		m: make(map[string]response),

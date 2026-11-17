@@ -275,6 +275,7 @@ func TestORM_WriteResultPackage_ValidationErrors(t *testing.T) {
 	instanceID := createTestInstanceID()
 
 	t.Run("zero config digest", func(t *testing.T) {
+		t.Parallel()
 		value := createTestResultPackage()
 		value.ConfigDigest = types.ConfigDigest{}
 
@@ -284,6 +285,7 @@ func TestORM_WriteResultPackage_ValidationErrors(t *testing.T) {
 	})
 
 	t.Run("zero sequence number", func(t *testing.T) {
+		t.Parallel()
 		value := createTestResultPackage()
 		value.SeqNr = 0
 
@@ -293,6 +295,7 @@ func TestORM_WriteResultPackage_ValidationErrors(t *testing.T) {
 	})
 
 	t.Run("empty report", func(t *testing.T) {
+		t.Parallel()
 		value := createTestResultPackage()
 		value.ReportWithResultPackage = []byte{}
 
@@ -302,6 +305,7 @@ func TestORM_WriteResultPackage_ValidationErrors(t *testing.T) {
 	})
 
 	t.Run("empty signatures", func(t *testing.T) {
+		t.Parallel()
 		value := createTestResultPackage()
 		value.Signatures = []types.AttributedOnchainSignature{}
 
@@ -311,6 +315,7 @@ func TestORM_WriteResultPackage_ValidationErrors(t *testing.T) {
 	})
 
 	t.Run("valid package passes validation", func(t *testing.T) {
+		t.Parallel()
 		value := createTestResultPackage()
 
 		err := orm.WriteResultPackage(ctx, instanceID, value)

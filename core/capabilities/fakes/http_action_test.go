@@ -19,7 +19,9 @@ import (
 )
 
 func TestDirectHTTPAction_RequestHeaders(t *testing.T) {
+	t.Parallel()
 	t.Run("MultiHeaders are sent in request", func(t *testing.T) {
+		t.Parallel()
 		var receivedAuth string
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			receivedAuth = r.Header.Get("Authorization")
@@ -50,6 +52,7 @@ func TestDirectHTTPAction_RequestHeaders(t *testing.T) {
 	})
 
 	t.Run("Headers (deprecated) are sent in request when MultiHeaders empty", func(t *testing.T) {
+		t.Parallel()
 		var receivedAuth string
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			receivedAuth = r.Header.Get("Authorization")
@@ -247,6 +250,7 @@ func TestDirectHTTPAction_Mtls(t *testing.T) {
 }
 
 func TestDirectHTTPAction_ResponseHeadersAndMultiHeaders(t *testing.T) {
+	t.Parallel()
 	t.Run("response has both Headers and MultiHeaders populated", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")

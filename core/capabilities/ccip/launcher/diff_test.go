@@ -15,6 +15,7 @@ import (
 )
 
 func Test_diff(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		capabilityID string
 		oldState     *registry.RegistryMetadata
@@ -104,6 +105,7 @@ func Test_diff(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := diff(tt.args.capabilityID, tt.args.oldState, tt.args.newState)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -116,6 +118,7 @@ func Test_diff(t *testing.T) {
 }
 
 func Test_compareDONs(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		currCCIPDONs map[registry.DonID]registry.DON
 		newCCIPDONs  map[registry.DonID]registry.DON
@@ -184,6 +187,7 @@ func Test_compareDONs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			dr, err := compareDONs(tt.args.currCCIPDONs, tt.args.newCCIPDONs)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -198,6 +202,7 @@ func Test_compareDONs(t *testing.T) {
 }
 
 func Test_filterCCIPDONs(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		ccipCapability registry.Capability
 		state          *registry.RegistryMetadata
@@ -266,6 +271,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := filterCCIPDONs(tt.args.ccipCapability, tt.args.state)
 			if tt.wantErr {
 				require.Error(t, err)
@@ -278,6 +284,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 }
 
 func Test_checkCapabilityPresence(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		capabilityID string
 		state        *registry.RegistryMetadata
@@ -317,6 +324,7 @@ func Test_checkCapabilityPresence(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := checkCapabilityPresence(tt.args.capabilityID, tt.args.state)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("checkCapabilityPresence() error = %v, wantErr %v", err, tt.wantErr)
@@ -330,6 +338,7 @@ func Test_checkCapabilityPresence(t *testing.T) {
 }
 
 func Test_isMemberOfDON(t *testing.T) {
+	t.Parallel()
 	p2pIDs := make([]ragep2ptypes.PeerID, 0, 4)
 	for i := range [4]struct{}{} {
 		p2pIDs = append(p2pIDs, ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(i+1))).PeerID()))

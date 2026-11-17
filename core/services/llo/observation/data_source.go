@@ -168,6 +168,13 @@ type dataSource struct {
 	observableStreamsMu sync.Mutex
 	observableStreams   *observableStreamValues
 
+	// closeMu serialises Close against startObservationLoop. Once closed is
+	// set, no new observation loop may be started (and therefore no new
+	// goroutine may be added to wg), so Close's wg.Wait cannot miss work that
+	// an in-flight Observe call started after Close returned.
+	closeMu sync.Mutex
+	closed  bool
+
 	// loopWakeCh coalesces plugin Observe hints (buffer 1): the loop may skip pacing when the plugin is active.
 	loopWakeCh chan struct{}
 }
@@ -267,6 +274,19 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 		return
 	}
 
+	// Observe can be called concurrently with Close (the OCR plugin keeps
+	// calling it until the oracle is torn down). Without this check a late
+	// Observe would start a fresh loop - and log through the plugin logger -
+	// after Close has already returned, which is what produced late writes to
+	// test loggers during shutdown. Holding closeMu while registering the
+	// goroutine guarantees Close's wg.Wait sees it.
+	d.closeMu.Lock()
+	if d.closed {
+		d.closeMu.Unlock()
+		d.observationLoopStarted.Store(false)
+		close(loopStartedCh)
+		return
+	}
 	d.wg.Go(func() {
 		loopStarting := true
 		var elapsed time.Duration
@@ -447,6 +467,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			cancel()
 		}
 	})
+	d.closeMu.Unlock()
 }
 
 // streamsRefreshPlan is the refresh scope for one observation loop iteration.
@@ -522,8 +543,18 @@ func (d *dataSource) buildStreamsRefreshPlan(streamValues lloprotocol.StreamValu
 	}
 }
 
+// Close stops the observation loop and waits for it (and any pipeline run it
+// started) to finish. It is safe to call more than once, and safe to call
+// concurrently with Observe: no observation loop can be started after Close
+// returns.
 func (d *dataSource) Close() error {
-	close(d.observationLoopCloseCh)
+	d.closeMu.Lock()
+	if !d.closed {
+		d.closed = true
+		close(d.observationLoopCloseCh)
+	}
+	d.closeMu.Unlock()
+
 	d.wg.Wait()
 	d.cache.Close()
 

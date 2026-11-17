@@ -20,6 +20,7 @@ import (
 )
 
 func TestMercurySecrets_valid(t *testing.T) {
+	t.Parallel()
 	ms := MercurySecrets{
 		Credentials: map[string]MercuryCredentials{
 			"cred1": {
@@ -46,6 +47,7 @@ func TestMercurySecrets_valid(t *testing.T) {
 }
 
 func TestMercurySecrets_duplicateURLs(t *testing.T) {
+	t.Parallel()
 	ms := MercurySecrets{
 		Credentials: map[string]MercuryCredentials{
 			"cred1": {
@@ -67,6 +69,7 @@ func TestMercurySecrets_duplicateURLs(t *testing.T) {
 }
 
 func TestMercurySecrets_emptyURL(t *testing.T) {
+	t.Parallel()
 	ms := MercurySecrets{
 		Credentials: map[string]MercuryCredentials{
 			"cred1": {
@@ -103,6 +106,7 @@ func Test_validateDBURL(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			url := testutils.MustParseURL(t, test.url)
 			err := validateDBURL(*url)
 			if test.wantErr == "" {
@@ -115,6 +119,7 @@ func Test_validateDBURL(t *testing.T) {
 }
 
 func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
+	t.Parallel()
 	validURL := commonconfig.URL(url.URL{Scheme: "https", Host: "localhost"})
 	validSecretURL := *commonconfig.NewSecretURL(&validURL)
 
@@ -166,6 +171,7 @@ func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			buildMode := build.Mode()
 			if tt.buildMode != "" {
 				buildMode = tt.buildMode
@@ -189,6 +195,7 @@ func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
 }
 
 func TestTracing_ValidateCollectorTarget(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		collectorTarget *string
@@ -293,6 +300,7 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var tlsCertPath string
 			if *tt.mode == "tls" {
 				tlsCertPath = "/path/to/cert.pem"
@@ -317,6 +325,7 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 }
 
 func TestTracing_ValidateSamplingRatio(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		samplingRatio *float64
@@ -359,6 +368,7 @@ func TestTracing_ValidateSamplingRatio(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tracing := Tracing{
 				SamplingRatio: tt.samplingRatio,
 				Enabled:       new(true),
@@ -377,6 +387,7 @@ func TestTracing_ValidateSamplingRatio(t *testing.T) {
 }
 
 func TestTracing_ValidateTLSCertPath(t *testing.T) {
+	t.Parallel()
 	// tests for Tracing.Mode = 'tls'
 	tlsTests := []struct {
 		name        string
@@ -478,6 +489,7 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 }
 
 func TestTracing_ValidateMode(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		mode        *string
@@ -521,6 +533,7 @@ func TestTracing_ValidateMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tracing := &Tracing{
 				Enabled:     new(true),
 				Mode:        tt.mode,
@@ -540,6 +553,7 @@ func TestTracing_ValidateMode(t *testing.T) {
 }
 
 func TestMercuryTLS_ValidateTLSCertPath(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		tlsCertPath *string
@@ -566,6 +580,7 @@ func TestMercuryTLS_ValidateTLSCertPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mercury := &Mercury{
 				TLS: MercuryTLS{
 					CertFile: tt.tlsCertPath,
@@ -587,6 +602,7 @@ func TestMercuryTLS_ValidateTLSCertPath(t *testing.T) {
 func TestEthKeys_TOMLSerialization(t *testing.T) {
 	t.Parallel()
 	t.Run("encode", func(t *testing.T) {
+		t.Parallel()
 		ethKeysWrapper := EthKeys{
 			Keys: []*EthKey{
 				{JSON: new(commonconfig.SecretString("key1")), Password: new(commonconfig.SecretString("pass1")), ID: new(1)},
@@ -611,6 +627,7 @@ func TestEthKeys_TOMLSerialization(t *testing.T) {
 		}
 	})
 	t.Run("decode", func(t *testing.T) {
+		t.Parallel()
 		var decoded2 EthKeys
 		btoml := `[[Keys]]
 JSON = '{k:v}'
@@ -629,6 +646,7 @@ func TestSolKeys_TOMLSerialization(t *testing.T) {
 	t.Parallel()
 
 	t.Run("encode", func(t *testing.T) {
+		t.Parallel()
 		solKeys := SolKeys{
 			Keys: []*SolKey{
 				{JSON: new(commonconfig.SecretString("solkey1")), Password: new(commonconfig.SecretString("pass1")), ID: new("devnet")},
@@ -653,6 +671,7 @@ func TestSolKeys_TOMLSerialization(t *testing.T) {
 	})
 
 	t.Run("decode", func(t *testing.T) {
+		t.Parallel()
 		var decoded SolKeys
 		btoml := `[[Keys]]
 JSON = '{k:v}'
@@ -687,6 +706,7 @@ func TestSolKeys_SetFrom(t *testing.T) {
 }
 
 func TestEthKeys_SetFrom(t *testing.T) {
+	t.Parallel()
 	ethKeysWrapper1 := &EthKeys{}
 	ethKeysWrapper2 := EthKeys{
 		Keys: []*EthKey{
@@ -859,6 +879,7 @@ func TestKeys_ValidateConfig_partialFields(t *testing.T) {
 }
 
 func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name        string
 		config      *BridgeStatusReporter
@@ -995,6 +1016,7 @@ func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			err := tc.config.ValidateConfig()
 			if tc.expectError {
 				require.Error(t, err)

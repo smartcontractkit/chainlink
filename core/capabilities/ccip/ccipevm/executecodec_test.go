@@ -100,6 +100,7 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData, chainSelector uin
 }
 
 func TestExecutePluginCodecV1(t *testing.T) {
+	t.Parallel()
 	d := testSetup(t)
 	ctx := t.Context()
 	mockExtraDataCodec := mocks.NewSourceChainExtraDataCodec(t)
@@ -194,6 +195,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			edc := ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap)
 			codec := NewExecutePluginCodecV1(edc)
 			report := tc.report(randomExecuteReport(t, d, tc.chainSelector, tc.gasLimit, tc.destGasAmount))
@@ -237,6 +239,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodeReport(t *testing.T) {
+	t.Parallel()
 	offRampABI, err := offramp.OffRampMetaData.GetAbi()
 	require.NoError(t, err)
 

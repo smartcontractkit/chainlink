@@ -137,6 +137,7 @@ func Test_ParseCBOR(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			b, err := hexutil.Decode(test.in)
 			require.NoError(t, err)
 
@@ -252,6 +253,7 @@ func Test_autoAddMapDelimiters(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, test.want, autoAddMapDelimiters(test.in))
 		})
 	}
@@ -301,6 +303,7 @@ func TestCoerceInterfaceMapToStringMap(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			decoded, err := CoerceInterfaceMapToStringMap(test.input)
 			require.NoError(t, err)
 			assert.True(t, reflect.DeepEqual(test.want, decoded))
@@ -321,6 +324,7 @@ func TestCoerceInterfaceMapToStringMap_BadInputs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			_, err := CoerceInterfaceMapToStringMap(test.input)
 			assert.Error(t, err)
 		})
@@ -348,6 +352,7 @@ func TestJSON_CBOR(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			encoded := mustMarshal(t, test.in)
 
 			var decoded any

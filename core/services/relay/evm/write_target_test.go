@@ -9,6 +9,7 @@ import (
 )
 
 func TestExtractNetwork(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		networkName  string
 		expectedName string
@@ -43,6 +44,7 @@ func TestExtractNetwork(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.networkName, func(t *testing.T) {
+			t.Parallel()
 			networkName, err := chainselectors.ExtractNetworkEnvName(tc.networkName)
 			if tc.expectedErr {
 				require.Error(t, err)

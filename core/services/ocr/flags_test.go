@@ -29,6 +29,7 @@ func TestFlags_IsLowered(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			var (
 				flagsContract = mocks.NewFlags(t)
 				address       = testutils.NewAddress()
