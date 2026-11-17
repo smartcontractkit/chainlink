@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -64,10 +64,10 @@ const (
 	// (core/capabilities/remote/executable/client.go), which carries
 	// remoteDONName/remoteDONID naming the DON this node routes requests to.
 	executableRoutingLogNeedle = "remoteDONName"
-	// addRemoteCapabilityLogNeedle matches the launcher "addRemoteCapabilityV2"
-	// line, which carries the remote capability's ID but not the DON name, so it
-	// is combined with the capability-ID needle.
-	addRemoteCapabilityLogNeedle = "addRemoteCapabilityV2"
+	// addRemoteCapabilityLogNeedle matches the launcher "added new remote
+	// executable client" line, which carries the remote capability's ID but not
+	// the DON name, so it is combined with the capability-ID needle.
+	addRemoteCapabilityLogNeedle = "added new remote executable client"
 	// serveExecutableCapLogNeedle matches the launcher "added new remote
 	// executable server" line on the capability DON, which carries the
 	// capability ID and method it exposes.
@@ -273,17 +273,15 @@ func requireShardedCapabilityRoutingTables(t *testing.T, testEnv *ttypes.TestEnv
 		{topo.shardZeroDON, topo.capForShardZero, topo.capForShardOne},
 		{topo.shardOneDON, topo.capForShardOne, topo.capForShardZero},
 	} {
-		routingLines := t_helpers.ContainerLogLinesForNodeset(t, testEnv, tc.workflowShard.Name, executableRoutingLogNeedle)
-		require.Truef(t, logLinesMatchAny(routingLines, tc.inFamily.Name),
+		requireNodesetEventuallyLogs(t, testEnv, tc.workflowShard.Name, executableRoutingLogNeedle, tc.inFamily.Name,
 			"workflow shard %s has no executable routing entry (%s) naming its in-family capability DON %s; the launcher never built the don2don route",
 			tc.workflowShard.Name, executableRoutingLogNeedle, tc.inFamily.Name)
 
-		addCapLines := t_helpers.ContainerLogLinesForNodeset(t, testEnv, tc.workflowShard.Name, addRemoteCapabilityLogNeedle)
-		require.Truef(t, logLinesMatchAny(addCapLines, evmCapabilityIDLogNeedle),
+		requireNodesetEventuallyLogs(t, testEnv, tc.workflowShard.Name, addRemoteCapabilityLogNeedle, evmCapabilityIDLogNeedle,
 			"workflow shard %s never added the EVM capability (%s) as a remote capability", tc.workflowShard.Name, evmCapabilityIDLogNeedle)
 
-		serveLines := t_helpers.ContainerLogLinesForNodeset(t, testEnv, tc.inFamily.Name, serveExecutableCapLogNeedle)
-		require.Truef(t, logLinesMatchAny(serveLines, evmCapabilityIDLogNeedle),
+		// The launcher can sync before the capability plugin registers locally and only serves it on the next sync.
+		requireNodesetEventuallyLogs(t, testEnv, tc.inFamily.Name, serveExecutableCapLogNeedle, evmCapabilityIDLogNeedle,
 			"capability DON %s never exposed the EVM capability (%s) as a remote executable server", tc.inFamily.Name, evmCapabilityIDLogNeedle)
 
 		outOfFamilyLines := t_helpers.ContainerLogLinesForNodeset(t, testEnv, tc.workflowShard.Name, tc.outOfFamily.Name)
@@ -303,6 +301,15 @@ func requireShardedCapabilityRoutingTables(t *testing.T, testEnv *ttypes.TestEnv
 	// warning is what would surface a family layout that silently routes by lowest DON ID.
 	t_helpers.AssertContainerLogsAbsentForNodeset(t, testEnv, topo.shardZeroDON.Name, duplicateInFamilyCapWarnNeedle)
 	t_helpers.AssertContainerLogsAbsentForNodeset(t, testEnv, topo.shardOneDON.Name, duplicateInFamilyCapWarnNeedle)
+}
+
+// requireNodesetEventuallyLogs waits for nodesetName to have a line containing both needle and alsoNeedle.
+func requireNodesetEventuallyLogs(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle, alsoNeedle, msg string, args ...any) {
+	t.Helper()
+
+	require.Eventuallyf(t, func() bool {
+		return logLinesMatchAny(t_helpers.ContainerLogLinesForNodeset(t, testEnv, nodesetName, needle), alsoNeedle)
+	}, time.Minute, 2*time.Second, msg, args...)
 }
 
 // logLinesMatchAny reports whether any of the lines contains all needles.
@@ -474,7 +481,7 @@ func awaitShardedWorkflowExecution(t *testing.T, testEnv *ttypes.TestEnvironment
 	t.Helper()
 	testLogger := framework.L
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {

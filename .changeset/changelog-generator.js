@@ -1,8 +1,7 @@
 /*
  * Based off of https://github.com/changesets/changesets/blob/7323704dff6e76f488370db384579b86c95c866f/packages/changelog-github/src/index.ts
  */
-
-const ghInfo = require("@changesets/get-github-info");
+const { getCommitInfo, getPullRequestInfo } = require("@changesets/get-github-info");
 
 const getDependencyReleaseLine = async (changesets, dependenciesUpdated, options) => {
   if (dependenciesUpdated.length === 0) return "";
@@ -16,11 +15,16 @@ const getDependencyReleaseLine = async (changesets, dependenciesUpdated, options
     await Promise.all(
       changesets.map(async (cs) => {
         if (cs.commit) {
-          let { links } = await ghInfo.getInfo({
+          const info = await getCommitInfo({
             repo: options.repo,
             commit: cs.commit,
           });
-          return links.commit;
+          if (!info) {
+            throw new Error(
+              `Could not get GitHub info for commit ${cs.commit} in ${options.repo}`
+            );
+          }
+          return info.commit.markdownLink;
         }
       })
     )
@@ -64,31 +68,44 @@ const getReleaseLine = async (changeset, _, options) => {
 
   const links = await (async () => {
     if (prFromSummary !== undefined) {
-      let { links } = await ghInfo.getInfoFromPullRequest({
+      const info = await getPullRequestInfo({
         repo: options.repo,
         pull: prFromSummary,
       });
+      if (!info) {
+        throw new Error(
+          `Could not get GitHub info for PR #${prFromSummary} in ${options.repo}`
+        );
+      }
+      const links = {
+        commit: info.commit?.markdownLink ?? null,
+        pull: info.pull.markdownLink,
+      };
       if (commitFromSummary) {
         const shortCommitId = commitFromSummary.slice(0, 7);
-        links = {
-          ...links,
-          commit: `[\`${shortCommitId}\`](https://github.com/${options.repo}/commit/${commitFromSummary})`,
-        };
+        links.commit = `[\`${shortCommitId}\`](https://github.com/${options.repo}/commit/${commitFromSummary})`;
       }
       return links;
     }
     const commitToFetchFrom = commitFromSummary || changeset.commit;
     if (commitToFetchFrom) {
-      let { links } = await ghInfo.getInfo({
+      const info = await getCommitInfo({
         repo: options.repo,
         commit: commitToFetchFrom,
       });
-      return links;
+      if (!info) {
+        throw new Error(
+          `Could not get GitHub info for commit ${commitToFetchFrom} in ${options.repo}`
+        );
+      }
+      return {
+        commit: info.commit.markdownLink,
+        pull: info.pull?.markdownLink ?? null,
+      };
     }
     return {
       commit: null,
       pull: null,
-      user: null,
     };
   })();
 

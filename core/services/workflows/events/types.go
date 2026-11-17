@@ -2,8 +2,6 @@ package events
 
 const (
 	ProtoPkg = "workflows.v1"
-	// WorkflowStatusChanged represents the Workflow Registry Syncer changing the status of a workflow
-	WorkflowStatusChanged string = "WorkflowStatusChanged"
 	// WorkflowActivated represents a workflow activated event
 	WorkflowActivated string = "WorkflowActivated"
 	// WorkflowActivationAbandoned represents a terminal activation failure (no further retries)
@@ -28,21 +26,6 @@ const (
 	WorkflowUserLog string = "WorkflowUserLog"
 	// WorkflowUserMetric represents user metric events
 	WorkflowUserMetric string = "WorkflowUserMetric"
-	// UserLogs represents user logs events (v1 event type)
-	UserLogs string = "UserLogs"
-
-	// SchemaWorkflowStatusChanged represents the schema for workflow status changed events
-	SchemaWorkflowStatusChanged string = "/cre-events-workflow-status-changed/v1"
-	// SchemaWorkflowStarted represents the schema for workflow started events
-	SchemaWorkflowStarted string = "/cre-events-workflow-started/v1"
-	// SchemaWorkflowFinished represents the schema for workflow finished events
-	SchemaWorkflowFinished string = "/cre-events-workflow-finished/v1"
-	// SchemaCapabilityStarted represents the schema for capability started events
-	SchemaCapabilityStarted string = "/cre-events-capability-started/v1"
-	// SchemaCapabilityFinished represents the schema for capability finished events
-	SchemaCapabilityFinished string = "/cre-events-capability-finished/v1"
-	// SchemaUserLogs represents the schema for user log events
-	SchemaUserLogs string = "/cre-events-user-logs/v1"
 
 	// V2 schema constants
 	SchemaWorkflowStartedV2             string = "/cre-events-workflow-started/v2"

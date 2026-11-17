@@ -84,22 +84,22 @@ func TestOffchainDivergences(t *testing.T) {
 		offchain map[uint32]map[string]*capabilitiespb.CapabilityConfig
 		want     map[string]int64
 	}{
-		{"no payload", nil, map[string]int64{divergenceMissing: 4, divergenceMismatch: 0}},
+		{"no payload", nil, map[string]int64{divergenceMissing: 4, divergenceMismatch: 0, divergenceSpecMismatch: 0, divergenceEmptySpec: 4}},
 		{"same as on-chain", map[uint32]map[string]*capabilitiespb.CapabilityConfig{
 			1: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "20"}), "consensus@1.0.0": specConfigCap(t, map[string]any{"interval": "20"})},
 			2: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "20"}), "consensus@1.0.0": specConfigCap(t, map[string]any{"interval": "20"})},
-		}, map[string]int64{divergenceMissing: 0, divergenceMismatch: 0}},
+		}, map[string]int64{divergenceMissing: 0, divergenceMismatch: 0, divergenceSpecMismatch: 0, divergenceEmptySpec: 0}},
 		{"missing DON, missing capability and mismatches", map[uint32]map[string]*capabilitiespb.CapabilityConfig{
 			1: {
 				"cron@1.0.0": specConfigCap(t, map[string]any{"interval": "30"}), // different value
 				"x@1.0.0":    {},                                                 // extra entries are ignored
 			},
 			3: {"cron@1.0.0": {}}, // DON this node is not in
-		}, map[string]int64{divergenceMissing: 3, divergenceMismatch: 1}},
+		}, map[string]int64{divergenceMissing: 3, divergenceMismatch: 1, divergenceSpecMismatch: 1, divergenceEmptySpec: 3}},
 		{"omitted key and empty spec_config", map[uint32]map[string]*capabilitiespb.CapabilityConfig{
 			1: {"cron@1.0.0": specConfigCap(t, map[string]any{}), "consensus@1.0.0": {}},
 			2: {"cron@1.0.0": specConfigCap(t, map[string]any{"interval": int64(20)}), "consensus@1.0.0": specConfigCap(t, map[string]any{"interval": "20", "extra": "e"})},
-		}, map[string]int64{divergenceMissing: 0, divergenceMismatch: 4}},
+		}, map[string]int64{divergenceMissing: 0, divergenceMismatch: 4, divergenceSpecMismatch: 4, divergenceEmptySpec: 2}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -171,6 +171,14 @@ func TestOffchainDivergences_MethodConfigs(t *testing.T) {
 			"Write": execCfg(30 * time.Second),
 		}})
 		assert.Equal(t, int64(0), got[divergenceMismatch])
+	})
+
+	t.Run("spec-only payload without method_configs is a mismatch but not a spec_config_mismatch", func(t *testing.T) {
+		t.Parallel()
+		got := check(&capabilitiespb.CapabilityConfig{})
+		assert.Equal(t, int64(1), got[divergenceMismatch])
+		assert.Equal(t, int64(0), got[divergenceSpecMismatch])
+		assert.Equal(t, int64(0), got[divergenceEmptySpec])
 	})
 
 	t.Run("changed offchain entry is a mismatch", func(t *testing.T) {

@@ -131,9 +131,9 @@ func ContainerLogLinesForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment, 
 }
 
 // CountNodesetContainersWithLog returns how many of the nodeset's containers
-// currently contain needle in their logs - for per-node convergence proofs,
-// where a single container's log line is not enough.
-func CountNodesetContainersWithLog(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string) int {
+// currently contain a line matching every needle - for per-node convergence
+// proofs, where a single container's log line is not enough.
+func CountNodesetContainersWithLog(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName string, needles ...string) int {
 	t.Helper()
 
 	targetNames := make(map[string]struct{})
@@ -158,11 +158,22 @@ func CountNodesetContainersWithLog(t *testing.T, testEnv *ttypes.TestEnvironment
 			framework.L.Warn().Str("container", containerName).Err(readErr).Msg("could not read container logs")
 			continue
 		}
-		if strings.Contains(content, needle) {
+		if logsContainMatchingLine(content, needles...) {
 			count++
 		}
 	}
 	return count
+}
+
+func logsContainMatchingLine(content string, needles ...string) bool {
+	for line := range strings.Lines(content) {
+		if len(needles) > 0 && !slices.ContainsFunc(needles, func(needle string) bool {
+			return !strings.Contains(line, needle)
+		}) {
+			return true
+		}
+	}
+	return false
 }
 
 // AssertNodeLogs requires needle to appear in at least one Chainlink node container log.
@@ -193,6 +204,49 @@ func RequireContainerLogsForNodesetEventually(t *testing.T, testEnv *ttypes.Test
 	require.Eventually(t, func() bool {
 		return containerLogsContain(t, containerNames, needle)
 	}, timeout, interval, "expected at least one of %v to contain %q within %s", containerNames, needle, timeout)
+}
+
+// NodesetContainerNames returns sorted Docker container names for the nodeset named nodesetName.
+func NodesetContainerNames(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName string) []string {
+	t.Helper()
+	return nodesetContainerNames(t, testEnv, nodesetName)
+}
+
+// ContainerLogLineMatchesForNodeset reports whether any single log line of nodesetName's
+// containers satisfies match. Use it when several values must appear on the same line.
+func ContainerLogLineMatchesForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName string, match func(line string) bool) bool {
+	t.Helper()
+
+	targetNames := make(map[string]struct{})
+	for _, name := range nodesetContainerNames(t, testEnv, nodesetName) {
+		targetNames[name] = struct{}{}
+	}
+
+	logStreams, err := framework.StreamContainerLogs(
+		client.ContainerListOptions{All: true},
+		client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true},
+	)
+	require.NoError(t, err)
+
+	found := false
+	for containerName, reader := range logStreams {
+		if _, ok := targetNames[containerName]; !ok || found {
+			_ = reader.Close()
+			continue
+		}
+		content, readErr := readContainerLogs(reader)
+		if readErr != nil {
+			framework.L.Warn().Str("container", containerName).Err(readErr).Msg("could not read container logs")
+			continue
+		}
+		for line := range strings.SplitSeq(content, "\n") {
+			if match(line) {
+				found = true
+				break
+			}
+		}
+	}
+	return found
 }
 
 // readContainerLogs decodes a Docker multiplexed log stream into plain text.

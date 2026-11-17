@@ -1217,6 +1217,9 @@ func UpdateChainConfigChangeset(e cldf.Environment, cfg UpdateChainConfigConfig)
 }
 
 func isChainConfigEqual(a, b ccip_home.CCIPHomeChainConfig) bool {
+	if len(a.Readers) != len(b.Readers) {
+		return false
+	}
 	mapReader := make(map[[32]byte]struct{})
 	for i := range a.Readers {
 		mapReader[a.Readers[i]] = struct{}{}

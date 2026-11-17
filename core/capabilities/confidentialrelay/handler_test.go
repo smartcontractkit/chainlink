@@ -690,6 +690,24 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 		},
 		{
+			name:        "secrets get per-execution call limit classified as user",
+			registry:    secretsGetTestRegistry,
+			req:         secretsGetTestRequest,
+			workflowID:  "wf-secrets-1",
+			executionID: "0000000000000000000000000000000000000000000000000000000000000001",
+			helper: func(_ *testing.T) *mockExecutionHelper {
+				return &mockExecutionHelper{secretsErr: caperrors.NewLimitExceededError(
+					"secrets call limit exceeded",
+					errors.New("PerWorkflow.Secrets.CallLimit limited for workflow[wf-secrets-1]: cannot use 6, limit is 5"),
+				)}
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.NotNil(t, resp.Error)
+				assert.Equal(t, jsonrpc.ErrInvalidParams, resp.Error.Code)
+				assert.Contains(t, resp.Error.Message, "cannot use 6, limit is 5")
+			},
+		},
+		{
 			name:        "secrets get GetRawSecrets system error classified as internal",
 			registry:    secretsGetTestRegistry,
 			req:         secretsGetTestRequest,

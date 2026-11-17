@@ -128,6 +128,9 @@ type Event struct {
 	Data any
 	Head Head
 	Info string // additional human-readable metadata
+	// ShardTransition marks an engine start/stop caused only by the workflow moving between shards.
+	// The engine is still managed, but no external lifecycle event is emitted.
+	ShardTransition bool
 }
 
 // NOTE: The following types differ from gethwrappers in that they are chain agnostic definitions (owners are represented as bytes / workflow IDs might be more than bytes32)

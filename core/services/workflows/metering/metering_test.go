@@ -151,7 +151,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 		t.Run("if rate card contains invalid entry", func(t *testing.T) {
 			t.Parallel()
 
-			lggr, logs := logger.TestObserved(t, zapcore.WarnLevel)
+			lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 			billingClient := mocks.NewBillingClient(t)
 			billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 				Return(&billing.GetWorkflowExecutionRatesResponse{
@@ -165,7 +165,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 				Return(&billing.ReserveCreditsResponse{Success: true, Credits: "10000"}, nil)
 			require.NoError(t, report.Reserve(t.Context()))
 			require.True(t, report.meteringMode)
-			assert.Len(t, logs.All(), 1)
+			assert.Len(t, logs.FilterMessage("switching to metering mode").All(), 1)
 			billingClient.AssertExpectations(t)
 		})
 	})
@@ -225,7 +225,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 			t.Run("if only one spend type and rate does not exist", func(t *testing.T) {
 				t.Parallel()
 
-				lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+				lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 				billingClient := mocks.NewBillingClient(t)
 				billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 					Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
@@ -252,14 +252,14 @@ func Test_Report_MeteringMode(t *testing.T) {
 				require.NoError(t, err)
 				assert.Empty(t, limits)
 				assert.True(t, report.meteringMode)
-				assert.Len(t, logs.All(), 1)
+				assert.Len(t, logs.FilterMessage("switching to metering mode").All(), 1)
 				billingClient.AssertExpectations(t)
 			})
 
 			t.Run("if ratio and spend type lengths do not match", func(t *testing.T) {
 				t.Parallel()
 
-				lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+				lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 				billingClient := mocks.NewBillingClient(t)
 				billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 					Return(&billing.GetWorkflowExecutionRatesResponse{}, nil)
@@ -279,14 +279,14 @@ func Test_Report_MeteringMode(t *testing.T) {
 				require.NoError(t, err)
 				assert.Empty(t, limits)
 				assert.True(t, report.meteringMode)
-				assert.Len(t, logs.All(), 1)
+				assert.Len(t, logs.FilterMessage("switching to metering mode").All(), 1)
 				billingClient.AssertExpectations(t)
 			})
 
 			t.Run("if multiple spend types and ratio does not exist", func(t *testing.T) {
 				t.Parallel()
 
-				lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+				lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 				billingClient := mocks.NewBillingClient(t)
 				billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 					Return(&billing.GetWorkflowExecutionRatesResponse{
@@ -309,14 +309,14 @@ func Test_Report_MeteringMode(t *testing.T) {
 				require.NoError(t, err)
 				assert.Empty(t, limits)
 				assert.True(t, report.meteringMode)
-				assert.Len(t, logs.All(), 1)
+				assert.Len(t, logs.FilterMessage("switching to metering mode").All(), 1)
 				billingClient.AssertExpectations(t)
 			})
 
 			t.Run("if multiple spend types and rate does not exist", func(t *testing.T) {
 				t.Parallel()
 
-				lggr, logs := logger.TestObserved(t, zapcore.ErrorLevel)
+				lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 				billingClient := mocks.NewBillingClient(t)
 				billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
 					Return(&billing.GetWorkflowExecutionRatesResponse{
@@ -339,7 +339,7 @@ func Test_Report_MeteringMode(t *testing.T) {
 				require.NoError(t, err)
 				assert.Empty(t, limits)
 				assert.True(t, report.meteringMode)
-				assert.Len(t, logs.All(), 1)
+				assert.Len(t, logs.FilterMessage("switching to metering mode").All(), 1)
 				billingClient.AssertExpectations(t)
 			})
 		})

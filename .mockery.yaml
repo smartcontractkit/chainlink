@@ -43,7 +43,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types:
     interfaces:
       Dispatcher:
-      Receiver:
   github.com/smartcontractkit/chainlink-evm/pkg/log:
     config:
       dir: common/log/mocks

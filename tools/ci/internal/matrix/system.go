@@ -139,8 +139,9 @@ var defaultCRESmokePerTestTopologies = map[string][]TopologyConfig{
 }
 
 var defaultCRERegressionPerTestConfigs = map[string]string{
-	"Test_CRE_V2_Stellar_Regression": "configs/workflow-gateway-don-stellar.toml",
-	"Test_CRE_V2_Solana_Regression":  "configs/workflow-don-solana.toml",
+	"Test_CRE_V2_Stellar_Regression":           "configs/workflow-gateway-don-stellar.toml",
+	"Test_CRE_V2_Solana_Regression":            "configs/workflow-don-solana.toml",
+	"Test_CRE_V2_Solana_LogTrigger_Regression": "configs/workflow-don-solana.toml",
 }
 
 // BuildCRESmokeMatrix discovers tests in dir and constructs CRE smoke test matrix.

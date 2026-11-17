@@ -2,8 +2,10 @@ package v2_test
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
@@ -11,7 +13,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncaps "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
@@ -61,6 +66,80 @@ func TestEngineConfig_Validate(t *testing.T) {
 		cfg.WorkflowTag = "" // V1 workflows don't have tags
 		require.NoError(t, cfg.Validate())
 	})
+}
+
+// TestNewLimiters_CentralTriggerQueue asserts shadow mode is off by default and on for a window covering now.
+// The queue limit and drain interval use their setting defaults.
+func TestNewLimiters_CentralTriggerQueue(t *testing.T) {
+	t.Parallel()
+	// Shadow mode is per workflow, so the check needs a tenant.
+	ctx := contexts.WithCRE(t.Context(), contexts.CRE{Org: "org-1", Owner: testWorkflowOwnerA, Workflow: testWorkflowID})
+	now := time.Now()
+	newLimiters := func(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.EngineLimiters {
+		t.Helper()
+		l, err := v2.NewLimiters(limits.Factory{Logger: logger.TestLogger(t)}, cfgFn)
+		require.NoError(t, err)
+		t.Cleanup(func() { assert.NoError(t, l.Close()) })
+		return l
+	}
+
+	t.Run("shadow mode is off by default", func(t *testing.T) {
+		t.Parallel()
+		l := newLimiters(t, nil)
+		require.NotNil(t, l.ShadowTriggerMode)
+		err := l.ShadowTriggerMode.Check(ctx, commonconfig.NewTimestamp(now))
+		_, outside := errors.AsType[limits.ErrorRangeLimited[commonconfig.Timestamp]](err)
+		assert.True(t, outside, "shadow mode must be off by default, got %v", err)
+	})
+
+	t.Run("shadow mode is on inside a configured window", func(t *testing.T) {
+		t.Parallel()
+		l := newLimiters(t, func(w *cresettings.Workflows) {
+			w.FeatureShadowTriggerModeActivePeriod.DefaultValue = settings.Range[commonconfig.Timestamp]{
+				Lower: commonconfig.NewTimestamp(now.Add(-time.Hour)),
+				Upper: commonconfig.NewTimestamp(now.Add(time.Hour)),
+			}
+		})
+		require.NotNil(t, l.ShadowTriggerMode)
+		assert.NoError(t, l.ShadowTriggerMode.Check(ctx, commonconfig.NewTimestamp(now)))
+	})
+
+	t.Run("queue limit uses its default", func(t *testing.T) {
+		t.Parallel()
+		l := newLimiters(t, nil)
+		require.NotNil(t, l.CentralTriggerEventQueue)
+		queueLimit, err := l.CentralTriggerEventQueue.Limit(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, 1000, queueLimit)
+	})
+
+	t.Run("drain interval uses its default", func(t *testing.T) {
+		t.Parallel()
+		l := newLimiters(t, nil)
+		require.NotNil(t, l.CentralTriggerQueueDrainInterval)
+		interval, err := l.CentralTriggerQueueDrainInterval.Limit(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, 500*time.Millisecond, interval)
+	})
+}
+
+// TestNewLimiters_ExecutionResponseSizeEnforced asserts response size enforcement is off by default and follows its setting.
+func TestNewLimiters_ExecutionResponseSizeEnforced(t *testing.T) {
+	t.Parallel()
+	ctx := contexts.WithCRE(t.Context(), contexts.CRE{Org: "org-1", Owner: testWorkflowOwnerA, Workflow: testWorkflowID})
+	for _, enforced := range []bool{false, true} {
+		l, err := v2.NewLimiters(limits.Factory{Logger: logger.TestLogger(t)}, func(w *cresettings.Workflows) {
+			if enforced {
+				w.ExecutionResponseLimitEnforced.DefaultValue = true
+			}
+		})
+		require.NoError(t, err)
+		t.Cleanup(func() { assert.NoError(t, l.Close()) })
+		require.NotNil(t, l.ExecutionResponseSizeEnforced)
+		open, err := l.ExecutionResponseSizeEnforced.IsOpen(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, enforced, open)
+	}
 }
 
 // defaultTestConfig returns a default v2.EngineConfig. CRE settings can optionally be configured by cfgFn.

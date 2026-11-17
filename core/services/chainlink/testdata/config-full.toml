@@ -340,7 +340,7 @@ DonID = 'example_gateway_don'
 URL = 'wss://localhost:8081/node'
 
 [Capabilities.Local]
-RegistryBasedLaunchAllowlist = ['^cron@1\.0\.0$', '^http-action@.*$']
+RegistryBasedLaunchAllowlist = ['^cron@1\.0\.0$', '^http-actions@.*$']
 UseOffchainRegistry = true
 
 [Telemetry]
@@ -502,6 +502,7 @@ Enabled = false
 Enabled = false
 ReadRequestsToMultipleNodes = false
 Bundles = false
+FeeMultiplier = '1.5'
 
 [EVM.BalanceMonitor]
 Enabled = true

@@ -14,7 +14,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -35,7 +34,6 @@ type dispatcher struct {
 	peerID            p2ptypes.PeerID
 	signer            p2ptypes.Signer
 	don2donSharedPeer p2ptypes.SharedPeer
-	registry          registry.CapabilitiesRegistry
 	limitsFactory     limits.Factory
 	globalRate        limits.RateLimiter
 	perSenderRateMu   sync.Mutex
@@ -70,7 +68,7 @@ type key struct {
 
 var _ services.Service = &dispatcher{}
 
-func NewDispatcher(cfg config.Dispatcher, don2donSharedPeer p2ptypes.SharedPeer, signer p2ptypes.Signer, registry registry.CapabilitiesRegistry, lggr logger.Logger, lf limits.Factory) (*dispatcher, error) {
+func NewDispatcher(cfg config.Dispatcher, don2donSharedPeer p2ptypes.SharedPeer, signer p2ptypes.Signer, lggr logger.Logger, lf limits.Factory) (*dispatcher, error) {
 	if don2donSharedPeer == nil {
 		return nil, errors.New("don2donSharedPeer is required")
 	}
@@ -81,7 +79,6 @@ func NewDispatcher(cfg config.Dispatcher, don2donSharedPeer p2ptypes.SharedPeer,
 	return &dispatcher{
 		cfg:               cfg,
 		signer:            signer,
-		registry:          registry,
 		limitsFactory:     lf,
 		globalRate:        globalRate,
 		perSenderRate:     make(map[string]limits.RateLimiter),

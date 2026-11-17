@@ -41,7 +41,8 @@
   binary_name = "solana"
 
 [capability_configs.http-action.values]
-  # HTTP Action capability configuration
+  # HTTP Action capability configuration.
+  # Service settings are published in registry spec_config.
   ProxyMode = "gateway"
   IncomingGlobalBurst = 10
   IncomingGlobalRPS = 50
@@ -56,7 +57,7 @@
   binary_name = "http_trigger"
 
 [capability_configs.http-trigger.values]
-  # HTTP Trigger capability configuration
+  # HTTP Trigger service settings are published in registry spec_config.
   IncomingGlobalBurst = 10
   IncomingGlobalRPS = 50
   IncomingPerSenderBurst = 10

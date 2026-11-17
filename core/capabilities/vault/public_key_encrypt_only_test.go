@@ -72,7 +72,7 @@ func TestCapability_GetPublicKey_EncryptOnlyGate(t *testing.T) {
 		handler := requests.NewHandler(lggr, store, clock, expiry)
 		reg := registry.NewRegistry(lggr)
 		lf := limits.Factory{Settings: getter}
-		c, cerr := NewCapability(lggr, clock, expiry, handler, reg, lazy, lf, newTestRequestLifecycleTracker(t))
+		c, cerr := NewCapability(lggr, clock, expiry, handler, reg, lazy, NewLazyDirectSecretsReader(), lf, newTestRequestLifecycleTracker(t))
 		require.NoError(t, cerr)
 		return c
 	}

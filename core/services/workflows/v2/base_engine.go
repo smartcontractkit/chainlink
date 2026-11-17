@@ -55,8 +55,8 @@ var (
 	ErrEngineDraining     = triggers.ErrEngineDraining
 	ErrEngineClosed       = triggers.ErrEngineClosed
 
-	ErrShardDeniedNotOwner     = fmt.Errorf("shard ownership denied: not owner: %w", triggers.ErrAdmissionDenied)
-	ErrShardDeniedOrchestrator = fmt.Errorf("shard ownership denied: orchestrator error: %w", triggers.ErrAdmissionDenied)
+	ErrShardDeniedNotOwner     = triggers.ErrShardDeniedNotOwner
+	ErrShardDeniedOrchestrator = triggers.ErrShardDeniedOrchestrator
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
 	ErrAdmissionCache          = triggers.ErrAdmissionCached
 
@@ -196,7 +196,7 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2, metering.WithEventEmitter(cfg.EventEmitter))
 	engine.metrics = metricsLabeler
 	// Disabled metering is a no-op inside the resource manager.
-	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter})
+	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter, Settings: cfg.LocalLimiters.Settings})
 	engine.usageIdentity = resourcemanager.WithWorkflowUsagePool(
 		resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
 		resourcemanager.ResourceTypeWorkflowCompute)
@@ -353,10 +353,15 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 	if moduleExecuteMaxResponseSizeBytes < 0 {
 		return nil, fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 	}
+
+	// No executionID exists unless startExecution is called.
+	// Hence, we initialize it as an empty string.
+	executionID := ""
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
-		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
-		Config:          e.cfg.WorkflowConfig,
+		Request:           &sdkpb.ExecuteRequest_Subscribe{},
+		ExecutionMetadata: e.getExecutionMetadata(executionID),
+		MaxResponseSize:   uint64(moduleExecuteMaxResponseSizeBytes),
+		Config:            e.cfg.WorkflowConfig,
 	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider))
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute subscribe: %w", err)
@@ -775,14 +780,16 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	}
 	execHelper = &ExecutionHelper{
 		base: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
-		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
+		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID, executionTimestamp),
 		executionProfile: newExecutionProfileCollector(),
 	}
 
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, event.TriggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
+	executionMetadata := e.getExecutionMetadata(executionID)
 	var result *sdkpb.ExecutionResult
 	result, execErr = e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
+		ExecutionMetadata: executionMetadata,
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
 				Id:      tid,
@@ -869,7 +876,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	return nil
 }
 
-func (e *baseEngine) secretsFetcher(executionID string) SecretsFetcher {
+func (e *baseEngine) secretsFetcher(executionID string, executionTimestamp time.Time) SecretsFetcher {
 	if e.cfg.SecretsFetcher != nil {
 		return e.cfg.SecretsFetcher
 	}
@@ -886,6 +893,7 @@ func (e *baseEngine) secretsFetcher(executionID string) SecretsFetcher {
 		e.cfg.WorkflowName.String(),
 		e.cfg.WorkflowID,
 		executionID,
+		executionTimestamp,
 		e.cfg.WorkflowEncryptionKey,
 		e.cfg.OverrideFetcher,
 	)
@@ -1073,6 +1081,8 @@ func (e *baseEngine) buildLabels(localNode *capabilities.Node) []any {
 		platform.KeyWorkflowName, e.cfg.WorkflowName.String(),
 		platform.KeyWorkflowVersion, platform.ValueWorkflowVersionV2,
 		platform.KeyDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyWorkflowDonID, strconv.Itoa(int(localNode.WorkflowDON.ID)),
+		platform.KeyShardIndex, strconv.FormatUint(uint64(e.cfg.ShardIndex), 10),
 		platform.KeyDonF, strconv.Itoa(int(localNode.WorkflowDON.F)),
 		platform.KeyDonN, strconv.Itoa(len(localNode.WorkflowDON.Members)),
 		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(
@@ -1182,4 +1192,15 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, e
 		"value", valueMs,
 		"orgID", e.orgID,
 	)
+}
+
+func (e *baseEngine) getExecutionMetadata(executionID string) *sdkpb.WorkflowExecutionMetadata {
+	node := e.localNode.Load()
+	return &sdkpb.WorkflowExecutionMetadata{
+		WorkflowId:    e.cfg.WorkflowID,
+		ExecutionId:   executionID,
+		WorkflowOwner: e.cfg.WorkflowOwner,
+		DonId:         node.WorkflowDON.ID,
+		DonF:          uint32(node.WorkflowDON.F),
+	}
 }

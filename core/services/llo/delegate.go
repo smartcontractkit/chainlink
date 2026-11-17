@@ -99,6 +99,10 @@ type DelegateConfig struct {
 	LocalConfig            ocr2types.LocalConfig
 	NewOCR3DB              func(pluginID int32) ocr3types.Database
 
+	// OCR3_1MonitoringEndpoint receives the protocol telemetry of the OCR3.1
+	// (llo/v31) oracle, whose schema differs from OCR3.
+	OCR3_1MonitoringEndpoint ocrcommontypes.MonitoringEndpoint
+
 	// PluginVersions selects the plugin per protocol instance, positionally
 	// aligned with ContractConfigTrackers (see chainlink-data-streams
 	// llo/pluginconfig.PluginConfig.PluginVersions). The two entries differ only
@@ -327,12 +331,9 @@ func (d *delegate) v31FactoryParams(lggr logger.Logger, psrrc lloprotocol.Predec
 		ReportTelemetryCh:                enabledCh(d.cfg.V31Config.CaptureReportTelemetry, d.telem.GetReportTelemetryCh()),
 		AttributedObservationTelemetryCh: enabledCh(d.cfg.V31Config.CaptureAttributedObservationTelemetry, d.telem.GetAttributedObservationTelemetryCh()),
 		DonID:                            d.cfg.DonID,
-		MaxSnapshotRounds:                d.cfg.V31Config.MaxSnapshotRounds,
 		BlobLifetimeRounds:               d.cfg.V31Config.BlobLifetimeRounds,
 		MaxDurationBlobObservation:       d.cfg.V31Config.MaxDurationBlobObservation.Duration(),
 		BlobInFlightWaitFactor:           d.cfg.V31Config.BlobInFlightWaitFactor,
-		MaxBlobSnapshotAge:               d.cfg.V31Config.MaxBlobSnapshotAge.Duration(),
-		MaxRoundPeriod:                   d.cfg.V31Config.MaxRoundPeriod.Duration(),
 	}
 }
 
@@ -356,7 +357,7 @@ func (d *delegate) newOracleV31(i int, configTracker ocr2types.ContractConfigTra
 		KeyValueDatabaseFactory:      d.cfg.KeyValueDatabaseFactory,
 		LocalConfig:                  d.cfg.LocalConfig,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.cfg.OCR3MonitoringEndpoint,
+		MonitoringEndpoint:           d.cfg.OCR3_1MonitoringEndpoint,
 		OffchainConfigDigester:       d.cfg.OffchainConfigDigester,
 		OffchainKeyring:              d.cfg.OffchainKeyring,
 		OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(d.cfg.OnchainKeyring),

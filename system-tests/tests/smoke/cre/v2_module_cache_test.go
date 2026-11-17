@@ -7,7 +7,7 @@ import (
 	"time"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -31,7 +31,7 @@ Prerequisites:
 func ExecuteModuleCacheTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
@@ -65,7 +65,7 @@ func ExecuteModuleCacheTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	t_helpers.AssertNodeLogs(t, testEnv, "Module cache enabled")
 }
 
-func drainFor(ch <-chan *workflowevents.UserLogs, d time.Duration) {
+func drainFor(ch <-chan *workfloweventsv2.WorkflowUserLog, d time.Duration) {
 	timer := time.After(d)
 	for {
 		select {

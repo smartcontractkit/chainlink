@@ -37,7 +37,7 @@ jobs:
         uses: actions/setup-node@v6
         if: steps.change.outputs.core-changeset == 'true'
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
           cache-dependency-path: ./pnpm-lock.yaml
 

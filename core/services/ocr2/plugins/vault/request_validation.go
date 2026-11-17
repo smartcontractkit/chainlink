@@ -58,7 +58,7 @@ func validateRequestResponseItemCount(requestCount, responseCount int, method st
 	return nil
 }
 
-func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaultcommon.SecretIdentifier) (*vaultcommon.SecretIdentifier, error) {
+func validateSecretIdentifier(ctx context.Context, validator *vaultcap.RequestValidator, id *vaultcommon.SecretIdentifier) (*vaultcommon.SecretIdentifier, error) {
 	if id == nil {
 		return nil, vaulttypes.NewUserError("secret identifier cannot be nil")
 	}
@@ -68,7 +68,7 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 		namespace = vaulttypes.DefaultNamespace
 	}
 
-	if err := r.validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, namespace); err != nil {
+	if err := validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, namespace); err != nil {
 		return nil, vaulttypes.NewUserError(err.Error())
 	}
 
@@ -79,7 +79,7 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 	}, nil
 }
 
-func (r *ReportingPlugin) validateDuplicateSecretIdentifierUserError(id *vaultcommon.SecretIdentifier, counts map[string]int) error {
+func validateDuplicateSecretIdentifierUserError(id *vaultcommon.SecretIdentifier, counts map[string]int) error {
 	key := secretIdentifierKey(id)
 	if counts[key] > 1 {
 		return vaulttypes.NewUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
@@ -108,12 +108,12 @@ func (r *ReportingPlugin) validateEncryptedSecretPayload(
 	secret *vaultcommon.EncryptedSecret,
 	requestsCountForID map[string]int,
 ) (*vaultcommon.SecretIdentifier, error) {
-	id, err := r.validateSecretIdentifier(ctx, secret.Id)
+	id, err := validateSecretIdentifier(ctx, r.validator, secret.Id)
 	if err != nil {
 		return id, err
 	}
 
-	if err := r.validateDuplicateSecretIdentifierUserError(secret.Id, requestsCountForID); err != nil {
+	if err := validateDuplicateSecretIdentifierUserError(secret.Id, requestsCountForID); err != nil {
 		return id, err
 	}
 
@@ -133,17 +133,21 @@ func (r *ReportingPlugin) validateEncryptedSecretPayload(
 	return id, nil
 }
 
-func (r *ReportingPlugin) validateGetSecretsRequestItem(
+// validateGetSecretsRequestItem validates a single GetSecrets request item.
+// It is shared by the plugin's OCR observation path and the direct-read path
+// so that both produce identical per-item errors.
+func validateGetSecretsRequestItem(
 	ctx context.Context,
+	validator *vaultcap.RequestValidator,
 	secretRequest *vaultcommon.SecretRequest,
 	requestsCountForID map[string]int,
 ) (*vaultcommon.SecretIdentifier, error) {
-	id, err := r.validateSecretIdentifier(ctx, secretRequest.Id)
+	id, err := validateSecretIdentifier(ctx, validator, secretRequest.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := r.validateDuplicateSecretIdentifierUserError(secretRequest.Id, requestsCountForID); err != nil {
+	if err := validateDuplicateSecretIdentifierUserError(secretRequest.Id, requestsCountForID); err != nil {
 		return nil, err
 	}
 
@@ -155,12 +159,12 @@ func (r *ReportingPlugin) validateDeleteSecretsRequestItem(
 	identifier *vaultcommon.SecretIdentifier,
 	requestsCountForID map[string]int,
 ) (*vaultcommon.SecretIdentifier, error) {
-	id, err := r.validateSecretIdentifier(ctx, identifier)
+	id, err := validateSecretIdentifier(ctx, r.validator, identifier)
 	if err != nil {
 		return id, err
 	}
 
-	if err := r.validateDuplicateSecretIdentifierUserError(identifier, requestsCountForID); err != nil {
+	if err := validateDuplicateSecretIdentifierUserError(identifier, requestsCountForID); err != nil {
 		return id, err
 	}
 
@@ -177,7 +181,7 @@ func (r *ReportingPlugin) validateGetSecretsRequestPayload(ctx context.Context, 
 		if sr.Id == nil {
 			return errors.New("GetSecrets request contains nil secret identifier")
 		}
-		if _, err := r.validateGetSecretsRequestItem(ctx, sr, counts); err != nil {
+		if _, err := validateGetSecretsRequestItem(ctx, r.validator, sr, counts); err != nil {
 			return err
 		}
 	}
