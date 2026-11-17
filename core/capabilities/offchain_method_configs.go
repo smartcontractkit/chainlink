@@ -40,7 +40,9 @@ func newOffchainMethodConfigs(reg *capabilitiespb.OffchainCapabilitiesRegistry, 
 }
 
 // configuration selects the complete capability config before decoding it. A missing
-// offchain capability retains the on-chain config, including its LocalOnly setting.
+// offchain capability retains the on-chain config, including its LocalOnly setting. So does
+// one that is not local-only and has no methods: a remote capability must expose at least one
+// method, so such an entry carries only other fields, such as spec_config.
 func (o *offchainMethodConfigs) configuration(capID string, don registry.DON, onchain registry.CapabilityConfiguration) (capabilities.CapabilityConfiguration, error) {
 	if o == nil || o.reg == nil {
 		return onchain.Unmarshal()
@@ -50,17 +52,12 @@ func (o *offchainMethodConfigs) configuration(capID string, don registry.DON, on
 		return onchain.Unmarshal()
 	}
 	offCap, ok := o.reg.GetDons()[donName].GetCapabilities()[capID]
-	if !ok {
+	if !ok || (!offCap.GetLocalOnly() && len(offCap.GetMethodConfigs()) == 0) {
 		return onchain.Unmarshal()
 	}
 	raw, err := proto.Marshal(offCap)
 	if err != nil {
 		return capabilities.CapabilityConfiguration{}, err
 	}
-	config, err := (registry.CapabilityConfiguration{Config: raw}).Unmarshal()
-	// A present offchain capability without methods explicitly selects no methods.
-	if err == nil && config.CapabilityMethodConfig == nil {
-		config.CapabilityMethodConfig = map[string]capabilities.CapabilityMethodConfig{}
-	}
-	return config, err
+	return (registry.CapabilityConfiguration{Config: raw}).Unmarshal()
 }

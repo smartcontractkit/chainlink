@@ -10,6 +10,7 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	regpkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 )
 
@@ -32,7 +33,9 @@ func TestOffchainMethodConfigs_Selection(t *testing.T) {
 		{"nil snapshot", nil, []string{"Legacy"}},
 		{"missing capability", snapshot(map[string]*capabilitiespb.CapabilityConfig{}), []string{"Legacy"}},
 		{"complete replacement", snapshot(map[string]*capabilitiespb.CapabilityConfig{capID: {MethodConfigs: map[string]*capabilitiespb.CapabilityMethodConfig{"New": method}}}), []string{"New"}},
-		{"empty method map", snapshot(map[string]*capabilitiespb.CapabilityConfig{capID: {}}), nil},
+		{"empty method map falls back to on-chain", snapshot(map[string]*capabilitiespb.CapabilityConfig{capID: {}}), []string{"Legacy"}},
+		{"spec_config only falls back to on-chain", snapshot(map[string]*capabilitiespb.CapabilityConfig{capID: {SpecConfig: &valuespb.Map{Fields: map[string]*valuespb.Value{"k": valuespb.NewStringValue("v")}}}}), []string{"Legacy"}},
+		{"local-only without methods", snapshot(map[string]*capabilitiespb.CapabilityConfig{capID: {LocalOnly: true}}), nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -77,7 +80,11 @@ func TestOffchainMethodConfigs_LocalOnly(t *testing.T) {
 			snapshot := newOffchainMethodConfigs(gc.LoadParsed(), []regpkg.DON{don})
 			config, err = snapshot.configuration(capID, don, onchain)
 			require.NoError(t, err)
-			assert.Equal(t, offchainLocalOnly, config.LocalOnly, "the selected offchain capability supplies the whole flag")
+			if offchainLocalOnly {
+				assert.True(t, config.LocalOnly, "an offchain local-only capability supplies the flag")
+			} else {
+				assert.Equal(t, onchainLocalOnly, config.LocalOnly, "an offchain capability without remote config retains the on-chain flag")
+			}
 			config, err = snapshot.configuration("missing@1.0.0", don, onchain)
 			require.NoError(t, err)
 			assert.Equal(t, onchainLocalOnly, config.LocalOnly, "a missing capability retains the on-chain flag")
