@@ -146,9 +146,10 @@ func (m blobHandleMap) addAll(eventHash string, blobHandles map[string]uint32) {
 
 type kvState struct {
 	// observedEventsKey
-	observedEvents      map[string]*pb.ConsensusQueueObservedEvent // key: timeless hash
-	observedBlobs       blobHandleMap
-	observedBlobHandles [][]byte // only populated before write
+	observedEvents       map[string]*pb.ConsensusQueueObservedEvent // key: timeless hash
+	observedEventEntries []*pb.ConsensusQueueObservedEventEntry     // only populated before write
+	observedBlobs        blobHandleMap
+	observedBlobHandles  [][]byte // only populated before write
 
 	// priorityQueueKey
 	queuedEvents *priorityQueue
@@ -161,28 +162,13 @@ type kvState struct {
 
 // loadFrom loads the kvState from the KV store, excluding consensus events, which are not required to transition.
 func (s *kvState) loadFrom(kv ocr3_1types.KeyValueStateReadWriter) error {
-	v, err := kv.Read([]byte(observedEventsKey))
+	var err error
+	s.observedEvents, s.observedBlobs, err = readObservedEvents(kv)
 	if err != nil {
-		return fmt.Errorf("failed to read observed events: %w", err)
-	}
-	s.observedBlobs = make(blobHandleMap)
-	if v != nil {
-		var observed *pb.ConsensusQueueObservedEvents
-		if err = proto.Unmarshal(v, observed); err != nil {
-			return fmt.Errorf("failed to unmarshal observed events: %w", err)
-		}
-		s.observedEvents = observed.GetObservations()
-		blobHandles := observed.GetBlobHandles()
-		for eventHash, event := range s.observedEvents {
-			for _, b := range event.GetBlobs() {
-				s.observedBlobs.add(eventHash, string(blobHandles[b.Blob]), b.Element)
-			}
-		}
-	} else {
-		s.observedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
+		return err
 	}
 
-	v, err = kv.Read([]byte(queuedEventsKey))
+	v, err := kv.Read([]byte(queuedEventsKey))
 	if err != nil {
 		return fmt.Errorf("failed to read queued events: %w", err)
 	}
@@ -208,6 +194,33 @@ func (s *kvState) loadFrom(kv ocr3_1types.KeyValueStateReadWriter) error {
 	return nil
 }
 
+func readObservedEvents(kv ocr3_1types.KeyValueStateReader) (observedEvents map[string]*pb.ConsensusQueueObservedEvent, observedBlobs blobHandleMap, err error) {
+	v, err := kv.Read([]byte(observedEventsKey))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read observed events: %w", err)
+	}
+	observedBlobs = make(blobHandleMap)
+	if v != nil {
+		var observed *pb.ConsensusQueueObservedEvents
+		if err = proto.Unmarshal(v, observed); err != nil {
+			return nil, nil, fmt.Errorf("failed to unmarshal observed events: %w", err)
+		}
+		observedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
+		for _, e := range observed.GetObservations() {
+			observedEvents[string(e.TimelessHash)] = e.Event
+		}
+		blobHandles := observed.GetBlobHandles()
+		for eventHash, event := range observedEvents {
+			for _, b := range event.GetBlobs() {
+				observedBlobs.add(eventHash, string(blobHandles[b.Blob]), b.Element)
+			}
+		}
+	} else {
+		observedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
+	}
+	return
+}
+
 // sizeOf returns the size of the state when serialized and written to the KV store via writeAll.
 func (s *kvState) sizeOf() (size int) {
 	s.prepareWrite()
@@ -216,7 +229,7 @@ func (s *kvState) sizeOf() (size int) {
 
 	protoOpts := proto.MarshalOptions{Deterministic: true}
 	size += len(observedEventsKey) + len(queuedEventsKey) + len(consensusEventsKey) + len(blobHandlesKey)
-	size += protoOpts.Size(&pb.ConsensusQueueObservedEvents{Observations: s.observedEvents, BlobHandles: s.observedBlobHandles})
+	size += protoOpts.Size(&pb.ConsensusQueueObservedEvents{Observations: s.observedEventEntries, BlobHandles: s.observedBlobHandles})
 	size += protoOpts.Size(&pb.ConsensusQueueEventList{Events: *s.queuedEvents})
 	size += protoOpts.Size(&pb.ConsensusQueueEventList{Events: s.consensusEvents})
 	size += protoOpts.Size(&pb.ConsensusQueueBlobHandleList{BlobHandles: s.queuedBlobHandles})
@@ -229,6 +242,7 @@ func (s *kvState) prepareWrite() {
 	// gather blob handles and update events
 	s.observedBlobHandles = nil
 	observedBlobIndexes := make(map[string]int)
+	s.observedEventEntries = nil
 	for _, eventHash := range slices.Sorted(maps.Keys(s.observedEvents)) {
 		event := s.observedEvents[eventHash]
 		event.Blobs = nil // replace all
@@ -244,6 +258,8 @@ func (s *kvState) prepareWrite() {
 				Element: ei,
 			})
 		}
+		s.observedEventEntries = append(s.observedEventEntries, &pb.ConsensusQueueObservedEventEntry{
+			TimelessHash: []byte(eventHash), Event: event})
 	}
 
 	// gather blob handles and update events
@@ -278,7 +294,7 @@ func (s *kvState) prepareWrite() {
 func (s *kvState) writeTo(w *stateWriter) error {
 	//TODO MarshalOptions{UseCachedSize}?
 
-	err := w.writeValue(observedEventsKey, &pb.ConsensusQueueObservedEvents{Observations: s.observedEvents, BlobHandles: s.observedBlobHandles})
+	err := w.writeValue(observedEventsKey, &pb.ConsensusQueueObservedEvents{Observations: s.observedEventEntries, BlobHandles: s.observedBlobHandles})
 	if err != nil {
 		return fmt.Errorf("failed to write observed events: %w", err)
 	}

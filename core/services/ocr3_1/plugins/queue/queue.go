@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"iter"
 	"math"
 	"slices"
 	"sync"
@@ -107,10 +108,6 @@ func (c *consensusQueuePlugin) Observation(
 		return nil, fmt.Errorf("failed to get available capacity: %w", err)
 	}
 
-	var events []triggers.CoordinatedEvent
-	// TODO observe queue - but can't "take" - need to confirm during StateTransition
-	// ignore if observed in kv state already
-
 	expirationGraceDur, err := c.expirationDur(ctx)
 	if err != nil {
 		c.lggr.Warnw("Failed to get expiration grace duration - using default", "err", err)
@@ -118,7 +115,6 @@ func (c *consensusQueuePlugin) Observation(
 
 	emptyBlobHandle := make([]byte, c.blobHandleMarshalledBytesUpperBound)
 	obs := &pb.ConsensusQueueObservation{
-		Events: make([]*pb.ConsensusQueueEvent, 0, len(events)),
 		// placeholder for accurate size calculation
 		BlobHandles:        slices.Repeat([][]byte{emptyBlobHandle}, maxObservedBlobHandles),
 		Expiration:         timestamppb.New(time.Now().Add(-expirationGraceDur)),
@@ -130,12 +126,17 @@ func (c *consensusQueuePlugin) Observation(
 		obs.WorkflowCapacities[wf] = uint32(min(wfCap, math.MaxUint32))
 	}
 
-	coordEvents := make([]*pb.CoordinatedEvent, len(events))
-	for i, e := range events {
-		coordEvents[i] = e.ToProto()
+	var events iter.Seq[*triggers.CoordinatedEvent]
+	//TODO events iter from triggerCoordinator, to be acked later during StateTransition
+
+	observedEvents, _, err := readObservedEvents(kvReader)
+	if err != nil {
+		return nil, err
 	}
+
 	protoOpts := proto.MarshalOptions{Deterministic: true}
-	for i, coord := range coordEvents { //TODO iter.Seq from trigger coordinator
+	var coordEvents []*pb.CoordinatedEvent
+	for coord := range toProtoSeq(events) {
 		// Try adding to batch
 
 		observedAt, deadline := coord.ObservedAt, coord.Deadline
@@ -147,6 +148,13 @@ func (c *consensusQueuePlugin) Observation(
 		}
 		timelessHash := sha256.Sum256(protoBytes)
 
+		// skip if kv observation exists already
+		if obsEvent, ok := observedEvents[string(timelessHash[:])]; ok {
+			if slices.Contains(obsEvent.NodeIds, uint8(c.onchainCfg.OracleID)) {
+				continue
+			}
+		}
+
 		obs.Events = append(obs.Events, &pb.ConsensusQueueEvent{
 			WorkflowID:     coord.WorkflowID,
 			TriggerEventID: coord.Event.Event.Id,
@@ -155,9 +163,10 @@ func (c *consensusQueuePlugin) Observation(
 			TimelessHash:   timelessHash[:],
 			Blobs: []*pb.CoordinatedEventBlobHandle{{
 				Blob:    0,
-				Element: uint32(i),
+				Element: uint32(len(coordEvents)),
 			}},
 		})
+		coordEvents = append(coordEvents, coord)
 
 		var addedCap bool
 		if _, ok := obs.WorkflowCapacities[coord.WorkflowID]; !ok {
@@ -205,6 +214,16 @@ func (c *consensusQueuePlugin) Observation(
 	}
 
 	return protoOpts.Marshal(obs)
+}
+
+func toProtoSeq(in iter.Seq[*triggers.CoordinatedEvent]) iter.Seq[*pb.CoordinatedEvent] {
+	return func(yield func(*pb.CoordinatedEvent) bool) {
+		for event := range in {
+			if !yield(event.ToProto()) {
+				return
+			}
+		}
+	}
 }
 
 func (c *consensusQueuePlugin) ValidateObservation(
@@ -316,7 +335,7 @@ func (c *consensusQueuePlugin) StateTransition(
 
 	go func() {
 		defer close(done)
-		obs.aggregate(ctx, aos)
+		obs.aggregate(ctx, c.onchainCfg.F, aos)
 	}()
 
 	var state kvState
@@ -343,6 +362,7 @@ func (c *consensusQueuePlugin) StateTransition(
 
 	// update state
 	state.pruneExpiredObservations(obs.medianExpiration)
+	//TODO must not promote to PQ and ack until we are sure we can write the kv
 	state.addObservedEvents(c.onchainCfg.F, obs.newObservedEvents, obs.observedBlobs, func(queued *pb.ConsensusQueueEvent) {
 		//TODO ack the trigger coordinator - no longer need to observe this event
 	})
@@ -373,8 +393,7 @@ type observations struct {
 	err               error
 }
 
-// TODO consider some configurable x% of capacity since some honest nodes have less
-func (res *observations) aggregate(ctx context.Context, aos []ocrtypes.AttributedObservation) {
+func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.AttributedObservation) {
 	res.medianCapPerWF = make(map[string]uint32)
 	res.newObservedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
 
@@ -401,9 +420,18 @@ func (res *observations) aggregate(ctx context.Context, aos []ocrtypes.Attribute
 		}
 	}
 	res.medianExpiration = medianTimestamp(expirations).AsTime()
-	res.medianCap = median(capacities)
+
+	// Medianize capacities, and when there is disagreement among honest nodes, scale back to 90%.
+	var medianCount int
+	res.medianCap, medianCount = median(capacities)
+	if medianCount < 2*f+1 {
+		res.medianCap = (res.medianCap * 9) / 10
+	}
 	for wf, caps := range wfCapacities {
-		res.medianCapPerWF[wf] = median(caps)
+		res.medianCapPerWF[wf], medianCount = median(caps)
+		if medianCount < 2*f+1 {
+			res.medianCapPerWF[wf] = (res.medianCapPerWF[wf] * 9) / 10
+		}
 	}
 	return
 }
@@ -490,8 +518,15 @@ func (c *consensusQueuePlugin) tryStartExecution(ctx context.Context, fetcher *b
 		return fmt.Errorf("failed to convert CoordinatedEvent from proto: %w", err)
 	}
 
-	// TODO execute StartExecution
-	// c.triggerCoordinator.tryStartExecution(ctx, event)
+	// TODO c.triggerCoordinator.tryStartExecution(ctx, event)
+
+	// only log metadata, not outputs and payload
+	event.Event.Event.Outputs = nil
+	event.Event.Event.Payload = nil
+	latency := time.Since(event.ObservedAt)
+	c.lggr.Infow("Consensus event dry run completed", "observedAt", event.ObservedAt, "latency", latency, "event", event)
+	//TODO emit latency metric
+
 	return nil
 }
 
