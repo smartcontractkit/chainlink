@@ -201,10 +201,7 @@ func (l *leaseLock) loop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			qctx, cancel := context.WithTimeout(context.Background(), l.cfg.DefaultQueryTimeout)
-			err := stderrors.Join(
-				utils.JustError(l.conn.ExecContext(qctx, `UPDATE lease_lock SET expires_at=NOW() WHERE client_id = $1 AND expires_at > NOW()`, l.id)),
-				l.conn.Close(),
-			)
+			err := l.releaseLease(qctx)
 			cancel()
 			if err != nil {
 				l.logger.Warnw("Error trying to release lease on cancelled ctx", "err", err)
@@ -231,6 +228,27 @@ func (l *leaseLock) loop(ctx context.Context) {
 			}
 		}
 	}
+}
+
+const releaseLeaseSQL = `UPDATE lease_lock SET expires_at=NOW() WHERE client_id = $1 AND expires_at > NOW()`
+
+// releaseLease expires our lease and closes the dedicated connection.
+//
+// Release cancels the loop's context, which can land while a refresh query is
+// in flight. Cancelling that query closes the connection, so the release has to
+// fall back to a fresh connection from the pool. Otherwise the lease stays
+// held and the next instance waits out the full lease duration.
+func (l *leaseLock) releaseLease(ctx context.Context) error {
+	_, err := l.conn.ExecContext(ctx, releaseLeaseSQL, l.id)
+	if err != nil {
+		l.logger.Debugw("Failed to release lease on dedicated connection, retrying on a new one", "err", err)
+		_, err = l.db.ExecContext(ctx, releaseLeaseSQL, l.id)
+	}
+	closeErr := l.conn.Close()
+	if errors.Is(closeErr, sql.ErrConnDone) {
+		closeErr = nil
+	}
+	return stderrors.Join(err, closeErr)
 }
 
 // initialSQL is necessary because the application attempts to take the lease

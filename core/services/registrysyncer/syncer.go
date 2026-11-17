@@ -57,6 +57,10 @@ type registrySyncer struct {
 
 	updateChan chan *registry.RegistryMetadata
 
+	// tickInterval is how often the sync loop polls the remote registry after
+	// the initial sync.
+	tickInterval time.Duration
+
 	wg   sync.WaitGroup
 	lggr logger.Logger
 	mu   sync.RWMutex
@@ -64,7 +68,21 @@ type registrySyncer struct {
 
 var _ services.Service = &registrySyncer{}
 
-var defaultTickInterval = 12 * time.Second
+const defaultTickInterval = 12 * time.Second
+
+// Option customizes a RegistrySyncer.
+type Option func(*registrySyncer)
+
+// WithTickInterval sets how often the syncer polls the remote registry. It is
+// mainly useful in tests, which would otherwise wait out the 12 s default to
+// see a change made after the initial sync. Non-positive values are ignored.
+func WithTickInterval(d time.Duration) Option {
+	return func(s *registrySyncer) {
+		if d > 0 {
+			s.tickInterval = d
+		}
+	}
+}
 
 // New instantiates a new RegistrySyncer
 func New(
@@ -73,13 +91,14 @@ func New(
 	relayer ContractReaderFactory,
 	registryAddress string,
 	orm ORM,
+	opts ...Option,
 ) (RegistrySyncer, error) {
 	metricLabeler, err := newSyncerMetricLabeler()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create syncer metric labeler: %w", err)
 	}
 
-	return &registrySyncer{
+	s := &registrySyncer{
 		metrics:    metricLabeler,
 		stopCh:     make(services.StopChan),
 		updateChan: make(chan *registry.RegistryMetadata),
@@ -89,10 +108,15 @@ func New(
 			Address: registryAddress,
 			Name:    "CapabilitiesRegistry",
 		},
-		initReader: newReader,
-		orm:        orm,
-		getPeerID:  getPeerID,
-	}, nil
+		initReader:   newReader,
+		orm:          orm,
+		getPeerID:    getPeerID,
+		tickInterval: defaultTickInterval,
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s, nil
 }
 
 // NOTE: this can't be called while initializing the syncer and needs to be called in the sync loop.
@@ -149,7 +173,7 @@ func (s *registrySyncer) syncLoop() {
 	ctx, cancel := s.stopCh.NewCtx()
 	defer cancel()
 
-	ticker := time.NewTicker(defaultTickInterval)
+	ticker := time.NewTicker(s.tickInterval)
 	defer ticker.Stop()
 
 	// Sync for a first time outside the loop; this means we'll start a remote

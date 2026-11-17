@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -136,7 +137,7 @@ func TestScheduler(t *testing.T) {
 		run := NewRun(Spec{}, vars)
 		s := newScheduler(p, run, vars, logger.TestLogger(t))
 
-		go s.Run()
+		go s.Run(t.Context())
 
 		for _, event := range test.events {
 			select {
@@ -165,4 +166,51 @@ func TestScheduler(t *testing.T) {
 
 		test.assertion(t, *p, s.results)
 	}
+}
+
+func TestScheduler_RunContextDoneCutsRetryBackoff(t *testing.T) {
+	t.Parallel()
+
+	p, err := Parse(`a [type=median retries=3 minBackoff="1h" maxBackoff="1h" index=0]`)
+	require.NoError(t, err)
+	vars := NewVarsFrom(nil)
+	run := NewRun(Spec{}, vars)
+	runCtx, cancel := context.WithCancel(t.Context())
+	s := newScheduler(p, run, vars, logger.TestLogger(t))
+
+	done := make(chan struct{})
+	go func() {
+		s.Run(runCtx)
+		close(done)
+	}()
+
+	select {
+	case taskRun := <-s.taskCh:
+		now := time.Now()
+		s.report(t.Context(), TaskRunResult{
+			ID:         uuid.New(),
+			Task:       taskRun.task,
+			Result:     Result{Error: ErrTaskRunFailed},
+			FinishedAt: null.TimeFrom(now),
+			CreatedAt:  now,
+		})
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for task run")
+	}
+
+	// The task failed and is now waiting out a 1h backoff; expiring the run
+	// context must end the wait instead of blocking the run. The scheduler
+	// handles the report asynchronously and there is nothing to observe, so
+	// give it a moment to enter the backoff before cancelling.
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("scheduler still waiting on retry backoff after run context was cancelled")
+	}
+	// If the cancel beat the scheduler to the report, it skips the retry and
+	// keeps the task's own error. Either way the run must not wait out the backoff.
+	require.Contains(t, []error{ErrCancelled, ErrTaskRunFailed}, s.results[p.ByDotID("a").ID()].Result.Error)
 }
