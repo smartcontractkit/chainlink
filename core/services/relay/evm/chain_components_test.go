@@ -49,6 +49,7 @@ import (
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint:revive // dot-imports
 )
@@ -390,7 +391,7 @@ func (h *helper) Init(t *testing.T) {
 
 	h.accounts = h.Accounts(t)
 
-	h.db = testutils.NewSqlxDB(t)
+	h.db = pgtest.NewSqlxDB(t)
 
 	h.Backend()
 	h.client = h.Client(t)
@@ -457,7 +458,7 @@ func (h *helper) Database() *sqlx.DB {
 }
 
 func (h *helper) NewSqlxDB(t *testing.T) *sqlx.DB {
-	return testutils.NewSqlxDB(t)
+	return pgtest.NewSqlxDB(t)
 }
 
 func (h *helper) Context(t *testing.T) context.Context {
