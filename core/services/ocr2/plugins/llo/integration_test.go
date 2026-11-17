@@ -3285,17 +3285,17 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	}, reportTimeout, 100*time.Millisecond, "expected a report sourced from the bridge connection manager cache")
 }
 
-func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
-	oracles, nodes, _ = setupNodesWithRestart(t, nNodes, backend, clientCSAKeys, f)
+func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config), deps ...any) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+	oracles, nodes, _ = setupNodesWithRestart(t, nNodes, backend, clientCSAKeys, f, deps...)
 	return oracles, nodes
 }
 
 // setupNodesWithRestart is setupNodes plus a per-node restart hook. See
-// setupRestartableNode.
-func setupNodesWithRestart(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node, restarts []func(t *testing.T, whileDown func()) chainlink.Application) {
+// setupRestartableNode. deps are handed to the application constructor.
+func setupNodesWithRestart(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config), deps ...any) (oracles []confighelper.OracleIdentityExtra, nodes []Node, restarts []func(t *testing.T, whileDown func()) chainlink.Application) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
-		app, peerID, transmitter, kb, observedLogs, restart := setupRestartableNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f)
+		app, peerID, transmitter, kb, observedLogs, restart := setupRestartableNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f, deps...)
 		restarts = append(restarts, restart)
 
 		nodes = append(nodes, Node{
@@ -3379,41 +3379,42 @@ func newSingleABIEncoder(typ string, multiplier *sqlutil.Big) (enc lloevm.ABIEnc
 // produce an aggregate and its channel must not report, while a stream observed
 // by the whole DON keeps reporting.
 //
-// With nNodes=4 and F=1: aft=1 sets a floor of 3 contributions, aft=0 a floor of
-// 1. A stream whose job exists on only 2 nodes therefore reports under aft=0 and
-// is withheld under aft=1.
+// With nNodes=4 and F=1, aft=1 sets a floor of 3 contributions. A stream whose
+// job exists on only 2 nodes is therefore withheld, and one whose job exists on
+// 3 nodes reports. aft=0 is not exercised: v31 rejects it when F is non-zero.
 func TestIntegration_LLO_aggregation_fault_tolerance(t *testing.T) {
 	t.Parallel()
 	tcs := []struct {
 		name string
 		// aft is the aggregationFaultTolerance set in the offchain config.
 		aft uint32
-		// partialReports is whether the channel whose stream only 2 of the 4
-		// oracles observe is expected to produce reports.
+		// partialObservers is how many of the 4 oracles observe the partial
+		// stream.
+		partialObservers int
+		// partialReports is whether the channel of the partial stream is
+		// expected to produce reports.
 		partialReports bool
 		salt           int64
 		donID          uint32
 	}{
-		{name: "floor of 3 withholds an under-observed stream", aft: 1, partialReports: false, salt: 700, donID: uint32(555111)},
-		{name: "floor of 1 admits an under-observed stream", aft: 0, partialReports: true, salt: 750, donID: uint32(555222)},
+		{name: "floor of 3 withholds a stream with 2 observers", aft: 1, partialObservers: 2, partialReports: false, salt: 700, donID: uint32(555111)},
+		{name: "floor of 3 admits a stream with 3 observers", aft: 1, partialObservers: 3, partialReports: true, salt: 750, donID: uint32(555222)},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			testIntegrationLLOAggregationFaultTolerance(t, tc.aft, tc.partialReports, tc.salt, tc.donID)
+			testIntegrationLLOAggregationFaultTolerance(t, tc.aft, tc.partialObservers, tc.partialReports, tc.salt, tc.donID)
 		})
 	}
 }
 
-func testIntegrationLLOAggregationFaultTolerance(t *testing.T, aft uint32, expectPartialReports bool, salt int64, donID uint32) {
+func testIntegrationLLOAggregationFaultTolerance(t *testing.T, aft uint32, nPartialObservers int, expectPartialReports bool, salt int64, donID uint32) {
 	const (
 		// streamIDFull has a stream job on every oracle.
 		streamIDFull = uint32(690)
-		// streamIDPartial has a stream job on only the first two oracles, so it
-		// gathers 2 contributions per round.
+		// streamIDPartial has a stream job on only the first nPartialObservers
+		// oracles, so it gathers at most that many contributions per round.
 		streamIDPartial = uint32(691)
-		// nPartialObservers is how many oracles observe streamIDPartial.
-		nPartialObservers = 2
 
 		channelFull    = uint32(1)
 		channelPartial = uint32(2)

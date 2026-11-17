@@ -14,8 +14,10 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
+	ocr3_changeset "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -41,6 +43,11 @@ func (o *ConsensusQueue) PreEnvStartup(
 		return nil, nil
 	}
 
+	workers, err := don.Workers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workers for DON %s: %w", don.Name, err)
+	}
+
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: []keystone_changeset.DONCapabilityWithConfig{{
 			Capability: kcr.CapabilitiesRegistryCapability{
@@ -54,9 +61,9 @@ func (o *ConsensusQueue) PreEnvStartup(
 			},
 			UseCapRegOCRConfig: true,
 		}},
-		CapabilityToOCR3Config: map[string]*ocr3.OracleConfig{
-			//TODO don't we need DefaultOCR3_1Config?
-			consensusQueueLabelledName: contracts.DefaultOCR3Config(),
+		// The plugin runs on the OCR 3.1 oracle, which rejects OCR3 (version 30) offchain configs.
+		CapabilityToOCR3_1Config: map[string]*ocr3_1.V3_1OracleConfig{
+			consensusQueueLabelledName: contracts.DefaultOCR3_1Config(len(workers)),
 		},
 	}, nil
 }
@@ -72,11 +79,41 @@ func (o *ConsensusQueue) PostEnvStartup(
 		return nil
 	}
 
+	if err := deployContract(creEnv, testLogger); err != nil {
+		return fmt.Errorf("failed to deploy consensusQueue OCR3 contract: %w", err)
+	}
+
 	err := createJobs(ctx, creEnv, don, dons)
 	if err != nil {
 		return fmt.Errorf("failed to create consensusQueue jobs: %w", err)
 	}
-	//TODO more?
+	// TODO more?
+	return nil
+}
+
+// deployContract deploys the OCR3 contract the job spec uses as its contractID.
+// The OCR config itself comes from the Capabilities Registry.
+func deployContract(creEnv *cre.Environment, testLogger zerolog.Logger) error {
+	input := ocr3_changeset.DeployOCR3Input{
+		ChainSelector: creEnv.RegistryChainSelector,
+		Qualifier:     cre.ConsensusQueueCapability,
+		Labels:        []string{cre.ConsensusQueueCapability},
+	}
+	if err := (ocr3_changeset.DeployOCR3{}).VerifyPreconditions(*creEnv.CldfEnvironment, input); err != nil {
+		return errors.Wrap(err, "precondition verification failed")
+	}
+	out, err := (ocr3_changeset.DeployOCR3{}).Apply(*creEnv.CldfEnvironment, input)
+	if err != nil {
+		return err
+	}
+	contracts.MergeAllDataStores(creEnv, out)
+
+	refKey := pkg.GetOCR3CapabilityAddressRefKey(creEnv.RegistryChainSelector, cre.ConsensusQueueCapability)
+	addrRef, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(refKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get deployed contract address")
+	}
+	testLogger.Info().Msgf("Deployed consensus-queue OCR3 contract on chain %d at %s", creEnv.RegistryChainSelector, addrRef.Address)
 	return nil
 }
 
@@ -116,7 +153,8 @@ func createJobs(
 	if creEnv.FreshExternalJobIDs {
 		input.Inputs["externalJobID"] = uuid.NewString()
 	}
-	if err := (cre_jobs.ProposeJobSpec{}).VerifyPreconditions(*creEnv.CldfEnvironment, input); err != nil {
+	err = (cre_jobs.ProposeJobSpec{}).VerifyPreconditions(*creEnv.CldfEnvironment, input)
+	if err != nil {
 		return errors.Wrapf(err, "precondition verification failed for %s worker job", flag)
 	}
 

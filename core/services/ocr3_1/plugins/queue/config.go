@@ -20,6 +20,6 @@ type PluginConfig struct {
 }
 
 func (c *PluginConfig) Validate() error {
-	//TODO validate?
+	// TODO validate?
 	return nil
 }

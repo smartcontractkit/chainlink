@@ -229,21 +229,6 @@ func (s *triggerSubscriber) Start(ctx context.Context) error {
 	if cfg == nil {
 		return errors.New("config not set - call SetConfig() before Start()")
 	}
-	if cfg.remoteConfig == nil {
-		return errors.New("remoteConfig not set - call SetConfig() before Start()")
-	}
-	if cfg.capInfo.ID == "" {
-		return errors.New("capability info not set - call SetConfig() before Start()")
-	}
-	if cfg.localDonID == 0 {
-		return errors.New("local DON ID not set - call SetConfig() before Start()")
-	}
-	if len(cfg.capDonInfo.Members) == 0 {
-		return errors.New("capability DON info not set - call SetConfig() before Start()")
-	}
-	if cfg.aggregator == nil {
-		return errors.New("aggregator not set - call SetAggregator() before Start()")
-	}
 	if s.dispatcher == nil {
 		return errors.New("dispatcher set to nil, cannot start triggerSubscriber")
 	}
@@ -517,24 +502,11 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				triggerID = meta.TriggerIds[idx]
 			}
 			var registration *subRegState
-			triggerMap, found := s.registeredWorkflows[workflowID]
-			if found {
-				if triggerID != "" {
-					// received a message from updated publisher, which provided a triggerID
-					registration = triggerMap[triggerID]
-				} else {
-					// legacy flow, expect there to be only a single trigger of each type per workflow
-					for tid, reg := range triggerMap {
-						registration = reg
-						triggerID = tid // canonical registration id for caches and AckEvent replay
-						break
-					}
-					if len(triggerMap) > 1 {
-						s.lggr.Errorw("received message without triggerID but workflow has multiple trigger - picking a random one", "workflowID", SanitizeLogString(workflowID), "sender", sender)
-					}
-				}
+			if triggerMap, found := s.registeredWorkflows[workflowID]; found {
+				registration = triggerMap[triggerID]
 			}
 			if registration == nil {
+				s.mu.Unlock()
 				s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "triggerID", triggerID, "sender", sender)
 				continue // was unregistered in the meantime
 			}
@@ -624,10 +596,6 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 }
 
 func (s *triggerSubscriber) sendUnregister(workflowID, triggerID string) {
-	if s.dispatcher == nil {
-		return
-	}
-
 	cfg := s.cfg.Load()
 
 	for _, peerID := range cfg.capDonInfo.Members {

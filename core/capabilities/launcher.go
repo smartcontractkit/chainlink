@@ -15,6 +15,7 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -28,6 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/directread"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -77,6 +80,9 @@ type launcher struct {
 
 	propagateOrgIDGate limits.GateLimiter
 
+	// vaultShareSizeLimit caps the size of each decryption share in direct GetSecrets responses.
+	vaultShareSizeLimit limits.BoundLimiter[commonconfig.Size]
+
 	muSubServices sync.Mutex
 	subServices   []services.Service
 
@@ -92,6 +98,14 @@ type launcher struct {
 
 	stopCh services.StopChan
 	wg     sync.WaitGroup
+
+	// triggerCleanupMu guards pendingTriggerCleanups and triggerCleanupsClosed.
+	triggerCleanupMu sync.Mutex
+	// pendingTriggerCleanups holds, per capability ID, pruned trigger publishers still unregistering
+	// from the underlying. See closeTriggerPublisherAsync.
+	pendingTriggerCleanups map[string]*triggerCleanup
+	triggerCleanupsClosed  bool
+	triggerCleanupWg       sync.WaitGroup
 }
 
 // For V2 capabilities, shims are created once and their config is updated dynamically.
@@ -159,6 +173,10 @@ func NewLauncher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create propagate org ID gate limiter: %w", err)
 	}
+	vaultShareSizeLimit, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultShareSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vault share size limit limiter: %w", err)
+	}
 	l := &launcher{
 		lggr:       logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		dispatcher: dispatcher,
@@ -177,6 +195,7 @@ func NewLauncher(
 		workflowDONBindingGate: workflowDONBindingGate,
 		workflowTagHashFlag:    workflowTagHashFlag,
 		propagateOrgIDGate:     propagateOrgIDGate,
+		vaultShareSizeLimit:    vaultShareSizeLimit,
 		shardingEnabled:        shardingEnabled,
 		shardIndex:             shardIndex,
 		stopCh:                 make(services.StopChan),
@@ -256,6 +275,7 @@ func (w *launcher) Close() error {
 	return w.StopOnce("CapabilitiesLauncher", func() error {
 		close(w.stopCh)
 		w.wg.Wait()
+		w.closeTriggerCleanups()
 		for _, s := range w.subServices {
 			if err := s.Close(); err != nil {
 				w.lggr.Errorw("failed to close a sub-service", "name", s.Name(), "error", err)
@@ -274,6 +294,11 @@ func (w *launcher) Close() error {
 		if w.propagateOrgIDGate != nil {
 			if err := w.propagateOrgIDGate.Close(); err != nil {
 				w.lggr.Errorw("failed to close propagate org ID gate limiter", "error", err)
+			}
+		}
+		if w.vaultShareSizeLimit != nil {
+			if err := w.vaultShareSizeLimit.Close(); err != nil {
+				w.lggr.Errorw("failed to close vault share size limit limiter", "error", err)
 			}
 		}
 		return nil
@@ -571,7 +596,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON r
 			continue
 		}
 		if capabilityConfig.LocalOnly {
-			w.lggr.Debugw("skipping local-only capability", "myDON", myDON, "remoteDON", remoteDON, "capabilityID", cid)
+			w.lggr.Debugw("skipping local-only capability", "myDONName", myDON.Name, "remoteDONName", remoteDON.Name, "capabilityID", cid)
 			w.metrics.recordRemoteCapabilityAdded(ctx, cid, remoteDON.Name, resultSkipped)
 			continue
 		}
@@ -711,7 +736,6 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 
 	cc, isNewCC := w.getCombinedClient(info)
 	for method, config := range methodConfig {
-		w.lggr.Infow("addRemoteCapabilityV2", "capID", capID, "method", method)
 		if config.RemoteTriggerConfig == nil && config.RemoteExecutableConfig == nil {
 			// TODO CRE-1021 metrics
 			w.lggr.Errorw("no remote config found", "method", method, "capID", capID)
@@ -744,7 +768,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		} else { // executable
 			client, alreadyExists := w.cachedShims.executableClients[key]
 			if !alreadyExists {
-				client = executable.NewClient(info.ID, method, w.dispatcher, w.lggr)
+				client = executable.NewClient(info.ID, method, w.dispatcher, w.lggr, w.executableClientOpts(capID, method)...)
 				cc.SetExecutableClient(method, client)
 				// add to cachedShims later, only after startNewShim succeeds
 			}
@@ -777,6 +801,18 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		}
 	}
 	return nil
+}
+
+// Vault direct GetSecrets responses carry a different share from each node, so
+// they can't use the identical-response quorum.
+func (w *launcher) executableClientOpts(capID, method string) []executable.ClientOption {
+	var opts []executable.ClientOption
+	// NewAggregatorFactory checks if the request has GetSecretsDirectly set so the new aggregator
+	// is behind a feature flag
+	if capID == vaultcommon.CapabilityID && method == vaulttypes.MethodSecretsGet {
+		opts = append(opts, executable.WithAggregatorFactory(directread.NewAggregatorFactory(w.vaultShareSizeLimit)))
+	}
+	return opts
 }
 
 func (w *launcher) startNewShim(ctx context.Context, receiver remotetypes.ReceiverService, capID string, donID uint32, method string) error {
@@ -830,7 +866,8 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 				)
 				// add to cachedShims later, only after startNewShim succeeds
 			}
-			if errCfg := publisher.SetConfig(config.RemoteTriggerConfig, underlyingTriggerCapability, myDON.DON, idsToDONs); errCfg != nil {
+			gated := gatedTriggerCapability{TriggerCapability: underlyingTriggerCapability, capID: capID, launcher: w}
+			if errCfg := publisher.SetConfig(config.RemoteTriggerConfig, gated, myDON.DON, idsToDONs); errCfg != nil {
 				return fmt.Errorf("failed to set config for trigger publisher: %w", errCfg)
 			}
 
@@ -1045,11 +1082,15 @@ func (w *launcher) pruneStaleShims(ctx context.Context, wanted wantedShimKeys) {
 }
 
 // closeStaleShim deregisters a pruned shim from the dispatcher and closes it, removing it from
-// w.subServices so the launcher's own Close() doesn't close it a second time.
+// w.subServices so the launcher's own Close() doesn't close it a second time. Trigger publishers
+// are closed asynchronously, together with unregistering their triggers.
 func (w *launcher) closeStaleShim(key shimID, shim any) {
 	w.dispatcher.RemoveReceiverForMethod(key.capID, key.donID, key.method)
-	if c, ok := shim.(interface{ Close() error }); ok {
-		if err := c.Close(); err != nil {
+	switch s := shim.(type) {
+	case remote.TriggerPublisher:
+		w.closeTriggerPublisherAsync(key, s)
+	case interface{ Close() error }:
+		if err := s.Close(); err != nil {
 			w.lggr.Errorw("failed to close stale shim", "capabilityID", key.capID, "donID", key.donID, "method", key.method, "error", err)
 		}
 	}

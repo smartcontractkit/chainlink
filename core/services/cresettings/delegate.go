@@ -7,12 +7,13 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
 const (
@@ -24,7 +25,7 @@ const (
 	offchainConfigKey = "offchain_config"
 )
 
-func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings, capRegistry *globalconfig.GlobalConfig) *delegate {
+func NewDelegate(lggr logger.Logger, atomicSettings *settings.Atomic, shardAssignmentSettings *settings.Atomic, capRegistry *globalconfig.GlobalConfig) *delegate {
 	return &delegate{
 		lggr:                    lggr,
 		atomicSettings:          atomicSettings,
@@ -38,8 +39,8 @@ var _ job.Delegate = (*delegate)(nil)
 
 type delegate struct {
 	lggr                    logger.Logger
-	atomicSettings          *loop.AtomicSettings
-	shardAssignmentSettings *loop.AtomicSettings
+	atomicSettings          *settings.Atomic
+	shardAssignmentSettings *settings.Atomic
 	capRegistry             *globalconfig.GlobalConfig
 	capRegMetrics           *globalconfig.Metrics
 
@@ -70,20 +71,33 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 	case ConfigTypeCapRegistry:
 		var version uint64
 		payload, err := extractOffchainConfig(spec.Settings)
-		if err == nil {
-			version, err = d.capRegistry.Store(payload, spec.Hash)
-		}
 		domain, env := globalconfig.PayloadLabels(payload)
+		if err == nil {
+			err = globalconfig.Validate(payload)
+		}
 		if err != nil {
+			// Malformed or invalid payload.
 			d.capRegMetrics.RecordValidationError(ctx, domain, env)
 			d.activeJobIDs.CompareAndDelete(configType, j.ID)
 			return nil, fmt.Errorf("failed to store capabilities registry config: %w", err)
 		}
+		if version, err = d.capRegistry.Store(payload, spec.Hash); err != nil {
+			// Valid payload that could not be applied, e.g. a stale version.
+			d.capRegMetrics.RecordApplyError(ctx, domain, env)
+			d.activeJobIDs.CompareAndDelete(configType, j.ID)
+			return nil, fmt.Errorf("failed to store capabilities registry config: %w", err)
+		}
 		d.capRegMetrics.RecordAppliedVersion(ctx, domain, env, version)
+		d.capRegMetrics.RecordApplied(ctx, domain, env, spec.Hash, time.Now())
 		d.lggr.Infow("Updated capabilities registry config", "hash", spec.Hash, "offchainVersion", version)
 
 	case ConfigTypeShardAssignment:
-		if err := d.shardAssignmentSettings.Store(core.SettingsUpdate{
+		// before Store: a resolve can only see the config after Store, so
+		// the arrival is always recorded by then
+		if m, err := wfmonitoring.GlobalShardAssignmentMetrics(); err == nil {
+			m.RecordSettingsArrival(spec.Settings, time.Now())
+		}
+		if err := d.shardAssignmentSettings.Store(settings.Snapshot{
 			Settings: spec.Settings,
 			Hash:     spec.Hash,
 		}); err != nil {
@@ -92,7 +106,7 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 		d.lggr.Infow("Updated shard assignment config", "hash", spec.Hash)
 
 	case ConfigTypeSettings:
-		if err := d.atomicSettings.Store(core.SettingsUpdate{
+		if err := d.atomicSettings.Store(settings.Snapshot{
 			Settings: spec.Settings,
 			Hash:     spec.Hash,
 		}); err != nil {

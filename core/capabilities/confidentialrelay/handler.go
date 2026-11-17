@@ -93,6 +93,13 @@ type enclavesList struct {
 	Enclaves []enclaveEntry
 }
 
+// requestLatencyBucketsMs covers relay requests up to and past the 60s
+// ConfidentialRelayHandlerTimeout; the SDK default buckets stop at 10s.
+var requestLatencyBucketsMs = []float64{
+	5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000,
+	10_000, 15_000, 20_000, 30_000, 45_000, 60_000, 90_000,
+}
+
 type handlerMetrics struct {
 	requestCount         metric.Int64Counter
 	requestLatency       metric.Int64Histogram
@@ -105,7 +112,8 @@ func newMetrics() (*handlerMetrics, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to register request count counter: %w", err)
 	}
-	requestLatency, err := beholder.GetMeter().Int64Histogram("enclave_relay_request_latency_ms", metric.WithUnit("ms"))
+	requestLatency, err := beholder.GetMeter().Int64Histogram("enclave_relay_request_latency_ms",
+		metric.WithUnit("ms"), metric.WithExplicitBucketBoundaries(requestLatencyBucketsMs...))
 	if err != nil {
 		return nil, fmt.Errorf("failed to register request latency histogram: %w", err)
 	}
@@ -494,17 +502,18 @@ func (h *Handler) fetchSecrets(
 			respErr = capErr // surface the vault's message, not the transport-wrapped chain
 			userErr = true
 		}
-		l.Errorw("vault secrets fetch failed", "userError", userErr, "err", err)
+		logVaultFailure(l, "vault secrets fetch failed", userErr, err)
 		return nil, &relayError{code: code, err: respErr}
 	}
 
 	result, err := translateVaultResponse(vaultResp, params.EnclavePublicKey)
 	if err != nil {
 		code := jsonrpc.ErrInternal
-		if IsUserError(err) {
+		userErr := IsUserError(err)
+		if userErr {
 			code = jsonrpc.ErrInvalidParams
 		}
-		l.Errorw("translating vault response failed", "userError", IsUserError(err), "err", err)
+		logVaultFailure(l, "translating vault response failed", userErr, err)
 		return nil, &relayError{code: code, err: err}
 	}
 
@@ -516,6 +525,16 @@ func (h *Handler) fetchSecrets(
 
 	l.Debugw("fetched secrets from vault", "secrets", len(result.Secrets))
 	return signedResult, nil
+}
+
+// logVaultFailure logs user errors (e.g. a missing secret) at info so they
+// don't drown out system failures at error level.
+func logVaultFailure(l logger.Logger, msg string, userErr bool, err error) {
+	if userErr {
+		l.Infow(msg, "userError", true, "err", err)
+		return
+	}
+	l.Errorw(msg, "userError", false, "err", err)
 }
 
 // translateVaultResponse converts a vault GetSecretsResponse to the enclave relay protocol format.

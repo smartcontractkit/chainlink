@@ -13,6 +13,10 @@ import (
 const (
 	keyCapabilityID   = "capability_id"
 	keyDivergenceKind = "kind"
+	keyConfigSource   = "config_source"
+
+	configSourceOnchain  = "onchain"
+	configSourceOffchain = "offchain"
 )
 
 type metrics struct {
@@ -24,6 +28,10 @@ type metrics struct {
 
 	// The applied version is emitted by the cresettings delegate.
 	offchainDivergences metric.Int64Gauge
+
+	gateEnabled      metric.Int64Gauge
+	runningBySource  metric.Int64Gauge
+	reconcileSkipped metric.Int64Counter
 }
 
 func newMetrics() (*metrics, error) {
@@ -65,6 +73,24 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	gateEnabled, err := meter.Int64Gauge("platform_offchain_registry_gate_enabled",
+		metric.WithDescription("1 when [Capabilities.Local] UseOffchainRegistry is enabled on this node, else 0"))
+	if err != nil {
+		return nil, err
+	}
+
+	runningBySource, err := meter.Int64Gauge("platform_capability_running_by_source",
+		metric.WithDescription("Currently running capabilities by spec config source (onchain or offchain)"))
+	if err != nil {
+		return nil, err
+	}
+
+	reconcileSkipped, err := meter.Int64Counter("platform_offchain_registry_reconcile_skipped_total",
+		metric.WithDescription("Reconciles skipped because the offchain cutover is enabled but no payload is applied"))
+	if err != nil {
+		return nil, err
+	}
+
 	return &metrics{
 		launchesTotal:       launchesTotal,
 		stopsTotal:          stopsTotal,
@@ -72,6 +98,9 @@ func newMetrics() (*metrics, error) {
 		launchDuration:      launchDuration,
 		runningGauge:        runningGauge,
 		offchainDivergences: offchainDivergences,
+		gateEnabled:         gateEnabled,
+		runningBySource:     runningBySource,
+		reconcileSkipped:    reconcileSkipped,
 	}, nil
 }
 
@@ -93,6 +122,24 @@ func (m *metrics) recordConfigUpdate(ctx context.Context, capID string) {
 
 func (m *metrics) recordRunning(ctx context.Context, count int64) {
 	m.runningGauge.Record(ctx, count)
+}
+
+func (m *metrics) recordGate(ctx context.Context, enabled bool) {
+	var v int64
+	if enabled {
+		v = 1
+	}
+	m.gateEnabled.Record(ctx, v)
+}
+
+func (m *metrics) recordReconcileSkipped(ctx context.Context) {
+	m.reconcileSkipped.Add(ctx, 1)
+}
+
+// recordRunningBySource records how many running capabilities were launched from each source.
+func (m *metrics) recordRunningBySource(ctx context.Context, onchain, offchain int64) {
+	m.runningBySource.Record(ctx, onchain, metric.WithAttributes(attribute.String(keyConfigSource, configSourceOnchain)))
+	m.runningBySource.Record(ctx, offchain, metric.WithAttributes(attribute.String(keyConfigSource, configSourceOffchain)))
 }
 
 // recordOffchainDivergences records the current divergence count per kind.

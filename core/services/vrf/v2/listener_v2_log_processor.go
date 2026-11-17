@@ -79,6 +79,65 @@ func nextTry(retries int, initial, maxDur time.Duration, last time.Time) time.Ti
 	return last.Add(delay)
 }
 
+// updateRetryState records backoff state for requests that were attempted this tick but not
+// processed, so that ready() can delay their next attempt. Pending requests are rebuilt from
+// the log poller on every tick, so this state has to be carried in lsn.retries.
+//
+//   - Requests in attempted (those handed to request processing this tick) that were not processed get attempts incremented and lastTry set.
+//   - Requests that were processed are dropped from lsn.retries.
+//   - Entries for requests that are no longer in pendingRequests (fulfilled, timed out, or
+//     outside of the log window) are pruned so that lsn.retries stays bounded by the pending set.
+//     This is keyed on pendingRequests and not attempted, so requests that are currently waiting
+//     out their backoff keep their state.
+func (lsn *listenerV2) updateRetryState(
+	pendingRequests []pendingRequest,
+	attempted map[string][]pendingRequest,
+	processed map[string]struct{},
+) {
+	if lsn.retries == nil {
+		lsn.retries = make(map[string]retryState)
+	}
+
+	now := time.Now().UTC()
+	for _, subReqs := range attempted {
+		for _, req := range subReqs {
+			reqID := req.req.RequestID().String()
+			if _, ok := processed[reqID]; ok {
+				delete(lsn.retries, reqID)
+				continue
+			}
+			// req.attempts was restored from lsn.retries in handleRequested.
+			rs := retryState{attempts: req.attempts + 1, lastTry: now}
+			lsn.retries[reqID] = rs
+			if lsn.job.VRFSpec.BackoffInitialDelay != 0 {
+				lsn.l.Infow("Request failed, next retry will be delayed.",
+					"reqID", reqID,
+					"subID", req.req.SubID(),
+					"attempts", rs.attempts,
+					"lastTry", rs.lastTry.String(),
+					"nextTry", nextTry(
+						rs.attempts,
+						lsn.job.VRFSpec.BackoffInitialDelay,
+						lsn.job.VRFSpec.BackoffMaxDelay,
+						rs.lastTry))
+			}
+		}
+	}
+
+	if len(lsn.retries) == 0 {
+		return
+	}
+	pending := make(map[string]struct{}, len(pendingRequests))
+	for _, req := range pendingRequests {
+		pending[req.req.RequestID().String()] = struct{}{}
+	}
+	for reqID := range lsn.retries {
+		if _, ok := pending[reqID]; !ok {
+			delete(lsn.retries, reqID)
+		}
+	}
+}
+
 // Remove all entries 10000 blocks or older
 // to avoid a memory leak.
 func (lsn *listenerV2) pruneConfirmedRequestCounts() {
@@ -113,6 +172,10 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context, pendingReq
 	confirmed := lsn.getConfirmedLogsBySub(lsn.getLatestHead(), pendingRequests)
 	var processedMu sync.Mutex
 	processed := make(map[string]struct{})
+	// attempted tracks the subscriptions whose requests were actually handed to
+	// processRequestsPerSub. The loop below can return early (e.g. on an RPC error), and
+	// requests for subscriptions that were never reached must not be backed off.
+	attempted := make(map[string]struct{})
 	start := time.Now()
 
 	defer func() {
@@ -124,6 +187,11 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context, pendingReq
 				}
 			}
 		}
+		attemptedReqs := make(map[string][]pendingRequest, len(attempted))
+		for subID := range attempted {
+			attemptedReqs[subID] = confirmed[subID]
+		}
+		lsn.updateRetryState(pendingRequests, attemptedReqs, processed)
 		lsn.l.Infow("Finished processing pending requests",
 			"totalProcessed", len(processed),
 			"totalFailed", len(pendingRequests)-len(processed),
@@ -190,6 +258,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context, pendingReq
 			return cmp.Compare(a.req.CallbackGasLimit(), b.req.CallbackGasLimit())
 		})
 
+		attempted[subID] = struct{}{}
 		p := lsn.processRequestsPerSub(ctx, sID, startLinkBalance, startEthBalance, reqs, subIsActive)
 		processedMu.Lock()
 		for reqID := range p {

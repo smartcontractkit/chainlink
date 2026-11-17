@@ -26,7 +26,7 @@ import (
 	aptosdatafeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"                 //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
 	aptosplatformsecondary "github.com/smartcontractkit/chainlink-aptos/bindings/platform_secondary" //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -76,7 +76,7 @@ type aptosScenario struct {
 		t *testing.T,
 		tenv *configuration.TestEnvironment,
 		aptosChain blockchains.Blockchain,
-		userLogsCh <-chan *workflowevents.UserLogs,
+		userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 		baseMessageCh <-chan *commonevents.BaseMessage,
 	)
 }
@@ -171,7 +171,7 @@ func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, sc
 			scenarioEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, tenv.TestConfig)
 			scenarioAptosChain := mustAptosChainInEnv(t, scenarioEnv)
 
-			userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+			userLogsCh := make(chan *workfloweventsv2.WorkflowUserLog, 1000)
 			baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 			server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
 			t.Cleanup(func() {
@@ -257,7 +257,7 @@ func ExecuteAptosReadTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	aptosChain blockchains.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
@@ -287,7 +287,7 @@ func ExecuteAptosViewUserErrorTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	aptosChain blockchains.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
@@ -346,7 +346,7 @@ func ExecuteAptosWriteTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	aptosChain blockchains.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
@@ -380,7 +380,7 @@ func ExecuteAptosWriteReadRoundtripTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	aptosChain blockchains.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
@@ -421,7 +421,7 @@ func ExecuteAptosWriteExpectedFailureTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	aptosChain blockchains.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
@@ -578,7 +578,7 @@ var aptosTxHashInLogRe = regexp.MustCompile(`txHash=([^\s"]+)`)
 func waitForAptosWriteSuccessLogAndTxHash(
 	t *testing.T,
 	lggr zerolog.Logger,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	workflowID string,
 	timeout time.Duration,
@@ -590,7 +590,7 @@ func waitForAptosWriteSuccessLogAndTxHash(
 func waitForAptosWriteExpectedFailureLogAndTxHash(
 	t *testing.T,
 	lggr zerolog.Logger,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	workflowID string,
 	timeout time.Duration,
@@ -602,7 +602,7 @@ func waitForAptosWriteExpectedFailureLogAndTxHash(
 func waitForAptosLogAndTxHash(
 	t *testing.T,
 	lggr zerolog.Logger,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	workflowID string,
 	expectedLog string,
@@ -634,41 +634,39 @@ func waitForAptosLogAndTxHash(
 			if workflowID != "" && !aptosUserLogsHaveWorkflowID(logs, workflowID) {
 				continue
 			}
-			for _, line := range logs.LogLines {
-				if !strings.Contains(line.Message, expectedLog) {
-					mismatchCount++
-					if mismatchCount%20 == 0 {
-						lggr.Warn().
-							Str("expected_log", expectedLog).
-							Str("found_message", strings.TrimSpace(line.Message)).
-							Int("mismatch_count", mismatchCount).
-							Msg("[soft assertion] Received UserLogs messages, but none match expected log yet")
-					}
-					continue
+			if !strings.Contains(logs.Msg, expectedLog) {
+				mismatchCount++
+				if mismatchCount%20 == 0 {
+					lggr.Warn().
+						Str("expected_log", expectedLog).
+						Str("found_message", strings.TrimSpace(logs.Msg)).
+						Int("mismatch_count", mismatchCount).
+						Msg("[soft assertion] Received UserLogs messages, but none match expected log yet")
 				}
-
-				matches := aptosTxHashInLogRe.FindStringSubmatch(line.Message)
-				if len(matches) == 2 {
-					txHash := normalizeTxHash(matches[1])
-					if txHash != "" {
-						return txHash
-					}
-				}
-
-				lggr.Warn().
-					Str("message", strings.TrimSpace(line.Message)).
-					Str("expected_log", expectedLog).
-					Msg("[soft assertion] Matched Aptos log without non-empty tx hash; waiting for another match")
+				continue
 			}
+
+			matches := aptosTxHashInLogRe.FindStringSubmatch(logs.Msg)
+			if len(matches) == 2 {
+				txHash := normalizeTxHash(matches[1])
+				if txHash != "" {
+					return txHash
+				}
+			}
+
+			lggr.Warn().
+				Str("message", strings.TrimSpace(logs.Msg)).
+				Str("expected_log", expectedLog).
+				Msg("[soft assertion] Matched Aptos log without non-empty tx hash; waiting for another match")
 		}
 	}
 }
 
-func aptosUserLogsHaveWorkflowID(logs *workflowevents.UserLogs, workflowID string) bool {
-	if logs == nil || logs.M == nil || workflowID == "" {
+func aptosUserLogsHaveWorkflowID(logs *workfloweventsv2.WorkflowUserLog, workflowID string) bool {
+	if logs == nil || logs.GetWorkflow() == nil || workflowID == "" {
 		return false
 	}
-	return normalizeHexValue(logs.M.WorkflowID) == normalizeHexValue(workflowID)
+	return normalizeHexValue(logs.GetWorkflow().GetWorkflowID()) == normalizeHexValue(workflowID)
 }
 
 func assertAptosWriteFailureTxOnChain(t *testing.T, aptosChain blockchains.Blockchain, txHash string) {

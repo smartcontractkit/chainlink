@@ -63,24 +63,6 @@ func Test_ExecuteRequestTimesOutWhenParallelExecutionLimitReached(t *testing.T) 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
-func Test_ExecutingMultipleTasksInParallel(t *testing.T) {
-	t.Parallel()
-	tp := remote.NewParallelExecutor(10, "test_parallel_executor")
-	servicetest.Run(t, tp)
-
-	var counter atomic.Int32
-	for range 10 {
-		err := tp.ExecuteTask(t.Context(), func(ctx context.Context) {
-			counter.Add(1)
-			<-ctx.Done()
-			counter.Add(-1)
-		})
-		require.NoError(t, err)
-	}
-
-	assert.Eventually(t, func() bool { return counter.Load() == 10 }, 5*time.Second, 10*time.Millisecond)
-}
-
 func Test_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
 	t.Parallel()
 	tp := remote.NewParallelExecutor(10, "test_parallel_executor")

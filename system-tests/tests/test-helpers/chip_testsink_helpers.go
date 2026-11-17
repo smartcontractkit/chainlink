@@ -269,7 +269,7 @@ func WithUserLogWorkflowID(workflowID string) UserLogWatchOpt {
 	}
 }
 
-func safeSendUserLogs(ch chan *workflowevents.UserLogs, msg *workflowevents.UserLogs) {
+func safeSendUserLogs(ch chan *workfloweventsv2.WorkflowUserLog, msg *workfloweventsv2.WorkflowUserLog) {
 	// In fanout mode, tests may close their log channels immediately after
 	// unsubscribing during cleanup. An in-flight publish can race with that close,
 	// which would panic on send. We recover to treat delivery as best-effort.
@@ -302,10 +302,10 @@ func safeSendProtoMessage(ch chan proto.Message, msg proto.Message) {
 func WaitForUserLog(
 	ctx context.Context,
 	testLogger zerolog.Logger,
-	publishCh <-chan *workflowevents.UserLogs,
+	publishCh <-chan *workfloweventsv2.WorkflowUserLog,
 	needle string,
 	opts ...UserLogWatchOpt,
-) (*workflowevents.LogLine, error) {
+) (*workfloweventsv2.WorkflowUserLog, error) {
 	cfg := userLogWatchCfg{}
 	for _, opt := range opts {
 		opt(&cfg)
@@ -322,17 +322,15 @@ func WaitForUserLog(
 			if cfg.workflowID != "" && !userLogsHasWorkflowID(logs, cfg.workflowID) {
 				continue
 			}
-			for _, line := range logs.LogLines {
-				if strings.Contains(line.Message, needle) {
-					testLogger.Info().Str("expected_log", needle).Str("actual_log", strings.TrimSpace(line.Message)).Msg("Found expected user log")
-					return line, nil
-				}
-
-				testLogger.Warn().
-					Str("expected_log", needle).
-					Str("found_message", strings.TrimSpace(line.Message)).
-					Msg("[soft assertion] Received UserLogs message, but it does not match expected log")
+			if strings.Contains(logs.Msg, needle) {
+				testLogger.Info().Str("expected_log", needle).Str("actual_log", strings.TrimSpace(logs.Msg)).Msg("Found expected user log")
+				return logs, nil
 			}
+
+			testLogger.Warn().
+				Str("expected_log", needle).
+				Str("found_message", strings.TrimSpace(logs.Msg)).
+				Msg("[soft assertion] Received UserLogs message, but it does not match expected log")
 		}
 	}
 }
@@ -387,11 +385,11 @@ func FailOnBaseMessage(
 }
 
 // GetPublishFn returns a CHiP publish handler that demuxes events into the provided channels.
-func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage) chiptestsink.PublishFn {
+func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workfloweventsv2.WorkflowUserLog, baseMessageCh chan *commonevents.BaseMessage) chiptestsink.PublishFn {
 	var publishFn = func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
 		switch event.Type {
-		case "workflows.v1.UserLogs":
-			typedMsg := &workflowevents.UserLogs{}
+		case "workflows.v2.WorkflowUserLog":
+			typedMsg := &workfloweventsv2.WorkflowUserLog{}
 			if err := proto.Unmarshal(event.GetProtoData().GetValue(), typedMsg); err != nil {
 				testLogger.Error().Err(err).Str("ce_type", event.Type).Msg("Failed to unmarshal protobuf; skipping")
 
@@ -449,7 +447,7 @@ func GetWorkflowV2LifecyclePublishFn(testLogger zerolog.Logger, workflowEventCh 
 // Useful when debugging failures of tests that depend on workflow logs.
 func GetLoggingPublishFn(
 	testLogger zerolog.Logger,
-	userLogsCh chan *workflowevents.UserLogs,
+	userLogsCh chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh chan *commonevents.BaseMessage,
 	dumpFilePath string, // <--- best set to `./logs/your_file.txt` since `./logs` folder inside `smoke/cre` is uploaded as artifact in GH
 ) chiptestsink.PublishFn {
@@ -511,24 +509,12 @@ func GetLoggingPublishFn(
 
 			switch event.Type {
 			// workflows.v1 events
-			case "workflows.v1.CapabilityExecutionFinished":
-				msgToSave = &workflowevents.CapabilityExecutionFinished{}
-			case "workflows.v1.CapabilityExecutionStarted":
-				msgToSave = &workflowevents.CapabilityExecutionStarted{}
 			case "workflows.v1.MeteringReport":
 				msgToSave = &workflowevents.MeteringReport{}
 			case "workflows.v1.TransmissionsScheduledEvent":
 				msgToSave = &workflowevents.TransmissionsScheduledEvent{}
 			case "workflows.v1.TransmitScheduleEvent":
 				msgToSave = &workflowevents.TransmitScheduleEvent{}
-			case "workflows.v1.WorkflowExecutionFinished":
-				msgToSave = &workflowevents.WorkflowExecutionFinished{}
-			case "workflows.v1.WorkflowExecutionStarted":
-				msgToSave = &workflowevents.WorkflowExecutionStarted{}
-			case "workflows.v1.WorkflowStatusChanged":
-				msgToSave = &workflowevents.WorkflowStatusChanged{}
-			case "workflows.v1.UserLogs":
-				msgToSave = &workflowevents.UserLogs{}
 
 			// workflows.v2 events
 			case "workflows.v2.CapabilityExecutionFinished":
@@ -570,8 +556,8 @@ func GetLoggingPublishFn(
 
 		// --- SWITCH 2: Test Orchestration (Logic) ---
 		switch event.Type {
-		case "workflows.v1.UserLogs":
-			typedMsg := &workflowevents.UserLogs{}
+		case "workflows.v2.WorkflowUserLog":
+			typedMsg := &workfloweventsv2.WorkflowUserLog{}
 			if err := proto.Unmarshal(event.GetProtoData().GetValue(), typedMsg); err != nil {
 				testLogger.Error().Err(err).Str("ce_type", event.Type).Msg("Failed to unmarshal protobuf; skipping")
 				return &chippb.PublishResponse{}, nil
@@ -646,7 +632,7 @@ func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) ChipSink 
 func WatchWorkflowLogs(
 	t *testing.T,
 	testLogger zerolog.Logger,
-	userLogsCh <-chan *workflowevents.UserLogs,
+	userLogsCh <-chan *workfloweventsv2.WorkflowUserLog,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	failingChipIngressStackLog string,
 	expectedChipIngressStackLog string,
@@ -803,15 +789,15 @@ func baseMessageMatchesLabelFilters(msg *commonevents.BaseMessage, cfg baseMessa
 	return true, ""
 }
 
-func userLogsHasWorkflowID(logs *workflowevents.UserLogs, workflowID string) bool {
-	if logs == nil || logs.M == nil || workflowID == "" {
+func userLogsHasWorkflowID(logs *workfloweventsv2.WorkflowUserLog, workflowID string) bool {
+	if logs == nil || logs.GetWorkflow() == nil || workflowID == "" {
 		return false
 	}
-	return normalizeWorkflowID(logs.M.WorkflowID) == workflowID
+	return normalizeWorkflowID(logs.GetWorkflow().GetWorkflowID()) == workflowID
 }
 
 // IgnoreUserLogs drains user log traffic so publishers never block when tests do not care about logs.
-func IgnoreUserLogs(ctx context.Context, userLogsCh <-chan *workflowevents.UserLogs) {
+func IgnoreUserLogs(ctx context.Context, userLogsCh <-chan *workfloweventsv2.WorkflowUserLog) {
 	go func() {
 		defer func() { _ = recover() }() // in case channel closes
 		for {

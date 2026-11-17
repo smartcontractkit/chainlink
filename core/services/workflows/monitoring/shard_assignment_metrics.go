@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"context"
+	"hash/fnv"
 	"sync"
 	"time"
 
@@ -9,7 +10,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 )
 
 const (
@@ -53,14 +53,18 @@ type ShardAssignmentMetrics struct {
 	resolverRequests  metric.Int64Counter
 	resolverDuration  metric.Float64Histogram
 	settingsHashGauge metric.Int64Gauge
+	configUpdateCount metric.Int64Gauge
+	configStaleness   metric.Float64Histogram
 	updated           metric.Int64Counter
 
 	mu                 sync.Mutex
 	appliedSeen        bool
 	lastAppliedHash    uint32
-	lastAppliedCfg     *cresettings.ShardAssignmentConfig
 	parseErrSeen       bool
 	lastParseErrorHash uint32
+	appliedUpdateCount int64
+	lastArrivalRawHash uint32
+	lastArrivalAt      time.Time
 }
 
 var (
@@ -116,6 +120,18 @@ func NewShardAssignmentMetricsWithMeter(meter metric.Meter) (*ShardAssignmentMet
 	if err != nil {
 		return nil, err
 	}
+	m.configUpdateCount, err = meter.Int64Gauge("platform_shard_assignment_config_update_count",
+		metric.WithDescription("Node-local monotonic count of applied shard assignment settings updates (resets on restart)"))
+	if err != nil {
+		return nil, err
+	}
+	m.configStaleness, err = meter.Float64Histogram("platform_shard_assignment_config_staleness_seconds",
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries(0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300),
+	)
+	if err != nil {
+		return nil, err
+	}
 	m.updated, err = meter.Int64Counter("platform_shard_assignment_updated")
 	if err != nil {
 		return nil, err
@@ -158,42 +174,72 @@ func (m *ShardAssignmentMetrics) RecordResolverDuration(ctx context.Context, res
 	m.resolverDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(attribute.String("resolver", resolver)))
 }
 
+// RecordSettingsArrival records when a settings update landed at this node,
+// keyed by the raw blob. The next RecordSettingsApplied observing the same
+// raw blob consumes the slot to measure arrival→in-effect staleness;
+// single-slot state keeps arrivals bounded by design.
+func (m *ShardAssignmentMetrics) RecordSettingsArrival(raw string, at time.Time) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	m.lastArrivalRawHash = settingsStringHash(raw)
+	m.lastArrivalAt = at
+	m.mu.Unlock()
+}
+
 // RecordSettingsApplied records the hash of a successfully parsed settings
 // version and returns true only on the first observation of that hash, so one
-// applied update is counted per actual settings change. The previous config is
-// returned as the diff baseline for the caller's applied log; it is kept here
-// rather than per-resolver so the baseline always matches the global dedup
-// state (a second resolver observing the change logs the real diff, not
-// "initial"). A successful apply also resets the parse-error dedup so a broken
-// version that recurs after a good one is counted and logged again.
-func (m *ShardAssignmentMetrics) RecordSettingsApplied(ctx context.Context, settingsHash uint32, cfg *cresettings.ShardAssignmentConfig) (bool, *cresettings.ShardAssignmentConfig) {
+// applied update is counted per actual settings change. On a change it also
+// bumps the node-local config update count gauge, and when the last observed
+// arrival matches the applied raw blob it records the arrival→in-effect
+// staleness (superseded or unobserved arrivals produce no sample). A
+// successful apply also resets the parse-error dedup so a broken version that
+// recurs after a good one is counted and logged again.
+func (m *ShardAssignmentMetrics) RecordSettingsApplied(ctx context.Context, settingsHash uint32, raw string) bool {
 	if m == nil {
-		return false, nil
+		return false
 	}
 	m.mu.Lock()
 	changed := !m.appliedSeen || m.lastAppliedHash != settingsHash
-	prev := m.lastAppliedCfg
 	m.appliedSeen = true
 	m.lastAppliedHash = settingsHash
-	m.lastAppliedCfg = cfg
 	m.parseErrSeen = false
 	m.lastParseErrorHash = 0
+	var updateCount int64
+	var staleness time.Duration
+	arrivalMatched := false
+	if changed {
+		m.appliedUpdateCount++
+		updateCount = m.appliedUpdateCount
+		if m.lastArrivalRawHash == settingsStringHash(raw) {
+			arrivalMatched = true
+			staleness = time.Since(m.lastArrivalAt)
+			m.lastArrivalRawHash = 0
+		}
+	}
 	m.mu.Unlock()
 	m.settingsHashGauge.Record(ctx, int64(settingsHash))
 	if changed {
+		m.configUpdateCount.Record(ctx, updateCount)
 		m.updated.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", ShardAssignmentUpdateApplied)))
+		if arrivalMatched {
+			m.configStaleness.Record(ctx, staleness.Seconds())
+		}
 	}
-	return changed, prev
+	return changed
 }
 
 // RecordSettingsParseError records a settings version that failed to parse,
 // keyed by the raw blob hash so one broken version counts once (until a good
-// version is applied again). The settings hash gauge is left at the last
-// successfully applied version.
-func (m *ShardAssignmentMetrics) RecordSettingsParseError(ctx context.Context, rawHash uint32) bool {
+// version is applied again). The settings hash and config version gauges are
+// left at the last successfully applied version: a broken version is not
+// applied.
+func (m *ShardAssignmentMetrics) RecordSettingsParseError(ctx context.Context, raw string) bool {
 	if m == nil {
 		return false
 	}
+	rawHash := settingsStringHash(raw)
 	m.mu.Lock()
 	changed := !m.parseErrSeen || m.lastParseErrorHash != rawHash
 	m.parseErrSeen = true
@@ -203,4 +249,13 @@ func (m *ShardAssignmentMetrics) RecordSettingsParseError(ctx context.Context, r
 		m.updated.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", ShardAssignmentUpdateParseError)))
 	}
 	return changed
+}
+
+// settingsStringHash hashes a raw settings blob; it identifies the blob for
+// the arrival slot and the parse-error dedup, which key on the raw bytes
+// rather than the parsed config.
+func settingsStringHash(raw string) uint32 {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(raw))
+	return h.Sum32()
 }

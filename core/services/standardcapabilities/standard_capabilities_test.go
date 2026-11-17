@@ -47,6 +47,7 @@ func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
 			"not/found/path/to/binary",
 			"{}",
 			registrar,
+			&staticCapDonIDResolver{},
 			core.StandardCapabilitiesDependencies{},
 		)
 		// Start runs RegisterLOOP synchronously; the capturingRegistrar
@@ -94,6 +95,7 @@ func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
 			"not/found/path/to/binary",
 			"{}",
 			registrar,
+			&staticCapDonIDResolver{},
 			core.StandardCapabilitiesDependencies{},
 		)
 
@@ -115,53 +117,37 @@ func TestStandardCapabilities_InitialiseDependenciesRoundTrip(t *testing.T) {
 		"not/found/path/to/binary",
 		want.Config,
 		&capturingRegistrar{},
+		&staticCapDonIDResolver{},
 		want,
 	)
 
-	got := std.initialiseDependencies()
+	got := std.initialiseDependencies(0)
 
 	require.Equal(t, want.Config, got.Config, "config should be re-delivered to LOOP Initialise dependencies")
 }
 
-// TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP asserts that the
-// host-resolved capability DON ID is carried on the dependencies delivered to
-// the capability LOOP at Initialise. Without this, a trigger producer silently
-// falls back to the consumer workflow's DON for metering identity and event
-// labels even when the node knows which DON it is serving.
+func TestStandardCapabilities_ShardIndexDeliveredToLOOP(t *testing.T) {
+	t.Parallel()
+	std := NewStandardCapabilities(
+		logger.TestLogger(t),
+		"not/found/path/to/binary",
+		"{}",
+		&capturingRegistrar{},
+		&staticCapDonIDResolver{},
+		core.StandardCapabilitiesDependencies{ShardIndex: 3},
+	)
+
+	require.Equal(t, uint32(3), std.initialiseDependencies(0).ShardIndex)
+}
+
+// Without this, a trigger producer silently falls back to the consumer workflow's
+// DON for metering identity and event labels even when the node knows which DON
+// it is serving.
 func TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP(t *testing.T) {
 	t.Parallel()
-	t.Run("nonzero DON ID round-trips when the DON is known", func(t *testing.T) {
-		t.Parallel()
-		const knownDonID = uint32(42)
-		std := NewStandardCapabilities(
-			logger.TestLogger(t),
-			"not/found/path/to/binary",
-			"{}",
-			&capturingRegistrar{},
-			core.StandardCapabilitiesDependencies{CapabilityDonID: knownDonID},
-		)
+	std := NewStandardCapabilities(logger.TestLogger(t), "not/found/path/to/binary", "{}", &capturingRegistrar{}, &staticCapDonIDResolver{}, core.StandardCapabilitiesDependencies{})
 
-		got := std.initialiseDependencies()
-
-		require.Equal(t, knownDonID, got.CapabilityDonID,
-			"the host-resolved capability DON ID must reach the LOOP at Initialise")
-	})
-
-	t.Run("zero DON ID is preserved when the host could not resolve one", func(t *testing.T) {
-		t.Parallel()
-		std := NewStandardCapabilities(
-			logger.TestLogger(t),
-			"not/found/path/to/binary",
-			"{}",
-			&capturingRegistrar{},
-			core.StandardCapabilitiesDependencies{},
-		)
-
-		got := std.initialiseDependencies()
-
-		require.Zero(t, got.CapabilityDonID,
-			"an unresolved DON ID stays zero so the LOOP can fall back to the workflow DON")
-	})
+	require.Equal(t, uint32(42), std.initialiseDependencies(42).CapabilityDonID)
 }
 
 const capturingRegistrarErr = "capturingRegistrar: stop after capture"
@@ -202,7 +188,7 @@ func TestStandardCapabilities_CloseUnregistersLOOP(t *testing.T) {
 	lggr := logger.TestLogger(t).Named("consensus@1.0.0-alpha")
 
 	newStd := func() *StandardCapabilities {
-		std := NewStandardCapabilities(lggr, "not/found/path/to/binary", "{}", pluginRegistrar, core.StandardCapabilitiesDependencies{})
+		std := NewStandardCapabilities(lggr, "not/found/path/to/binary", "{}", pluginRegistrar, &staticCapDonIDResolver{}, core.StandardCapabilitiesDependencies{})
 		std.startTimeout = time.Second
 		return std
 	}
@@ -254,7 +240,7 @@ func TestStandardCapabilityStart(t *testing.T) {
 			GatewayConnector:   &gatewayConnectorMock{},
 			P2PKeystore:        &keystoreMock{},
 		}
-		standardCapability := NewStandardCapabilities(lggr, spec.Command, spec.Config, pluginRegistrar, dependencies)
+		standardCapability := NewStandardCapabilities(lggr, spec.Command, spec.Config, pluginRegistrar, &staticCapDonIDResolver{}, dependencies)
 		standardCapability.startTimeout = 1 * time.Second
 		err := standardCapability.Start(ctx)
 		require.NoError(t, err)

@@ -10,6 +10,7 @@ import (
 	Add upgrade tests below. These tests are run during the release process to verify that the upgrade procedure works as expected.
 */
 
+//nolint:paralleltest // scenario runner manages configured parallelism
 func Test_Upgrade_Suite(t *testing.T) {
 	executeSuiteScenarios(t, "workflow-gateway-don", []suite_config.SuiteScenario{suite_config.SuiteScenarioProofOfReserve})
 }

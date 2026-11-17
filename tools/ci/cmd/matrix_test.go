@@ -221,7 +221,7 @@ func TestMatrixMixedEnv_CLI(t *testing.T) {
 	var res []matrix.CREMixedEnvEntry
 	err = json.Unmarshal(out.Bytes(), &res)
 	require.NoError(t, err)
-	require.Len(t, res, 5)
+	require.Len(t, res, 7)
 	assert.Equal(t, "Test_CRE_V2_Suite_Bucket_A", res[0].TestName)
 	assert.Equal(t, 0, res[0].TestID)
 	assert.Equal(t, "configs/mixed-env-don.toml", res[0].Configs)
@@ -230,4 +230,12 @@ func TestMatrixMixedEnv_CLI(t *testing.T) {
 	assert.Equal(t, 4, res[4].TestID)
 	assert.Equal(t, "configs/mixed-env-don.toml", res[4].Configs)
 	assert.Equal(t, "runs-on=321-4-1/cpu=16/ram=64/family=m7i+m8i/spot=pco/image=ubuntu24-full-x64/extras=s3-cache+tmpfs", res[4].RunsOn)
+	assert.Equal(t, "Test_CRE_V2_Suite_VaultDirectRead", res[5].TestName)
+	assert.Equal(t, 5, res[5].TestID)
+	assert.Equal(t, "configs/mixed-env-don.toml", res[5].Configs)
+	assert.Equal(t, "runs-on=321-5-1/cpu=16/ram=64/family=m7i+m8i/spot=pco/image=ubuntu24-full-x64/extras=s3-cache+tmpfs", res[5].RunsOn)
+	assert.Equal(t, "Test_CRE_V2_Suite_VaultDirectReadErrors", res[6].TestName)
+	assert.Equal(t, 6, res[6].TestID)
+	assert.Equal(t, "configs/mixed-env-don.toml", res[6].Configs)
+	assert.Equal(t, "runs-on=321-6-1/cpu=16/ram=64/family=m7i+m8i/spot=pco/image=ubuntu24-full-x64/extras=s3-cache+tmpfs", res[6].RunsOn)
 }

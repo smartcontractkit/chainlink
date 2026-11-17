@@ -3,7 +3,7 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -35,7 +35,7 @@ func onTrigger(cfg None, runtime cre.Runtime, _ *cron.Payload) (string, error) {
 	dontime2 := runtime.Now()
 
 	if !dontime2.After(dontime1) {
-		return "", errors.New("DON time not increasing")
+		return "", fmt.Errorf("DON time not increasing: %v", []time.Time{dontime1, dontime2})
 	}
 	promise := cre.RunInNodeMode(cfg, runtime,
 		func(cfg None, nodeRuntime cre.NodeRuntime) (time.Time, error) {

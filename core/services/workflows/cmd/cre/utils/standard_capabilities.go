@@ -68,7 +68,7 @@ func newStandardCapabilities(
 		}
 
 		loop := standardcapabilities.NewStandardCapabilities(lggr, spec.Command, spec.Config,
-			pluginRegistrar, core.StandardCapabilitiesDependencies{
+			pluginRegistrar, standardcapabilities.NewStaticCapDonIDResolver(0), core.StandardCapabilitiesDependencies{
 				Config:             spec.Config,
 				TelemetryService:   &fakes.TelemetryServiceMock{},
 				Store:              &fakes.KVStoreMock{},

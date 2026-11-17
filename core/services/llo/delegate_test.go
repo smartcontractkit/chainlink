@@ -32,23 +32,17 @@ func Test_delegate_v31FactoryParams(t *testing.T) {
 		params := newTestDelegate(DelegateConfig{
 			DonID: 42,
 			V31Config: lloconfig.V31Config{
-				MaxSnapshotRounds:          7,
 				BlobLifetimeRounds:         11,
 				MaxDurationBlobObservation: lloconfig.Duration(3 * time.Second),
 				BlobInFlightWaitFactor:     5,
-				MaxBlobSnapshotAge:         lloconfig.Duration(9 * time.Second),
-				MaxRoundPeriod:             lloconfig.Duration(time.Minute),
 				CaptureStagingTelemetry:    true,
 			},
 		}).v31FactoryParams(logger.Test(t), nil)
 
 		assert.True(t, params.CaptureStagingTelemetry)
-		assert.Equal(t, uint64(7), params.MaxSnapshotRounds)
 		assert.Equal(t, uint64(11), params.BlobLifetimeRounds)
 		assert.Equal(t, 3*time.Second, params.MaxDurationBlobObservation)
 		assert.Equal(t, uint64(5), params.BlobInFlightWaitFactor)
-		assert.Equal(t, 9*time.Second, params.MaxBlobSnapshotAge)
-		assert.Equal(t, time.Minute, params.MaxRoundPeriod)
 		assert.Equal(t, uint32(42), params.DonID)
 	})
 
@@ -57,23 +51,10 @@ func Test_delegate_v31FactoryParams(t *testing.T) {
 
 		params := newTestDelegate(DelegateConfig{}).v31FactoryParams(logger.Test(t), nil)
 
-		assert.Zero(t, params.MaxSnapshotRounds)
 		assert.Zero(t, params.BlobLifetimeRounds)
 		assert.Zero(t, params.MaxDurationBlobObservation)
 		assert.Zero(t, params.BlobInFlightWaitFactor)
-		assert.Zero(t, params.MaxBlobSnapshotAge)
-		assert.Zero(t, params.MaxRoundPeriod)
 		assert.Nil(t, params.AttributedObservationTelemetryCh)
-	})
-
-	t.Run("forwards a negative MaxBlobSnapshotAge, which disables the age check", func(t *testing.T) {
-		t.Parallel()
-
-		params := newTestDelegate(DelegateConfig{
-			V31Config: lloconfig.V31Config{MaxBlobSnapshotAge: lloconfig.Duration(-time.Second)},
-		}).v31FactoryParams(logger.Test(t), nil)
-
-		assert.Equal(t, -time.Second, params.MaxBlobSnapshotAge)
 	})
 
 	t.Run("enables VerboseLogging from either the node or the job knob", func(t *testing.T) {

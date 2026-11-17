@@ -79,7 +79,7 @@ func newZoneBTestCapability(t *testing.T, settingsJSON string) *Capability {
 	require.NoError(t, err)
 	lf := limits.Factory{Settings: getter}
 
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, NewLazyDirectSecretsReader(), lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 	return capability

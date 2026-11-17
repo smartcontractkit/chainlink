@@ -23,3 +23,28 @@ func TestRequiresForwarderContract(t *testing.T) {
 		require.True(t, RequiresForwarderContract([]string{cre.StellarCapability}, 0))
 	})
 }
+
+func TestHasFlagForAnyChain(t *testing.T) {
+	t.Parallel()
+
+	values := []string{cre.ConsensusQueueCapability, cre.EVMCapability + "-1337", cre.CronCapability}
+
+	tests := []struct {
+		name       string
+		capability string
+		want       bool
+	}{
+		{"exact match", cre.CronCapability, true},
+		{"exact match with a hyphen in the name", cre.ConsensusQueueCapability, true},
+		{"chain ID suffix", cre.EVMCapability, true},
+		{"non-numeric suffix is a different flag", cre.ConsensusCapability, false},
+		{"absent", cre.VaultCapability, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.want, HasFlagForAnyChain(values, tt.capability))
+			require.Equal(t, tt.want, cre.HasFlag(values, tt.capability))
+		})
+	}
+}
