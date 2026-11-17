@@ -83,6 +83,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -99,6 +100,7 @@ const (
 	vaultDiskMonitorTickInterval = time.Minute
 
 	consensusQueueCapabilityID            = internal.ConsensusQueueCapabilityID
+	consensusQueueOCRConfigKey            = "consensus-queue"
 	gaugeConsensusQueueBytes              = "platform_consensus_queue_usage_bytes"
 	consensusQueueDiskMonitorTickInterval = time.Minute
 )
@@ -157,6 +159,7 @@ type Delegate struct {
 	OrgResolver                    orgresolver.OrgResolver
 	limitsFactory                  limits.Factory
 	ocrConfigService               capregconfig.OCRConfigService
+	triggerCoordinator             triggers.Coordinator
 
 	// Registry-driven launch support: when the delegate is used via
 	// LocalCapabilityManager (no job spec), these fields provide the
@@ -310,6 +313,7 @@ type DelegateOpts struct {
 	OrgResolver                    orgresolver.OrgResolver
 	LimitsFactory                  limits.Factory
 	OCRConfigService               capregconfig.OCRConfigService
+	TriggerCoordinator             triggers.Coordinator
 
 	// Registry-driven launch support: defaults for capabilities launched
 	// via LocalCapabilityManager (no job spec).
@@ -359,6 +363,7 @@ func NewDelegate(
 		OrgResolver:                    opts.OrgResolver,
 		limitsFactory:                  opts.LimitsFactory,
 		ocrConfigService:               opts.OCRConfigService,
+		triggerCoordinator:             opts.TriggerCoordinator,
 		defaultBootstrappers:           opts.DefaultBootstrappers,
 		capRegistryAddress:             opts.CapRegistryAddress,
 		capRegistryChainID:             opts.CapRegistryChainID,
@@ -895,7 +900,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
-		ContractTransmitter:          queue.NewTransmitter(lggr, ocrtypes.Account(spec.TransmitterID.String)),
+		ContractTransmitter:          queue.NewTransmitter(ocrtypes.Account(spec.TransmitterID.String)),
 		Database:                     ocrDB,
 		KeyValueDatabaseFactory:      kvFactory,
 		LocalConfig:                  lc,
@@ -907,7 +912,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
-	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, cfg, d.limitsFactory)
+	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, cfg, d.limitsFactory, d.triggerCoordinator)
 	if err != nil {
 		return nil, err
 	}
