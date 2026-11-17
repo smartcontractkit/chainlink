@@ -318,16 +318,37 @@ func TestDomainManager_UnknownTypesCollapseToOneSeries(t *testing.T) {
 
 	// The generic telemetry adapter accepts arbitrary type strings; distinct values
 	// must not create a metric series or a cache entry each.
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		tt := synchronization.TelemetryType("plugin-garbage-" + strconv.Itoa(i))
 		m.GenMonitoringEndpoint("EVM", ethMainnetChainID, "0xabc", tt).SendLog([]byte("p"))
 	}
 
 	assert.Equal(t, int64(100), counterValue(t, reader, metricMessagesUnsupported,
 		attribute.String("telemetry_type", "unknown"),
+		attribute.String("domain", "unknown"),
 		attribute.String("reason", unsupportedReasonTelemetryType)), "every message is counted")
 	assert.Equal(t, 1, syncMapCount(&m.unsupportedOpts), "one cache entry per clamped label, not per raw value")
-	assert.Equal(t, 1, syncMapCount(&m.reported), "log dedup keys are clamped too")
+	assert.LessOrEqual(t, syncMapCount(&m.reported), maxReportedKeys,
+		"the log-dedup map is capped however many distinct types arrive")
+}
+
+func TestDomainManager_UnresolvableChainsAreCapped(t *testing.T) {
+	t.Parallel()
+	src := newFakeEmitterSource()
+	m, reader := newTestDomainManager(t, src)
+
+	// Distinct network/chainID pairs are plugin-suppliable via the generic adapter;
+	// past the cap they must stop being logged and retained, but stay counted.
+	for i := range 100 {
+		m.GenMonitoringEndpoint("EVM", "bogus-"+strconv.Itoa(i), "0xabc", synchronization.OCR2Median).SendLog([]byte("p"))
+	}
+
+	assert.Equal(t, int64(100), counterValue(t, reader, metricMessagesUnsupported,
+		attribute.String("telemetry_type", string(synchronization.OCR2Median)),
+		attribute.String("domain", string(beholder.DomainDataFeeds)),
+		attribute.String("reason", unsupportedReasonChain)), "every drop is counted")
+	assert.LessOrEqual(t, syncMapCount(&m.reported), maxReportedKeys,
+		"the log-dedup map is capped however many distinct chains arrive")
 }
 
 func syncMapCount(m *sync.Map) int {
@@ -350,7 +371,8 @@ func TestDomainManager_MultitypeEndpointRoutesPerMessage(t *testing.T) {
 	assert.Equal(t, "data-streams.telemetry.llo-outcome", events[0].Source())
 	assert.Equal(t, "llo-outcome", events[0].Extensions()["telemetrytype"])
 	assert.Equal(t, int64(1), counterValue(t, reader, metricMessagesUnsupported,
-		attribute.String("telemetry_type", "unknown")),
+		attribute.String("telemetry_type", "unknown"),
+		attribute.String("domain", "unknown")),
 		"types without a CloudEvent mapping collapse onto the unknown label")
 }
 

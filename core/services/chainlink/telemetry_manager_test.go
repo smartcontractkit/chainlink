@@ -54,6 +54,13 @@ func TestNewTelemetryManager(t *testing.T) {
 		_, err := newTelemetryManager(telemetryIngress(t, true).TelemetryIngress(), beholder.NewNoopClient(), ksmocks.NewCSA(t), "abc123", lggr)
 		require.Error(t, err, "the no-op client has no domain emitters")
 	})
+	t.Run("flag on with a hand-built client: an error, not a panic", func(t *testing.T) {
+		t.Parallel()
+		// A hand-built client has no meter provider and no domain emitters; the
+		// manager must fall back to the global provider instead of panicking.
+		_, err := newTelemetryManager(telemetryIngress(t, true).TelemetryIngress(), &beholder.Client{}, ksmocks.NewCSA(t), "abc123", lggr)
+		require.Error(t, err, "a hand-built client has no domain emitters")
+	})
 	t.Run("flag on: the domain manager on Beholder's domain emitters", func(t *testing.T) {
 		t.Parallel()
 		// A local gRPC server with no services answers OTel exports at once, so Close is quick.

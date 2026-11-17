@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -95,6 +96,7 @@ type DomainManager struct {
 	metrics         domainManagerMetrics
 	now             func() time.Time
 	reported        sync.Map // keys of unsupported types, chains and refusals already logged
+	reportedKeys    atomic.Int64
 	unsupportedOpts sync.Map // unsupportedKey -> otelmetric.AddOption
 	metricOpts      sync.Map // metricKey -> otelmetric.AddOption
 }
@@ -273,10 +275,20 @@ func (m *DomainManager) chainSelector(network, chainID string) (uint64, bool) {
 	return details.ChainSelector, true
 }
 
+// maxReportedKeys caps how many distinct one-time reports are remembered. The keys are
+// sender-influenced (telemetry types, network/chainID pairs), so the cap bounds
+// worst-case memory; past it, new keys are only counted — never logged or retained.
+const maxReportedKeys = 25
+
 func (m *DomainManager) reportOnce(key string, report func()) {
-	if _, loaded := m.reported.LoadOrStore(key, struct{}{}); !loaded {
-		report()
+	if _, loaded := m.reported.LoadOrStore(key, struct{}{}); loaded {
+		return
 	}
+	if m.reportedKeys.Add(1) > maxReportedKeys {
+		m.reported.Delete(key)
+		return
+	}
+	report()
 }
 
 // send builds the event and hands it to the route's emitter. Fates are counted; publish failures
@@ -362,9 +374,9 @@ func unsupportedTypeLabel(telemType synchronization.TelemetryType) string {
 }
 
 // countUnsupported counts a dropped message whose type or chain is not supported. The
-// telemetry_type label is clamped (see unsupportedTypeLabel) and the domain is recorded
-// whenever the type maps to one, so domain-filtered loss dashboards see chain-reason
-// drops of mapped types. The option is cached per (label, reason): hot path.
+// telemetry_type label is clamped (see unsupportedTypeLabel) and the domain is always
+// recorded ("unknown" when the type maps to none), so domain-filtered loss dashboards
+// see every drop. The option is cached per (label, reason): hot path.
 // unsupportedKey identifies a cached unsupported-metric option: the clamped telemetry
 // type label and the drop reason. Bounded by construction — labels come from the
 // CloudEvent registry plus "unknown", reasons from a fixed set.
@@ -378,12 +390,14 @@ func (m *DomainManager) countUnsupported(telemType synchronization.TelemetryType
 	key := unsupportedKey{telemType: label, reason: reason}
 	v, ok := m.unsupportedOpts.Load(key)
 	if !ok {
+		d, mapped := supportedTelemetryDomains[telemType]
+		if !mapped {
+			d = "unknown"
+		}
 		attrs := []attribute.KeyValue{
 			attribute.String("telemetry_type", label),
 			attribute.String("reason", reason),
-		}
-		if d, mapped := supportedTelemetryDomains[telemType]; mapped {
-			attrs = append(attrs, attribute.String("domain", string(d)))
+			attribute.String("domain", string(d)),
 		}
 		v, _ = m.unsupportedOpts.LoadOrStore(key, otelmetric.WithAttributes(attrs...))
 	}
@@ -391,7 +405,7 @@ func (m *DomainManager) countUnsupported(telemType synchronization.TelemetryType
 }
 
 func (m *DomainManager) warnUnsupportedType(telemType synchronization.TelemetryType) {
-	m.reportOnce("type:"+unsupportedTypeLabel(telemType), func() {
+	m.reportOnce("type:"+string(telemType), func() {
 		m.eng.Warnw("Telemetry type is not supported: its telemetry will be dropped", "telemType", telemType)
 	})
 }

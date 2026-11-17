@@ -29,7 +29,13 @@ func newTelemetryManager(cfg config.TelemetryIngress, beholderClient *beholder.C
 	if beholderClient == nil {
 		return nil, errors.New("TelemetryIngress.BeholderEnabled requires a Beholder client")
 	}
-	dm, err := telemetry.NewDomainManager(beholderClient, csaPubKeyHex, lggr)
+	// The manager's counters share the client's meter provider, as the emitters' chip
+	// metrics already do. Nil on a hand-built client, where the option would panic.
+	var opts []telemetry.DomainManagerOpt
+	if beholderClient.MeterProvider != nil {
+		opts = append(opts, telemetry.WithMeterProvider(beholderClient.MeterProvider))
+	}
+	dm, err := telemetry.NewDomainManager(beholderClient, csaPubKeyHex, lggr, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create telemetry domain manager: %w", err)
 	}
