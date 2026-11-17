@@ -228,17 +228,12 @@ func TestOffchainMethodConfigs_GateOn_Overrides(t *testing.T) {
 		"gate on: offchain Write config must win")
 	dispatcher.AssertNotCalled(t, "SetReceiverForMethod", fullCapID, capDONID, "View", mock.Anything)
 
-	// Selecting an empty capability removes the shim and the workflow-facing method.
+	// An offchain capability without methods and not local-only falls back to the on-chain methods.
 	empty := offchainMethodCfg(t, 2, "don-2", fullCapID, nil)
 	snapshot := newOffchainMethodConfigs(empty.LoadParsed(), []regpkg.DON{capDON})
-	dispatcher.On("RemoveReceiverForMethod", fullCapID, capDONID, "Write").Return().Once()
-	launcher.pruneStaleShims(t.Context(), computeWantedShimKeys([]regpkg.DON{capDON}, nil, snapshot))
-	launcher.addRemoteCapabilities(t.Context(), localRegistry.IDsToDONs[regpkg.DonID(wfDONID)], capDON, localRegistry, snapshot)
-	assert.Empty(t, launcher.cachedShims.executableClients)
-	cc := launcher.cachedShims.combinedClients[shimID{capID: fullCapID, donID: capDONID}]
-	require.NotNil(t, cc)
-	_, err = cc.Execute(t.Context(), capabilities.CapabilityRequest{Method: "Write"})
-	require.ErrorContains(t, err, "method Write not defined")
+	wanted := computeWantedShimKeys([]regpkg.DON{capDON}, nil, snapshot)
+	assert.Contains(t, wanted.executableClients, shimID{capID: fullCapID, donID: capDONID, method: "Write"})
+	assert.Contains(t, wanted.executableClients, shimID{capID: fullCapID, donID: capDONID, method: "View"})
 }
 
 // TestOffchainMethodConfigs_NoThrashAcrossPasses locks the central invariant of the method_configs
