@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -77,4 +78,10 @@ func Test_extractEvent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_coordinatedEventsFieldNumber(t *testing.T) {
+	fd := (&pb.CoordinatedEventList{}).ProtoReflect().Descriptor().Fields().ByName("events")
+	require.NotNil(t, fd)
+	require.Equal(t, protowire.Number(coordinatedEventsFieldNumber), fd.Number())
 }

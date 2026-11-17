@@ -73,7 +73,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.112
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260923062809-ca886ade4d26
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260916222901-720a003dab50
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261112195848-86be69f83e49
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20261117023719-a7ac77a0c012
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.1-0.20260923164324-86cd57d9fdbd
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20261106154152-9426766b30a9
 	github.com/smartcontractkit/chainlink-confidential-compute v1.3.0
