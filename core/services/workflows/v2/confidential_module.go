@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -57,6 +58,11 @@ func ParseWorkflowAttributes(data []byte) (WorkflowAttributes, error) {
 // ConfidentialModule implements host.ModuleV2 for confidential workflows.
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
+// ComputeResourceType is the resource type the module's executions bill under.
+func (m *ConfidentialModule) ComputeResourceType() string {
+	return resourcemanager.ResourceTypeWorkflowConfidentialCompute
+}
+
 type ConfidentialModule struct {
 	capRegistry       registry.CapabilitiesRegistry
 	binaryURL         string

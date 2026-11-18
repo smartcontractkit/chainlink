@@ -1034,18 +1034,11 @@ func (h *eventHandler) buildEngineConfig(ctx context.Context, workflowID, owner 
 		return nil, fmt.Errorf("failed to create confidential module: %w", err)
 	}
 	engineModule := h.createEngineModule(ctx, workflowID, binary, moduleConfig, module)
-	// Executions the confidential runner takes meter under the confidential
-	// compute resource type, via the identity the runner declares.
-	confidentialIdentity := resourcemanager.WithWorkflowUsagePool(
-		resourcemanager.NewBaseIdentity(h.meteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
-		resourcemanager.ResourceTypeWorkflowConfidentialCompute,
-	)
 	selectingModule := generichost.NewRequirementSelectingModule(
 		generichost.ModuleAndHandler{Module: engineModule},
 		[]generichost.ModuleAndHandler{{
 			Module:              confidential,
 			RequirementsHandler: generichost.RequirementsHandler{Tee: confidential.Tee},
-			UsageIdentity:       &confidentialIdentity,
 		}},
 	)
 	cfg := h.newV2EngineConfig(ctx, selectingModule, workflowID, owner, tag, sdkName, name, config)

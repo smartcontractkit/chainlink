@@ -114,9 +114,9 @@ type baseEngine struct {
 	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
 	tracer trace.Tracer
 
-	usageMeter    *resourcemanager.ResourceManager
-	usageIdentity resourcemanager.ResourceIdentity
-	orgID         string
+	usageMeter        *resourcemanager.ResourceManager
+	baseUsageIdentity resourcemanager.ResourceIdentity
+	orgID             string
 	// orgIDMissingReason records why orgID is empty ("resolver_nil",
 	// "resolver_error", or "empty_response"). It is set once in startWith() and
 	// read by startExecution() to label the org_id_missing counter. It is only
@@ -197,9 +197,7 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 	engine.metrics = metricsLabeler
 	// Disabled metering is a no-op inside the resource manager.
 	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter, Settings: cfg.LocalLimiters.Settings})
-	engine.usageIdentity = resourcemanager.WithWorkflowUsagePool(
-		resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
-		resourcemanager.ResourceTypeWorkflowCompute)
+	engine.baseUsageIdentity = resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, "")
 	engine.loggerLabels.Store(&labelsMap)
 	engine.localNode.Store(&localNode)
 
@@ -1175,30 +1173,26 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, t
 		lggr.Errorw("Compute usage meter record not emitted", "err", err)
 		return
 	}
-	// The routed runner's declared identity, else the default compute identity.
-	identity := e.usageIdentity
-	if router, ok := e.cfg.Module.(workflowhost.UsageRouter); ok {
-		usageIdentity, found := router.UsageIdentityForTrigger(triggerIndex)
-		if !found {
+	// The routed module's compute resource type, when it declares one.
+	resourceType := resourcemanager.ResourceTypeWorkflowCompute
+	if router, ok := e.cfg.Module.(workflowhost.TriggerRouter); ok {
+		if m, found := router.RoutedModule(triggerIndex); found {
+			if t, ok := m.(interface{ ComputeResourceType() string }); ok {
+				resourceType = t.ComputeResourceType()
+			}
+		} else {
 			// Trigger events only flow after Subscribe, so this should be
 			// unreachable; a miss would mislabel the record as ordinary compute.
-			lggr.Errorw("Execution's trigger has no routed runner; metering as ordinary compute", "triggerIndex", triggerIndex)
-		} else if usageIdentity != nil {
-			identity = *usageIdentity
+			lggr.Errorw("Execution's trigger has no routed module; metering as ordinary compute", "triggerIndex", triggerIndex)
 		}
 	}
+	identity := resourcemanager.WithWorkflowUsagePool(e.baseUsageIdentity, resourceType)
 	if node := e.localNode.Load(); node != nil {
 		identity = identity.WithDonID(strconv.FormatUint(uint64(node.WorkflowDON.ID), 10))
 	}
 	valueMs := computeDuration.Milliseconds()
 	// The capability event id for compute is the execution id itself: one
-	// compute record per execution, identical on every node of the DON. The
-	// resource type rides the identity's pool id, which WithWorkflowUsagePool
-	// sets to the resource type.
-	resourceType := identity.ResourcePoolID
-	if resourceType == "" {
-		resourceType = resourcemanager.ResourceTypeWorkflowCompute
-	}
+	// compute record per execution, identical on every node of the DON.
 	e.usageMeter.EmitUsage(ctx, identity, executionID, valueMs, resourcemanager.UtilizationFields{
 		ResourceType: resourceType,
 		ResourceID:   resourceID,
