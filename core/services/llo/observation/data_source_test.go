@@ -997,11 +997,11 @@ func Test_DataSource_ObservedValueGauge(t *testing.T) {
 			{"3", "benchmark", digest}: 15,
 		}
 
-		require.Eventually(t, func() bool {
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			ctx, cancel := context.WithTimeout(t.Context(), observationTimeout)
 			defer cancel()
-			require.NoError(t, ds.Observe(ctx, makeStreamValues(), opts))
-			return assert.ObjectsAreEqual(want, observedSeries(t, vec))
+			assert.NoError(c, ds.Observe(ctx, makeStreamValues(), opts))
+			assert.Equal(c, want, observedSeries(c, vec))
 		}, 5*time.Second, 50*time.Millisecond)
 
 		require.NoError(t, ds.Close())
@@ -1018,11 +1018,11 @@ func Test_DataSource_ObservedValueGauge(t *testing.T) {
 		staging := &mockOpts{configDigest: ocr2types.ConfigDigest{9}, lifeCycleStage: lloprotocol.LifeCycleStageStaging}
 
 		// Populate the shared cache through the production instance first, so a staging Observe reads real values.
-		require.Eventually(t, func() bool {
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			ctx, cancel := context.WithTimeout(t.Context(), observationTimeout)
 			defer cancel()
-			require.NoError(t, ds.Observe(ctx, makeStreamValues(), production))
-			return len(observedSeries(t, vec)) == 3
+			assert.NoError(c, ds.Observe(ctx, makeStreamValues(), production))
+			assert.Len(c, observedSeries(c, vec), 3)
 		}, 5*time.Second, 50*time.Millisecond)
 
 		ctx, cancel := context.WithTimeout(t.Context(), observationTimeout)
@@ -1030,7 +1030,9 @@ func Test_DataSource_ObservedValueGauge(t *testing.T) {
 		vals := makeStreamValues()
 		require.NoError(t, ds.Observe(ctx, vals, staging))
 		require.NotNil(t, vals[1], "staging Observe must read the cached value for this test to be meaningful")
-		for k := range observedSeries(t, vec) {
+		series := observedSeries(t, vec)
+		assert.Len(t, series, 3, "staging must not add series under its own digest")
+		for k := range series {
 			assert.Equal(t, production.configDigest.String(), k[2])
 		}
 	})
