@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -65,8 +66,8 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 	updateAuthorizedAddressV2(t, backendTH, wfRegistryC, backendTH.ContractsOwner.From, donFamily)
 
-	// Add requests to ensure we go above the MaxResultsPerQuery
-	activeAllowlistedRequestsCount := int(MaxResultsPerQuery + 1)
+	// Add requests to ensure we go above the default WorkflowRegistryMaxResultsPerQuery page size
+	activeAllowlistedRequestsCount := cresettings.Default.WorkflowRegistryMaxResultsPerQuery.DefaultValue + 1
 	expiryTimestamp := time.Now().Add(24 * time.Hour)
 	for i := range activeAllowlistedRequestsCount {
 		createSecretsRequestParams, marshalErr := json.Marshal(vaultcommon.CreateSecretsRequest{
