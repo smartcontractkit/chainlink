@@ -199,6 +199,7 @@ SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
 ChipIngressEnabled = false
+BeholderEnabled = false
 
 [AuditLogger]
 Enabled = false

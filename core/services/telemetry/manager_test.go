@@ -51,14 +51,14 @@ func TestManagerAgents(t *testing.T) {
 
 	ks := keymocks.NewCSA(t)
 
-	tm := NewManager(tic, ks, lggr)
+	tm := NewWSRPCManager(tic, ks, lggr)
 	require.Equal(t, "*synchronization.telemetryIngressBatchClient", reflect.TypeOf(tm.endpoints[0].client).String())
 	me := tm.GenMonitoringEndpoint("network-1", "network-1-chainID-1", "", "")
 	assert.Equal(t, "*telemetry.TypedIngressAgentBatch", reflect.TypeOf(me).String())
 
 	tic = setupMockConfig(t, false, false)
 	tic.On("Endpoints").Return([]config.TelemetryIngressEndpoint{te})
-	tm = NewManager(tic, ks, lggr)
+	tm = NewWSRPCManager(tic, ks, lggr)
 	require.Equal(t, "*synchronization.telemetryIngressClient", reflect.TypeOf(tm.endpoints[0].client).String())
 	me = tm.GenMonitoringEndpoint("network-1", "network-1-chainID-1", "", "")
 	assert.Equal(t, "*telemetry.TypedIngressAgent", reflect.TypeOf(me).String())
@@ -154,7 +154,7 @@ func TestNewManager(t *testing.T) {
 	key := csakey.MustNewV2XXXTestingOnly(big.NewInt(0))
 	ks.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	ks.On("Get", key.ID()).Return(key, nil)
-	m := NewManager(tic, ks, lggr)
+	m := NewWSRPCManager(tic, ks, lggr)
 
 	require.Equal(t, uint(123), m.bufferSize)
 	require.Equal(t, ks, m.ks)
@@ -203,7 +203,7 @@ func TestCorrectEndpointRouting(t *testing.T) {
 	lggr, obsLogs := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 
 	ks := keymocks.NewCSA(t)
-	tm := NewManager(tic, ks, lggr)
+	tm := NewWSRPCManager(tic, ks, lggr)
 
 	type testEndpoint struct {
 		network string
@@ -290,7 +290,7 @@ func TestManager_ChipIngressClient(t *testing.T) {
 
 		lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 		ks := keymocks.NewCSA(t)
-		tm := NewManager(tic, ks, lggr)
+		tm := NewWSRPCManager(tic, ks, lggr)
 		assert.Nil(t, tm.chipIngressClient)
 	})
 
@@ -300,7 +300,7 @@ func TestManager_ChipIngressClient(t *testing.T) {
 
 		lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 		ks := keymocks.NewCSA(t)
-		tm := NewManager(tic, ks, lggr)
+		tm := NewWSRPCManager(tic, ks, lggr)
 		assert.NotNil(t, tm.chipIngressClient)
 	})
 }
@@ -319,7 +319,7 @@ func TestManager_ChipIngressEndpoint(t *testing.T) {
 		lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 		ks := keymocks.NewCSA(t)
 
-		tm := NewManager(tic, ks, lggr)
+		tm := NewWSRPCManager(tic, ks, lggr)
 		require.Len(t, tm.endpoints, 1)
 		assert.NotNil(t, tm.endpoints[0].chipIngressClient)
 		assert.Nil(t, tm.endpoints[0].client)
@@ -341,7 +341,7 @@ func TestManager_ChipIngressEndpoint(t *testing.T) {
 		ks.On("GetAll").Return([]csakey.KeyV2{key}, nil).Maybe()
 		ks.On("Get", key.ID()).Return(key, nil).Maybe()
 
-		tm := NewManager(tic, ks, lggr)
+		tm := NewWSRPCManager(tic, ks, lggr)
 		require.Len(t, tm.endpoints, 1)
 		assert.Nil(t, tm.endpoints[0].chipIngressClient)
 		assert.NotNil(t, tm.endpoints[0].client)
@@ -362,7 +362,7 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 		lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 		ks := keymocks.NewCSA(t)
 
-		tm := NewManager(tic, ks, lggr)
+		tm := NewWSRPCManager(tic, ks, lggr)
 		me := tm.GenMonitoringEndpoint("EVM", "1", "0x123", synchronization.OCR2Median)
 		assert.Equal(t, "*telemetry.ChipIngressAgent", reflect.TypeOf(me).String())
 	})
@@ -380,7 +380,7 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 		lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		ks := keymocks.NewCSA(t)
 
-		tm := NewManager(tic, ks, lggr)
+		tm := NewWSRPCManager(tic, ks, lggr)
 		// Start and cleanup the manager to ensure background goroutines are properly stopped
 		require.NoError(t, tm.Start(t.Context()))
 		t.Cleanup(func() {
@@ -410,7 +410,7 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 		lggr, obsLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 		ks := keymocks.NewCSA(t)
 
-		tm := NewManager(tic, ks, lggr)
+		tm := NewWSRPCManager(tic, ks, lggr)
 		// Invalid network/chainID combination that doesn't exist in chain-selectors
 		me := tm.GenMonitoringEndpoint("INVALID", "999", "0x123", synchronization.OCR2Median)
 		assert.Equal(t, "*telemetry.NoopAgent", reflect.TypeOf(me).String())
@@ -445,7 +445,7 @@ func TestManager_GenMonitoringEndpoint_ChipIngress(t *testing.T) {
 		ks.On("GetAll").Return([]csakey.KeyV2{key}, nil).Maybe()
 		ks.On("Get", key.ID()).Return(key, nil).Maybe()
 
-		tm := NewManager(tic, ks, lggr)
+		tm := NewWSRPCManager(tic, ks, lggr)
 		me := tm.GenMonitoringEndpoint("EVM", "1", "0x123", synchronization.OCR2Median)
 		assert.Equal(t, "*telemetry.TypedIngressAgentBatch", reflect.TypeOf(me).String())
 	})
@@ -465,7 +465,7 @@ func TestManager_GenMultitypeMonitoringEndpoint_ChipIngress(t *testing.T) {
 		lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 		ks := keymocks.NewCSA(t)
 
-		tm := NewManager(tic, ks, lggr)
+		tm := NewWSRPCManager(tic, ks, lggr)
 		me := tm.GenMultitypeMonitoringEndpoint("EVM", "137", "0x456")
 		assert.Equal(t, "*telemetry.ChipIngressAgent", reflect.TypeOf(me).String())
 	})
@@ -483,7 +483,7 @@ func TestManager_GenMultitypeMonitoringEndpoint_ChipIngress(t *testing.T) {
 		lggr, obsLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 		ks := keymocks.NewCSA(t)
 
-		tm := NewManager(tic, ks, lggr)
+		tm := NewWSRPCManager(tic, ks, lggr)
 		// Invalid network/chainID combination
 		me := tm.GenMultitypeMonitoringEndpoint("INVALID", "888", "0x456")
 		assert.Equal(t, "*telemetry.NoopAgent", reflect.TypeOf(me).String())
@@ -518,7 +518,7 @@ func TestManager_GenMultitypeMonitoringEndpoint_ChipIngress(t *testing.T) {
 		ks.On("GetAll").Return([]csakey.KeyV2{key}, nil).Maybe()
 		ks.On("Get", key.ID()).Return(key, nil).Maybe()
 
-		tm := NewManager(tic, ks, lggr)
+		tm := NewWSRPCManager(tic, ks, lggr)
 		me := tm.GenMultitypeMonitoringEndpoint("EVM", "137", "0x456")
 		assert.Equal(t, "*telemetry.MultiIngressAgentBatch", reflect.TypeOf(me).String())
 	})

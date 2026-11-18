@@ -141,6 +141,15 @@ func (c *Core) ValidateConfig() (err error) {
 		}
 	}
 
+	if *c.TelemetryIngress.BeholderEnabled {
+		if *c.TelemetryIngress.ChipIngressEnabled {
+			err = errors.Join(err, configutils.InvalidError{Name: "TelemetryIngress.BeholderEnabled", Value: true, Msg: "cannot be combined with TelemetryIngress.ChipIngressEnabled"})
+		}
+		if !*c.Telemetry.Enabled || *c.Telemetry.ChipIngressEndpoint == "" {
+			err = errors.Join(err, configutils.InvalidError{Name: "TelemetryIngress.BeholderEnabled", Value: true, Msg: "requires Telemetry.Enabled and Telemetry.ChipIngressEndpoint"})
+		}
+	}
+
 	return err
 }
 
@@ -982,6 +991,7 @@ type TelemetryIngress struct {
 	UseBatchSend       *bool
 	Endpoints          []TelemetryIngressEndpoint `toml:",omitempty"`
 	ChipIngressEnabled *bool
+	BeholderEnabled    *bool
 }
 
 type TelemetryIngressEndpoint struct {
@@ -1018,6 +1028,9 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 	if v := f.ChipIngressEnabled; v != nil {
 		t.ChipIngressEnabled = v
+	}
+	if v := f.BeholderEnabled; v != nil {
+		t.BeholderEnabled = v
 	}
 }
 

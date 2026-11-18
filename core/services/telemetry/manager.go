@@ -18,7 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
-type Manager struct {
+var _ Manager = (*WSRPCManager)(nil)
+
+// WSRPCManager is the Manager that sends telemetry to the TelemetryIngress.Endpoints
+// configured per network and chain, over WSRPC, or through ChIP Ingress when
+// TelemetryIngress.ChipIngressEnabled is set.
+type WSRPCManager struct {
 	services.Service
 	eng *services.Engine
 
@@ -46,15 +51,15 @@ type telemetryEndpoint struct {
 	chipIngressClient synchronization.ChipIngressService
 }
 
-// NewManager create a new telemetry manager that is responsible for configuring telemetry agents and generating the defined telemetry endpoints and monitoring endpoints
-func NewManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, lggr common.Logger) *Manager {
+// NewWSRPCManager create a new telemetry manager that is responsible for configuring telemetry agents and generating the defined telemetry endpoints and monitoring endpoints
+func NewWSRPCManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, lggr common.Logger) *WSRPCManager {
 	var chipIngressClient chipingress.Client
 	if cfg.ChipIngressEnabled() {
 		lggr.Info("ChIP Ingress is enabled for telemetry")
 		chipIngressClient = beholder.GetClient().Chip
 	}
 
-	m := &Manager{
+	m := &WSRPCManager{
 		bufferSize:        cfg.BufferSize(),
 		ks:                csaKeyStore,
 		logging:           cfg.Logging(),
@@ -83,7 +88,7 @@ func NewManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, lggr comm
 }
 
 // GenMonitoringEndpoint creates a new monitoring endpoints based on the existing available endpoints defined in the core config TOML, if no endpoint for the network and chainID exists, a NOOP agent will be used and the telemetry will not be sent
-func (m *Manager) GenMonitoringEndpoint(network string, chainID string, contractID string, telemType synchronization.TelemetryType) commontypes.MonitoringEndpoint {
+func (m *WSRPCManager) GenMonitoringEndpoint(network string, chainID string, contractID string, telemType synchronization.TelemetryType) commontypes.MonitoringEndpoint {
 	e, found := m.getEndpoint(network, chainID)
 
 	if !found {
@@ -108,7 +113,7 @@ func (m *Manager) GenMonitoringEndpoint(network string, chainID string, contract
 	return NewTypedIngressAgent(e.client, network, chainID, contractID, telemType)
 }
 
-func (m *Manager) GenMultitypeMonitoringEndpoint(network string, chainID string, contractID string) MultitypeMonitoringEndpoint {
+func (m *WSRPCManager) GenMultitypeMonitoringEndpoint(network string, chainID string, contractID string) MultitypeMonitoringEndpoint {
 	e, found := m.getEndpoint(network, chainID)
 
 	if !found {
@@ -133,7 +138,7 @@ func (m *Manager) GenMultitypeMonitoringEndpoint(network string, chainID string,
 	return NewMultiIngressAgent(e.client, network, chainID, contractID)
 }
 
-func (m *Manager) newEndpoint(e config.TelemetryIngressEndpoint, lggr common.Logger, cfg config.TelemetryIngress) (services.Service, error) {
+func (m *WSRPCManager) newEndpoint(e config.TelemetryIngressEndpoint, lggr common.Logger, cfg config.TelemetryIngress) (services.Service, error) {
 	if e.Network() == "" {
 		return nil, errors.New("cannot add telemetry endpoint, network cannot be empty")
 	}
@@ -191,7 +196,7 @@ func (m *Manager) newEndpoint(e config.TelemetryIngressEndpoint, lggr common.Log
 	return te.client, nil
 }
 
-func (m *Manager) getEndpoint(network string, chainID string) (*telemetryEndpoint, bool) {
+func (m *WSRPCManager) getEndpoint(network string, chainID string) (*telemetryEndpoint, bool) {
 	for _, e := range m.endpoints {
 		if e.Network == strings.ToUpper(network) && e.ChainID == strings.ToUpper(chainID) {
 			return e, true
