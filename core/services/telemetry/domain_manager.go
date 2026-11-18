@@ -93,7 +93,7 @@ type DomainManager struct {
 
 	// ctx is cancelled when the manager closes. SendLog has no context (libocr's
 	// MonitoringEndpoint), so sends and counters use this one.
-	ctx    context.Context
+	ctx    context.Context //nolint:containedctx // libocr's MonitoringEndpoint.SendLog takes no ctx
 	cancel context.CancelFunc
 
 	routes          map[synchronization.TelemetryType]*telemetryRoute
