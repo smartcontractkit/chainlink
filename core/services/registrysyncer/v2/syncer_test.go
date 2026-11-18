@@ -5,7 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -1094,4 +1096,84 @@ func TestSync_V2_PreservesNodeCapabilitiesDONIds(t *testing.T) {
 	require.NotNil(t, l.localRegistry)
 	got := l.localRegistry.IDsToNodes[p2ptypes.PeerID(node.P2pId)]
 	require.Equal(t, donIDs, got.CapabilitiesDONIds)
+}
+
+func TestSync_V2_Pagination(t *testing.T) {
+	const (
+		numNodes = 55 // > nodesPageSize
+		numDONs  = 45 // > 2 * donsPageSize
+	)
+
+	owner := evmtestutils.MustNewSimTransactor(t)
+	balance, _ := new(big.Int).SetString("100000000000000000000", 10)
+	simulatedBackend := simulated.NewBackend(gethtypes.GenesisAlloc{owner.From: {Balance: balance}},
+		simulated.WithBlockGasLimit(ethconfig.Defaults.Miner.GasCeil*2))
+	simulatedBackend.Commit()
+
+	regAddress, _, reg, err := capabilities_registry_v2.DeployCapabilitiesRegistry(owner, simulatedBackend.Client(), capabilities_registry_v2.CapabilitiesRegistryConstructorParams{})
+	require.NoError(t, err)
+	simulatedBackend.Commit()
+
+	const cid = "write-chain@1.0.1"
+	_, err = reg.AddCapabilities(owner, []capabilities_registry_v2.CapabilitiesRegistryCapability{
+		{CapabilityId: cid, Metadata: []byte(`{"capabilityType": 3, "responseType": 1}`)},
+	})
+	require.NoError(t, err)
+	_, err = reg.AddNodeOperators(owner, []capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{{Admin: owner.From, Name: "nop"}})
+	require.NoError(t, err)
+	simulatedBackend.Commit()
+
+	nodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, numNodes)
+	for i := range nodes {
+		nodes[i] = capabilities_registry_v2.CapabilitiesRegistryNodeParams{
+			NodeOperatorId:      1,
+			Signer:              randomWord(),
+			P2pId:               randomWord(),
+			EncryptionPublicKey: randomWord(),
+			CsaKey:              randomWord(),
+			CapabilityIds:       []string{cid},
+		}
+	}
+	for batch := range slices.Chunk(nodes, 20) {
+		_, err = reg.AddNodes(owner, batch)
+		require.NoError(t, err)
+		simulatedBackend.Commit()
+	}
+
+	members := [][32]byte{nodes[0].P2pId, nodes[1].P2pId, nodes[2].P2pId, nodes[3].P2pId}
+	for batch := 0; batch < numDONs; batch += 15 {
+		var dons []capabilities_registry_v2.CapabilitiesRegistryNewDONParams
+		for i := batch; i < min(batch+15, numDONs); i++ {
+			dons = append(dons, capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
+				Name:                     fmt.Sprintf("don-%d", i),
+				DonFamilies:              []string{"family"},
+				CapabilityConfigurations: []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{{CapabilityId: cid, Config: []byte{}}},
+				Nodes:                    members,
+				F:                        1,
+				IsPublic:                 true,
+			})
+		}
+		_, err = reg.AddDONs(owner, dons)
+		require.NoError(t, err)
+		simulatedBackend.Commit()
+	}
+
+	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil },
+		newContractReaderFactory(t, simulatedBackend), regAddress.Hex(), nil)
+	require.NoError(t, err)
+	l := &launcher{}
+	syncer.AddListener(l)
+	require.NoError(t, syncer.Sync(t.Context(), false))
+
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	s := l.localRegistry
+	require.NotNil(t, s)
+	assert.Len(t, s.IDsToCapabilities, 1)
+	assert.Len(t, s.IDsToNodes, numNodes)
+	require.Len(t, s.IDsToDONs, numDONs)
+	for id := 1; id <= numDONs; id++ {
+		assert.Equal(t, fmt.Sprintf("don-%d", id-1), s.IDsToDONs[registry.DonID(id)].Name)
+	}
+	assert.Len(t, s.IDsToNodes[p2ptypes.PeerID(members[0])].CapabilitiesDONIds, numDONs)
 }

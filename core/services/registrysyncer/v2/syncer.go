@@ -226,16 +226,33 @@ func (s *registrySyncer) updateStateLoop() {
 	}
 }
 
+const (
+	capabilitiesPageSize = 100
+	donsPageSize         = 20
+	nodesPageSize        = 30
+)
+
+// readAllPages reads a paginated CapabilitiesRegistry list until a page comes back short.
+func readAllPages[T any](ctx context.Context, reader types.ContractReader, readIdentifier string, pageSize int64) ([]T, error) {
+	var all []T
+	for start := int64(0); ; start += pageSize {
+		params := struct {
+			Start *big.Int
+			Limit *big.Int
+		}{Start: big.NewInt(start), Limit: big.NewInt(pageSize)}
+		var page []T
+		if err := reader.GetLatestValue(ctx, readIdentifier, primitives.Unconfirmed, params, &page); err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if int64(len(page)) < pageSize {
+			return all, nil
+		}
+	}
+}
+
 func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.RegistryMetadata, error) {
-	caps := []capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo{}
-	// TODO support pagination if needed
-	// Using large limit for now to avoid pagination complexity
-	// since we don't expect to have that many capabilities
-	params := struct {
-		Start *big.Int
-		Limit *big.Int
-	}{Start: big.NewInt(0), Limit: big.NewInt(1024)}
-	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, params, &caps)
+	caps, err := readAllPages[capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo](ctx, s.reader, s.capabilitiesContract.ReadIdentifier("getCapabilities"), capabilitiesPageSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest value for getCapabilities: %w", err)
 	}
@@ -253,9 +270,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.R
 		}
 	}
 
-	dons := []capabilities_registry_v2.CapabilitiesRegistryDONInfo{}
-
-	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getDONs"), primitives.Unconfirmed, params, &dons)
+	dons, err := readAllPages[capabilities_registry_v2.CapabilitiesRegistryDONInfo](ctx, s.reader, s.capabilitiesContract.ReadIdentifier("getDONs"), donsPageSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest value for getDONs: %w", err)
 	}
@@ -275,9 +290,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.R
 		}
 	}
 
-	nodes := []capabilities_registry_v2.INodeInfoProviderNodeInfo{}
-
-	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getNodes"), primitives.Unconfirmed, params, &nodes)
+	nodes, err := readAllPages[capabilities_registry_v2.INodeInfoProviderNodeInfo](ctx, s.reader, s.capabilitiesContract.ReadIdentifier("getNodes"), nodesPageSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest value for getNodes: %w", err)
 	}
