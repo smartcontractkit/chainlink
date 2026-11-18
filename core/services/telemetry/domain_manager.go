@@ -296,8 +296,11 @@ func (m *DomainManager) reportOnce(key string, report func()) {
 // are logged (rate-limited) by the emitter, and events that never reach it are logged here, once
 // per route and error code, since they mean telemetry is being lost.
 func (m *DomainManager) send(route *telemetryRoute, target eventTarget, telemetry []byte) {
-	// SendLog has no context (libocr's MonitoringEndpoint); the emitter only queues.
-	ctx := context.Background()
+	// SendLog has no context (libocr's MonitoringEndpoint), so tie it to the
+	// service lifecycle. Cancelling on return is safe: after the emitter's sync
+	// queue check, only otel adds (which tolerate cancellation) read it.
+	ctx, cancel := m.eng.NewCtx()
+	defer cancel()
 	ev, err := m.newEvent(route, target, telemetry)
 	if err != nil {
 		m.refused(ctx, route, target, errorCodeEventBuild, err)
@@ -402,7 +405,9 @@ func (m *DomainManager) countUnsupported(telemType synchronization.TelemetryType
 		}
 		v, _ = m.unsupportedOpts.LoadOrStore(key, otelmetric.WithAttributes(attrs...))
 	}
-	m.metrics.unsupported.Add(context.Background(), 1, v.(otelmetric.AddOption))
+	ctx, cancel := m.eng.NewCtx()
+	defer cancel()
+	m.metrics.unsupported.Add(ctx, 1, v.(otelmetric.AddOption))
 }
 
 func (m *DomainManager) warnUnsupportedType(telemType synchronization.TelemetryType) {
