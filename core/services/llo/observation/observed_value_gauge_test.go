@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -22,9 +24,10 @@ func newTestObservedValueVec() *prometheus.GaugeVec {
 	return prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "test_observed_value"}, []string{"stream_id", "value_type", "config_digest"})
 }
 
-// observedSeries returns every series in vec keyed by {stream_id, value_type, config_digest}. It reports errors with
-// assert, not require, so it is safe in goroutines and in EventuallyWithT conditions.
-func observedSeries(t assert.TestingT, vec *prometheus.GaugeVec) map[[3]string]float64 {
+// observedSeries returns every series in vec keyed by {stream_id, value_type, config_digest}. t can be an
+// *assert.CollectT: its FailNow ends only the EventuallyWithT condition. Do not call it off the test goroutine with a
+// *testing.T.
+func observedSeries(t require.TestingT, vec *prometheus.GaugeVec) map[[3]string]float64 {
 	if h, ok := t.(interface{ Helper() }); ok {
 		h.Helper()
 	}
@@ -36,9 +39,7 @@ func observedSeries(t assert.TestingT, vec *prometheus.GaugeVec) map[[3]string]f
 	out := make(map[[3]string]float64)
 	for m := range ch {
 		var pb io_prometheus_client.Metric
-		if !assert.NoError(t, m.Write(&pb)) {
-			continue
-		}
+		require.NoError(t, m.Write(&pb))
 		labels := make(map[string]string, len(pb.GetLabel()))
 		for _, lp := range pb.GetLabel() {
 			labels[lp.GetName()] = lp.GetValue()
@@ -205,7 +206,7 @@ func Test_observedValueGauges(t *testing.T) {
 		}
 		wg.Go(func() {
 			for range 100 {
-				observedSeries(t, vec)
+				testutil.CollectAndCount(vec) // concurrent reader; no assertions off the test goroutine
 				g.expire(t0)
 			}
 		})
