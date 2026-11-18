@@ -1,12 +1,16 @@
 package observation
 
 import (
+	"math"
+	"math/big"
+	"math/bits"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/shopspring/decimal"
 
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -21,8 +25,9 @@ var promStreamObservedValue = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Subsystem: "datasource",
 	Name:      "stream_observed_value",
 	Help: "Latest value this node observed for an LLO stream, read from the observation cache when the " +
-		"production OCR instance calls Observe. value_type is benchmark for decimal streams and bid, " +
-		"benchmark or ask for quote streams. A series is deleted when its stream has no fresh cached value, " +
+		"production OCR instance calls Observe. value_type is benchmark for decimal streams (the stream's value, " +
+		"whatever it measures) and bid, benchmark or ask for quote streams. Values are float64, so digits beyond " +
+		"about 15 significant figures are lost. A series is deleted when its stream has no fresh cached value, " +
 		"leaves the plugin's stream set, or its config digest stops observing.",
 }, []string{"stream_id", "value_type", "config_digest"})
 
@@ -93,8 +98,7 @@ func (g *observedValueGauges) record(digest ocr2types.ConfigDigest, streamValues
 			}
 			entry := g.getOrCreateStream(dg, id, false)
 			if entry.last != orig {
-				f, _ := v.Decimal().Float64()
-				entry.benchmark.Set(f)
+				entry.benchmark.Set(decimalToFloat64(v.Decimal()))
 				entry.last = orig
 			}
 			entry.round = dg.round
@@ -105,12 +109,9 @@ func (g *observedValueGauges) record(digest ocr2types.ConfigDigest, streamValues
 			}
 			entry := g.getOrCreateStream(dg, id, true)
 			if entry.last != orig {
-				bid, _ := v.Bid.Float64()
-				benchmark, _ := v.Benchmark.Float64()
-				ask, _ := v.Ask.Float64()
-				entry.bid.Set(bid)
-				entry.benchmark.Set(benchmark)
-				entry.ask.Set(ask)
+				entry.bid.Set(decimalToFloat64(v.Bid))
+				entry.benchmark.Set(decimalToFloat64(v.Benchmark))
+				entry.ask.Set(decimalToFloat64(v.Ask))
 				entry.last = orig
 			}
 			entry.round = dg.round
@@ -203,4 +204,51 @@ func unwrapStreamValue(v lloprotocol.StreamValue) lloprotocol.StreamValue {
 		}
 		v = ts.StreamValue
 	}
+}
+
+// exactPow10 holds the powers of ten that float64 represents exactly.
+var exactPow10 = [...]float64{
+	1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11,
+	1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
+}
+
+// decimalToFloat64 converts d to float64 within 2 ulps of the nearest value. decimal.Float64 rounds exactly, but it
+// builds a big.Rat and divides on every call (about 20x slower, with about 11 allocations); this runs on the OCR
+// observation path for every changed stream, and the gauge does not need the last bit. It falls back to Float64 for
+// exponents outside [-22, 22] and on platforms without 64-bit words.
+func decimalToFloat64(d decimal.Decimal) float64 {
+	exp := d.Exponent()
+	if exp < -22 || exp > 22 || bits.UintSize != 64 {
+		f, _ := d.Float64()
+		return f
+	}
+	f := bigIntToFloat64(d.Coefficient()) // Coefficient copies: the only allocation
+	if exp < 0 {
+		return f / exactPow10[-exp]
+	}
+	return f * exactPow10[exp]
+}
+
+// bigIntToFloat64 converts c using its 64 most significant bits; the bits below them can only change the last bit.
+// It requires 64-bit words.
+func bigIntToFloat64(c *big.Int) float64 {
+	n := c.BitLen()
+	var f float64
+	if n <= 64 {
+		f = float64(c.Uint64()) // Uint64 is the low 64 bits of |c|, which is all of it here
+	} else {
+		w := c.Bits() // little-endian 64-bit words of |c|
+		hi := (n - 1) / 64
+		var top uint64
+		if s := uint(n % 64); s == 0 {
+			top = uint64(w[hi])
+		} else {
+			top = uint64(w[hi])<<(64-s) | uint64(w[hi-1])>>s
+		}
+		f = math.Ldexp(float64(top), n-64)
+	}
+	if c.Sign() < 0 {
+		f = -f
+	}
+	return f
 }
