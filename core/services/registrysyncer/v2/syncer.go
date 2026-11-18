@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/noop"
+
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -78,8 +81,12 @@ func New(
 	relayer ContractReaderFactory,
 	registryAddress string,
 	orm registrysyncer.ORM,
+	meter metric.Meter,
 ) (RegistrySyncer, error) {
-	metricLabeler, err := newSyncerMetricLabeler()
+	if meter == nil {
+		meter = noop.NewMeterProvider().Meter("")
+	}
+	metricLabeler, err := newSyncerMetricLabeler(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create syncer metric labeler: %w", err)
 	}
@@ -228,11 +235,14 @@ func (s *registrySyncer) updateStateLoop() {
 
 const (
 	capabilitiesPageSize = 100
-	donsPageSize         = 20
-	nodesPageSize        = 30
+	donsPageSize         = 10
+	nodesPageSize        = 20
 )
 
 // readAllPages reads a paginated CapabilitiesRegistry list until a page comes back short.
+// Pages are read at latest block, not atomically. The contract uses EnumerableSet (swap-and-pop removal),
+// so a removal between page reads can move an unread entry into an already-read slot and drop it from
+// this sync. This is self-healing on the next tick.
 func readAllPages[T any](ctx context.Context, reader types.ContractReader, readIdentifier string, pageSize int64) ([]T, error) {
 	var all []T
 	for start := int64(0); ; start += pageSize {
@@ -294,6 +304,10 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.R
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest value for getNodes: %w", err)
 	}
+
+	s.metrics.recordRegistryEntries(ctx, "capabilities", len(caps))
+	s.metrics.recordRegistryEntries(ctx, "dons", len(dons))
+	s.metrics.recordRegistryEntries(ctx, "nodes", len(nodes))
 
 	idsToNodes := map[p2ptypes.PeerID]registry.NodeInfo{}
 	for _, node := range nodes {

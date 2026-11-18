@@ -484,6 +484,7 @@ func (s *Services) newRegistrySyncer(
 		relayer,
 		registryAddress,
 		registrysyncerV1.NewORM(ds, lggr),
+		opts.Meter,
 	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("could not configure syncer: %w", err)

@@ -296,7 +296,7 @@ func TestReader_Integration(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	factory := newContractReaderFactory(t, simulatedBackend)
 	syncerORM := registrysyncer.NewORM(db, lggr)
-	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
+	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM, nil)
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -514,6 +514,7 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 		factory,
 		regAddress.Hex(),
 		syncerORM,
+		nil,
 	)
 	require.NoError(t, err)
 	l := &launcher{}
@@ -843,7 +844,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	factory := newContractReaderFactory(t, simulatedBackend)
 	syncerORM := registrysyncer.NewORM(db, lggr)
-	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
+	syncer, err := registrysyncer_v2.New(lggr, func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM, nil)
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -1084,7 +1085,7 @@ func TestSync_V2_PreservesNodeCapabilitiesDONIds(t *testing.T) {
 
 	reader := &stubReader{nodes: []capabilities_registry_v2.INodeInfoProviderNodeInfo{node}}
 
-	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: reader}, "0x0", nil)
+	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: reader}, "0x0", nil, nil)
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -1099,6 +1100,8 @@ func TestSync_V2_PreservesNodeCapabilitiesDONIds(t *testing.T) {
 }
 
 func TestSync_V2_Pagination(t *testing.T) {
+	t.Parallel()
+
 	const (
 		numNodes = 55 // > nodesPageSize
 		numDONs  = 45 // > 2 * donsPageSize
@@ -1159,7 +1162,7 @@ func TestSync_V2_Pagination(t *testing.T) {
 	}
 
 	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil },
-		newContractReaderFactory(t, simulatedBackend), regAddress.Hex(), nil)
+		newContractReaderFactory(t, simulatedBackend), regAddress.Hex(), nil, nil)
 	require.NoError(t, err)
 	l := &launcher{}
 	syncer.AddListener(l)
