@@ -19,6 +19,7 @@ import (
 	"net/netip"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -60,6 +61,9 @@ type oidcAuthenticator struct {
 	deviceAllowed []netip.Prefix
 	// liveCheckEvery overrides deviceLiveCheckEvery in tests.
 	liveCheckEvery time.Duration
+	// warnUntrustedForward logs the missing-TrustedProxyCIDRs hint once, so
+	// an internet caller cannot flood the log at Warn.
+	warnUntrustedForward sync.Once
 }
 
 // ExchangeTokenRequest represents the expected JSON payload from the frontend
@@ -200,7 +204,7 @@ func (oi *oidcAuthenticator) handleSignIn(c *gin.Context) {
 	state := oi.generateState()
 	verifier := oauth2.GenerateVerifier()
 	nonce := oi.generateState()
-	bucket := clientBucket(oi.clients.clientAddr(c))
+	bucket := signInBucket(oi.clients.clientAddr(c))
 	if err := putPendingAuth(c.Request.Context(), oi.ds, state, verifier, nonce, bucket, time.Now().Add(pendingAuthTTL)); err != nil {
 		if errors.Is(err, errTooManyPendingAuth) || errors.Is(err, errTooManyPendingAuthPerClient) {
 			oi.lggr.Warnf("refusing sign-in client=%s: %v", bucket, err)
@@ -737,7 +741,7 @@ func (oi *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
 	// Sign-in writes a pending-auth row, so it gets its own pre-auth limiter
 	// on top of the outer api limiter.
 	api.GET("/oidc-login",
-		oi.preAuthRateLimit(signInRatePeriod, signInRateLimit),
+		oi.preAuthRateLimit(signInRatePeriod, signInRateLimit, signInBucket),
 		oi.handleSignIn,
 	)
 	api.POST("/oidc-exchange", oi.handleTokenExchange)
@@ -750,12 +754,12 @@ func (oi *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
 	// the database, or the identity provider.
 	api.POST("/oidc-device/start",
 		oi.deviceNetworkGuard(),
-		oi.preAuthRateLimit(deviceStartRatePeriod, deviceStartRateLimit),
+		oi.preAuthRateLimit(deviceStartRatePeriod, deviceStartRateLimit, clientBucket),
 		oi.handleDeviceStart,
 	)
 	api.POST("/oidc-device/poll",
 		oi.deviceNetworkGuard(),
-		oi.preAuthRateLimit(devicePollRatePeriod, devicePollRateLimit),
+		oi.preAuthRateLimit(devicePollRatePeriod, devicePollRateLimit, clientBucket),
 		oi.handleDevicePoll,
 	)
 

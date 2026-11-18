@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -231,17 +232,17 @@ type DevicePollResponse struct {
 }
 
 // preAuthRateLimit builds a dedicated limiter for a pre-auth OIDC route.
-// The key is the client bucket (IPv4 address or IPv6 /64) resolved through
-// the trusted proxies, so a load balancer does not collapse every caller into
+// The key is bucket applied to the client address resolved through the
+// trusted proxies, so a load balancer does not collapse every caller into
 // one bucket and a forged X-Forwarded-For from an untrusted hop is ignored.
 // Nested under the outer api group so both limits apply.
-func (oi *oidcAuthenticator) preAuthRateLimit(period time.Duration, limit int64) gin.HandlerFunc {
+func (oi *oidcAuthenticator) preAuthRateLimit(period time.Duration, limit int64, bucket func(netip.Addr) string) gin.HandlerFunc {
 	store := memory.NewStore()
 	rate := limiter.Rate{
 		Period: period,
 		Limit:  limit,
 	}
-	key := func(c *gin.Context) string { return clientBucket(oi.clients.clientAddr(c)) }
+	key := func(c *gin.Context) string { return bucket(oi.clients.clientAddr(c)) }
 	return mgin.NewMiddleware(limiter.New(store, rate),
 		mgin.WithKeyGetter(key),
 		mgin.WithLimitReachedHandler(func(c *gin.Context) {
@@ -259,6 +260,18 @@ func (oi *oidcAuthenticator) deviceNetworkGuard() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if len(oi.deviceAllowed) == 0 {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": errDeviceLoginDisabled.Error()})
+			return
+		}
+		// A forwarding header from a hop outside TrustedProxyCIDRs means a proxy
+		// the node does not know about. The socket peer is then the proxy, and
+		// if the proxy's address is inside the allow-list every caller behind it
+		// would pass. Refuse instead.
+		if oi.clients.forwardedByUntrustedHop(c) {
+			oi.lggr.Debugf("refusing device login request forwarded by an untrusted hop path=%s peer=%s", c.FullPath(), c.Request.RemoteAddr)
+			oi.warnUntrustedForward.Do(func() {
+				oi.lggr.Warnf("refusing device login requests that carry X-Forwarded-For, X-Real-IP or Forwarded from a peer outside WebServer.OIDC.TrustedProxyCIDRs (first seen from %s); list the node's proxies in TrustedProxyCIDRs", c.Request.RemoteAddr)
+			})
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": errDeviceLoginNetwork.Error()})
 			return
 		}
 		addr := oi.clients.clientAddr(c)

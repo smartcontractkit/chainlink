@@ -135,6 +135,24 @@ func (r clientResolver) clientAddr(c *gin.Context) netip.Addr {
 	return current
 }
 
+// forwardingHeaders are the headers a proxy uses to pass on the client
+// address. A client that talks to the node directly sends none of them.
+var forwardingHeaders = []string{"X-Forwarded-For", "X-Real-IP", "Forwarded"}
+
+// forwardedByUntrustedHop reports whether the request carries a forwarding
+// header and the socket peer is not a trusted proxy. The header is not
+// believed either way; this only tells the caller a proxy it does not know
+// about may sit in front of the node.
+func (r clientResolver) forwardedByUntrustedHop(c *gin.Context) bool {
+	if c.Request == nil {
+		return false
+	}
+	if !slices.ContainsFunc(forwardingHeaders, func(h string) bool { return len(c.Request.Header.Values(h)) > 0 }) {
+		return false
+	}
+	return !prefixesContain(r.trustedProxies, parseHostAddr(c.Request.RemoteAddr))
+}
+
 // parseHostAddr accepts "ip", "ip:port" and "[ipv6]:port".
 func parseHostAddr(s string) netip.Addr {
 	if s == "" {
@@ -149,18 +167,31 @@ func parseHostAddr(s string) netip.Addr {
 	return netip.Addr{}
 }
 
-// clientBucket is the key the rate limiters and concurrency caps count
-// against. IPv6 clients are grouped by /64, the smallest block an ISP or
-// cloud normally hands out, so one allocation cannot mint fresh buckets.
+// clientBucket is the key the device-flow rate limiters and concurrency caps
+// count against. IPv6 clients are grouped by /64, the smallest block an ISP
+// or cloud normally hands out, so one allocation cannot mint fresh buckets.
 // Unresolvable clients share one bucket.
 func clientBucket(addr netip.Addr) string {
+	return bucketFor(addr, 64)
+}
+
+// signInBucket is the key for the browser sign-in limiter and the
+// oidc_pending_auth per-client cap. That route is open to the internet, and a
+// single home or cloud IPv6 allocation is often a /56 (256 /64s) or a /48, so
+// /64 buckets would let one subscriber fill the global pending-auth cap.
+// Grouping by /48 makes that take hundreds of separate allocations.
+func signInBucket(addr netip.Addr) string {
+	return bucketFor(addr, 48)
+}
+
+func bucketFor(addr netip.Addr, v6Bits int) string {
 	switch {
 	case !addr.IsValid():
 		return "unknown"
 	case addr.Is4():
 		return addr.String()
 	default:
-		return netip.PrefixFrom(addr, 64).Masked().String()
+		return netip.PrefixFrom(addr, v6Bits).Masked().String()
 	}
 }
 

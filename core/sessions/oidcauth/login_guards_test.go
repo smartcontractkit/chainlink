@@ -108,6 +108,19 @@ func TestClientBucket(t *testing.T) {
 	assert.Equal(t, "unknown", clientBucket(netip.Addr{}))
 }
 
+func TestSignInBucket(t *testing.T) {
+	t.Parallel()
+	// Every /64 in one /56 (a common home or cloud allocation) is one bucket.
+	seen := map[string]bool{}
+	for i := range 256 {
+		seen[signInBucket(netip.MustParseAddr(fmt.Sprintf("2001:db8:0:%x::1", i)))] = true
+	}
+	assert.Equal(t, map[string]bool{"2001:db8::/48": true}, seen)
+	assert.NotEqual(t, signInBucket(netip.MustParseAddr("2001:db8:1::1")), signInBucket(netip.MustParseAddr("2001:db8:2::1")))
+	assert.Equal(t, "203.0.113.1", signInBucket(netip.MustParseAddr("203.0.113.1")))
+	assert.Equal(t, "unknown", signInBucket(netip.Addr{}))
+}
+
 func TestParseCIDRs(t *testing.T) {
 	t.Parallel()
 	got, err := parseCIDRs("x", []string{"10.1.2.3/8", " 2001:db8::/32 "})
@@ -128,7 +141,7 @@ func TestHandleFingerprint(t *testing.T) {
 
 func TestDeviceNetworkGuard(t *testing.T) {
 	t.Parallel()
-	run := func(oi *oidcAuthenticator, remote, xff string) int {
+	run := func(oi *oidcAuthenticator, remote, xff string, extra ...string) int {
 		w := httptest.NewRecorder()
 		_, eng := gin.CreateTestContext(w)
 		eng.POST("/oidc-device/start", oi.deviceNetworkGuard(), func(c *gin.Context) { c.Status(http.StatusOK) })
@@ -136,6 +149,9 @@ func TestDeviceNetworkGuard(t *testing.T) {
 		req.RemoteAddr = remote
 		if xff != "" {
 			req.Header.Set("X-Forwarded-For", xff)
+		}
+		for i := 0; i+1 < len(extra); i += 2 {
+			req.Header.Set(extra[i], extra[i+1])
 		}
 		eng.ServeHTTP(w, req)
 		return w.Code
@@ -159,6 +175,20 @@ func TestDeviceNetworkGuard(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, run(on, "203.0.113.5:1", "10.8.3.3"))
 	// A malformed header from the trusted proxy is refused.
 	assert.Equal(t, http.StatusForbidden, run(on, "10.0.0.2:1", "garbage"))
+
+	// An unlisted proxy inside the allow-list: every caller behind it would
+	// look like the proxy. A forwarding header from an untrusted hop is
+	// refused, whatever it says.
+	assert.Equal(t, http.StatusForbidden, run(on, "10.8.0.9:1", "203.0.113.5"))
+	assert.Equal(t, http.StatusForbidden, run(on, "10.8.0.9:1", "10.8.3.3"))
+	assert.Equal(t, http.StatusForbidden, run(on, "10.8.0.9:1", "", "X-Real-IP", "203.0.113.5"))
+	assert.Equal(t, http.StatusForbidden, run(on, "10.8.0.9:1", "", "Forwarded", "for=203.0.113.5"))
+
+	// No trusted proxies at all, node behind an unlisted load balancer whose
+	// address is inside the allow-list.
+	open := &oidcAuthenticator{lggr: lggr, deviceAllowed: mustCIDRs(t, "10.0.0.0/16")}
+	assert.Equal(t, http.StatusForbidden, run(open, "10.0.1.5:443", "203.0.113.9"))
+	assert.Equal(t, http.StatusOK, run(open, "10.0.1.5:443", ""), "a direct caller sends no forwarding header")
 }
 
 func mustCIDRs(t *testing.T, list ...string) []netip.Prefix {

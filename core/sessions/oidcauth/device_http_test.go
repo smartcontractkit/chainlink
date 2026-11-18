@@ -3,6 +3,7 @@ package oidcauth
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -225,4 +226,21 @@ func TestSignInRoute_RateLimitedPerClient(t *testing.T) {
 	var n int
 	require.NoError(t, h.oi.ds.GetContext(t.Context(), &n, `SELECT count(*) FROM oidc_pending_auth WHERE client_key = '198.51.100.7'`))
 	assert.Equal(t, signInRateLimit, n, "refused sign-ins write nothing")
+}
+
+// TestSignInRoute_IPv6AllocationIsOneClient: rotating through the /64s of one
+// allocation does not buy extra sign-ins or pending-auth rows.
+func TestSignInRoute_IPv6AllocationIsOneClient(t *testing.T) {
+	t.Parallel()
+	h := newRouterHarness(t)
+	for i := range signInRateLimit {
+		w := h.do(http.MethodGet, "/oidc-login", fmt.Sprintf("2001:db8:0:%x::1", i), nil)
+		require.Equal(t, http.StatusFound, w.Code, "request %d", i)
+	}
+	w := h.do(http.MethodGet, "/oidc-login", "2001:db8:0:ff::1", nil)
+	assert.Equal(t, http.StatusTooManyRequests, w.Code)
+
+	var n int
+	require.NoError(t, h.oi.ds.GetContext(t.Context(), &n, `SELECT count(*) FROM oidc_pending_auth WHERE client_key = '2001:db8::/48'`))
+	assert.Equal(t, signInRateLimit, n)
 }

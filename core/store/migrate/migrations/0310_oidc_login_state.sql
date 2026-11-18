@@ -1,8 +1,9 @@
 -- +goose Up
 -- Short-lived login state shared by every replica. The provider device code
 -- is not stored here. Only the opaque handle and the browser state key are.
--- client_key and ip_bucket are the rate-limit bucket for the caller (an IPv4
--- address or an IPv6 /64), used by the per-client caps.
+-- client_key and ip_bucket are the rate-limit bucket for the caller, used by
+-- the per-client caps: an IPv4 address, or an IPv6 /48 for browser sign-in
+-- (client_key) and an IPv6 /64 for the device flow (ip_bucket).
 CREATE TABLE IF NOT EXISTS oidc_pending_auth (
     state text PRIMARY KEY,
     verifier text NOT NULL,

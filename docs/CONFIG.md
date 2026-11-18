@@ -668,7 +668,9 @@ DeviceFlowAllowedCIDRs = [] # Default
 ```
 DeviceFlowAllowedCIDRs lists the client networks, such as an operator VPN or bastion range, that may use the CLI device login
 (`/oidc-device/start` and `/oidc-device/poll`). Requests from any other address get 403. Empty turns the CLI device login off.
-Browser login is not affected. The client address is resolved through TrustedProxyCIDRs.
+Browser login is not affected. The client address is resolved through TrustedProxyCIDRs. A device login request that carries
+`X-Forwarded-For`, `X-Real-IP` or `Forwarded` from a peer outside TrustedProxyCIDRs is refused, so a proxy left out of that list
+cannot pass its own address off as the client. Do not list the address of a proxy that adds none of those headers.
 
 ### TrustedProxyCIDRs
 ```toml
