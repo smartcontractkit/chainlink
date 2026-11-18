@@ -12,7 +12,7 @@ import (
 )
 
 // SessionRequest encapsulates the fields needed to generate a new SessionID,
-// including the hashed password.
+// including the hashed password..
 type SessionRequest struct {
 	Email          string `json:"email"`
 	Password       string `json:"password"`
