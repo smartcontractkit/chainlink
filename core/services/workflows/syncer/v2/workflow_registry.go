@@ -1356,6 +1356,10 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 						"err", err)
 					continue
 				}
+				logger.Sugared(w.lggr).Criticalw("getActiveAllowlistedRequestsReverse still exceeds RPC gas cap at minimum page size, cannot reduce further: allowlisted requests are not being synced until the RPC gas cap is raised",
+					"pageSize", pageSize,
+					"endIndex", endIndex,
+					"err", err)
 			}
 			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, w.lastSeenAllowlistedRequestsCount, &types.Head{Height: "0"}, errors.New("failed to get latest value with head data. error: " + err.Error())
 		}

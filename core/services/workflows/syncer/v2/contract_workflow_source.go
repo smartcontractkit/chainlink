@@ -112,6 +112,11 @@ func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don c
 							"err", err)
 						continue
 					}
+					logger.Sugared(c.lggr).Criticalw("getWorkflowListByDON still exceeds RPC gas cap at minimum page size, cannot reduce further: workflow source is unavailable until the RPC gas cap is raised",
+						"donFamily", family,
+						"pageSize", pageSize,
+						"start", params.Start.String(),
+						"err", err)
 				}
 				return []WorkflowMetadataView{}, &commontypes.Head{Height: "0"}, fmt.Errorf("failed to get latest value with head data: %w", err)
 			}
