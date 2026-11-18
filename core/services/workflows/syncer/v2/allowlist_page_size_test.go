@@ -60,7 +60,7 @@ func (m *gasCappedAllowlistReader) GetLatestValueWithHeadData(
 func TestGetAllowlistedRequests_AdaptivePageSize(t *testing.T) {
 	t.Parallel()
 
-	var reqs []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
+	reqs := make([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, 0, 700)
 	for i := range 700 {
 		reqs = append(reqs, workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
 			RequestDigest:   [32]byte{byte(i), byte(i >> 8)},

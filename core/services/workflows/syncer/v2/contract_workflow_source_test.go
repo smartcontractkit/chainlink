@@ -440,7 +440,7 @@ func newPagedTestSource(t *testing.T, reader commontypes.ContractReader) *Contra
 func TestContractWorkflowSource_ListWorkflowMetadata_AdaptivePageSize(t *testing.T) {
 	t.Parallel()
 
-	var list []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView
+	list := make([]workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, 0, 700)
 	for i := range 700 {
 		list = append(list, createTestWorkflowMetadata(fmt.Sprintf("wf-%d", i), "family-a"))
 	}
@@ -493,7 +493,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_PageSizeFromSettings(t *tes
 	getter, err := settings.NewJSONGetter([]byte(`{"global":{"WorkflowRegistryMaxResultsPerQuery":"50"}}`))
 	require.NoError(t, err)
 
-	var list []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView
+	list := make([]workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, 0, 120)
 	for i := range 120 {
 		list = append(list, createTestWorkflowMetadata(fmt.Sprintf("wf-%d", i), "family-a"))
 	}
