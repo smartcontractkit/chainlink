@@ -2,6 +2,7 @@ package queue
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -36,14 +37,22 @@ type consensusQueuePluginFactory struct {
 	lggr               logger.Logger
 	cfg                *PluginConfig
 	triggerCoordinator triggers.Coordinator
+	triggerQueue       triggers.Queue
 	expirationDur      func(context.Context) (time.Duration, error)
 }
 
-func NewConsensusQueuePluginFactory(lggr logger.Logger, cfg *PluginConfig, limitsFactory limits.Factory, triggerCoordinator triggers.Coordinator) (ocr3_1types.ReportingPluginFactory[[]byte], error) {
+func NewConsensusQueuePluginFactory(
+	lggr logger.Logger,
+	cfg *PluginConfig,
+	limitsFactory limits.Factory,
+	triggerCoordinator triggers.Coordinator,
+	triggerQueue triggers.Queue,
+) (ocr3_1types.ReportingPluginFactory[[]byte], error) {
 	return &consensusQueuePluginFactory{
 		lggr:               lggr,
 		cfg:                cfg,
 		triggerCoordinator: triggerCoordinator,
+		triggerQueue:       triggerQueue,
 		expirationDur: func(ctx context.Context) (time.Duration, error) {
 			//TODO also allow this grace period in the trigger coordinator
 			return cresettings.Default.ConsensusQueueExpirationInterval.GetOrDefault(ctx, limitsFactory.Settings)
@@ -52,7 +61,7 @@ func NewConsensusQueuePluginFactory(lggr logger.Logger, cfg *PluginConfig, limit
 }
 
 func (c *consensusQueuePluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, blobs ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
-	plugin := newConsensusQueuePlugin(c.lggr, config, c.triggerCoordinator, c.expirationDur, blobs)
+	plugin := newConsensusQueuePlugin(c.lggr, config, c.triggerCoordinator, c.triggerQueue, c.expirationDur, blobs)
 	pluginInfo := ocr3_1types.ReportingPluginInfo1{
 		Name:   "ConsensusQueueReportingPlugin",
 		Limits: c.cfg.Limits,
@@ -69,19 +78,22 @@ type consensusQueuePlugin struct {
 	onchainCfg                          ocr3types.ReportingPluginConfig
 	blobHandleMarshalledBytesUpperBound int
 	triggerCoordinator                  triggers.Coordinator
+	triggerQueue                        triggers.Queue
 	blobBroadcastFetcher                ocr3_1types.BlobBroadcastFetcher
 	expirationDur                       func(context.Context) (time.Duration, error)
 }
 
 func newConsensusQueuePlugin(
 	lggr logger.Logger, onchainCfg ocr3types.ReportingPluginConfig, triggerCoordinator triggers.Coordinator,
-	expirationGraceDur func(context.Context) (time.Duration, error), blobs ocr3_1types.BlobBroadcastFetcher,
+	triggerQueue triggers.Queue, expirationGraceDur func(context.Context) (time.Duration, error),
+	blobs ocr3_1types.BlobBroadcastFetcher,
 ) *consensusQueuePlugin {
 	c := &consensusQueuePlugin{
 		lggr:                                logger.Named(lggr, "ConsensusQueuePlugin"),
 		onchainCfg:                          onchainCfg,
 		blobHandleMarshalledBytesUpperBound: ocr3_1types.BlobHandleMarshalledBytesUpperBound(onchainCfg.F, onchainCfg.N),
 		triggerCoordinator:                  triggerCoordinator,
+		triggerQueue:                        triggerQueue,
 		blobBroadcastFetcher:                blobs,
 		expirationDur:                       expirationGraceDur,
 	}
@@ -126,19 +138,18 @@ func (c *consensusQueuePlugin) Observation(
 		obs.WorkflowCapacities[wf] = uint32(min(wfCap, math.MaxUint32))
 	}
 
-	var events iter.Seq[*triggers.CoordinatedEvent]
-	//TODO events iter from triggerCoordinator, to be acked later during StateTransition
-
 	observedEvents, _, err := readObservedEvents(kvReader)
 	if err != nil {
 		return nil, err
 	}
 
 	protoOpts := proto.MarshalOptions{Deterministic: true}
-	var coordEvents []*pb.CoordinatedEvent
-	for coord := range toProtoSeq(events) {
-		// Try adding to batch
 
+	// Assemble an observation up to maxObservationBytes
+	var coordEvents []*pb.CoordinatedEvent
+	for coord := range toProtoSeq(c.triggerQueue.SortedFunc(func(a, b triggers.CoordinatedEvent) int {
+		return cmp.Or(a.Deadline.Compare(b.Deadline), cmp.Compare(a.Event.Event.ID, b.Event.Event.ID))
+	})) {
 		observedAt, deadline := coord.ObservedAt, coord.Deadline
 		coord.ObservedAt, coord.Deadline = nil, nil  // for consistent hashing
 		protoBytes, err2 := protoOpts.Marshal(coord) // TODO opt: avoid remarshalling
@@ -216,7 +227,7 @@ func (c *consensusQueuePlugin) Observation(
 	return protoOpts.Marshal(obs)
 }
 
-func toProtoSeq(in iter.Seq[*triggers.CoordinatedEvent]) iter.Seq[*pb.CoordinatedEvent] {
+func toProtoSeq(in iter.Seq[triggers.CoordinatedEvent]) iter.Seq[*pb.CoordinatedEvent] {
 	return func(yield func(*pb.CoordinatedEvent) bool) {
 		for event := range in {
 			if !yield(event.ToProto()) {
@@ -362,9 +373,9 @@ func (c *consensusQueuePlugin) StateTransition(
 
 	// update state
 	state.pruneExpiredObservations(obs.medianExpiration)
-	//TODO must not promote to PQ and ack until we are sure we can write the kv
-	state.addObservedEvents(c.onchainCfg.F, obs.newObservedEvents, obs.observedBlobs, func(queued *pb.ConsensusQueueEvent) {
-		//TODO ack the trigger coordinator - no longer need to observe this event
+	var queuedTriggerEventIDs []string // to be removed from the trigger.Queue
+	state.addObservedEvents(c.onchainCfg.F, obs.newObservedEvents, obs.observedBlobs, func(event *pb.ConsensusQueueEvent) {
+		queuedTriggerEventIDs = append(queuedTriggerEventIDs, event.TriggerEventID)
 	})
 	state.consensusEvents = state.queuedEvents.popLimited(obs.medianCap, obs.medianCapPerWF, obs.medianExpiration)
 
@@ -372,12 +383,14 @@ func (c *consensusQueuePlugin) StateTransition(
 	for state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes {
 		//TODO drop observations (must be deterministic, fair, efficient)
 		// prefer farthest future deadlines and fewest observations
+		//TODO use sorted state.observedEventEntries
 	}
 
 	err = state.writeTo(&stateWriter{kv: kvReaderWriter})
 	if err != nil {
 		return nil, err
 	}
+	c.triggerQueue.Remove(ctx, queuedTriggerEventIDs)
 
 	// no report to return, executions start when committed
 	return nil, nil
@@ -436,6 +449,7 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 	return
 }
 
+// addEvent adds the observed event to the observation set, either merging it into an existing event or creating a new one.
 func (res *observations) addEvent(obs commontypes.OracleID, event *pb.ConsensusQueueEvent, blobHandles [][]byte) {
 	res.observedBlobs.add(string(event.TimelessHash), string(blobHandles[event.Blobs[0].Blob]), event.Blobs[0].Element)
 	aggregated, ok := res.newObservedEvents[string(event.TimelessHash)]
@@ -518,7 +532,7 @@ func (c *consensusQueuePlugin) tryStartExecution(ctx context.Context, fetcher *b
 		return fmt.Errorf("failed to convert CoordinatedEvent from proto: %w", err)
 	}
 
-	// TODO c.triggerCoordinator.tryStartExecution(ctx, event)
+	// TODO c.triggerCoordinator.Deliver(ctx, event)
 
 	// only log metadata, not outputs and payload
 	event.Event.Event.Outputs = nil

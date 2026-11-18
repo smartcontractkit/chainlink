@@ -137,6 +137,8 @@ type Services struct {
 
 	TriggerCoordinator triggers.Coordinator
 
+	TriggerQueue triggers.Queue
+
 	OrgResolver orgresolver.OrgResolver
 
 	OCRConfigService capregconfig.OCRConfigService
@@ -299,7 +301,7 @@ func (s *Services) newSubservices(
 		wfSyncerLggr.Infof("failed to create billing client: %s", err)
 	}
 
-	wfSyncer, triggerCoordinator, wfSyncerSrvcs, err := newWorkflowRegistrySyncerV2(
+	wfSyncer, triggerCoordinator, triggerQueue, wfSyncerSrvcs, err := newWorkflowRegistrySyncerV2(
 		cfg,
 		relayerChainInterops,
 		billingClient,
@@ -323,6 +325,7 @@ func (s *Services) newSubservices(
 	s.BillingClient = billingClient
 	s.WorkflowRegistrySyncer = wfSyncer
 	s.TriggerCoordinator = triggerCoordinator
+	s.TriggerQueue = triggerQueue
 	srvs = append(srvs, wfSyncerSrvcs...)
 
 	return srvs, nil
@@ -803,14 +806,14 @@ func newWorkflowRegistrySyncerV2(
 	meterIdentity resourcemanager.ResourceIdentity,
 	dispatcher remotetypes.Dispatcher,
 	shardIndexMapper *shardownership.ShardIndexMapper,
-) (syncerV2.WorkflowRegistrySyncer, triggers.Coordinator, []commonsrv.Service, error) {
+) (syncerV2.WorkflowRegistrySyncer, triggers.Coordinator, triggers.Queue, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 	wfReg := capCfg.WorkflowRegistry()
 	key := opts.WorkflowKey
 
 	fetcherFunc, retrieverFunc, srvcs, err := newFetcherServiceV2(opts, capCfg, lggr, gatewayConnectorWrapper)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	artifactsStore, err := artifactsV2.NewStore(
@@ -827,29 +830,29 @@ func newWorkflowRegistrySyncerV2(
 		}),
 	)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to create artifact store: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to create artifact store: %w", err)
 	}
 
 	engineRegistry := syncerV2.NewEngineRegistry()
 
 	engineLimiters, err := v2.NewLimiters(lf, nil)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
 	}
 
 	featureFlags, err := v2.NewFeatureFlags(lf, nil)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("could not instantiate engine feature flags: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("could not instantiate engine feature flags: %w", err)
 	}
 
 	selector, err := chainSelector(wfReg.ChainID(), wfReg.NetworkID())
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to instantiate contract reader factory: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to instantiate contract reader factory: %w", err)
 	}
 
 	var shardOrchestratorClient shardorchestrator.ClientInterface
@@ -858,7 +861,7 @@ func newWorkflowRegistrySyncerV2(
 	} else {
 		c, clientErr := newShardOrchestratorClient(cfg, lggr)
 		if clientErr != nil {
-			return nil, nil, nil, clientErr
+			return nil, nil, nil, nil, clientErr
 		}
 		if c != nil {
 			shardOrchestratorClient = c
@@ -905,15 +908,15 @@ func newWorkflowRegistrySyncerV2(
 
 	coordinatorMetrics, err := wfmonitoring.InitMonitoringResources()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to init trigger coordinator metrics: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to init trigger coordinator metrics: %w", err)
 	}
 	centralQueueMetrics, err := wfmonitoring.InitCentralTriggerQueueMetrics()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to init central trigger queue metrics: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to init central trigger queue metrics: %w", err)
 	}
 	drainerMetrics, err := wfmonitoring.InitTriggerDrainerMetrics()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to init central trigger queue drainer metrics: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to init central trigger queue drainer metrics: %w", err)
 	}
 	coordinatorClock := clockwork.NewRealClock()
 
@@ -974,7 +977,7 @@ func newWorkflowRegistrySyncerV2(
 		})
 		specMeter, smErr := syncerV2.NewSpecMeter(lggr, rm, meterIdentity, artifactsStore, orgResolver)
 		if smErr != nil {
-			return nil, nil, nil, fmt.Errorf("unable to create workflow spec meter: %w", smErr)
+			return nil, nil, nil, nil, fmt.Errorf("unable to create workflow spec meter: %w", smErr)
 		}
 		handlerOpts = append(handlerOpts, syncerV2.WithSpecMeter(specMeter))
 	}
@@ -995,7 +998,7 @@ func newWorkflowRegistrySyncerV2(
 	if diskMonitorEnabled {
 		fileStore, fsErr := artifactsV2.NewFileModuleStore(mc.CacheDir(), cacheEnabled)
 		if fsErr != nil {
-			return nil, nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
+			return nil, nil, nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
 		}
 
 		dm, dmErr := syncerV2.NewWorkflowModuleCacheDiskMonitor(
@@ -1004,7 +1007,7 @@ func newWorkflowRegistrySyncerV2(
 			syncerV2.WorkflowModuleCacheDiskMonitorTickInterval,
 		)
 		if dmErr != nil {
-			return nil, nil, nil, fmt.Errorf("unable to create module cache disk monitor: %w", dmErr)
+			return nil, nil, nil, nil, fmt.Errorf("unable to create module cache disk monitor: %w", dmErr)
 		}
 		srvcs = append(srvcs, dm)
 
@@ -1013,7 +1016,7 @@ func newWorkflowRegistrySyncerV2(
 		if cacheEnabled {
 			cm, cmErr := syncerV2.NewCacheMetrics()
 			if cmErr != nil {
-				return nil, nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
+				return nil, nil, nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
 			}
 
 			var idleTimeout time.Duration
@@ -1063,7 +1066,7 @@ func newWorkflowRegistrySyncerV2(
 		handlerOpts...,
 	)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
 	}
 
 	addSources := wfReg.AdditionalSources()
@@ -1116,12 +1119,12 @@ func newWorkflowRegistrySyncerV2(
 		registryOpts...,
 	)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
 	}
 
 	srvcs = append(srvcs, workflowRegistrySyncerV2)
 	lggr.Debugw("Created WorkflowRegistrySyncer V2")
-	return workflowRegistrySyncerV2, triggerCoordinator, srvcs, nil
+	return workflowRegistrySyncerV2, triggerCoordinator, centralQueue, srvcs, nil
 }
 
 // NewServices creates and initializes all CRE services

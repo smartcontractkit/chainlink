@@ -83,6 +83,8 @@ type Coordinator interface {
 	// Returns ErrCapacityNotSupported if the shared ExecutionConcurrency
 	// limiter does not break down by scope.
 	AvailableCapacity(ctx context.Context) (Capacity, error)
+
+	//TODO Deliver(context.Context, CoordinatedEvent
 }
 
 // RegisteredEngine is what EngineRegistry.Get returns: a sink the coordinator

@@ -160,6 +160,7 @@ type Delegate struct {
 	limitsFactory                  limits.Factory
 	ocrConfigService               capregconfig.OCRConfigService
 	triggerCoordinator             triggers.Coordinator
+	triggerQueue                   triggers.Queue
 
 	// Registry-driven launch support: when the delegate is used via
 	// LocalCapabilityManager (no job spec), these fields provide the
@@ -314,6 +315,7 @@ type DelegateOpts struct {
 	LimitsFactory                  limits.Factory
 	OCRConfigService               capregconfig.OCRConfigService
 	TriggerCoordinator             triggers.Coordinator
+	TriggerQueue                   triggers.Queue
 
 	// Registry-driven launch support: defaults for capabilities launched
 	// via LocalCapabilityManager (no job spec).
@@ -364,6 +366,7 @@ func NewDelegate(
 		limitsFactory:                  opts.LimitsFactory,
 		ocrConfigService:               opts.OCRConfigService,
 		triggerCoordinator:             opts.TriggerCoordinator,
+		triggerQueue:                   opts.TriggerQueue,
 		defaultBootstrappers:           opts.DefaultBootstrappers,
 		capRegistryAddress:             opts.CapRegistryAddress,
 		capRegistryChainID:             opts.CapRegistryChainID,
@@ -912,7 +915,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
-	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, cfg, d.limitsFactory, d.triggerCoordinator)
+	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, cfg, d.limitsFactory, d.triggerCoordinator, d.triggerQueue)
 	if err != nil {
 		return nil, err
 	}

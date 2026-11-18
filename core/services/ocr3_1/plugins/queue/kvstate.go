@@ -28,10 +28,6 @@ const (
 	blobHandlesKey = "blob_handles::index" // pb.ConsensusQueueBlobHandleList{ [][]byte }
 )
 
-type stateReader struct {
-	kv ocr3_1types.KeyValueStateReader
-}
-
 type stateWriter struct {
 	kv ocr3_1types.KeyValueStateReadWriter
 }
@@ -243,6 +239,7 @@ func (s *kvState) prepareWrite() {
 	s.observedBlobHandles = nil
 	observedBlobIndexes := make(map[string]int)
 	s.observedEventEntries = nil
+	//TODO deadline order so that we can drop efficiently
 	for _, eventHash := range slices.Sorted(maps.Keys(s.observedEvents)) {
 		event := s.observedEvents[eventHash]
 		event.Blobs = nil // replace all

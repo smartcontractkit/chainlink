@@ -1,9 +1,12 @@
 package triggers
 
 import (
+	"container/heap"
 	"context"
 	"errors"
+	"iter"
 	"maps"
+	"slices"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -29,6 +32,13 @@ type Queue interface {
 
 	// Stats reports current length, capacity, and cumulative drops.
 	Stats(context.Context) (Stats, error)
+
+	// SortedFunc returns an iterator over all events sorted with cmp.
+	// It does not drain the queue. Events remain but can be removed via Remove.
+	SortedFunc(cmp func(a, b CoordinatedEvent) int) iter.Seq[CoordinatedEvent]
+
+	// Remove removes events from the queue.
+	Remove(ctx context.Context, triggerEventIDs []string)
 }
 
 // Stats is a point-in-time view of a Queue.
@@ -111,6 +121,79 @@ func (q *CentralQueue) Drain(ctx context.Context) ([]CoordinatedEvent, error) {
 	q.metrics.RecordDepth(ctx, 0)
 	q.metrics.RecordCapacity(ctx, q.effectiveCapacity(capacity))
 	return events, nil
+}
+
+func (q *CentralQueue) Remove(ctx context.Context, triggerEventIDs []string) {
+	triggerEventIDSet := map[string]struct{}{}
+	for _, triggerEventID := range triggerEventIDs {
+		triggerEventIDSet[triggerEventID] = struct{}{}
+	}
+
+	capacity := q.capacity(ctx)
+
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	var deleted int
+	q.events = slices.DeleteFunc(q.events, func(e CoordinatedEvent) bool {
+		_, ok := triggerEventIDSet[e.Event.Event.ID]
+		if ok {
+			deleted++
+			q.depthByWorkflow[e.WorkflowID]--
+			q.depthByTriggerType[e.TriggerCapID]--
+		}
+		return ok
+	})
+	q.metrics.IncrementDrainedEventsCounter(ctx, deleted)
+	q.metrics.RecordDepth(ctx, len(q.events))
+	q.metrics.RecordCapacity(ctx, q.effectiveCapacity(capacity))
+	return
+}
+
+// SortedFunc returns an iterator over all events sorted by cmp.
+func (q *CentralQueue) SortedFunc(cmp func(a, b CoordinatedEvent) int) iter.Seq[CoordinatedEvent] {
+	q.mu.Lock()
+	events := slices.Clone(q.events)
+	q.mu.Unlock()
+
+	eventHeap := &coordinatedEventHeap{events: events, cmp: cmp}
+	heap.Init(eventHeap)
+
+	return func(yield func(CoordinatedEvent) bool) {
+		for eventHeap.Len() > 0 {
+			if !yield(eventHeap.events[0]) {
+				return
+			}
+			heap.Pop(eventHeap)
+		}
+	}
+}
+
+type coordinatedEventHeap struct {
+	events []CoordinatedEvent
+	cmp    func(a, b CoordinatedEvent) int
+}
+
+func (c *coordinatedEventHeap) Len() int {
+	return len(c.events)
+}
+
+func (c *coordinatedEventHeap) Less(i, j int) bool {
+	return c.cmp(c.events[i], c.events[j]) < 0
+}
+
+func (c *coordinatedEventHeap) Swap(i, j int) {
+	c.events[i], c.events[j] = c.events[j], c.events[i]
+}
+
+func (c *coordinatedEventHeap) Push(x any) {
+	c.events = append(c.events, x.(CoordinatedEvent))
+}
+
+func (c *coordinatedEventHeap) Pop() any {
+	e := c.events[len(c.events)-1]
+	c.events = c.events[:len(c.events)-1]
+	return e
 }
 
 // Stats returns copies of the queue's maps, so callers may keep or change them.
