@@ -42,7 +42,7 @@ func (s *stateWriter) writeValue[M proto.Message](key string, m M) error {
 
 var _ heap.Interface = (*priorityQueue)(nil)
 
-// priorityQueue is a heap of coordinated events, ordered by deadline and then event ID.
+// priorityQueue is a heap of coordinated events, ordered by deadline and then trigger event ID.
 type priorityQueue []*pb.ConsensusQueueEvent
 
 func (p *priorityQueue) Len() int { return len(*p) }

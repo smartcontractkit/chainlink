@@ -1,3 +1,9 @@
+// Package queue contains the consensus queue OCR 3.1 reporting plugin, for coordinating execution of triggered events.
+// Each node has a local [triggers.Queue] of [triggers.CoordinatedEvent], which are observed (and broadcast) by the plugin.
+// When consensus is reached, events are put in to the KeyValueState priority queue (and removed from the [triggers.Queue]).
+// The priority queue is ordered by deadline (with nanosecond precision) and then by trigger event ID.
+// Each round, as many events as possible are popped from the priority queue and then (fetched and) executed via [triggers.Coordinator.Deliver].
+// Capacity, both overall and per-workflow, limits what may execute. Capacities are observed and medianized.
 package queue
 
 import (

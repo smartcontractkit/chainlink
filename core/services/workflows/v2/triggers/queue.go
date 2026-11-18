@@ -141,6 +141,7 @@ func (q *CentralQueue) Remove(ctx context.Context, triggerEventIDs []string) {
 			deleted++
 			q.depthByWorkflow[e.WorkflowID]--
 			q.depthByTriggerType[e.TriggerCapID]--
+			//TODO emit metric for time.Since(e.ObservedAt)
 		}
 		return ok
 	})
