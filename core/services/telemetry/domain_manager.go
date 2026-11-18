@@ -81,11 +81,11 @@ const (
 	errorCodeEventBuild   = "event_build"
 )
 
-var _ MonitoringEndpointGenerator = (*DomainManager)(nil)
+var _ Manager = (*DomainManager)(nil)
 
-// DomainManager is a MonitoringEndpointGenerator that sends telemetry through Beholder's
-// per-domain emitters. Each supported telemetry type maps to a domain; endpoints bind their
-// route when created, so sending does no lookups. Network and chain only describe the event:
+// DomainManager is the Manager that sends telemetry through Beholder's per-domain
+// emitters. Each supported telemetry type maps to a domain; endpoints bind their route
+// when created, so sending does no lookups. Network and chain only describe the event:
 // nothing is configured or routed per network.
 type DomainManager struct {
 	services.Service

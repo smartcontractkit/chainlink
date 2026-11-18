@@ -41,7 +41,7 @@ func TestNewTelemetryManager(t *testing.T) {
 		t.Parallel()
 		m, err := newTelemetryManager(telemetryIngress(t, false).TelemetryIngress(), nil, ksmocks.NewCSA(t), "abc123", lggr)
 		require.NoError(t, err)
-		assert.IsType(t, &telemetry.Manager{}, m)
+		assert.IsType(t, &telemetry.WSRPCManager{}, m)
 	})
 	t.Run("flag on without a Beholder client: an error, not a panic", func(t *testing.T) {
 		t.Parallel()
