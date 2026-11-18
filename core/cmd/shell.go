@@ -180,6 +180,7 @@ func newBeholderClient(
 		MetricViews:               metricViews(),
 		MetricViewsDenyAttributes: cfgTelemetry.MetricViewsDenyAttributes(),
 		MetricCardinalityLimit:    cfgTelemetry.MetricCardinalityLimit(),
+		MetricExportBatchSize:     cfgTelemetry.MetricExportBatchSize(),
 	}
 
 	if cfgTracing.Enabled() {
