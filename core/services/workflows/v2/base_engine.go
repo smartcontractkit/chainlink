@@ -1178,13 +1178,13 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, t
 	// The routed runner's declared identity, else the default compute identity.
 	identity := e.usageIdentity
 	if router, ok := e.cfg.Module.(workflowhost.UsageRouter); ok {
-		runner, found := router.UsageRunnerForTrigger(triggerIndex)
+		usageIdentity, found := router.UsageIdentityForTrigger(triggerIndex)
 		if !found {
 			// Trigger events only flow after Subscribe, so this should be
 			// unreachable; a miss would mislabel the record as ordinary compute.
 			lggr.Errorw("Execution's trigger has no routed runner; metering as ordinary compute", "triggerIndex", triggerIndex)
-		} else if runner.UsageIdentity != nil {
-			identity = *runner.UsageIdentity
+		} else if usageIdentity != nil {
+			identity = *usageIdentity
 		}
 	}
 	if node := e.localNode.Load(); node != nil {
