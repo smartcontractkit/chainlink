@@ -51,10 +51,6 @@ var (
 	TotalAllowlistedRequestsMethodName            = "totalAllowlistedRequests"
 
 	defaultTickIntervalForAllowlistedRequests = 5 * time.Second
-
-	// MaxResultsPerQuery defines the maximum number of results that can be queried in a single request.
-	// The default value of 1,000 was chosen based on expected system performance and typical use cases.
-	MaxResultsPerQuery = int64(1_000)
 )
 
 // WorkflowRegistrySyncer is the public interface of the package.
@@ -132,6 +128,10 @@ type workflowRegistry struct {
 
 	centralizedOwnerVerificationEnabled limits.GateLimiter
 	settingsGetter                      settings.Getter
+
+	// allowlistPageSizer picks the getActiveAllowlistedRequestsReverse page size (a cresettings
+	// limit) and shrinks it when the RPC node rejects a page for exceeding its eth_call gas cap.
+	allowlistPageSizer registryPageSizer
 }
 
 type shardRoutingSteadyObserver interface {
@@ -380,6 +380,14 @@ func NewWorkflowRegistry(
 
 	for _, opt := range opts {
 		opt(wr)
+	}
+
+	// Page sizes come from the cresettings limit; hand the getter to everything that pages reads.
+	wr.allowlistPageSizer.setGetter(wr.settingsGetter)
+	for _, src := range wr.workflowSources {
+		if cs, ok := src.(*ContractWorkflowSource); ok {
+			cs.SetSettingsGetter(wr.settingsGetter)
+		}
 	}
 
 	lggr.Infow("Initialized workflow registry with multi-source support",
@@ -1315,8 +1323,10 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 			err                 error
 		}
 
-		// Start index should be no more than MaxResultsPerQuery away from end index
-		startIndex = new(big.Int).Sub(endIndex, big.NewInt(MaxResultsPerQuery-1))
+		pageSize := w.allowlistPageSizer.current(ctx, w.lggr)
+
+		// Start index should be no more than pageSize-1 away from end index
+		startIndex = new(big.Int).Sub(endIndex, big.NewInt(pageSize-1))
 		// If start index is less than last seen allowlisted requests count, set it to last seen allowlisted requests
 		// count to avoid duplicate requests
 		if startIndex.Cmp(w.lastSeenAllowlistedRequestsCount) < 0 {
@@ -1335,6 +1345,18 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 			ctx, readIdentifier, primitives.Unconfirmed, params, &response,
 		)
 		if err != nil {
+			if isGasError(err) {
+				// The page needs more gas than the RPC node's eth_call cap allows: halve it and retry
+				// the same range. endIndex is unchanged so no requests are skipped.
+				if newSize, ok := w.allowlistPageSizer.shrink(pageSize); ok {
+					w.lggr.Warnw("getActiveAllowlistedRequestsReverse exceeded RPC gas cap, reducing page size",
+						"previousPageSize", pageSize,
+						"newPageSize", newSize,
+						"endIndex", endIndex,
+						"err", err)
+					continue
+				}
+			}
 			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, w.lastSeenAllowlistedRequestsCount, &types.Head{Height: "0"}, errors.New("failed to get latest value with head data. error: " + err.Error())
 		}
 
@@ -1359,9 +1381,9 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 			break
 		}
 
-		// If search is not complete, set the end index to the start index minus MaxResultsPerQuery
+		// If search is not complete, set the end index to the start index minus pageSize
 		// to continue fetching the next batch of allowlisted requests
-		endIndex = endIndex.Sub(endIndex, big.NewInt(MaxResultsPerQuery))
+		endIndex = endIndex.Sub(endIndex, big.NewInt(pageSize))
 		// Ensure endIndex doesn't go below zero
 		if endIndex.Cmp(big.NewInt(0)) < 0 {
 			endIndex = big.NewInt(0)

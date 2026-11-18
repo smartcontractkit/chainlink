@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
@@ -32,6 +33,10 @@ type ContractWorkflowSource struct {
 	contractReaderFn        versioning.ContractReaderFactory
 	contractReader          commontypes.ContractReader
 	mu                      sync.RWMutex
+
+	// pageSizer picks the getWorkflowListByDON page size (a cresettings limit) and shrinks it
+	// when the RPC node rejects a page for exceeding its eth_call gas cap.
+	pageSizer registryPageSizer
 }
 
 // NewContractWorkflowSource creates a new contract-based workflow source.
@@ -48,6 +53,12 @@ func NewContractWorkflowSource(
 		workflowRegistryAddress: workflowRegistryAddress,
 		chainSelector:           chainSelector,
 	}
+}
+
+// SetSettingsGetter sets the getter used to read the WorkflowRegistryMaxResultsPerQuery limit.
+// Without one, the cresettings default is used.
+func (c *ContractWorkflowSource) SetSettingsGetter(g settings.Getter) {
+	c.pageSizer.setGetter(g)
 }
 
 // ListWorkflowMetadata fetches workflow metadata from the on-chain contract.
@@ -76,10 +87,12 @@ func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don c
 		params := GetWorkflowListByDONParams{
 			DonFamily: family,
 			Start:     big.NewInt(0),
-			Limit:     big.NewInt(MaxResultsPerQuery),
 		}
 
 		for {
+			pageSize := c.pageSizer.current(ctx, c.lggr)
+			params.Limit = big.NewInt(pageSize)
+
 			var err error
 			var workflows struct {
 				List []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView
@@ -87,6 +100,19 @@ func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don c
 
 			headAtLastRead, err = reader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Finalized, params, &workflows)
 			if err != nil {
+				if isGasError(err) {
+					// The page needs more gas than the RPC node's eth_call cap allows: halve it and
+					// retry the same page. Start is unchanged so no workflows are skipped.
+					if newSize, ok := c.pageSizer.shrink(pageSize); ok {
+						c.lggr.Warnw("getWorkflowListByDON exceeded RPC gas cap, reducing page size",
+							"donFamily", family,
+							"previousPageSize", pageSize,
+							"newPageSize", newSize,
+							"start", params.Start.String(),
+							"err", err)
+						continue
+					}
+				}
 				return []WorkflowMetadataView{}, &commontypes.Head{Height: "0"}, fmt.Errorf("failed to get latest value with head data: %w", err)
 			}
 
@@ -123,7 +149,7 @@ func (c *ContractWorkflowSource) ListWorkflowMetadata(ctx context.Context, don c
 			}
 
 			// if less workflows than limit, then we have reached the end of the list
-			if int64(len(workflows.List)) < MaxResultsPerQuery {
+			if int64(len(workflows.List)) < pageSize {
 				break
 			}
 

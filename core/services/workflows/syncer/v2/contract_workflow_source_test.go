@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -387,4 +389,151 @@ func TestContractWorkflowSource_Name(t *testing.T) {
 	)
 
 	assert.Equal(t, ContractWorkflowSourceName, source.Name())
+}
+
+// pagedWorkflowContractReader serves workflowList honoring the Start/Limit params, and fails any
+// call whose Limit exceeds maxLimit with a gas-cap error, like an RPC node with a low eth_call cap.
+type pagedWorkflowContractReader struct {
+	commontypes.ContractReader
+	workflowList []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView
+	maxLimit     int64
+	err          error
+	limits       []int64
+}
+
+func (m *pagedWorkflowContractReader) GetLatestValueWithHeadData(
+	_ context.Context,
+	_ string,
+	_ primitives.ConfidenceLevel,
+	params any,
+	result any,
+) (*commontypes.Head, error) {
+	p := params.(GetWorkflowListByDONParams)
+	m.limits = append(m.limits, p.Limit.Int64())
+	if m.err != nil {
+		return nil, m.err
+	}
+	if p.Limit.Int64() > m.maxLimit {
+		return nil, errors.New("out of gas: gas required exceeds 16777216")
+	}
+	start := int(p.Start.Int64())
+	end := min(start+int(p.Limit.Int64()), len(m.workflowList))
+	var page []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView
+	if start < len(m.workflowList) {
+		page = m.workflowList[start:end]
+	}
+	reflect.ValueOf(result).Elem().FieldByName("List").Set(reflect.ValueOf(page))
+	return &commontypes.Head{Height: "100"}, nil
+}
+
+func newPagedTestSource(t *testing.T, reader commontypes.ContractReader) *ContractWorkflowSource {
+	source := NewContractWorkflowSource(
+		logger.TestLogger(t),
+		func(_ context.Context, _ []byte) (commontypes.ContractReader, error) { return reader, nil },
+		testOwnerAddress,
+		"test-chain-selector",
+	)
+	source.contractReader = reader
+	return source
+}
+
+func TestContractWorkflowSource_ListWorkflowMetadata_AdaptivePageSize(t *testing.T) {
+	t.Parallel()
+
+	var list []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView
+	for i := range 700 {
+		list = append(list, createTestWorkflowMetadata(fmt.Sprintf("wf-%d", i), "family-a"))
+	}
+	reader := &pagedWorkflowContractReader{workflowList: list, maxLimit: 100}
+	source := newPagedTestSource(t, reader)
+	don := capabilities.DON{ID: 1, Families: []string{"family-a"}}
+
+	wfs, _, err := source.ListWorkflowMetadata(t.Context(), don)
+	require.NoError(t, err)
+	assert.Len(t, wfs, 700, "no workflows may be skipped or duplicated after shrinking")
+	// default 300 fails, 150 fails, then 75 succeeds: 9 full pages and a partial one.
+	assert.Equal(t, []int64{300, 150, 75, 75, 75, 75, 75, 75, 75, 75, 75, 75}, reader.limits)
+
+	// The reduced size is remembered: the next tick doesn't re-try 300.
+	reader.limits = nil
+	_, _, err = source.ListWorkflowMetadata(t.Context(), don)
+	require.NoError(t, err)
+	assert.Equal(t, int64(75), reader.limits[0])
+	assert.Len(t, reader.limits, 10)
+}
+
+func TestContractWorkflowSource_ListWorkflowMetadata_GasErrorAtMinPageSize(t *testing.T) {
+	t.Parallel()
+
+	reader := &pagedWorkflowContractReader{maxLimit: 0}
+	source := newPagedTestSource(t, reader)
+	don := capabilities.DON{ID: 1, Families: []string{"family-a"}}
+
+	_, _, err := source.ListWorkflowMetadata(t.Context(), don)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "out of gas")
+	assert.Equal(t, []int64{300, 150, 75, 37, 18, 10}, reader.limits)
+}
+
+func TestContractWorkflowSource_ListWorkflowMetadata_NonGasErrorDoesNotShrink(t *testing.T) {
+	t.Parallel()
+
+	reader := &pagedWorkflowContractReader{err: errors.New("connection refused")}
+	source := newPagedTestSource(t, reader)
+	don := capabilities.DON{ID: 1, Families: []string{"family-a"}}
+
+	_, _, err := source.ListWorkflowMetadata(t.Context(), don)
+	require.Error(t, err)
+	assert.Equal(t, []int64{300}, reader.limits)
+}
+
+func TestContractWorkflowSource_ListWorkflowMetadata_PageSizeFromSettings(t *testing.T) {
+	t.Parallel()
+
+	getter, err := settings.NewJSONGetter([]byte(`{"global":{"WorkflowRegistryMaxResultsPerQuery":"50"}}`))
+	require.NoError(t, err)
+
+	var list []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView
+	for i := range 120 {
+		list = append(list, createTestWorkflowMetadata(fmt.Sprintf("wf-%d", i), "family-a"))
+	}
+	reader := &pagedWorkflowContractReader{workflowList: list, maxLimit: 1000}
+	source := newPagedTestSource(t, reader)
+	source.SetSettingsGetter(getter)
+	don := capabilities.DON{ID: 1, Families: []string{"family-a"}}
+
+	wfs, _, err := source.ListWorkflowMetadata(t.Context(), don)
+	require.NoError(t, err)
+	assert.Len(t, wfs, 120)
+	assert.Equal(t, []int64{50, 50, 50}, reader.limits)
+}
+
+func TestRegistryPageSizer_ReductionResetsWhenConfiguredValueChanges(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+
+	var p registryPageSizer
+	assert.Equal(t, int64(300), p.current(t.Context(), lggr))
+	next, ok := p.shrink(300)
+	require.True(t, ok)
+	assert.Equal(t, int64(150), next)
+	assert.Equal(t, int64(150), p.current(t.Context(), lggr))
+
+	// An operator changing the configured limit discards the runtime reduction.
+	getter, err := settings.NewJSONGetter([]byte(`{"global":{"WorkflowRegistryMaxResultsPerQuery":"200"}}`))
+	require.NoError(t, err)
+	p.setGetter(getter)
+	assert.Equal(t, int64(200), p.current(t.Context(), lggr))
+
+	_, ok = p.shrink(minRegistryPageSize)
+	assert.False(t, ok)
+}
+
+func TestIsGasError(t *testing.T) {
+	t.Parallel()
+	assert.True(t, isGasError(errors.New("out of gas: gas required exceeds 16777216")))
+	assert.True(t, isGasError(errors.New("execution reverted: Gas Required Exceeds Allowance (50000000)")))
+	assert.True(t, isGasError(errors.New("eth_call gas cap exceeded")))
+	assert.False(t, isGasError(errors.New("connection refused")))
+	assert.False(t, isGasError(nil))
 }
