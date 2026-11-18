@@ -4,6 +4,12 @@
 
 ### Patch Changes
 
+- [#24235](https://github.com/smartcontractkit/chainlink/pull/24235) [`b31a3cd`](https://github.com/smartcontractkit/chainlink/commit/b31a3cd37e38902e464fa304de0a7ab793a26451) - #bugfix Lower the Workflow Registry syncer page size from 1000 to 250 so a single `getWorkflowListByDON` eth_call stays under the common 16,777,216 gas cap and registry reconciliation no longer fails once a DON family indexes enough workflows.
+
+## 2.74.1
+
+### Patch Changes
+
 - Hotfix release from release/2.74.0
 
 ## 2.74.0
