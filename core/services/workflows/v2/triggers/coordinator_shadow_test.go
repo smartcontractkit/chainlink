@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -332,6 +333,12 @@ func TestCoordinator_ShadowPreAdmission(t *testing.T) {
 type failingQueue struct {
 	puts atomic.Int32
 }
+
+func (q *failingQueue) Sorted() iter.Seq[CoordinatedEvent] {
+	return func(yield func(CoordinatedEvent) bool) {}
+}
+
+func (q *failingQueue) Remove(ctx context.Context, triggerEventIDs []string) {}
 
 func (q *failingQueue) Put(context.Context, CoordinatedEvent) error {
 	q.puts.Add(1)

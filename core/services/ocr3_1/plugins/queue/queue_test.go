@@ -18,7 +18,7 @@ func TestConsensusQueuePluginFactory_NewReportingPlugin(t *testing.T) {
 	t.Parallel()
 
 	cfg := &PluginConfig{Limits: ocr3_1types.ReportingPluginLimits{MaxKeyValueModifiedKeys: 1}}
-	factory, err := NewConsensusQueuePluginFactory(logger.Test(t), cfg, limits.Factory{}, nil)
+	factory, err := NewConsensusQueuePluginFactory(logger.Test(t), cfg, limits.Factory{}, nil, nil)
 	require.NoError(t, err)
 
 	plugin, info, err := factory.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{N: 4, F: 1}, nil)

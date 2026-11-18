@@ -1,8 +1,11 @@
 package triggers
 
 import (
+	"container/heap"
 	"context"
 	"errors"
+	"iter"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -53,9 +56,42 @@ func findMetric(t *testing.T, reader *sdkmetric.ManualReader, name string) *metr
 // fakeQueue is a minimal Queue whose Observe pops a scripted sequence of
 // results and counts calls. Once the script is exhausted it returns empty.
 type fakeQueue struct {
-	mu      sync.Mutex
-	results []observeResult
-	calls   int
+	mu         sync.Mutex
+	results    []*observeResult
+	drainCalls int
+}
+
+func (q *fakeQueue) Sorted() iter.Seq[CoordinatedEvent] {
+	q.mu.Lock()
+	events := slices.Clone(q.results[0].events)
+	q.mu.Unlock()
+
+	eventHeap := new(coordinatedEventHeap(events))
+	heap.Init(eventHeap)
+	return func(yield func(CoordinatedEvent) bool) {
+		for eventHeap.Len() > 0 {
+			e := heap.Pop(eventHeap).(CoordinatedEvent)
+			if !yield(e) {
+				return
+			}
+		}
+	}
+}
+
+func (q *fakeQueue) Remove(ctx context.Context, triggerEventIDs []string) {
+	triggerEventIDSet := map[string]struct{}{}
+	for _, triggerEventID := range triggerEventIDs {
+		triggerEventIDSet[triggerEventID] = struct{}{}
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, r := range q.results {
+		r.events = slices.DeleteFunc(r.events, func(e CoordinatedEvent) bool {
+			_, ok := triggerEventIDSet[e.Event.Event.ID]
+			return ok
+		})
+		// note: empty results remain
+	}
 }
 
 type observeResult struct {
@@ -70,7 +106,7 @@ func (q *fakeQueue) Stats(context.Context) (Stats, error) { return Stats{}, nil 
 func (q *fakeQueue) Drain(context.Context) ([]CoordinatedEvent, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.calls++
+	q.drainCalls++
 	if len(q.results) == 0 {
 		return nil, nil
 	}
@@ -79,10 +115,10 @@ func (q *fakeQueue) Drain(context.Context) ([]CoordinatedEvent, error) {
 	return r.events, r.err
 }
 
-func (q *fakeQueue) observeCalls() int {
+func (q *fakeQueue) getDrainCalls() int {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	return q.calls
+	return q.drainCalls
 }
 
 func (q *fakeQueue) remaining() int {
@@ -115,25 +151,25 @@ func TestDrainer_Drain(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		results []observeResult // one per drain call
+		results []*observeResult // one per drain call
 		want    [][]CoordinatedEvent
 	}{
 		{
 			name:    "queues an observed batch",
-			results: []observeResult{{events: batchOf("a")}},
+			results: []*observeResult{{events: batchOf("a")}},
 			want:    [][]CoordinatedEvent{batchOf("a")},
 		},
 		{
 			name:    "empty observe queues nothing",
-			results: []observeResult{{}},
+			results: []*observeResult{{}},
 		},
 		{
 			name:    "observe error queues nothing, even with events",
-			results: []observeResult{{events: batchOf("ignored"), err: errors.New("boom")}},
+			results: []*observeResult{{events: batchOf("ignored"), err: errors.New("boom")}},
 		},
 		{
 			name:    "full buffer drops the overflow and keeps the oldest",
-			results: []observeResult{{events: batchOf("a")}, {events: batchOf("b")}},
+			results: []*observeResult{{events: batchOf("a")}, {events: batchOf("b")}},
 			want:    [][]CoordinatedEvent{batchOf("a")},
 		},
 	}
@@ -151,7 +187,7 @@ func TestDrainer_Drain(t *testing.T) {
 				d.drain(t.Context()) // must return even when the buffer is full
 			}
 
-			assert.Equal(t, len(tt.results), q.observeCalls(), "one Observe per drain")
+			assert.Equal(t, len(tt.results), q.getDrainCalls(), "one Observe per drain")
 			assert.Equal(t, tt.want, queued(d))
 			assert.False(t, hookCalled.Load(), "drain never calls the hook itself; only the worker does")
 		})
@@ -164,7 +200,7 @@ func TestDrainer_DroppedEventsMetric(t *testing.T) {
 	t.Parallel()
 
 	dm, reader := testDrainerMetrics(t)
-	q := &fakeQueue{results: []observeResult{
+	q := &fakeQueue{results: []*observeResult{
 		{events: batchOf("a")},
 		{events: append(batchOf("b"), batchOf("c")...)}, // dropped: the buffer holds "a"
 	}}
@@ -188,7 +224,7 @@ func TestDrainer_HookDurationMetric(t *testing.T) {
 	t.Parallel()
 
 	dm, reader := testDrainerMetrics(t)
-	q := &fakeQueue{results: []observeResult{{events: batchOf("a")}}}
+	q := &fakeQueue{results: []*observeResult{{events: batchOf("a")}}}
 	d := NewDrainer(q, limits.NewUpperBoundLimiter(minDrainInterval), drainerHooks{}, dm, clockwork.NewRealClock(), logger.Test(t))
 	require.NoError(t, d.Start(t.Context()))
 	t.Cleanup(func() { assert.NoError(t, d.Close()) })
@@ -209,17 +245,17 @@ func TestDrainer_Running(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		results []observeResult
+		results []*observeResult
 		want    []string // workflow IDs the hook should see
 	}{
 		{
 			name:    "hook receives an observed batch",
-			results: []observeResult{{events: batchOf("a")}},
+			results: []*observeResult{{events: batchOf("a")}},
 			want:    []string{"a"},
 		},
 		{
 			name:    "loop survives an observe error",
-			results: []observeResult{{err: errors.New("boom")}, {events: batchOf("a")}},
+			results: []*observeResult{{err: errors.New("boom")}, {events: batchOf("a")}},
 			want:    []string{"a"},
 		},
 	}
@@ -269,9 +305,9 @@ func TestDrainer_BlockedHook(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			results := make([]observeResult, tt.batches)
+			results := make([]*observeResult, tt.batches)
 			for i := range results {
-				results[i] = observeResult{events: batchOf("x")}
+				results[i] = &observeResult{events: batchOf("x")}
 			}
 			q := &fakeQueue{results: results}
 
@@ -349,12 +385,12 @@ func TestDrainer_IntervalReRead(t *testing.T) {
 	drainsAfter := func(wait time.Duration) {
 		t.Helper()
 		waiting()
-		before := q.observeCalls()
+		before := q.getDrainCalls()
 		clock.Advance(wait - time.Millisecond)
-		assert.Never(t, func() bool { return q.observeCalls() > before }, 50*time.Millisecond, 5*time.Millisecond,
+		assert.Never(t, func() bool { return q.getDrainCalls() > before }, 50*time.Millisecond, 5*time.Millisecond,
 			"drained before %s", wait)
 		clock.Advance(time.Millisecond)
-		require.Eventually(t, func() bool { return q.observeCalls() == before+1 }, 5*time.Second, 5*time.Millisecond,
+		require.Eventually(t, func() bool { return q.getDrainCalls() == before+1 }, 5*time.Second, 5*time.Millisecond,
 			"no drain at %s", wait)
 	}
 
@@ -390,7 +426,7 @@ func TestNewCentralQueueDrainer_LogsDrainedEvents(t *testing.T) {
 	t.Parallel()
 	clock := clockwork.NewFakeClock()
 	batch := append(append(batchOf("wf-a"), batchOf("wf-b")...), batchOf("wf-a")...)
-	q := &fakeQueue{results: []observeResult{{events: batch}}}
+	q := &fakeQueue{results: []*observeResult{{events: batch}}}
 	dm, _ := testDrainerMetrics(t)
 	lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 	d := NewCentralQueueDrainer(q, limits.NewUpperBoundLimiter(minDrainInterval), dm, clock, lggr)

@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"cmp"
 	"container/heap"
 	"fmt"
 	"maps"
@@ -49,13 +48,7 @@ func (p *priorityQueue) Len() int { return len(*p) }
 
 func (p *priorityQueue) Less(i, j int) bool {
 	a, b := (*p)[i], (*p)[j]
-	return cmpConsensusQueueEvents(a, b) < 0
-}
-
-func cmpConsensusQueueEvents(a, b *pb.ConsensusQueueEvent) int {
-	return cmp.Or(cmp.Compare(a.Deadline.Seconds, b.Deadline.Seconds),
-		cmp.Compare(a.Deadline.Nanos, b.Deadline.Nanos),
-		cmp.Compare(a.TriggerEventID, b.TriggerEventID))
+	return a.CompareDeadline(b) < 0
 }
 
 func (p *priorityQueue) Swap(i, j int) {

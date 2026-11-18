@@ -8,7 +8,6 @@ package queue
 
 import (
 	"bytes"
-	"cmp"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -153,9 +152,7 @@ func (c *consensusQueuePlugin) Observation(
 
 	// Assemble an observation up to maxObservationBytes
 	var coordEvents []*pb.CoordinatedEvent
-	for coord := range toProtoSeq(c.triggerQueue.SortedFunc(func(a, b triggers.CoordinatedEvent) int {
-		return cmp.Or(a.Deadline.Compare(b.Deadline), cmp.Compare(a.Event.Event.ID, b.Event.Event.ID))
-	})) {
+	for coord := range toProtoSeq(c.triggerQueue.Sorted()) {
 		observedAt, deadline := coord.ObservedAt, coord.Deadline
 		coord.ObservedAt, coord.Deadline = nil, nil  // for consistent hashing
 		protoBytes, err2 := protoOpts.Marshal(coord) // TODO opt: avoid remarshalling
@@ -263,7 +260,7 @@ func (c *consensusQueuePlugin) ValidateObservation(
 	if len(obs.Events) > maxObservedEvents {
 		return fmt.Errorf("events are limited to %d but got %d", maxObservedEvents, len(obs.Events))
 	}
-	if !slices.IsSortedFunc(obs.Events, cmpConsensusQueueEvents) {
+	if !slices.IsSortedFunc(obs.Events, (*pb.ConsensusQueueEvent).CompareDeadline) {
 		return fmt.Errorf("events must be sorted")
 	}
 	var eg errgroup.Group

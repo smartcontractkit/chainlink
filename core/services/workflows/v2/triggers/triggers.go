@@ -1,6 +1,7 @@
 package triggers
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -183,6 +184,10 @@ type CoordinatedEvent struct {
 	Deadline time.Time
 
 	Event capabilities.TriggerResponse
+}
+
+func (e *CoordinatedEvent) CompareDeadline(o *CoordinatedEvent) int {
+	return cmp.Or(e.Deadline.Compare(o.Deadline), cmp.Compare(e.Event.Event.ID, o.Event.Event.ID))
 }
 
 func (e *CoordinatedEvent) ToProto() *pb.CoordinatedEvent {

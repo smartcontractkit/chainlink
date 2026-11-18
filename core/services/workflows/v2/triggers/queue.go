@@ -33,9 +33,9 @@ type Queue interface {
 	// Stats reports current length, capacity, and cumulative drops.
 	Stats(context.Context) (Stats, error)
 
-	// SortedFunc returns an iterator over all events sorted with cmp.
+	// Sorted returns an iterator over all events, ordered by deadline and then trigger event ID.
 	// It does not drain the queue. Events remain but can be removed via Remove.
-	SortedFunc(cmp func(a, b CoordinatedEvent) int) iter.Seq[CoordinatedEvent]
+	Sorted() iter.Seq[CoordinatedEvent]
 
 	// Remove removes events from the queue.
 	Remove(ctx context.Context, triggerEventIDs []string)
@@ -151,18 +151,17 @@ func (q *CentralQueue) Remove(ctx context.Context, triggerEventIDs []string) {
 	return
 }
 
-// SortedFunc returns an iterator over all events sorted by cmp.
-func (q *CentralQueue) SortedFunc(cmp func(a, b CoordinatedEvent) int) iter.Seq[CoordinatedEvent] {
+func (q *CentralQueue) Sorted() iter.Seq[CoordinatedEvent] {
 	q.mu.Lock()
 	events := slices.Clone(q.events)
 	q.mu.Unlock()
 
-	eventHeap := &coordinatedEventHeap{events: events, cmp: cmp}
+	eventHeap := new(coordinatedEventHeap(events))
 	heap.Init(eventHeap)
 
 	return func(yield func(CoordinatedEvent) bool) {
 		for eventHeap.Len() > 0 {
-			if !yield(eventHeap.events[0]) {
+			if !yield((*eventHeap)[0]) {
 				return
 			}
 			heap.Pop(eventHeap)
@@ -170,30 +169,27 @@ func (q *CentralQueue) SortedFunc(cmp func(a, b CoordinatedEvent) int) iter.Seq[
 	}
 }
 
-type coordinatedEventHeap struct {
-	events []CoordinatedEvent
-	cmp    func(a, b CoordinatedEvent) int
-}
+type coordinatedEventHeap []CoordinatedEvent
 
 func (c *coordinatedEventHeap) Len() int {
-	return len(c.events)
+	return len(*c)
 }
 
 func (c *coordinatedEventHeap) Less(i, j int) bool {
-	return c.cmp(c.events[i], c.events[j]) < 0
+	return (*c)[i].CompareDeadline(&(*c)[j]) < 0
 }
 
 func (c *coordinatedEventHeap) Swap(i, j int) {
-	c.events[i], c.events[j] = c.events[j], c.events[i]
+	(*c)[i], (*c)[j] = (*c)[j], (*c)[i]
 }
 
 func (c *coordinatedEventHeap) Push(x any) {
-	c.events = append(c.events, x.(CoordinatedEvent))
+	*c = append(*c, x.(CoordinatedEvent))
 }
 
 func (c *coordinatedEventHeap) Pop() any {
-	e := c.events[len(c.events)-1]
-	c.events = c.events[:len(c.events)-1]
+	e := (*c)[len(*c)-1]
+	*c = (*c)[:len(*c)-1]
 	return e
 }
 
