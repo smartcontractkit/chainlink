@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.72.3
+
+### Patch Changes
+
+- [`fff7e02`](https://github.com/smartcontractkit/chainlink/commit/fff7e02f412f905bcc3b49e3c4d93ab1db3ae2c6) - #changed Route LLO v31 (OCR3.1) protocol telemetry as ocr3_1-mercury instead of ocr3-mercury
+
 ## 2.72.0
 
 ### Minor Changes
