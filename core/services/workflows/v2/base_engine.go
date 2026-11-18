@@ -116,7 +116,12 @@ type baseEngine struct {
 
 	usageMeter    *resourcemanager.ResourceManager
 	usageIdentity resourcemanager.ResourceIdentity
-	orgID         string
+	// confidentialIdentity is the identity for meter records of executions
+	// routed to a TEE enclave; it carries the confidential resource type.
+	confidentialIdentity resourcemanager.ResourceIdentity
+	// teeTriggers marks trigger indexes whose subscription requires a TEE.
+	teeTriggers map[uint64]bool
+	orgID       string
 	// orgIDMissingReason records why orgID is empty ("resolver_nil",
 	// "resolver_error", or "empty_response"). It is set once in startWith() and
 	// read by startExecution() to label the org_id_missing counter. It is only
@@ -200,6 +205,10 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 	engine.usageIdentity = resourcemanager.WithWorkflowUsagePool(
 		resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
 		resourcemanager.ResourceTypeWorkflowCompute)
+	engine.confidentialIdentity = resourcemanager.WithWorkflowUsagePool(
+		resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
+		resourcemanager.ResourceTypeWorkflowConfidentialCompute)
+	engine.teeTriggers = map[uint64]bool{}
 	engine.loggerLabels.Store(&labelsMap)
 	engine.localNode.Store(&localNode)
 
@@ -313,6 +322,7 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 		if err := e.cfg.Hooks.OnSubscriptionsReady(e.cfg.CachedTriggerSubscriptions, e.Tenant(), true); err != nil {
 			return nil, fmt.Errorf("OnSubscriptionsReady hook failed: %w", err)
 		}
+		e.markTeeTriggers(e.cfg.CachedTriggerSubscriptions)
 		return e.cfg.CachedTriggerSubscriptions, nil
 	}
 
@@ -388,7 +398,18 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 		return nil, fmt.Errorf("OnSubscriptionsReady hook failed: %w", err)
 	}
 
+	e.markTeeTriggers(subs.Subscriptions)
 	return subs.Subscriptions, nil
+}
+
+// markTeeTriggers records which trigger subscriptions require a TEE; their
+// executions meter as confidential compute.
+func (e *baseEngine) markTeeTriggers(subs []*sdkpb.TriggerSubscription) {
+	for i, sub := range subs {
+		if sub.GetRequirements().GetTee() != nil {
+			e.teeTriggers[uint64(i)] = true
+		}
+	}
 }
 
 // Tenant is the engine's tenant identity. Valid once resolveOrgID has run during
@@ -811,7 +832,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		computeDuration = time.Duration(result.GetComputeDurationMs()) * time.Millisecond
 	}
 
-	e.emitComputeUsage(ctx, executionLogger, executionID, computeDuration)
+	e.emitComputeUsage(ctx, executionLogger, tid, executionID, computeDuration)
 
 	if isMetering {
 		computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
@@ -1161,11 +1182,12 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 	return resolvedOrg{ID: orgID}
 }
 
-// emitComputeUsage emits the cre:workflow:compute usage MeterRecord for one
-// execution and logs the emission. The log line is a contract consumed by the
+// emitComputeUsage emits the compute usage MeterRecord for one execution and
+// logs the emission. Executions of TEE-required triggers meter under the
+// confidential resource type. The log line is a contract consumed by the
 // billing reconciler (fields: executionID, eventID, resourceType, value, orgID)
 // and must stay stable. Fail-open: never returns an error to the execution.
-func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, executionID string, computeDuration time.Duration) {
+func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, triggerIndex uint64, executionID string, computeDuration time.Duration) {
 	if !e.cfg.MeterRecordsEnabled {
 		return
 	}
@@ -1174,7 +1196,12 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, e
 		lggr.Errorw("Compute usage meter record not emitted", "err", err)
 		return
 	}
+	resourceType := resourcemanager.ResourceTypeWorkflowCompute
 	identity := e.usageIdentity
+	if e.teeTriggers[triggerIndex] {
+		resourceType = resourcemanager.ResourceTypeWorkflowConfidentialCompute
+		identity = e.confidentialIdentity
+	}
 	if node := e.localNode.Load(); node != nil {
 		identity = identity.WithDonID(strconv.FormatUint(uint64(node.WorkflowDON.ID), 10))
 	}
@@ -1182,13 +1209,13 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, e
 	// The capability event id for compute is the execution id itself: one
 	// compute record per execution, identical on every node of the DON.
 	e.usageMeter.EmitUsage(ctx, identity, executionID, valueMs, resourcemanager.UtilizationFields{
-		ResourceType: resourcemanager.ResourceTypeWorkflowCompute,
+		ResourceType: resourceType,
 		ResourceID:   resourceID,
 		OrgID:        e.orgID,
 	})
 	lggr.Infow("Emitted capability usage meter record",
 		"eventID", executionID,
-		"resourceType", resourcemanager.ResourceTypeWorkflowCompute,
+		"resourceType", resourceType,
 		"value", valueMs,
 		"orgID", e.orgID,
 	)
