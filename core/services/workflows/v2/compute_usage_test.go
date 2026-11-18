@@ -255,9 +255,14 @@ func TestEngine_ComputeUsageMeterRecord_ConfidentialRun(t *testing.T) {
 	}}
 	// Subscribe runs locally; the trigger is routed to the enclave.
 	local.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(teeSubs, nil).Once()
+	confidentialIdentity := resourcemanager.WithWorkflowUsagePool(
+		resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
+		resourcemanager.ResourceTypeWorkflowConfidentialCompute,
+	)
 	cfg.Module = host.NewRequirementSelectingModule(host.ModuleAndHandler{Module: local}, []host.ModuleAndHandler{{
 		Module:              conf,
 		RequirementsHandler: host.RequirementsHandler{Tee: conf.Tee},
+		UsageIdentity:       &confidentialIdentity,
 	}})
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = setupMockBillingClient(t)
