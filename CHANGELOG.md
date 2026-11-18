@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.74.1
+
+### Patch Changes
+
+- Hotfix release from release/2.74.0
+
 ## 2.74.0
 
 ### Minor Changes
