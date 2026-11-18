@@ -91,6 +91,11 @@ type DomainManager struct {
 	services.Service
 	eng *services.Engine
 
+	// ctx is cancelled when the manager closes. SendLog has no context (libocr's
+	// MonitoringEndpoint), so sends and counters use this one.
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	routes          map[synchronization.TelemetryType]*telemetryRoute
 	csaPubKeyHex    string
 	meterProvider   otelmetric.MeterProvider
@@ -196,7 +201,11 @@ func NewDomainManager(src DomainEmitterSource, csaPubKeyHex string, lggr logger.
 		}
 	}
 
-	m.Service, m.eng = services.Config{Name: "DomainManager"}.NewServiceEngine(lggr)
+	m.ctx, m.cancel = context.WithCancel(context.Background())
+	m.Service, m.eng = services.Config{
+		Name:  "DomainManager",
+		Close: func() error { m.cancel(); return nil },
+	}.NewServiceEngine(lggr)
 	return m, nil
 }
 
@@ -296,11 +305,7 @@ func (m *DomainManager) reportOnce(key string, report func()) {
 // are logged (rate-limited) by the emitter, and events that never reach it are logged here, once
 // per route and error code, since they mean telemetry is being lost.
 func (m *DomainManager) send(route *telemetryRoute, target eventTarget, telemetry []byte) {
-	// SendLog has no context (libocr's MonitoringEndpoint), so tie it to the
-	// service lifecycle. Cancelling on return is safe: after the emitter's sync
-	// queue check, only otel adds (which tolerate cancellation) read it.
-	ctx, cancel := m.eng.NewCtx()
-	defer cancel()
+	ctx := m.ctx
 	ev, err := m.newEvent(route, target, telemetry)
 	if err != nil {
 		m.refused(ctx, route, target, errorCodeEventBuild, err)
@@ -405,9 +410,7 @@ func (m *DomainManager) countUnsupported(telemType synchronization.TelemetryType
 		}
 		v, _ = m.unsupportedOpts.LoadOrStore(key, otelmetric.WithAttributes(attrs...))
 	}
-	ctx, cancel := m.eng.NewCtx()
-	defer cancel()
-	m.metrics.unsupported.Add(ctx, 1, v.(otelmetric.AddOption))
+	m.metrics.unsupported.Add(m.ctx, 1, v.(otelmetric.AddOption))
 }
 
 func (m *DomainManager) warnUnsupportedType(telemType synchronization.TelemetryType) {

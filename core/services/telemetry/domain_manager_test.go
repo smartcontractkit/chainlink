@@ -45,7 +45,11 @@ type fakeDomainEmitter struct {
 func (f *fakeDomainEmitter) Emit(context.Context, []byte, ...any) error { return nil }
 func (f *fakeDomainEmitter) Close() error                               { return nil }
 
-func (f *fakeDomainEmitter) EmitEvent(_ context.Context, event chipingress.CloudEvent, callback func(error)) error {
+func (f *fakeDomainEmitter) EmitEvent(ctx context.Context, event chipingress.CloudEvent, callback func(error)) error {
+	// Like the real emitter, refuse events whose context is already done.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if f.emitErr != nil {
 		return f.emitErr
 	}
@@ -419,6 +423,22 @@ func TestDomainManager_CountsEachEventsFate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDomainManager_RefusesSendsAfterClose(t *testing.T) {
+	t.Parallel()
+	src := newFakeEmitterSource()
+	m, reader := newTestDomainManager(t, src)
+	require.NoError(t, m.Start(t.Context()))
+	ep := m.GenMonitoringEndpoint("EVM", ethMainnetChainID, "0xabc", synchronization.OCR2Median)
+	require.NoError(t, m.Close())
+
+	ep.SendLog([]byte("p"))
+
+	assert.Empty(t, src[beholder.DomainDataFeeds].sent())
+	assert.Equal(t, int64(1), counterValue(t, reader, metricMessagesDropped,
+		attribute.String("telemetry_type", string(synchronization.OCR2Median)),
+		attribute.String("error_code", errorCodeEmitRejected)))
 }
 
 func TestDomainManager_ConcurrentSends(t *testing.T) {
