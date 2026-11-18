@@ -1159,6 +1159,12 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 	return resolvedOrg{ID: orgID}
 }
 
+// computeResourceTyper is implemented by modules whose executions bill under
+// a non-default compute resource type.
+type computeResourceTyper interface {
+	ComputeResourceType() string
+}
+
 // emitComputeUsage emits the compute usage MeterRecord for one execution and
 // logs the emission. The record carries the routed runner's usage identity
 // when it declares one. The log line is a contract consumed by the billing
@@ -1177,7 +1183,7 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, t
 	resourceType := resourcemanager.ResourceTypeWorkflowCompute
 	if router, ok := e.cfg.Module.(workflowhost.TriggerRouter); ok {
 		if m, found := router.RoutedModule(triggerIndex); found {
-			if t, ok := m.(interface{ ComputeResourceType() string }); ok {
+			if t, ok := m.(computeResourceTyper); ok {
 				resourceType = t.ComputeResourceType()
 			}
 		} else {
