@@ -105,7 +105,7 @@ For one scenario inside a bucket suite, put it inside that scenario's `t.Run(...
 
 ## When it runs
 
-- **CI:** automatically on CRE-affecting PRs, in its **own** workflow `.github/workflows/cre-mixed-env-tests.yaml` (kept separate from `cre-system-tests.yaml` so that file stays simple). It runs the OCR3/DON2DON-heavy tests — `Test_CRE_V2_Suite_Bucket_A`, `Test_CRE_V2_Suite_Bucket_B`, and the `Test_CRE_V2_EVM_Read_*` suite — under mixed-env. The PR image and the develop image are both already built (per-PR and nightly), so no extra image builds are added. A dedicated **Check for non-determinism** step scans the live node containers after the suite and fails the job on any marker — kept separate from the auto-quarantined test step so the failure can't be swallowed.
+- **CI:** automatically on CRE-affecting PRs, in its **own** workflow `.github/workflows/cre-mixed-env-tests.yaml` (kept separate from `cre-system-tests.yaml` so that file stays simple). It runs the OCR3/DON2DON-heavy tests — `Test_CRE_V2_Suite_Bucket_A`, `Test_CRE_V2_Suite_Bucket_B`, and the `Test_CRE_V2_EVM_Read_*` suite — under mixed-env, plus `Test_CRE_V2_ConfidentialWorkflows_Relay` against the confidential-workflows mixed-env topology (`configs/mixed-env-confidential-workflows.toml`), which gates the confidential relay's DON2DON `GetSecrets` path. The PR image and the develop image are both already built (per-PR and nightly), so no extra image builds are added. A dedicated **Check for non-determinism** step scans the live node containers after the suite and fails the job on any marker — kept separate from the auto-quarantined test step so the failure can't be swallowed.
 
 ## Required check & emergency bypass
 

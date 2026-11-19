@@ -28,6 +28,7 @@ var defaultCREMixedEnvTests = []string{
 	"Test_CRE_V2_EVM_Read_TxArtifacts",
 	"Test_CRE_V2_Suite_VaultDirectRead",
 	"Test_CRE_V2_Suite_VaultDirectReadErrors",
+	"Test_CRE_V2_ConfidentialWorkflows_Relay",
 }
 
 var defaultCREMixedEnvConfigs = map[string]string{
