@@ -116,7 +116,10 @@ func FuzzReportingPlugin_StateTransitionAcrossOracles(f *testing.F) {
 		}
 		freshKV := func() *kv { return kvWith(preexisting) }
 		newPlugin := func(i int) *ReportingPlugin {
-			return newTestReportingPlugin(t, withKeys(pk, shares[i]), withOnchainCfg(fuzzN, fuzzF), withLggr(logger.Nop()), withBatchSize(10))
+			p := newTestReportingPlugin(t, withKeys(pk, shares[i]), withOnchainCfg(fuzzN, fuzzF), withLggr(logger.Nop()), withBatchSize(10))
+			// Each plugin owns limiters with background updaters; leaking them exhausts memory within seconds of fuzzing.
+			t.Cleanup(func() { require.NoError(t, p.Close()) })
+			return p
 		}
 
 		aos := make([]types.AttributedObservation, 0, fuzzN)
