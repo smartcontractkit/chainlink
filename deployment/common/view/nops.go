@@ -72,14 +72,27 @@ type OCRKeyView struct {
 	KeyBundleID               string `json:"keyBundleID"`
 }
 
+// nodeInfoBestEffort returns node info for all nodes found in JD. A node with malformed
+// metadata (e.g. an unparsable chain ID) is kept with partial info instead of failing the view.
+func nodeInfoBestEffort(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (deployment.Nodes, error) {
+	nodes, err := deployment.NodeInfo(nodeIDs, oc)
+	if err == nil {
+		return nodes, nil
+	}
+	if len(nodes) == 0 && !errors.Is(err, deployment.ErrMissingNodeMetadata) {
+		return nil, fmt.Errorf("failed to get node info: %w", err)
+	}
+	lggr.Warnf("Incomplete node metadata, continuing with partial node info: %v", err)
+
+	return nodes, nil
+}
+
 // GenerateNopsView generates a view of nodes with their details
 func GenerateNopsView(lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client) (map[string]NopView, error) {
 	nv := make(map[string]NopView)
-	nodes, err := deployment.NodeInfo(nodeIDs, oc)
-	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
-		lggr.Warnf("Missing node metadata: %s", err.Error())
-	} else if err != nil {
-		return nv, fmt.Errorf("failed to get node info: %w", err)
+	nodes, err := nodeInfoBestEffort(lggr, nodeIDs, oc)
+	if err != nil {
+		return nv, err
 	}
 	nodesResp, err := oc.ListNodes(context.Background(), &nodev1.ListNodesRequest{
 		Filter: &nodev1.ListNodesRequest_Filter{
@@ -159,11 +172,9 @@ type NopNameRemapper func(nodeName string) string
 // GenerateNOPsViewV2 generates a view of nodes with their details in a new format.
 // `deploymentKey` refers to the deployment identifier (e.g., "keystone", "cre", "ccip", "data-feeds"), which usually refers to the CLD domain.
 func GenerateNOPsViewV2(ctx context.Context, lggr logger.Logger, nodeIDs []string, oc cldf_offchain.Client, deploymentKey string, nopNameRemapperFunc NopNameRemapper) (map[string]NopViewV2, error) {
-	nodes, err := deployment.NodeInfo(nodeIDs, oc)
-	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
-		lggr.Warnf("Missing node metadata: %s", err.Error())
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to get node info: %w", err)
+	nodes, err := nodeInfoBestEffort(lggr, nodeIDs, oc)
+	if err != nil {
+		return nil, err
 	}
 	nodesResp, err := oc.ListNodes(ctx, &nodev1.ListNodesRequest{
 		Filter: &nodev1.ListNodesRequest_Filter{
