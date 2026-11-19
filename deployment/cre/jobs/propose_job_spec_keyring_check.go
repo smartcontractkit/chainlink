@@ -11,7 +11,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
 	job_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -137,35 +136,14 @@ func jdDONName(config ProposeJobSpecInput) string {
 	return config.DONName
 }
 
-// targetNodeFilter reproduces the JD node selection of the operation that proposes the template, so
-// the check validates the same nodes the proposal targets.
+// targetNodeFilter uses the same filter builders as the proposing operations, so the check validates
+// the same nodes the proposal targets.
 func targetNodeFilter(config ProposeJobSpecInput) *nodev1.ListNodesRequest_Filter {
 	switch config.Template {
 	case job_types.OCR3, job_types.Ring:
-		filter := &nodev1.ListNodesRequest_Filter{}
-		for _, f := range config.DONFilters {
-			filter = f.AddToFilter(filter)
-		}
-
-		return offchain.TargetDONFilter{Key: "type", Value: "plugin"}.AddToFilter(filter)
+		return job_ops.PluginDONNodeFilter(config.DONFilters)
 	default:
-		nodeType := job_ops.PluginNodeType
-		filter := &nodev1.ListNodesRequest_Filter{
-			Selectors: []*ptypes.Selector{
-				{Key: "don-" + jdDONName(config), Op: ptypes.SelectorOp_EXIST},
-				{Key: "environment", Op: ptypes.SelectorOp_EQ, Value: &config.Environment},
-				{Key: "product", Op: ptypes.SelectorOp_EQ, Value: &config.Domain},
-				{Key: "type", Op: ptypes.SelectorOp_EQ, Value: &nodeType},
-			},
-		}
-		for _, f := range config.DONFilters {
-			filter = f.AddToFilter(filter)
-		}
-		for _, f := range config.DONFilters {
-			filter = f.AddToFilterIfNotPresent(filter)
-		}
-
-		return filter
+		return job_ops.StandardCapabilityNodeFilter(jdDONName(config), config.Environment, config.Domain, config.DONFilters)
 	}
 }
 

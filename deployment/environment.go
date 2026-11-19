@@ -358,6 +358,10 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 func ChainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_selectors.ChainDetails]OCRConfig, error) {
 	selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
 	for _, chainConfig := range chainConfigs {
+		// A chain config without OCR2 enabled carries no key bundle; leave it out instead of panicking.
+		if chainConfig.GetOcr2Config().GetOcrKeyBundle() == nil || chainConfig.GetOcr2Config().GetP2PKeyBundle() == nil {
+			continue
+		}
 		b := common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OffchainPublicKey)
 		var opk types2.OffchainPublicKey
 		copy(opk[:], b)
