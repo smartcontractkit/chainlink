@@ -70,7 +70,7 @@ func Test_extractEvent(t *testing.T) {
 			}
 			b, err := proto.MarshalOptions{Deterministic: true}.Marshal(&pb.CoordinatedEventList{Events: events})
 			require.NoError(t, err)
-			got, err := extractEvent(b, tt.idx)
+			got, _, err := extractEvent(b, tt.idx)
 			if tt.idx < tt.len {
 				require.True(t, proto.Equal(event, got))
 			} else {

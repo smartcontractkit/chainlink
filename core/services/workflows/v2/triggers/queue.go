@@ -172,6 +172,9 @@ func (q *CentralQueue) Sorted() iter.Seq[CoordinatedEvent] {
 type coordinatedEventHeap []CoordinatedEvent
 
 func (c *coordinatedEventHeap) Len() int {
+	if c == nil {
+		return 0
+	}
 	return len(*c)
 }
 

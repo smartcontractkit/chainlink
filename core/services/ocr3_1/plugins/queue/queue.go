@@ -8,6 +8,7 @@ package queue
 
 import (
 	"bytes"
+	"container/heap"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -53,6 +54,15 @@ func NewConsensusQueuePluginFactory(
 	triggerCoordinator triggers.Coordinator,
 	triggerQueue triggers.Queue,
 ) (ocr3_1types.ReportingPluginFactory[[]byte], error) {
+	if cfg == nil {
+		return nil, errors.New("cfg cannot be nil")
+	}
+	if triggerCoordinator == nil {
+		return nil, errors.New("triggerCoordinator cannot be nil")
+	}
+	if triggerQueue == nil {
+		return nil, errors.New("triggerQueue cannot be nil")
+	}
 	return &consensusQueuePluginFactory{
 		lggr:               lggr,
 		cfg:                cfg,
@@ -96,7 +106,7 @@ func newConsensusQueuePlugin(
 	c := &consensusQueuePlugin{
 		lggr:                                logger.Named(lggr, "ConsensusQueuePlugin"),
 		onchainCfg:                          onchainCfg,
-		blobHandleMarshalledBytesUpperBound: ocr3_1types.BlobHandleMarshalledBytesUpperBound(onchainCfg.F, onchainCfg.N),
+		blobHandleMarshalledBytesUpperBound: ocr3_1types.BlobHandleMarshalledBytesUpperBound(onchainCfg.N, onchainCfg.F),
 		triggerCoordinator:                  triggerCoordinator,
 		triggerQueue:                        triggerQueue,
 		blobBroadcastFetcher:                blobs,
@@ -199,12 +209,9 @@ func (c *consensusQueuePlugin) Observation(
 		}
 	}
 
-	roundDur := c.onchainCfg.EstimatedRoundInterval         //TODO OK?
-	expSeqNr := seqNr + uint64(expirationGraceDur/roundDur) //TODO pad extra time and/or rounds?
-
 	obs.BlobHandles = nil // remove the placeholders
 	if len(coordEvents) > 0 {
-		blobHandle, n, err2 := broadcastAsBlob(ctx, blobBroadcaster, coordEvents, expSeqNr)
+		blobHandle, n, err2 := broadcastAsBlob(ctx, blobBroadcaster, coordEvents, seqNr, c.onchainCfg.EstimatedRoundInterval)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -212,15 +219,16 @@ func (c *consensusQueuePlugin) Observation(
 		// note: elements already reference blob 0 and natural element index is aligned
 
 		var offset int
+		//TODO stop after batch maxObservedBlobHandles
 		for batch := 1; n < len(coordEvents); batch++ {
 			offset += n
 			coordEvents = coordEvents[n:]
-			blobHandle, n, err2 = broadcastAsBlob(ctx, blobBroadcaster, coordEvents, expSeqNr)
+			blobHandle, n, err2 = broadcastAsBlob(ctx, blobBroadcaster, coordEvents, seqNr, c.onchainCfg.EstimatedRoundInterval)
 			if err2 != nil {
 				return nil, err2
 			}
 			obs.BlobHandles = append(obs.BlobHandles, blobHandle)
-			for i := n; i < n; i++ { // update indices
+			for i := offset; i < n; i++ { // update indices
 				obs.Events[offset+i].Blobs[0].Blob = uint32(batch)
 				obs.Events[offset+i].Blobs[0].Element = uint32(i)
 			}
@@ -260,9 +268,6 @@ func (c *consensusQueuePlugin) ValidateObservation(
 	if len(obs.Events) > maxObservedEvents {
 		return fmt.Errorf("events are limited to %d but got %d", maxObservedEvents, len(obs.Events))
 	}
-	if !slices.IsSortedFunc(obs.Events, (*pb.ConsensusQueueEvent).CompareDeadline) {
-		return fmt.Errorf("events must be sorted")
-	}
 	var eg errgroup.Group
 	fetcher := blobCache{fetcher: blobFetcher, cache: make(map[string]func() ([]byte, error))}
 	for i, event := range obs.Events {
@@ -273,7 +278,16 @@ func (c *consensusQueuePlugin) ValidateObservation(
 			return nil
 		})
 	}
-	return eg.Wait()
+	if err = eg.Wait(); err != nil {
+		return err
+	}
+
+	// wait to do this since we depend on every event being valid
+	if !slices.IsSortedFunc(obs.Events, (*pb.ConsensusQueueEvent).CompareDeadline) {
+		return fmt.Errorf("events must be sorted")
+	}
+
+	return nil
 }
 
 func validateObservedEvent(ctx context.Context, fetcher *blobCache, event *pb.ConsensusQueueEvent, blobHandles [][]byte) error {
@@ -344,7 +358,7 @@ func (c *consensusQueuePlugin) StateTransition(
 	ctx context.Context, _ uint64, _ ocrtypes.AttributedQuery, aos []ocrtypes.AttributedObservation,
 	kvReaderWriter ocr3_1types.KeyValueStateReadWriter, _ ocr3_1types.BlobFetcher,
 ) (ocr3_1types.ReportsPlusPrecursor, error) {
-	var done chan struct{}
+	done := make(chan struct{})
 	var obs observations
 
 	go func() {
@@ -370,9 +384,6 @@ func (c *consensusQueuePlugin) StateTransition(
 	if obs.err != nil {
 		return nil, fmt.Errorf("failed to aggregate observations: %w", obs.err)
 	}
-	if obs.warn != nil {
-		c.lggr.Warnw("Failed to aggregate some observations", "err", obs.warn)
-	}
 
 	// update state
 	state.pruneExpiredObservations(obs.medianExpiration)
@@ -380,20 +391,71 @@ func (c *consensusQueuePlugin) StateTransition(
 	state.addObservedEvents(c.onchainCfg.F, obs.newObservedEvents, obs.observedBlobs, func(event *pb.ConsensusQueueEvent) {
 		queuedTriggerEventIDs = append(queuedTriggerEventIDs, event.TriggerEventID)
 	})
-	state.consensusEvents = state.queuedEvents.popLimited(obs.medianCap, obs.medianCapPerWF, obs.medianExpiration)
-
-	// prune observations until we fit
-	for state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes {
-		//TODO drop observations (must be deterministic, fair, efficient)
-		// prefer farthest future deadlines and fewest observations
-		//TODO use sorted state.observedEventEntries
+	// pop as many queuedEvents as possible in to consensusEvents (up to capacity or KV limits)
+	for len(*state.queuedEvents) > 0 && len(state.consensusEvents) < int(obs.medianCap) {
+		event := state.queuedEvents.popLimited(obs.medianCapPerWF, obs.medianExpiration)
+		if event == nil {
+			break
+		}
+		state.consensusEvents = append(state.consensusEvents, event)
+		// stop when either value or the overall size is too large
+		if events, blobs := state.sizeOfConsensusEvents(), state.sizeOfBlobHandles(); events > maxKeyValueValueBytes ||
+			blobs > maxKeyValueValueBytes || events+blobs > maxKeyValueModifiedKeysPlusValuesBytes/2 {
+			state.consensusEvents = state.consensusEvents[:len(state.consensusEvents)-1]
+			break
+		}
 	}
+
+	// prune observations if that value or the overall size is too large
+	for len(state.observedEventEntries) > 0 &&
+		(state.sizeOfObservedEvents() > maxKeyValueValueBytes ||
+			state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes) {
+		// sorted by decreasing priority, so prune the last
+		toRemove := state.observedEventEntries[len(state.observedEventEntries)-1]
+		delete(state.observedEvents, toRemove.Event.TriggerEventID)
+		//TODO opt: drop more than one each time?
+	}
+
+	// prune queuedEvents if that value, blob handles, or the overall size is too large
+	if len(*state.queuedEvents) > 0 &&
+		(state.sizeOfQueuedEvents() > maxKeyValueValueBytes ||
+			state.sizeOfBlobHandles() > maxKeyValueValueBytes ||
+			state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes) {
+		// prune lowest priority queuedEvents from newly added queuedTriggerEventIDs
+		queuedTriggerEventIDSet := map[string]struct{}{}
+		for _, id := range queuedTriggerEventIDs {
+			queuedTriggerEventIDSet[id] = struct{}{}
+		}
+		eligibleEvents := make([]*pb.ConsensusQueueEvent, 0, len(*state.queuedEvents))
+		for _, e := range *state.queuedEvents {
+			if _, ok := queuedTriggerEventIDSet[e.TriggerEventID]; ok {
+				eligibleEvents = append(eligibleEvents, e)
+			}
+		}
+		backwardsQueuedEvents := &revPriorityQueue{priorityQueue: new(priorityQueue(eligibleEvents))}
+		heap.Init(backwardsQueuedEvents)
+
+		// prune until we fit
+		for backwardsQueuedEvents.Len() > 0 &&
+			(state.sizeOfQueuedEvents() > maxKeyValueValueBytes ||
+				state.sizeOfBlobHandles() > maxKeyValueValueBytes ||
+				state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes) {
+			toRemove := heap.Pop(backwardsQueuedEvents).(*pb.ConsensusQueueEvent)
+			//TODO opt: faster delete...but need to maintain state.queuedEvents (though not order)...map indices?
+			*state.queuedEvents = slices.DeleteFunc(*state.queuedEvents, func(e *pb.ConsensusQueueEvent) bool { return e.TriggerEventID == toRemove.TriggerEventID })
+			//TODO opt: drop more than one each time?
+		}
+		// rebuild the priority queue
+		heap.Init(state.queuedEvents)
+	}
+
+	// note: no need to prune consensus events, since already limited what we collected
 
 	err = state.writeTo(&stateWriter{kv: kvReaderWriter})
 	if err != nil {
 		return nil, err
 	}
-	c.triggerQueue.Remove(ctx, queuedTriggerEventIDs)
+	c.triggerQueue.Remove(ctx, queuedTriggerEventIDs) //TODO move to committed - do we need to write it through KV? or can we Remove the whole PQ every time?
 
 	// no report to return, executions start when committed
 	return nil, nil
@@ -405,8 +467,8 @@ type observations struct {
 	medianCapPerWF    map[string]uint32                          // wf ID -> capacity
 	newObservedEvents map[string]*pb.ConsensusQueueObservedEvent // key: timeless hash
 	observedBlobs     blobHandleMap
-	warn              error
-	err               error
+
+	err error
 }
 
 func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.AttributedObservation) {
@@ -420,8 +482,8 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 		var obs pb.ConsensusQueueObservation
 		err := proto.Unmarshal(ao.Observation, &obs)
 		if err != nil {
-			res.warn = errors.Join(res.warn, fmt.Errorf("failed to unmarshal observation from oracle %d: %w", ao.Observation, err))
-			continue
+			res.err = fmt.Errorf("failed to unmarshal observation from oracle %d: %w", ao.Observer, err)
+			return
 		}
 		expirations = append(expirations, obs.Expiration)
 		capacities = append(capacities, obs.Capacity)
@@ -437,16 +499,16 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 	}
 	res.medianExpiration = medianTimestamp(expirations).AsTime()
 
-	// Medianize capacities, and when there is disagreement among honest nodes, scale back to 90%.
+	// If we used median, then honest nodes reporting reduced capacity would not be able to keep up.
+	// Instead, we use the F+1th lowest value - the least honest value.
 	var medianCount int
-	res.medianCap, medianCount = median(capacities)
-	if medianCount < 2*f+1 {
-		res.medianCap = (res.medianCap * 9) / 10
-	}
+	res.medianCap = slices.Sorted(slices.Values(capacities))[f]
 	for wf, caps := range wfCapacities {
-		res.medianCapPerWF[wf], medianCount = median(caps)
-		if medianCount < 2*f+1 {
-			res.medianCapPerWF[wf] = (res.medianCapPerWF[wf] * 9) / 10
+		if len(caps) > 2*f+1 {
+			res.medianCapPerWF[wf] = slices.Sorted(slices.Values(caps))[f]
+			if medianCount < 2*f+1 {
+				res.medianCapPerWF[wf] = (res.medianCapPerWF[wf] * 9) / 10
+			}
 		}
 	}
 	return
@@ -535,16 +597,7 @@ func (c *consensusQueuePlugin) tryStartExecution(ctx context.Context, fetcher *b
 		return fmt.Errorf("failed to convert CoordinatedEvent from proto: %w", err)
 	}
 
-	// TODO c.triggerCoordinator.Deliver(ctx, event)
-
-	// only log metadata, not outputs and payload
-	event.Event.Event.Outputs = nil
-	event.Event.Event.Payload = nil
-	latency := time.Since(event.ObservedAt)
-	c.lggr.Infow("Consensus event dry run completed", "observedAt", event.ObservedAt, "latency", latency, "event", event)
-	//TODO emit latency metric
-
-	return nil
+	return c.triggerCoordinator.StartExecution(ctx, event)
 }
 
 func (c *consensusQueuePlugin) Reports(ctx context.Context, _ uint64, _ ocr3_1types.ReportsPlusPrecursor) ([]ocr3types.ReportPlus[[]byte], error) {

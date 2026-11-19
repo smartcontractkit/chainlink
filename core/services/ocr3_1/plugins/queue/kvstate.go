@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"cmp"
 	"container/heap"
 	"fmt"
 	"maps"
@@ -44,7 +45,12 @@ var _ heap.Interface = (*priorityQueue)(nil)
 // priorityQueue is a heap of coordinated events, ordered by deadline and then trigger event ID.
 type priorityQueue []*pb.ConsensusQueueEvent
 
-func (p *priorityQueue) Len() int { return len(*p) }
+func (p *priorityQueue) Len() int {
+	if p == nil {
+		return 0
+	}
+	return len(*p)
+}
 
 func (p *priorityQueue) Less(i, j int) bool {
 	a, b := (*p)[i], (*p)[j]
@@ -60,7 +66,9 @@ func (p *priorityQueue) Push(x any) {
 }
 
 func (p *priorityQueue) Pop() any {
-	return (*p)[len(*p)-1]
+	e := (*p)[len(*p)-1]
+	*p = (*p)[:len(*p)-1]
+	return e
 }
 
 func (p *priorityQueue) push(x *pb.ConsensusQueueEvent) { heap.Push(p, x) }
@@ -89,30 +97,39 @@ func (p *priorityQueue) mustPop() *pb.ConsensusQueueEvent {
 
 // popLimited pops up to capacity events from the queue, each of which must also have sufficient wf capacity.
 // Note: capPerWF is mutated.
-func (p *priorityQueue) popLimited(capacity uint32, capPerWF map[string]uint32, expiration time.Time) []*pb.ConsensusQueueEvent {
-	var events []*pb.ConsensusQueueEvent
+func (p *priorityQueue) popLimited(capPerWF map[string]uint32, expiration time.Time) (event *pb.ConsensusQueueEvent) {
 	var wfLimited []*pb.ConsensusQueueEvent // omitted due to workflow limit
-	for len(events) < int(capacity) {
-		next := p.mustPop()
-		if next == nil {
+	for {
+		event = p.mustPop()
+		if event == nil {
 			break
 		}
-		if next.Deadline.AsTime().Before(expiration) {
+		if event.Deadline.AsTime().Before(expiration) {
 			// drop expired
 			continue
 		}
-		if capPerWF[next.WorkflowID] == 0 {
-			wfLimited = append(wfLimited, next)
+		if capPerWF[event.WorkflowID] == 0 {
+			// ignore but restore after
+			wfLimited = append(wfLimited, event)
 			continue
 		}
-		capPerWF[next.WorkflowID]--
-		events = append(events, next)
+		capPerWF[event.WorkflowID]--
+		break
 	}
 	// restore omitted for next time
-	for _, event := range wfLimited {
-		p.push(event)
+	for _, limited := range wfLimited {
+		p.push(limited)
 	}
-	return events
+	return
+}
+
+type revPriorityQueue struct {
+	*priorityQueue
+}
+
+func (r *revPriorityQueue) Less(i, j int) bool {
+	a, b := (*r.priorityQueue)[i], (*r.priorityQueue)[j]
+	return b.CompareDeadline(a) < 0
 }
 
 type blobHandleMap map[string]map[string]uint32 // eventHash -> blobHandle -> idx
@@ -162,8 +179,8 @@ func (s *kvState) loadFrom(kv ocr3_1types.KeyValueStateReadWriter) error {
 		return fmt.Errorf("failed to read queued events: %w", err)
 	}
 	if v != nil {
-		var queued *pb.ConsensusQueueEventList
-		if err = proto.Unmarshal(v, queued); err != nil {
+		var queued pb.ConsensusQueueEventList
+		if err = proto.Unmarshal(v, &queued); err != nil {
 			return fmt.Errorf("failed to unmarshal queued events: %w", err)
 		}
 		s.queuedEvents = new(priorityQueue(queued.GetEvents()))
@@ -190,8 +207,8 @@ func readObservedEvents(kv ocr3_1types.KeyValueStateReader) (observedEvents map[
 	}
 	observedBlobs = make(blobHandleMap)
 	if v != nil {
-		var observed *pb.ConsensusQueueObservedEvents
-		if err = proto.Unmarshal(v, observed); err != nil {
+		var observed pb.ConsensusQueueObservedEvents
+		if err = proto.Unmarshal(v, &observed); err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal observed events: %w", err)
 		}
 		observedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
@@ -212,31 +229,49 @@ func readObservedEvents(kv ocr3_1types.KeyValueStateReader) (observedEvents map[
 
 // sizeOf returns the size of the state when serialized and written to the KV store via writeAll.
 func (s *kvState) sizeOf() (size int) {
-	s.prepareWrite()
 
-	//TODO check maxKeyValueValueBytes too?
-
-	protoOpts := proto.MarshalOptions{Deterministic: true}
 	size += len(observedEventsKey) + len(queuedEventsKey) + len(consensusEventsKey) + len(blobHandlesKey)
-	size += protoOpts.Size(&pb.ConsensusQueueObservedEvents{Observations: s.observedEventEntries, BlobHandles: s.observedBlobHandles})
-	size += protoOpts.Size(&pb.ConsensusQueueEventList{Events: *s.queuedEvents})
-	size += protoOpts.Size(&pb.ConsensusQueueEventList{Events: s.consensusEvents})
-	size += protoOpts.Size(&pb.ConsensusQueueBlobHandleList{BlobHandles: s.queuedBlobHandles})
-
+	size += s.sizeOfObservedEvents() + s.sizeOfQueuedEvents() + s.sizeOfConsensusEvents() + s.sizeOfBlobHandles()
+	//TODO opt: proto.MarshalOptions.UseCachedSize
 	return
 }
 
-// prepareWrite initializes observed and queued blob handles and updates the event references.
-func (s *kvState) prepareWrite() {
+func (s *kvState) sizeOfObservedEvents() int {
+	s.prepareWriteObservedEvents()
+	return proto.MarshalOptions{Deterministic: true}.Size(&pb.ConsensusQueueObservedEvents{Observations: s.observedEventEntries, BlobHandles: s.observedBlobHandles})
+}
+
+func (s *kvState) sizeOfQueuedEvents() int {
+	return proto.MarshalOptions{Deterministic: true}.Size(&pb.ConsensusQueueEventList{Events: *s.queuedEvents})
+}
+
+func (s *kvState) sizeOfConsensusEvents() int {
+	return proto.MarshalOptions{Deterministic: true}.Size(&pb.ConsensusQueueEventList{Events: s.consensusEvents})
+}
+
+func (s *kvState) sizeOfBlobHandles() int {
+	s.prepareWriteBlobHandles()
+	return proto.MarshalOptions{Deterministic: true}.Size(&pb.ConsensusQueueBlobHandleList{BlobHandles: s.queuedBlobHandles})
+}
+
+// prepareWrite initializes observed blob handles & entries, and updates the event references.
+func (s *kvState) prepareWriteObservedEvents() {
 	// gather blob handles and update events
 	s.observedBlobHandles = nil
 	observedBlobIndexes := make(map[string]int)
 	s.observedEventEntries = nil
-	//TODO deadline order so that we can drop efficiently
-	for _, eventHash := range slices.Sorted(maps.Keys(s.observedEvents)) {
+
+	// sort so that we can drop lowest priority efficiently
+	for _, eventHash := range slices.SortedFunc(maps.Keys(s.observedEvents), func(a string, b string) int {
+		ea, eb := s.observedEvents[a], s.observedEvents[b]
+		//TODO can we use deadline here? is median valid & best option?
+		return cmp.Or(cmp.Compare(len(ea.NodeIds), len(eb.NodeIds)),
+			cmp.Compare(ea.TriggerEventID, eb.TriggerEventID))
+	}) {
 		event := s.observedEvents[eventHash]
 		event.Blobs = nil // replace all
-		for blobHandle, ei := range s.observedBlobs[eventHash] {
+		for _, blobHandle := range slices.Sorted(maps.Keys(s.observedBlobs[eventHash])) {
+			ei := s.observedBlobs[eventHash][blobHandle]
 			idx, ok := observedBlobIndexes[blobHandle]
 			if !ok {
 				idx = len(s.observedBlobHandles)
@@ -251,13 +286,17 @@ func (s *kvState) prepareWrite() {
 		s.observedEventEntries = append(s.observedEventEntries, &pb.ConsensusQueueObservedEventEntry{
 			TimelessHash: []byte(eventHash), Event: event})
 	}
+}
 
+// prepareWrite initializes queued blob handles and updates the event references.
+func (s *kvState) prepareWriteBlobHandles() {
 	// gather blob handles and update events
 	s.queuedBlobHandles = nil
 	queuedBlobIndexes := make(map[string]int)
 	addBlobs := func(blobs map[string]uint32) []*pb.CoordinatedEventBlobHandle {
 		var blobHandles []*pb.CoordinatedEventBlobHandle
-		for blobHandle, ei := range blobs {
+		for _, blobHandle := range slices.Sorted(maps.Keys(blobs)) {
+			ei := blobs[blobHandle]
 			idx, ok := queuedBlobIndexes[blobHandle]
 			if !ok {
 				idx = len(s.queuedBlobHandles)
@@ -334,7 +373,8 @@ func (s *kvState) pruneExpiredObservations(expiration time.Time) {
 
 // addObserved adds the observed events to the set, promoting to the priority queue on 2f+1 and calling onQueued.
 func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueObservedEvent, observedBlobs blobHandleMap, onQueued func(event *pb.ConsensusQueueEvent)) {
-	for eventHash, eventToAdd := range toAdd {
+	for _, eventHash := range slices.Sorted(maps.Keys(toAdd)) {
+		eventToAdd := toAdd[eventHash]
 		obsEvent, ok := s.observedEvents[eventHash]
 		if !ok && len(eventToAdd.NodeIds) >= 2*f+1 {
 			// new proposal straight to priority queue
@@ -349,12 +389,16 @@ func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueOb
 			// update proposal
 			// TODO opt: build a map to avoid n^2?
 			for i, node := range eventToAdd.NodeIds {
-				if !slices.Contains(obsEvent.NodeIds, node) {
+				if prev := slices.Index(obsEvent.NodeIds, node); prev == -1 {
 					obsEvent.NodeIds = append(obsEvent.NodeIds, node)
 					obsEvent.ObservedAts = append(obsEvent.ObservedAts, eventToAdd.ObservedAts[i])
 					obsEvent.Deadlines = append(obsEvent.Deadlines, eventToAdd.Deadlines[i])
 					obsEvent.Blobs = append(obsEvent.Blobs, eventToAdd.Blobs[i])
-				} //TODO what if a node reports twice with different deadline or observation? do we need to overwrite?
+				} else { // overwrite previous observation
+					obsEvent.ObservedAts[prev] = eventToAdd.ObservedAts[i]
+					obsEvent.Deadlines[prev] = eventToAdd.Deadlines[i]
+					obsEvent.Blobs[prev] = eventToAdd.Blobs[i]
+				}
 			}
 
 			if len(obsEvent.NodeIds) >= 2*f+1 {
@@ -378,8 +422,8 @@ func readConsensusState(kvReader ocr3_1types.KeyValueStateReader) ([]*pb.Consens
 
 	var consensusEvents []*pb.ConsensusQueueEvent
 	if v != nil {
-		var pbs *pb.ConsensusQueueEventList
-		if err := proto.Unmarshal(v, pbs); err != nil {
+		var pbs pb.ConsensusQueueEventList
+		if err := proto.Unmarshal(v, &pbs); err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal consensus events: %w", err)
 		}
 		consensusEvents = pbs.GetEvents()
@@ -401,8 +445,8 @@ func readBlobHandles(kvReader ocr3_1types.KeyValueStateReader) ([][]byte, error)
 
 	var blobHandles [][]byte
 	if v != nil {
-		var bs *pb.ConsensusQueueBlobHandleList
-		if err := proto.Unmarshal(v, bs); err != nil {
+		var bs pb.ConsensusQueueBlobHandleList
+		if err := proto.Unmarshal(v, &bs); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal consensus blob handles: %w", err)
 		}
 		blobHandles = bs.GetBlobHandles()

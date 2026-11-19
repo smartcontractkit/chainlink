@@ -84,7 +84,8 @@ type Coordinator interface {
 	// limiter does not break down by scope.
 	AvailableCapacity(ctx context.Context) (Capacity, error)
 
-	//TODO Deliver(context.Context, CoordinatedEvent
+	// StartExecution starts execution of the triggered event or returns an error.
+	StartExecution(context.Context, CoordinatedEvent) error
 }
 
 // RegisteredEngine is what EngineRegistry.Get returns: a sink the coordinator
@@ -478,6 +479,35 @@ func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistration
 	return Ack(ctx, lggr, wfMetrics, triggerCapID, triggerRegistrationID, eventID, handle)
 }
 
+func (c *coordinator) StartExecution(ctx context.Context, event CoordinatedEvent) error {
+	wfID, err := types.WorkflowIDFromHex(event.WorkflowID)
+	if err != nil {
+		return err
+	}
+
+	//TODO share code with admitEvent?
+
+	eng, ok := c.engines.Get(wfID)
+	if !ok {
+		return fmt.Errorf("workflow %s: engine not found", wfID)
+	}
+	if !eng.IsCoordinated() {
+		return fmt.Errorf("workflow %s: engine not coordinated", wfID)
+	}
+
+	//TODO more admission checks?
+	// c.admission.ExecutionConcurrency.Wait(ctx, 1)?
+
+	_ = time.Since(event.ObservedAt) //TODO emit latency metric
+
+	if err = eng.ExecuteTrigger(ctx, event); err != nil {
+		//TODO handle errors, ack?
+		return fmt.Errorf("workflow %s: failed to execute trigger %s: %w", wfID, event.Event.Event.ID, err)
+	}
+
+	return nil
+}
+
 // close runs after the reader and release goroutines exit.
 // It unregisters any triggers still in a pending state before returning.
 func (c *coordinator) close() error {
@@ -634,7 +664,7 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 		eventAge := now.Sub(event.ObservedAt)
 		cw.lggr.Debugw("Popped a trigger event from the queue", "eventID", event.Event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
 		tm.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
-		if now.After(event.Deadline) {
+		if now.After(event.Deadline) { //TODO grace period
 			cw.lggr.Warnw("Trigger event is too old, skipping execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
 			tm.IncrementTriggerEventExpiredCounter(ctx)
 			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExpired)
