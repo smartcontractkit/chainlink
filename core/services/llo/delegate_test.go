@@ -34,6 +34,7 @@ func Test_delegate_v31FactoryParams(t *testing.T) {
 			V31Config: lloconfig.V31Config{
 				BlobLifetimeRounds:         11,
 				MaxDurationBlobObservation: lloconfig.Duration(3 * time.Second),
+				MaxDurationBlobBroadcast:   lloconfig.Duration(7 * time.Second),
 				BlobInFlightWaitFactor:     5,
 				CaptureStagingTelemetry:    true,
 			},
@@ -42,6 +43,7 @@ func Test_delegate_v31FactoryParams(t *testing.T) {
 		assert.True(t, params.CaptureStagingTelemetry)
 		assert.Equal(t, uint64(11), params.BlobLifetimeRounds)
 		assert.Equal(t, 3*time.Second, params.MaxDurationBlobObservation)
+		assert.Equal(t, 7*time.Second, params.MaxDurationBlobBroadcast)
 		assert.Equal(t, uint64(5), params.BlobInFlightWaitFactor)
 		assert.Equal(t, uint32(42), params.DonID)
 	})
@@ -53,6 +55,7 @@ func Test_delegate_v31FactoryParams(t *testing.T) {
 
 		assert.Zero(t, params.BlobLifetimeRounds)
 		assert.Zero(t, params.MaxDurationBlobObservation)
+		assert.Zero(t, params.MaxDurationBlobBroadcast)
 		assert.Zero(t, params.BlobInFlightWaitFactor)
 		assert.Nil(t, params.AttributedObservationTelemetryCh)
 	})
