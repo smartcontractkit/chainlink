@@ -1138,7 +1138,10 @@ func TestEngine_Execution(t *testing.T) {
 	subscribedToTriggersCh := make(chan []string, 1)
 	executionFinishedCh := make(chan string)
 
-	cfg := defaultTestConfig(t, nil)
+	cfg := defaultTestConfig(t, func(cfg *cresettings.Workflows) {
+		// The metadata assertions below require the (default-off) feature window.
+		cfg.FeatureExecutionMetadataActivePeriod.DefaultValue = settings.TimeRange(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)).DefaultValue
+	})
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
