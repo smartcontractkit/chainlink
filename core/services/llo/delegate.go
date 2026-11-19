@@ -335,6 +335,7 @@ func (d *delegate) v31FactoryParams(lggr logger.Logger, psrrc lloprotocol.Predec
 		DonID:                            d.cfg.DonID,
 		BlobLifetimeRounds:               d.cfg.V31Config.BlobLifetimeRounds,
 		MaxDurationBlobObservation:       d.cfg.V31Config.MaxDurationBlobObservation.Duration(),
+		MaxDurationBlobBroadcast:         d.cfg.V31Config.MaxDurationBlobBroadcast.Duration(),
 		BlobInFlightWaitFactor:           d.cfg.V31Config.BlobInFlightWaitFactor,
 	}
 }
