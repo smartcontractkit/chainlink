@@ -68,13 +68,11 @@ func TestProposeJobSpec_VerifyPreconditions_KeyringCheck(t *testing.T) {
 	})
 
 	t.Run("a wrong signer is rejected", func(t *testing.T) {
+		// corrupt every entry so the check hits a targeted node whichever nodes the proposal selects
 		bad := make(map[string]string, len(expected))
-		var victim string
-		for csa, addr := range expected {
-			bad[csa] = addr
-			victim = csa
+		for csa := range expected {
+			bad[csa] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 		}
-		bad[victim] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 		err := jobs.ProposeJobSpec{}.VerifyPreconditions(env, newInput(bad))
 		require.ErrorContains(t, err, "matches no JD EVM bundle")
