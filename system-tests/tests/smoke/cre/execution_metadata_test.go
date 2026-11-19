@@ -20,8 +20,6 @@ import (
 
 //nolint:paralleltest // parallel execution is controlled by CRE_TEST_PARALLEL_ENABLED
 func Test_CRE_V2_WorkflowExecutionMetadata(t *testing.T) {
-	// TODO: (CRE-5839) Remove this skip once baseline images supply execution metadata.
-	t_helpers.SkipIfMixedEnv(t, "baseline nodes do not generate execution metadata, hence failing consensus; enable in version 2.75.0+")
 	if parallelEnabled {
 		t.Parallel()
 	}
