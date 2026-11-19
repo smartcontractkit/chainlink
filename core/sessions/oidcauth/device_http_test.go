@@ -23,6 +23,10 @@ import (
 // These tests drive the real routes from ExtendRouter against the mock IdP
 // and a real database.
 
+// gin's mode is a package global that route registration reads, so set it
+// once here rather than from parallel tests.
+func init() { gin.SetMode(gin.TestMode) }
+
 type auditEvent struct {
 	id   audit.EventID
 	data audit.Data
@@ -84,7 +88,6 @@ func newRouterHarness(t *testing.T) *routerHarness {
 	oi.deviceAllowed = mustCIDRs(t, "10.8.0.0/16")
 	oi.clients = clientResolver{trustedProxies: mustCIDRs(t, "10.0.0.0/24")}
 
-	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	api := engine.Group("/", sessions.Sessions("clsession", cookie.NewStore([]byte("0123456789abcdef0123456789abcdef"))))
 	require.NoError(t, oi.ExtendRouter(api))
