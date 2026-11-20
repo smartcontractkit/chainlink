@@ -332,6 +332,9 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 	if goldenConfig == nil {
 		return emptyNode, fmt.Errorf("node '%s', id '%s', csa '%s': %w", jdNode.Name, jdNode.Id, jdNode.PublicKey, ErrMissingEVMChain)
 	}
+	if goldenConfig.GetOcr2Config() == nil || goldenConfig.GetOcr2Config().GetP2PKeyBundle() == nil {
+		return emptyNode, fmt.Errorf("node '%s', id '%s', csa '%s': EVM chain config has no OCR2 or P2P key bundle", jdNode.Name, jdNode.Id, jdNode.PublicKey)
+	}
 	selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
 	bootstrap := goldenConfig.Ocr2Config.IsBootstrap
 	if !bootstrap { // no ocr config on bootstrap

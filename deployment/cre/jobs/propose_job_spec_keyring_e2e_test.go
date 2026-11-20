@@ -1,11 +1,15 @@
 package jobs_test
 
 import (
+	"context"
 	"encoding/hex"
+	"errors"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -13,6 +17,7 @@ import (
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
+	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
 
 func TestProposeJobSpec_VerifyPreconditions_KeyringCheck(t *testing.T) {
@@ -103,4 +108,47 @@ func TestProposeJobSpec_VerifyPreconditions_KeyringCheck(t *testing.T) {
 		err := jobs.ProposeJobSpec{}.VerifyPreconditions(env, newInput(partial))
 		require.ErrorContains(t, err, "no expected signer for csa")
 	})
+
+	t.Run("EVM chain config without OCR2 metadata errors instead of panicking", func(t *testing.T) {
+		broken := env
+		broken.Offchain = rewriteChainConfigsJD{h.TestJD, func(cc *node.ChainConfig) { cc.Ocr2Config = nil }}
+
+		err := jobs.ProposeJobSpec{}.VerifyPreconditions(broken, newInput(expected))
+		require.ErrorContains(t, err, "no OCR2 or P2P key bundle")
+	})
+
+	t.Run("an unrelated chain config without a key bundle is skipped", func(t *testing.T) {
+		broken := env
+		broken.Offchain = rewriteChainConfigsJD{h.TestJD, func(cc *node.ChainConfig) {
+			if cc.Chain.Type == node.ChainType_CHAIN_TYPE_APTOS {
+				cc.Ocr2Config.OcrKeyBundle = nil
+			}
+		}}
+
+		require.NoError(t, jobs.ProposeJobSpec{}.VerifyPreconditions(broken, newInput(expected)))
+	})
+}
+
+// rewriteChainConfigsJD serves the harness JD's chain configs after applying rewrite to each copy.
+type rewriteChainConfigsJD struct {
+	*envtest.JDNodeService
+	rewrite func(*node.ChainConfig)
+}
+
+func (j rewriteChainConfigsJD) ListNodeChainConfigs(ctx context.Context, req *node.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*node.ListNodeChainConfigsResponse, error) {
+	resp, err := j.JDNodeService.ListNodeChainConfigs(ctx, req, opts...)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*node.ChainConfig, len(resp.ChainConfigs))
+	for i, cc := range resp.ChainConfigs {
+		c, ok := proto.Clone(cc).(*node.ChainConfig)
+		if !ok {
+			return nil, errors.New("unexpected chain config type")
+		}
+		j.rewrite(c)
+		out[i] = c
+	}
+
+	return &node.ListNodeChainConfigsResponse{ChainConfigs: out}, nil
 }
