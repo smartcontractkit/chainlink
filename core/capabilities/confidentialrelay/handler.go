@@ -368,7 +368,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
 	}
-	if err := h.verifyAttestationHash(ctx, localNode, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
+	if err = h.verifyAttestationHash(ctx, localNode, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
 		l.Warnw("rejecting secrets request: attestation validation failed", "err", err)
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
@@ -638,7 +638,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
 	}
-	if err := h.verifyAttestationHash(ctx, localNode, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
+	if err = h.verifyAttestationHash(ctx, localNode, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
 		l.Warnw("rejecting capability request: attestation validation failed", "err", err)
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
