@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
 	consensusserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/consensus/server"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -172,9 +173,13 @@ func NewStandaloneEngine(
 	if moduleExecuteMaxResponseSizeBytes < 0 {
 		return nil, nil, fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 	}
-	workflowExecutionMetadata, err := getExecutionMetadata(ctx, cfg)
-	if err != nil {
-		return nil, nil, err
+	// Gated like the engine: no metadata unless FeatureExecutionMetadataActivePeriod covers now.
+	var workflowExecutionMetadata *sdkpb.WorkflowExecutionMetadata
+	if checkErr := cfg.LocalLimiters.ExecutionMetadata.Check(ctx, commonconfig.Timestamp(time.Now().Unix())); checkErr == nil {
+		workflowExecutionMetadata, err = getExecutionMetadata(ctx, cfg)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
 		ExecutionMetadata: workflowExecutionMetadata,

@@ -242,11 +242,8 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 		})
 	case suite_config.SuiteScenarioExecutionMetadata:
 		t.Run("Workflow Execution Metadata - "+topology, func(t *testing.T) {
-			// TODO: (CRE-5839) Remove this skip once baseline images supply execution metadata.
-			t_helpers.SkipIfMixedEnv(t, "baseline nodes do not generate execution metadata, hence failing consensus; enable in version 2.75.0+")
-			if parallelEnabled {
-				t.Parallel()
-			}
+			// Not parallel: this test applies CRE settings overrides, which mutate shared
+			// state and must run serially (see cresettings-override-README.md).
 			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteWorkflowExecutionMetadataTest(t, testEnv)
 		})

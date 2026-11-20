@@ -1,13 +1,20 @@
 package v2
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Synthetic identifiers use production encodings.
@@ -131,4 +138,55 @@ func metadataEngineFixture() *baseEngine {
 	}}
 	engine.localNode.Store(&capabilities.Node{WorkflowDON: capabilities.DON{ID: 17, F: 3, ConfigVersion: 1}})
 	return engine
+}
+
+// The metadata is part of the ExecuteRequest bytes that confidential workflows hash across nodes,
+// so it is gated by an activation window checked against the execution timestamp: it must stay off
+// by default and switch on at the same execution for every node.
+func TestEngine_ExecutionMetadataGate(t *testing.T) {
+	t.Parallel()
+
+	window := func(from, to time.Time) func(*cresettings.Workflows) {
+		return func(w *cresettings.Workflows) {
+			w.FeatureExecutionMetadataActivePeriod.DefaultValue = settings.TimeRange(from, to).DefaultValue
+		}
+	}
+	start := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 12, 2, 0, 0, 0, 0, time.UTC)
+
+	for _, tc := range []struct {
+		name  string
+		cfgFn func(*cresettings.Workflows)
+		at    time.Time
+		want  bool
+	}{
+		{name: "default window is off", at: start},
+		{name: "inside the window", cfgFn: window(start, end), at: start.Add(time.Hour), want: true},
+		{name: "before the window", cfgFn: window(start, end), at: start.Add(-time.Second)},
+		{name: "after the window", cfgFn: window(start, end), at: end.Add(time.Second)},
+		{name: "no execution timestamp stays off", cfgFn: window(start, end), at: time.Time{}},
+		{name: "window reaching year 1 covers a zero timestamp", cfgFn: window(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), end), at: time.Time{}, want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Setup.
+			engine := metadataEngineFixture()
+			limiters, err := NewLimiters(limits.Factory{Logger: logger.TestLogger(t)}, tc.cfgFn)
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, limiters.Close()) })
+			engine.cfg.LocalLimiters = limiters
+			ctx := contexts.WithCRE(context.Background(), contexts.CRE{Workflow: metadataWorkflowIDFixture})
+
+			// Execute.
+			got := engine.executionMetadata(ctx, tc.at, metadataExecutionIDFixture)
+
+			// Verify.
+			if !tc.want {
+				require.Nil(t, got)
+				return
+			}
+			require.True(t, proto.Equal(engine.getExecutionMetadata(metadataExecutionIDFixture), got), "unexpected execution metadata: %v", got)
+		})
+	}
 }

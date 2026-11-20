@@ -355,9 +355,11 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 	// No executionID exists unless startExecution is called.
 	// Hence, we initialize it as an empty string.
 	executionID := ""
+	// Subscribe has no execution timestamp, so the node's clock gates the metadata.
+	subscribeMetadata := e.executionMetadata(ctx, e.cfg.Clock.Now(), executionID)
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
 		Request:           &sdkpb.ExecuteRequest_Subscribe{},
-		ExecutionMetadata: e.getExecutionMetadata(executionID),
+		ExecutionMetadata: subscribeMetadata,
 		MaxResponseSize:   uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:            e.cfg.WorkflowConfig,
 	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider))
@@ -784,7 +786,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, event.TriggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
-	executionMetadata := e.getExecutionMetadata(executionID)
+	executionMetadata := e.executionMetadata(ctx, executionTimestamp, executionID)
 	var result *sdkpb.ExecutionResult
 	result, execErr = e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		ExecutionMetadata: executionMetadata,
@@ -1210,6 +1212,20 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, t
 		"value", valueMs,
 		"orgID", e.orgID,
 	)
+}
+
+// executionMetadata returns execution metadata for an ExecuteRequest, or nil when
+// the execution timestamp is outside FeatureExecutionMetadataActivePeriod.
+// The metadata changes the request bytes, which confidential workflows hash across nodes,
+// therefore, timestamp (featureGateTime) is used to switch a feature
+// together across all nodes (and avoid mixed-version environment inconsistencies).
+// An execution without a timestamp (zero time, when ExecutionTimestampsEnabled is off)
+// stays off unless the window reaches back to year 1.
+func (e *baseEngine) executionMetadata(ctx context.Context, featureGateTime time.Time, executionID string) *sdkpb.WorkflowExecutionMetadata {
+	if err := e.cfg.LocalLimiters.ExecutionMetadata.Check(ctx, commonconfig.Timestamp(featureGateTime.Unix())); err != nil {
+		return nil
+	}
+	return e.getExecutionMetadata(executionID)
 }
 
 func (e *baseEngine) getExecutionMetadata(executionID string) *sdkpb.WorkflowExecutionMetadata {
