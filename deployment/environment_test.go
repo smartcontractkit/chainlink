@@ -466,3 +466,27 @@ func TestNewNodeFromJD(t *testing.T) {
 		})
 	}
 }
+
+func TestChainConfigsToOCRConfig_SkipsConfigsWithoutOCR2Bundle(t *testing.T) {
+	evmDetails, err := chainToDetails(&nodev1.Chain{Type: nodev1.ChainType_CHAIN_TYPE_EVM, Id: "1"})
+	require.NoError(t, err)
+	p2p := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID().String()
+
+	good := &nodev1.ChainConfig{
+		Chain: &nodev1.Chain{Type: nodev1.ChainType_CHAIN_TYPE_EVM, Id: "1"},
+		Ocr2Config: &nodev1.OCR2Config{
+			P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{PeerId: p2p},
+			OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{BundleId: "bundle-1"},
+		},
+	}
+	noBundle := &nodev1.ChainConfig{
+		Chain:      &nodev1.Chain{Type: nodev1.ChainType_CHAIN_TYPE_EVM, Id: "2"},
+		Ocr2Config: &nodev1.OCR2Config{P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{PeerId: p2p}},
+	}
+	noOCR2 := &nodev1.ChainConfig{Chain: &nodev1.Chain{Type: nodev1.ChainType_CHAIN_TYPE_EVM, Id: "3"}}
+
+	got, err := ChainConfigsToOCRConfig([]*nodev1.ChainConfig{good, noBundle, noOCR2})
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.Equal(t, "bundle-1", got[evmDetails].KeyBundleID)
+}

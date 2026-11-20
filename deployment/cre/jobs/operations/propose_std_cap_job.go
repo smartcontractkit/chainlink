@@ -15,8 +15,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -74,36 +72,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 			jdDONName = input.JDDONName
 		}
 
-		filter := &node.ListNodesRequest_Filter{
-			Selectors: []*ptypes.Selector{
-				{
-					Key: "don-" + jdDONName,
-					Op:  ptypes.SelectorOp_EXIST,
-				},
-				{
-					Key:   "environment",
-					Op:    ptypes.SelectorOp_EQ,
-					Value: &input.Environment,
-				},
-				{
-					Key:   "product",
-					Op:    ptypes.SelectorOp_EQ,
-					Value: &input.Domain,
-				},
-				{
-					Key:   "type",
-					Op:    ptypes.SelectorOp_EQ,
-					Value: new(PluginNodeType),
-				},
-			},
-		}
-		for _, f := range input.DONFilters {
-			filter = f.AddToFilter(filter)
-		}
-
-		for _, f := range input.DONFilters {
-			filter = f.AddToFilterIfNotPresent(filter)
-		}
+		filter := StandardCapabilityNodeFilter(jdDONName, input.Environment, input.Domain, input.DONFilters)
 
 		nodes, err := offchain.FetchNodesFromJD(b.GetContext(), deps.Env.Offchain, filter)
 		if err != nil {
