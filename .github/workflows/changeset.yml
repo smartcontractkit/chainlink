@@ -6,6 +6,8 @@ name: Changeset
 
 on: pull_request
 
+permissions: {}
+
 jobs:
   changeset:
     env:

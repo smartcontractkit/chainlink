@@ -17,6 +17,8 @@ on:
     - cron: "0 0,1,2,3,4,5,6,20,21,22,23 * * *" # Run regularly at night to get better flaky test data
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   filter:
     name: Detect Changes

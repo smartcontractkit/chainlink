@@ -26,6 +26,8 @@ on:
         type: string
         default: ""
 
+permissions: {}
+
 concurrency:
   group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}-integration-in-memory-tests
   cancel-in-progress: true
