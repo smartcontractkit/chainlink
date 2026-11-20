@@ -306,7 +306,7 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 	}
 	args = append(args, "-t", c.LocalImage, "-f", c.Dockerfile)
 	if c.RequireGithubToken {
-		args = append(args, "--build-arg", "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"))
+		args = append(args, "--build-arg", "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"), "--secret", "id=GIT_AUTH_TOKEN,env=GITHUB_TOKEN")
 	}
 	// Context must be the final positional argument.
 	args = append(args, c.DockerCtx)
