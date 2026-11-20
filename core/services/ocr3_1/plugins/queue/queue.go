@@ -232,19 +232,20 @@ func (c *consensusQueuePlugin) Observation(
 		// note: elements already reference blob 0 and natural element index is aligned
 
 		// we verified space for up to maxObservedBlobHandles blobs
-		var offset int
-		for batch := 1; batch < maxObservedBlobHandles && n < len(events); batch++ {
-			offset += n
-			events = events[n:]
+		lastEnd := n
+		events = events[n:]
+		for batch := 1; batch < maxObservedBlobHandles && len(events) > 0; batch++ {
 			blobHandle, n, err2 = broadcastAsBlob(ctx, blobBroadcaster, events, seqNr, c.onchainCfg.EstimatedRoundInterval)
 			if err2 != nil {
 				return nil, err2
 			}
 			obs.BlobHandles = append(obs.BlobHandles, blobHandle)
-			for i := offset; i < n; i++ { // update indices
-				obs.Events[offset+i].Blobs[0].Blob = uint32(batch)
-				obs.Events[offset+i].Blobs[0].Element = uint32(i)
+			for i := lastEnd; i < n; i++ { // update indices
+				obs.Events[lastEnd+i].Blobs[0].Blob = uint32(batch)
+				obs.Events[lastEnd+i].Blobs[0].Element = uint32(i)
 			}
+			lastEnd += n
+			events = events[n:]
 		}
 	}
 

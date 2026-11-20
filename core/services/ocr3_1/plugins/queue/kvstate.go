@@ -277,7 +277,7 @@ func (s *kvState) prepareWriteObservedEvents() {
 	for _, eventHash := range slices.SortedFunc(maps.Keys(s.observedEvents), func(a string, b string) int {
 		ea, eb := s.observedEvents[a], s.observedEvents[b]
 		//TODO can we use deadline here? is median valid & best option? (only have f+1)
-		return cmp.Or(cmp.Compare(len(ea.NodeIds), len(eb.NodeIds)), cmp.Compare(ea.ExecutionID, eb.ExecutionID))
+		return cmp.Or(cmp.Compare(len(eb.NodeIds), len(ea.NodeIds)), cmp.Compare(eb.ExecutionID, ea.ExecutionID))
 	}) {
 		event := s.observedEvents[eventHash]
 		event.Blobs = nil // replace all
@@ -358,7 +358,7 @@ func (s *kvState) writeTo(w *stateWriter) error {
 }
 
 func (s *kvState) pruneExpiredObservations(expiration time.Time) {
-	unexpiredFn := func(t *timestamppb.Timestamp) bool { return t.AsTime().After(expiration) }
+	unexpiredFn := func(t *timestamppb.Timestamp) bool { return t.AsTime().Before(expiration) }
 	maps.DeleteFunc(s.observedEvents, func(k string, v *pb.ConsensusQueueObservedEvent) bool {
 		if !slices.ContainsFunc(v.Deadlines, unexpiredFn) {
 			return false // no unexpired deadlines, so delete the whole thing
