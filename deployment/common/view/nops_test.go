@@ -106,6 +106,23 @@ func TestGenerateNopsView(t *testing.T) {
 		assert.Empty(t, v)
 	})
 
+	t.Run("node with malformed chain ID is kept and does not drop other nodes", func(t *testing.T) {
+		malformedJDService := &customJDService{
+			NodeServiceClient: jdService,
+			chainConfigs: map[string][]*nodev1.ChainConfig{
+				"node_2": {malformedEVMChainConfig(p2pIDs[1])},
+			},
+		}
+
+		v2, err := GenerateNOPsViewV2(t.Context(), lggr, nodeIDs, malformedJDService, "test", nil)
+		require.NoError(t, err)
+		require.Len(t, v2["testnop"].Nodes, 3)
+
+		v1, err := GenerateNopsView(lggr, nodeIDs, malformedJDService)
+		require.NoError(t, err)
+		require.Len(t, v1, 3)
+	})
+
 	t.Run("error from ListNodes", func(t *testing.T) {
 		// Create a custom JD service that returns an error for ListNodes
 		errorJDService := &customJDService{
@@ -136,6 +153,7 @@ func assertLabelExists(t *testing.T, labels []LabelView, key, expectedValue stri
 type customJDService struct {
 	nodev1.NodeServiceClient
 	listNodesError error
+	chainConfigs   map[string][]*nodev1.ChainConfig
 	*test.UnimplementedCSAServiceClient
 	*test.UnimplementedJobServiceClient
 }
@@ -145,4 +163,24 @@ func (s *customJDService) ListNodes(ctx context.Context, req *nodev1.ListNodesRe
 		return nil, s.listNodesError
 	}
 	return s.NodeServiceClient.ListNodes(ctx, req, opts...)
+}
+
+func (s *customJDService) ListNodeChainConfigs(ctx context.Context, req *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error) {
+	for _, id := range req.GetFilter().GetNodeIds() {
+		if cfgs, ok := s.chainConfigs[id]; ok {
+			return &nodev1.ListNodeChainConfigsResponse{ChainConfigs: cfgs}, nil
+		}
+	}
+	return s.NodeServiceClient.ListNodeChainConfigs(ctx, req, opts...)
+}
+
+// malformedEVMChainConfig mimics a node exporting its chain ID combined with the chain name.
+func malformedEVMChainConfig(peerID string) *nodev1.ChainConfig {
+	return &nodev1.ChainConfig{
+		Chain: &nodev1.Chain{Id: "11155111 ethereum-testnet-sepolia", Type: nodev1.ChainType_CHAIN_TYPE_EVM},
+		Ocr2Config: &nodev1.OCR2Config{
+			P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{PeerId: peerID},
+			OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{},
+		},
+	}
 }
