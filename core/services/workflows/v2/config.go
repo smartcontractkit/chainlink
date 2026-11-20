@@ -159,6 +159,10 @@ type EngineLimiters struct {
 	// ShadowTriggerMode is open while a coordinated trigger event's observed time is inside the
 	// FeatureShadowTriggerModeActivePeriod window, resolved per workflow, owner, org or global.
 	ShadowTriggerMode limits.RangeLimiter[commonconfig.Timestamp]
+	// ExecutionMetadata is open while an execution's timestamp is inside the
+	// FeatureExecutionMetadataActivePeriod window, resolved per workflow, owner, org or global.
+	// While closed, the engine sends no WorkflowExecutionMetadata in the ExecuteRequest.
+	ExecutionMetadata limits.RangeLimiter[commonconfig.Timestamp]
 	// CentralTriggerEventQueue is the node-wide capacity of the central trigger queue.
 	CentralTriggerEventQueue limits.BoundLimiter[int]
 	// CentralTriggerQueueDrainInterval is how often the central trigger queue is drained.
@@ -365,6 +369,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return err
 	}
+	l.ExecutionMetadata, err = limits.MakeRangeLimiter[commonconfig.Timestamp](lf, cfg.FeatureExecutionMetadataActivePeriod)
+	if err != nil {
+		return err
+	}
 	l.CentralTriggerEventQueue, err = limits.MakeUpperBoundLimiter(lf, cresettings.Default.CentralTriggerEventQueueLimit)
 	if err != nil {
 		return err
@@ -417,6 +425,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.CentralizedWorkflowOwnerVerificationEnabled,
 		l.DONTimeRequestTimeout,
 		l.ShadowTriggerMode,
+		l.ExecutionMetadata,
 	}
 	var errs error
 	for _, e := range evictables {
@@ -464,6 +473,7 @@ func (l *EngineLimiters) Close() error {
 		l.CentralizedWorkflowOwnerVerificationEnabled,
 		l.DONTimeRequestTimeout,
 		l.ShadowTriggerMode,
+		l.ExecutionMetadata,
 		l.CentralTriggerEventQueue,
 		l.CentralTriggerQueueDrainInterval,
 	)
