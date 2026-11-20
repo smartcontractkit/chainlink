@@ -258,6 +258,7 @@ jobs:
           gati-profile: ${{ secrets.GATI_PROFILE_IMAGE_BUMP_HUB }}
           hub-repo: ${{ secrets.REPO_IMAGE_BUMP_HUB }}
           audience: ${{ secrets.OIDC_AUDIENCE_IMAGE_BUMP_HUB }}
+          is-hotfix: ${{ needs.checks.outputs.is-hotfix }}
           images: |
             core=${{ needs.docker-core.result == 'success' && needs.docker-core.outputs.docker-manifest-tag || '' }}
             ccip=${{ needs.docker-ccip.result == 'success' && needs.docker-ccip.outputs.docker-manifest-tag || '' }}
