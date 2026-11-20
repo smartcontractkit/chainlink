@@ -126,9 +126,16 @@ func (c *consensusQueuePlugin) Observation(
 	ctx context.Context, seqNr uint64, _ ocrtypes.AttributedQuery, kvReader ocr3_1types.KeyValueStateReader,
 	blobBroadcaster ocr3_1types.BlobBroadcastFetcher,
 ) (ocrtypes.Observation, error) {
-	// Always attempt to start any executions from the KV Store in the event Committed was not called.
-	// tryStartExecutions is idempotent.
-	c.tryStartExecutions(kvReader)
+	// Always attempt to start any executions from the KV Store in the event Committed was not called. commitState is idempotent.
+	queuedEvents, err := c.commitState(ctx, kvReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to commit state: %w", err)
+	}
+
+	observedEvents, _, err := readObservedEvents(kvReader)
+	if err != nil {
+		return nil, err
+	}
 
 	capacity, err := c.triggerCoordinator.AvailableCapacity(ctx)
 	if err != nil {
@@ -148,14 +155,15 @@ func (c *consensusQueuePlugin) Observation(
 		Capacity:           uint32(min(capacity.Global, math.MaxUint32)),
 		WorkflowCapacities: make(map[string]uint32),
 	}
-	for wf, wfCap := range capacity.PerWorkflow {
-		//TODO only for events proposed and queued in the KV store?
-		obs.WorkflowCapacities[wf] = uint32(min(wfCap, math.MaxUint32))
+	for _, e := range observedEvents {
+		if wfCap, ok := capacity.PerWorkflow[e.WorkflowID]; ok {
+			obs.WorkflowCapacities[e.WorkflowID] = uint32(min(wfCap, math.MaxUint32))
+		}
 	}
-
-	observedEvents, _, err := readObservedEvents(kvReader)
-	if err != nil {
-		return nil, err
+	for _, e := range queuedEvents {
+		if wfCap, ok := capacity.PerWorkflow[e.WorkflowID]; ok {
+			obs.WorkflowCapacities[e.WorkflowID] = uint32(min(wfCap, math.MaxUint32))
+		}
 	}
 
 	protoOpts := proto.MarshalOptions{Deterministic: true}
@@ -167,7 +175,8 @@ func (c *consensusQueuePlugin) Observation(
 		coord.ObservedAt, coord.Deadline = nil, nil  // for consistent hashing
 		protoBytes, err2 := protoOpts.Marshal(coord) // TODO opt: avoid remarshalling
 		if err2 != nil {
-			c.lggr.Errorw("failed to marshal event", "eventID", coord.Event.Event.Id, "err", err2)
+			c.lggr.Errorw("Failed to marshal event. Excluding from observation", "eventID", coord.Event.Event.Id, "err", err2)
+			//TODO remove from triggerQueue?
 			continue
 		}
 		timelessHash := sha256.Sum256(protoBytes)
@@ -218,9 +227,9 @@ func (c *consensusQueuePlugin) Observation(
 		obs.BlobHandles = append(obs.BlobHandles, blobHandle)
 		// note: elements already reference blob 0 and natural element index is aligned
 
+		// we verified space for up to maxObservedBlobHandles blobs
 		var offset int
-		//TODO stop after batch maxObservedBlobHandles
-		for batch := 1; n < len(coordEvents); batch++ {
+		for batch := 1; batch < maxObservedBlobHandles && n < len(coordEvents); batch++ {
 			offset += n
 			coordEvents = coordEvents[n:]
 			blobHandle, n, err2 = broadcastAsBlob(ctx, blobBroadcaster, coordEvents, seqNr, c.onchainCfg.EstimatedRoundInterval)
@@ -280,6 +289,23 @@ func (c *consensusQueuePlugin) ValidateObservation(
 	}
 	if err = eg.Wait(); err != nil {
 		return err
+	}
+
+	//TODO ensure capacity map is only observations and KV observed & queued events
+
+	// ensure no duplicated trigger event ID or timelessHash
+	triggerEventIDs, timelessHashes := make(map[string]struct{}), make(map[string]struct{})
+	for _, event := range obs.Events {
+		if _, ok := triggerEventIDs[event.TriggerEventID]; ok {
+			return fmt.Errorf("duplicate trigger event ID: %s", event.TriggerEventID)
+		}
+		triggerEventIDs[event.TriggerEventID] = struct{}{}
+
+		timelessHash := string(event.TimelessHash)
+		if _, ok := timelessHashes[timelessHash]; ok {
+			return fmt.Errorf("duplicate timeless hash: %x", event.TimelessHash)
+		}
+		timelessHashes[timelessHash] = struct{}{}
 	}
 
 	// wait to do this since we depend on every event being valid
@@ -392,7 +418,7 @@ func (c *consensusQueuePlugin) StateTransition(
 		queuedTriggerEventIDs = append(queuedTriggerEventIDs, event.TriggerEventID)
 	})
 	// pop as many queuedEvents as possible in to consensusEvents (up to capacity or KV limits)
-	for len(*state.queuedEvents) > 0 && len(state.consensusEvents) < int(obs.medianCap) {
+	for len(state.queuedEvents) > 0 && len(state.consensusEvents) < int(obs.medianCap) {
 		event := state.queuedEvents.popLimited(obs.medianCapPerWF, obs.medianExpiration)
 		if event == nil {
 			break
@@ -416,8 +442,8 @@ func (c *consensusQueuePlugin) StateTransition(
 		//TODO opt: drop more than one each time?
 	}
 
-	// prune queuedEvents if that value, blob handles, or the overall size is too large
-	if len(*state.queuedEvents) > 0 &&
+	// prune (newly) queuedEvents if that value, blob handles, or the overall size is too large
+	if len(queuedTriggerEventIDs) > 0 &&
 		(state.sizeOfQueuedEvents() > maxKeyValueValueBytes ||
 			state.sizeOfBlobHandles() > maxKeyValueValueBytes ||
 			state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes) {
@@ -426,8 +452,8 @@ func (c *consensusQueuePlugin) StateTransition(
 		for _, id := range queuedTriggerEventIDs {
 			queuedTriggerEventIDSet[id] = struct{}{}
 		}
-		eligibleEvents := make([]*pb.ConsensusQueueEvent, 0, len(*state.queuedEvents))
-		for _, e := range *state.queuedEvents {
+		eligibleEvents := make([]*pb.ConsensusQueueEvent, 0, len(state.queuedEvents))
+		for _, e := range state.queuedEvents {
 			if _, ok := queuedTriggerEventIDSet[e.TriggerEventID]; ok {
 				eligibleEvents = append(eligibleEvents, e)
 			}
@@ -442,11 +468,11 @@ func (c *consensusQueuePlugin) StateTransition(
 				state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes) {
 			toRemove := heap.Pop(backwardsQueuedEvents).(*pb.ConsensusQueueEvent)
 			//TODO opt: faster delete...but need to maintain state.queuedEvents (though not order)...map indices?
-			*state.queuedEvents = slices.DeleteFunc(*state.queuedEvents, func(e *pb.ConsensusQueueEvent) bool { return e.TriggerEventID == toRemove.TriggerEventID })
+			state.queuedEvents = slices.DeleteFunc(state.queuedEvents, func(e *pb.ConsensusQueueEvent) bool { return e.TriggerEventID == toRemove.TriggerEventID })
 			//TODO opt: drop more than one each time?
 		}
 		// rebuild the priority queue
-		heap.Init(state.queuedEvents)
+		heap.Init(&state.queuedEvents)
 	}
 
 	// note: no need to prune consensus events, since already limited what we collected
@@ -455,7 +481,6 @@ func (c *consensusQueuePlugin) StateTransition(
 	if err != nil {
 		return nil, err
 	}
-	c.triggerQueue.Remove(ctx, queuedTriggerEventIDs) //TODO move to committed - do we need to write it through KV? or can we Remove the whole PQ every time?
 
 	// no report to return, executions start when committed
 	return nil, nil
@@ -537,24 +562,51 @@ func (res *observations) addEvent(obs commontypes.OracleID, event *pb.ConsensusQ
 }
 
 func (c *consensusQueuePlugin) Committed(ctx context.Context, _ uint64, kvReader ocr3_1types.KeyValueStateReader) error {
-	c.tryStartExecutions(kvReader)
-	return nil
+	_, err := c.commitState(ctx, kvReader)
+	return err
+}
+
+// commitState executes the consensus events, and remove events from the trigger queue that have been queued or executed.
+func (c *consensusQueuePlugin) commitState(ctx context.Context, kvReader ocr3_1types.KeyValueStateReader) ([]*pb.ConsensusQueueEvent, error) {
+	consensusEvents, blobHandles, err := readConsensusState(kvReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read consensus state: %w", err)
+	}
+
+	done := make(chan struct{})
+	defer func() { <-done }()
+	go c.tryStartExecutions(ctx, done, consensusEvents, blobHandles)
+
+	c.triggerQueue.Remove(ctx, func(yield func(string) bool) {
+		for _, e := range consensusEvents {
+			if !yield(e.TriggerEventID) {
+				break
+			}
+		}
+	})
+	queuedEvents, err := readQueuedEvents(kvReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read queued events: %w", err)
+	}
+	c.triggerQueue.Remove(ctx, func(yield func(string) bool) {
+		for _, e := range queuedEvents {
+			if !yield(e.TriggerEventID) {
+				break
+			}
+		}
+	})
+	return queuedEvents, nil
 }
 
 // tryStartExecutions calls StartExecution asynchronously on the corresponding engine for each trigger event.
 // It is idempotent, thus safe to call from Observation and Committed.
-func (c *consensusQueuePlugin) tryStartExecutions(kvReader ocr3_1types.KeyValueStateReader) {
-	consensusEvents, blobHandles, err := readConsensusState(kvReader)
-	if err != nil {
-		c.lggr.Errorw("Failed to read consensus state. Unable to execute events", "err", err)
-		return
-	}
-
+func (c *consensusQueuePlugin) tryStartExecutions(ctx context.Context, done chan struct{}, consensusEvents []*pb.ConsensusQueueEvent, blobHandles [][]byte) {
+	defer close(done)
 	fetcher := blobCache{fetcher: c.blobBroadcastFetcher, cache: make(map[string]func() ([]byte, error))}
 	var wg sync.WaitGroup
 	for _, consensusEvent := range consensusEvents {
 		wg.Add(1)
-		c.eng.Go(func(ctx context.Context) {
+		c.eng.GoCtx(ctx, func(ctx context.Context) {
 			defer wg.Done()
 
 			if err2 := c.tryStartExecution(ctx, &fetcher, consensusEvent, blobHandles); err2 != nil {
@@ -563,7 +615,9 @@ func (c *consensusQueuePlugin) tryStartExecutions(kvReader ocr3_1types.KeyValueS
 			}
 		})
 	}
+
 	wg.Wait()
+	return
 }
 
 func (c *consensusQueuePlugin) tryStartExecution(ctx context.Context, fetcher *blobCache, consensusEvent *pb.ConsensusQueueEvent, blobHandles [][]byte) error {

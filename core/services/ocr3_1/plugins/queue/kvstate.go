@@ -66,6 +66,9 @@ func (p *priorityQueue) Push(x any) {
 }
 
 func (p *priorityQueue) Pop() any {
+	if p.Len() == 0 {
+		return nil
+	}
 	e := (*p)[len(*p)-1]
 	*p = (*p)[:len(*p)-1]
 	return e
@@ -89,7 +92,7 @@ func (p *priorityQueue) pushObservations(timelessHash string, obs *pb.ConsensusQ
 // mustPop pops the next event from the queue, or returns nil if the queue is empty.
 // The value must be of type *pb.ConsensusQueueEvent. Use push to ensure this.
 func (p *priorityQueue) mustPop() *pb.ConsensusQueueEvent {
-	if len(*p) == 0 {
+	if p.Len() == 0 {
 		return nil
 	}
 	return heap.Pop(p).(*pb.ConsensusQueueEvent)
@@ -158,7 +161,7 @@ type kvState struct {
 	observedBlobHandles  [][]byte // only populated before write
 
 	// priorityQueueKey
-	queuedEvents *priorityQueue
+	queuedEvents priorityQueue
 	// consensusEventsKey
 	consensusEvents []*pb.ConsensusQueueEvent
 	// blobHandlesKey
@@ -174,30 +177,39 @@ func (s *kvState) loadFrom(kv ocr3_1types.KeyValueStateReadWriter) error {
 		return err
 	}
 
-	v, err := kv.Read([]byte(queuedEventsKey))
+	queuedEvents, err := readQueuedEvents(kv)
 	if err != nil {
-		return fmt.Errorf("failed to read queued events: %w", err)
+		return err
 	}
-	if v != nil {
-		var queued pb.ConsensusQueueEventList
-		if err = proto.Unmarshal(v, &queued); err != nil {
-			return fmt.Errorf("failed to unmarshal queued events: %w", err)
-		}
-		s.queuedEvents = new(priorityQueue(queued.GetEvents()))
-	}
+	s.queuedEvents = queuedEvents
 
 	s.queuedBlobs = make(blobHandleMap)
 	queuedBlobs, err := readBlobHandles(kv)
 	if err != nil {
 		return err
 	}
-	for _, event := range []*pb.ConsensusQueueEvent(*s.queuedEvents) {
+	for _, event := range s.queuedEvents {
 		for _, blob := range event.GetBlobs() {
 			s.queuedBlobs.add(string(event.TimelessHash), string(queuedBlobs[blob.Blob]), blob.Element)
 		}
 	}
 
 	return nil
+}
+
+func readQueuedEvents(kv ocr3_1types.KeyValueStateReader) ([]*pb.ConsensusQueueEvent, error) {
+	v, err := kv.Read([]byte(queuedEventsKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read queued events: %w", err)
+	}
+	if v != nil {
+		var queued pb.ConsensusQueueEventList
+		if err = proto.Unmarshal(v, &queued); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal queued events: %w", err)
+		}
+		return queued.GetEvents(), nil
+	}
+	return nil, nil
 }
 
 func readObservedEvents(kv ocr3_1types.KeyValueStateReader) (observedEvents map[string]*pb.ConsensusQueueObservedEvent, observedBlobs blobHandleMap, err error) {
@@ -242,7 +254,7 @@ func (s *kvState) sizeOfObservedEvents() int {
 }
 
 func (s *kvState) sizeOfQueuedEvents() int {
-	return proto.MarshalOptions{Deterministic: true}.Size(&pb.ConsensusQueueEventList{Events: *s.queuedEvents})
+	return proto.MarshalOptions{Deterministic: true}.Size(&pb.ConsensusQueueEventList{Events: s.queuedEvents})
 }
 
 func (s *kvState) sizeOfConsensusEvents() int {
@@ -310,7 +322,7 @@ func (s *kvState) prepareWriteBlobHandles() {
 		}
 		return blobHandles
 	}
-	for _, event := range []*pb.ConsensusQueueEvent(*s.queuedEvents) {
+	for _, event := range s.queuedEvents {
 		event.Blobs = addBlobs(s.queuedBlobs[string(event.TimelessHash)])
 	}
 	for _, event := range s.consensusEvents {
@@ -328,7 +340,7 @@ func (s *kvState) writeTo(w *stateWriter) error {
 		return fmt.Errorf("failed to write observed events: %w", err)
 	}
 
-	err = w.writeValue(queuedEventsKey, &pb.ConsensusQueueEventList{Events: *s.queuedEvents})
+	err = w.writeValue(queuedEventsKey, &pb.ConsensusQueueEventList{Events: s.queuedEvents})
 	if err != nil {
 		return fmt.Errorf("failed to write queued events: %w", err)
 	}
@@ -372,19 +384,25 @@ func (s *kvState) pruneExpiredObservations(expiration time.Time) {
 }
 
 // addObserved adds the observed events to the set, promoting to the priority queue on 2f+1 and calling onQueued.
+// Events with fewer than f+1 observations are ignored.
 func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueObservedEvent, observedBlobs blobHandleMap, onQueued func(event *pb.ConsensusQueueEvent)) {
 	for _, eventHash := range slices.Sorted(maps.Keys(toAdd)) {
 		eventToAdd := toAdd[eventHash]
 		obsEvent, ok := s.observedEvents[eventHash]
-		if !ok && len(eventToAdd.NodeIds) >= 2*f+1 {
-			// new proposal straight to priority queue
-			s.queuedBlobs.addAll(eventHash, observedBlobs[eventHash])
-			event := s.queuedEvents.pushObservations(eventHash, eventToAdd)
-			onQueued(event)
-		} else if !ok {
-			// new proposal < f + 1
-			s.observedBlobs.addAll(eventHash, observedBlobs[eventHash])
-			s.observedEvents[eventHash] = eventToAdd
+		if !ok {
+			switch {
+			case len(eventToAdd.NodeIds) >= 2*f+1:
+				// new proposal straight to priority queue
+				s.queuedBlobs.addAll(eventHash, observedBlobs[eventHash])
+				event := s.queuedEvents.pushObservations(eventHash, eventToAdd)
+				onQueued(event)
+			case len(eventToAdd.NodeIds) >= f+1:
+				// new proposal to the observation set
+				s.observedBlobs.addAll(eventHash, observedBlobs[eventHash])
+				s.observedEvents[eventHash] = eventToAdd
+			default:
+				// new proposal without enough observations < f + 1
+			}
 		} else {
 			// update proposal
 			// TODO opt: build a map to avoid n^2?

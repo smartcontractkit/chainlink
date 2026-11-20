@@ -96,4 +96,4 @@ func (n noopQueue) Sorted() iter.Seq[triggers.CoordinatedEvent] {
 	return func(yield func(triggers.CoordinatedEvent) bool) {}
 }
 
-func (n noopQueue) Remove(ctx context.Context, triggerEventIDs []string) {}
+func (n noopQueue) Remove(ctx context.Context, triggerEventIDs iter.Seq[string]) {}

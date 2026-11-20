@@ -38,7 +38,7 @@ type Queue interface {
 	Sorted() iter.Seq[CoordinatedEvent]
 
 	// Remove removes events from the queue.
-	Remove(ctx context.Context, triggerEventIDs []string)
+	Remove(ctx context.Context, triggerEventIDs iter.Seq[string])
 }
 
 // Stats is a point-in-time view of a Queue.
@@ -123,9 +123,9 @@ func (q *CentralQueue) Drain(ctx context.Context) ([]CoordinatedEvent, error) {
 	return events, nil
 }
 
-func (q *CentralQueue) Remove(ctx context.Context, triggerEventIDs []string) {
+func (q *CentralQueue) Remove(ctx context.Context, triggerEventIDs iter.Seq[string]) {
 	triggerEventIDSet := map[string]struct{}{}
-	for _, triggerEventID := range triggerEventIDs {
+	for triggerEventID := range triggerEventIDs {
 		triggerEventIDSet[triggerEventID] = struct{}{}
 	}
 
@@ -191,6 +191,9 @@ func (c *coordinatedEventHeap) Push(x any) {
 }
 
 func (c *coordinatedEventHeap) Pop() any {
+	if c.Len() == 0 {
+		return nil
+	}
 	e := (*c)[len(*c)-1]
 	*c = (*c)[:len(*c)-1]
 	return e
