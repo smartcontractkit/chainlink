@@ -196,6 +196,9 @@ jobs:
           total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
           echo "execution_time=$total_seconds" >> "${GITHUB_OUTPUT}"
 
+      - name: Start coverage flusher
+        uses: $/.github/actions/start-coverage-flusher
+
       - name: Deploy Cron workflow (Go)
         shell: bash
         working-directory: core/scripts/cre/environment
@@ -323,6 +326,21 @@ jobs:
           for c in $(docker ps -a --format '{{.Names}}'); do
             docker logs "$c" > "logs/${c}.log" 2>&1
           done
+
+      - name: Collect coverage
+        if: ${{ always() }}
+        uses: $/.github/actions/collect-coverage
+        with:
+          destination: ${{ github.workspace }}/.covdata/e2e-local-cre
+
+      - name: Upload coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-e2e-local-cre-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .covdata/e2e-local-cre
+          retention-days: 7
+          if-no-files-found: warn
 
       - name: Upload all artifacts as single package
         if: failure()
