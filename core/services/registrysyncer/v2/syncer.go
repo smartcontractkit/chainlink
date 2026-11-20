@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/noop"
+
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -78,8 +81,12 @@ func New(
 	relayer ContractReaderFactory,
 	registryAddress string,
 	orm registrysyncer.ORM,
+	meter metric.Meter,
 ) (RegistrySyncer, error) {
-	metricLabeler, err := newSyncerMetricLabeler()
+	if meter == nil {
+		meter = noop.NewMeterProvider().Meter("")
+	}
+	metricLabeler, err := newSyncerMetricLabeler(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create syncer metric labeler: %w", err)
 	}
@@ -226,16 +233,36 @@ func (s *registrySyncer) updateStateLoop() {
 	}
 }
 
+const (
+	capabilitiesPageSize = 100
+	donsPageSize         = 10
+	nodesPageSize        = 20
+)
+
+// readAllPages reads a paginated CapabilitiesRegistry list until a page comes back short.
+// Pages are read at latest block, not atomically. The contract uses EnumerableSet (swap-and-pop removal),
+// so a removal between page reads can move an unread entry into an already-read slot and drop it from
+// this sync. This is self-healing on the next tick.
+func readAllPages[T any](ctx context.Context, reader types.ContractReader, readIdentifier string, pageSize int64) ([]T, error) {
+	var all []T
+	for start := int64(0); ; start += pageSize {
+		params := struct {
+			Start *big.Int
+			Limit *big.Int
+		}{Start: big.NewInt(start), Limit: big.NewInt(pageSize)}
+		var page []T
+		if err := reader.GetLatestValue(ctx, readIdentifier, primitives.Unconfirmed, params, &page); err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if int64(len(page)) < pageSize {
+			return all, nil
+		}
+	}
+}
+
 func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.RegistryMetadata, error) {
-	caps := []capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo{}
-	// TODO support pagination if needed
-	// Using large limit for now to avoid pagination complexity
-	// since we don't expect to have that many capabilities
-	params := struct {
-		Start *big.Int
-		Limit *big.Int
-	}{Start: big.NewInt(0), Limit: big.NewInt(1024)}
-	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, params, &caps)
+	caps, err := readAllPages[capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo](ctx, s.reader, s.capabilitiesContract.ReadIdentifier("getCapabilities"), capabilitiesPageSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest value for getCapabilities: %w", err)
 	}
@@ -253,9 +280,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.R
 		}
 	}
 
-	dons := []capabilities_registry_v2.CapabilitiesRegistryDONInfo{}
-
-	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getDONs"), primitives.Unconfirmed, params, &dons)
+	dons, err := readAllPages[capabilities_registry_v2.CapabilitiesRegistryDONInfo](ctx, s.reader, s.capabilitiesContract.ReadIdentifier("getDONs"), donsPageSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest value for getDONs: %w", err)
 	}
@@ -275,12 +300,14 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.R
 		}
 	}
 
-	nodes := []capabilities_registry_v2.INodeInfoProviderNodeInfo{}
-
-	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getNodes"), primitives.Unconfirmed, params, &nodes)
+	nodes, err := readAllPages[capabilities_registry_v2.INodeInfoProviderNodeInfo](ctx, s.reader, s.capabilitiesContract.ReadIdentifier("getNodes"), nodesPageSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest value for getNodes: %w", err)
 	}
+
+	s.metrics.recordRegistryEntries(ctx, "capabilities", len(caps))
+	s.metrics.recordRegistryEntries(ctx, "dons", len(dons))
+	s.metrics.recordRegistryEntries(ctx, "nodes", len(nodes))
 
 	idsToNodes := map[p2ptypes.PeerID]registry.NodeInfo{}
 	for _, node := range nodes {
