@@ -3,6 +3,8 @@ package changeset
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -59,14 +61,15 @@ func envWith(jd cldf_offchain.Client) cldf.Environment {
 
 // consensusSpecWith renders a consensus job spec with a key bundle per family.
 func consensusSpecWith(families ...string) string {
-	spec := "type = \"standardcapabilities\"\nname = \"OCR-Consensus-CRE (node)\"\ncommand = \"/usr/local/bin/consensus\"\n" +
+	var sb strings.Builder
+	sb.WriteString("type = \"standardcapabilities\"\nname = \"OCR-Consensus-CRE (node)\"\ncommand = \"/usr/local/bin/consensus\"\n" +
 		"[oracle_factory]\nenabled = true\n[oracle_factory.onchainSigningStrategy]\nstrategyName = \"multi-chain\"\n" +
-		"[oracle_factory.onchainSigningStrategy.config]\nevm = \"bundle-evm\"\n"
+		"[oracle_factory.onchainSigningStrategy.config]\nevm = \"bundle-evm\"\n")
 	for _, f := range families {
-		spec += f + " = \"bundle-" + f + "\"\n"
+		fmt.Fprintf(&sb, "%s = \"bundle-%s\"\n", f, f)
 	}
 
-	return spec
+	return sb.String()
 }
 
 func proposal(job string, rev int64, st jobv1.ProposalStatus, spec string) *jobv1.Proposal {
