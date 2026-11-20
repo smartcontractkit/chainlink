@@ -4,6 +4,15 @@
 
 ### Patch Changes
 
+- [#24250](https://github.com/smartcontractkit/chainlink/pull/24250) [`2b00aa1`](https://github.com/smartcontractkit/chainlink/commit/2b00aa11fcd2ece71fda9578f9f66336ddb19f27) - #changed Gate workflow execution metadata behind the FeatureExecutionMetadataActivePeriod setting (off by default)
+
+- [#24253](https://github.com/smartcontractkit/chainlink/pull/24253) [`0dc25bf`](https://github.com/smartcontractkit/chainlink/commit/0dc25bf3a0fb6ecfb66206fc80599a7f21f15ba9) - #changed Bump capability-evm/solana/aptos for the gas meter beholder logger: gas meter log lines now also emit as Beholder events, matching the workflow engine's dual logging
+  #changed Meter confidential workflow executions under cre:workflow:confidential-compute instead of cre:workflow:compute, so enclave compute is separately visible and billable downstream
+
+## 2.74.2
+
+### Patch Changes
+
 - Hotfix release from v2.74.1-rc.0
 
 ## 2.74.1
