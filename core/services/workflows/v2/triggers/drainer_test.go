@@ -1,6 +1,7 @@
 package triggers
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -61,11 +62,14 @@ type fakeQueue struct {
 	drainCalls int
 }
 
-func (q *fakeQueue) Peek(limit int) []CoordinatedEvent {
+func (q *fakeQueue) Peek(limit int) iter.Seq[CoordinatedEvent] {
 	q.mu.Lock()
-	events := slices.Clone(q.results[0].events)[:min(limit, len(q.results[0].events))]
+	events := slices.Clone(q.results[0].events)
 	q.mu.Unlock()
-	return events
+	slices.SortFunc(events, func(a, b CoordinatedEvent) int {
+		return cmp.Or(a.Deadline.Compare(b.Deadline), cmp.Compare(*a.executionID, *b.executionID))
+	})
+	return slices.Values(events[:min(limit, len(events))])
 }
 
 func (q *fakeQueue) Remove(ctx context.Context, execIDs iter.Seq[string]) {

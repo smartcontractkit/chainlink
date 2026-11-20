@@ -103,10 +103,10 @@ func extractEvent(b []byte, idx int) (*pb.CoordinatedEvent, []byte, error) {
 }
 
 // broadcastAsBlob broadcasts a blob with as many coordinated events as possible, returning the blob handle and count of events included.
-func broadcastAsBlob(ctx context.Context, broadcaster ocr3_1types.BlobBroadcastFetcher, events []*pb.CoordinatedEvent,
-	seqNr uint64, estimatedRoundInterval time.Duration) (blobHandle []byte, n int, err error) {
+func (c *consensusQueuePlugin) broadcastAsBlob(ctx context.Context, broadcaster ocr3_1types.BlobBroadcastFetcher, events []*pb.CoordinatedEvent,
+	seqNr uint64) (blobHandle []byte, n int, err error) {
 	protoOpts := proto.MarshalOptions{Deterministic: true}
-	for ; protoOpts.Size(&pb.CoordinatedEventList{Events: events}) > maxBlobPayloadBytes; events = events[:len(events)-1] {
+	for ; protoOpts.Size(&pb.CoordinatedEventList{Events: events}) > c.limits.MaxBlobPayloadBytes; events = events[:len(events)-1] {
 		//TODO opt: binary search for largest fit instead....
 	}
 	n = len(events)
@@ -116,7 +116,7 @@ func broadcastAsBlob(ctx context.Context, broadcaster ocr3_1types.BlobBroadcastF
 			maxDeadline = t
 		}
 	}
-	roundDur := estimatedRoundInterval //TODO OK? pad?
+	roundDur := c.onchainCfg.EstimatedRoundInterval //TODO OK? pad?
 	//TODO pad extra time and/or rounds?
 	expSeqNr := seqNr + uint64(time.Until(maxDeadline)/roundDur)
 

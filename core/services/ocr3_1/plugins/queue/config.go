@@ -9,10 +9,7 @@ const (
 	maxObservedEvents      = 1000 // sanity check events in an observation
 
 	//TODO reduce these? connect to cre settings?
-	maxObservationBytes                    = ocr3_1types.MaxMaxObservationBytes
-	maxKeyValueValueBytes                  = ocr3_1types.MaxMaxKeyValueValueBytes
-	maxKeyValueModifiedKeysPlusValuesBytes = ocr3_1types.MaxMaxKeyValueModifiedKeysPlusValuesBytes
-	maxBlobPayloadBytes                    = ocr3_1types.MaxMaxBlobPayloadBytes
+	maxKeyValueValueBytes = ocr3_1types.MaxMaxKeyValueValueBytes
 )
 
 type PluginConfig struct {

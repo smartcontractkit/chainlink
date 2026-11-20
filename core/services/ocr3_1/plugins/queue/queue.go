@@ -76,7 +76,7 @@ func NewConsensusQueuePluginFactory(
 }
 
 func (c *consensusQueuePluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, blobs ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
-	plugin := newConsensusQueuePlugin(c.lggr, config, c.triggerCoordinator, c.triggerQueue, c.expirationDur, blobs)
+	plugin := newConsensusQueuePlugin(c.lggr, config, c.cfg.Limits, c.triggerCoordinator, c.triggerQueue, c.expirationDur, blobs)
 	pluginInfo := ocr3_1types.ReportingPluginInfo1{
 		Name:   "ConsensusQueueReportingPlugin",
 		Limits: c.cfg.Limits,
@@ -91,6 +91,7 @@ type consensusQueuePlugin struct {
 	eng                                 *services.Engine
 	lggr                                logger.Logger
 	onchainCfg                          ocr3types.ReportingPluginConfig
+	limits                              ocr3_1types.ReportingPluginLimits
 	blobHandleMarshalledBytesUpperBound int
 	triggerCoordinator                  triggers.Coordinator
 	triggerQueue                        triggers.Queue
@@ -99,13 +100,14 @@ type consensusQueuePlugin struct {
 }
 
 func newConsensusQueuePlugin(
-	lggr logger.Logger, onchainCfg ocr3types.ReportingPluginConfig, triggerCoordinator triggers.Coordinator,
+	lggr logger.Logger, onchainCfg ocr3types.ReportingPluginConfig, limits ocr3_1types.ReportingPluginLimits, triggerCoordinator triggers.Coordinator,
 	triggerQueue triggers.Queue, expirationGraceDur func(context.Context) (time.Duration, error),
 	blobs ocr3_1types.BlobBroadcastFetcher,
 ) *consensusQueuePlugin {
 	c := &consensusQueuePlugin{
 		lggr:                                logger.Named(lggr, "ConsensusQueuePlugin"),
 		onchainCfg:                          onchainCfg,
+		limits:                              limits,
 		blobHandleMarshalledBytesUpperBound: ocr3_1types.BlobHandleMarshalledBytesUpperBound(onchainCfg.N, onchainCfg.F),
 		triggerCoordinator:                  triggerCoordinator,
 		triggerQueue:                        triggerQueue,
@@ -170,7 +172,7 @@ func (c *consensusQueuePlugin) Observation(
 
 	// Assemble an observation up to maxObservationBytes
 	var events []*pb.CoordinatedEvent
-	for _, event := range c.triggerQueue.Peek(maxObservedEvents) {
+	for event := range c.triggerQueue.Peek(maxObservedEvents) {
 		pbEvent := event.ToProto()
 		observedAt, deadline := pbEvent.ObservedAt, pbEvent.Deadline
 		pbEvent.ObservedAt, pbEvent.Deadline = nil, nil // for consistent hashing
@@ -212,7 +214,7 @@ func (c *consensusQueuePlugin) Observation(
 		}
 
 		// Check size
-		if protoOpts.Size(obs) > maxObservationBytes {
+		if protoOpts.Size(obs) > c.limits.MaxObservationBytes {
 			// too large, remove this one
 			obs.Events = obs.Events[:len(obs.Events)-1]
 			if addedCap {
@@ -224,7 +226,7 @@ func (c *consensusQueuePlugin) Observation(
 
 	obs.BlobHandles = nil // remove the placeholders
 	if len(events) > 0 {
-		blobHandle, n, err2 := broadcastAsBlob(ctx, blobBroadcaster, events, seqNr, c.onchainCfg.EstimatedRoundInterval)
+		blobHandle, n, err2 := c.broadcastAsBlob(ctx, blobBroadcaster, events, seqNr)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -235,18 +237,19 @@ func (c *consensusQueuePlugin) Observation(
 		lastEnd := n
 		events = events[n:]
 		for batch := 1; batch < maxObservedBlobHandles && len(events) > 0; batch++ {
-			blobHandle, n, err2 = broadcastAsBlob(ctx, blobBroadcaster, events, seqNr, c.onchainCfg.EstimatedRoundInterval)
+			blobHandle, n, err2 = c.broadcastAsBlob(ctx, blobBroadcaster, events, seqNr)
 			if err2 != nil {
 				return nil, err2
 			}
 			obs.BlobHandles = append(obs.BlobHandles, blobHandle)
-			for i := lastEnd; i < n; i++ { // update indices
+			for i := 0; i < n; i++ { // update indices
 				obs.Events[lastEnd+i].Blobs[0].Blob = uint32(batch)
 				obs.Events[lastEnd+i].Blobs[0].Element = uint32(i)
 			}
 			lastEnd += n
 			events = events[n:]
 		}
+		//TODO if we hit max blobs, then drop excess events
 	}
 
 	return protoOpts.Marshal(obs)
@@ -427,7 +430,7 @@ func (c *consensusQueuePlugin) StateTransition(
 		state.consensusEvents = append(state.consensusEvents, event)
 		// stop when either value or the overall size is too large
 		if events, blobs := state.sizeOfConsensusEvents(), state.sizeOfBlobHandles(); events > maxKeyValueValueBytes ||
-			blobs > maxKeyValueValueBytes || events+blobs > maxKeyValueModifiedKeysPlusValuesBytes/2 {
+			blobs > maxKeyValueValueBytes || events+blobs > c.limits.MaxKeyValueModifiedKeysPlusValuesBytes/2 {
 			state.queuedEvents.push(event)
 			state.consensusEvents = state.consensusEvents[:len(state.consensusEvents)-1]
 			break
@@ -437,7 +440,7 @@ func (c *consensusQueuePlugin) StateTransition(
 	// prune observations if that value or the overall size is too large
 	for len(state.observedEventEntries) > 0 &&
 		(state.sizeOfObservedEvents() > maxKeyValueValueBytes ||
-			state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes) {
+			state.sizeOf() > c.limits.MaxKeyValueModifiedKeysPlusValuesBytes) {
 		// sorted by decreasing priority, so prune the last
 		toRemove := state.observedEventEntries[len(state.observedEventEntries)-1]
 		delete(state.observedEvents, string(toRemove.TimelessHash))
@@ -448,7 +451,7 @@ func (c *consensusQueuePlugin) StateTransition(
 	if len(queuedTimelessHashes) > 0 &&
 		(state.sizeOfQueuedEvents() > maxKeyValueValueBytes ||
 			state.sizeOfBlobHandles() > maxKeyValueValueBytes ||
-			state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes) {
+			state.sizeOf() > c.limits.MaxKeyValueModifiedKeysPlusValuesBytes) {
 		// prune lowest priority queuedEvents from newly added queuedTriggerEventIDs
 		queuedTimelessHashSet := map[string]struct{}{}
 		for _, id := range queuedTimelessHashes {
@@ -467,7 +470,7 @@ func (c *consensusQueuePlugin) StateTransition(
 		for backwardsQueuedEvents.Len() > 0 &&
 			(state.sizeOfQueuedEvents() > maxKeyValueValueBytes ||
 				state.sizeOfBlobHandles() > maxKeyValueValueBytes ||
-				state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes) {
+				state.sizeOf() > c.limits.MaxKeyValueModifiedKeysPlusValuesBytes) {
 			toRemove := heap.Pop(backwardsQueuedEvents).(*pb.ConsensusQueueEvent)
 			//TODO opt: faster delete...but need to maintain state.queuedEvents (though not order)...map indices?
 			state.queuedEvents = slices.DeleteFunc(state.queuedEvents, func(event *pb.ConsensusQueueEvent) bool { return event == toRemove })

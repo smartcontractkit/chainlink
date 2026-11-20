@@ -1,6 +1,7 @@
 package triggers
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -33,9 +34,8 @@ type Queue interface {
 	// Stats reports current length, capacity, and cumulative drops.
 	Stats(context.Context) (Stats, error)
 
-	// Peek is like Drain, but does not empty the queue and only returns up to max events.
-	// Events remain but can be removed via Remove.
-	Peek(max int) []CoordinatedEvent
+	// Peek returns a sorted iterator over events. Events remain but can be removed via Remove.
+	Peek(int) iter.Seq[CoordinatedEvent]
 
 	// Remove removes events from the queue by execution ID.
 	//TODO can't ack with trigger event ID - not unique!
@@ -157,12 +157,16 @@ func (q *CentralQueue) Remove(ctx context.Context, executionIDs iter.Seq[string]
 	return
 }
 
-func (q *CentralQueue) Peek(limit int) []CoordinatedEvent {
+func (q *CentralQueue) Peek(limit int) iter.Seq[CoordinatedEvent] {
 	q.mu.Lock()
-	events := slices.Clone(q.events)[:min(len(q.events), limit)]
+	events := slices.Clone(q.events)
 	q.mu.Unlock()
-
-	return events
+	//TODO opt: heap
+	slices.SortFunc(events, func(a, b CoordinatedEvent) int {
+		// events are rejected if we cannot set the execution ID
+		return cmp.Or(a.Deadline.Compare(b.Deadline), cmp.Compare(*a.executionID, *b.executionID))
+	})
+	return slices.Values(events[:min(limit, len(events))])
 }
 
 // Stats returns copies of the queue's maps, so callers may keep or change them.

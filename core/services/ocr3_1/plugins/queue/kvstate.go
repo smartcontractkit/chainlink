@@ -83,7 +83,7 @@ func (p *priorityQueue) pushObservations(timelessHash string, obs *pb.ConsensusQ
 		ObservedAt:   medianTimestamp(obs.ObservedAts),
 		Deadline:     medianTimestamp(obs.Deadlines),
 		TimelessHash: []byte(timelessHash),
-		Blobs:        obs.Blobs,
+		// note: observedBlobs tracks blobs while in memory
 	}
 	p.push(event)
 	return event
@@ -358,19 +358,20 @@ func (s *kvState) writeTo(w *stateWriter) error {
 }
 
 func (s *kvState) pruneExpiredObservations(expiration time.Time) {
-	unexpiredFn := func(t *timestamppb.Timestamp) bool { return t.AsTime().Before(expiration) }
 	maps.DeleteFunc(s.observedEvents, func(k string, v *pb.ConsensusQueueObservedEvent) bool {
-		if !slices.ContainsFunc(v.Deadlines, unexpiredFn) {
-			return false // no unexpired deadlines, so delete the whole thing
+		if !slices.ContainsFunc(v.Deadlines, func(t *timestamppb.Timestamp) bool {
+			return t.AsTime().After(expiration)
+		}) {
+			return true // all deadlines expired, so delete the whole thing
 		}
 
 		// some expired, so prune them
 		for i := 0; i < len(v.Deadlines); {
-			if !unexpiredFn(v.Deadlines[i]) {
+			if v.Deadlines[i].AsTime().Before(expiration) {
 				v.NodeIds = slices.Delete(v.NodeIds, i, i+1)
 				v.ObservedAts = slices.Delete(v.ObservedAts, i, i+1)
 				v.Deadlines = slices.Delete(v.Deadlines, i, i+1)
-				v.Blobs = slices.Delete(v.Blobs, i, i+1)
+				// note: s.observedBlobs tracks blobs while in memory
 			} else {
 				i++
 			}
@@ -408,13 +409,14 @@ func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueOb
 					obsEvent.NodeIds = append(obsEvent.NodeIds, node)
 					obsEvent.ObservedAts = append(obsEvent.ObservedAts, eventToAdd.ObservedAts[i])
 					obsEvent.Deadlines = append(obsEvent.Deadlines, eventToAdd.Deadlines[i])
-					obsEvent.Blobs = append(obsEvent.Blobs, eventToAdd.Blobs[i])
+					// note: s.observedBlobs tracks blobs while in memory
 				} else { // overwrite previous observation
 					obsEvent.ObservedAts[prev] = eventToAdd.ObservedAts[i]
 					obsEvent.Deadlines[prev] = eventToAdd.Deadlines[i]
-					obsEvent.Blobs[prev] = eventToAdd.Blobs[i]
+					// note: s.observedBlobs tracks blobs while in memory
 				}
 			}
+			s.observedBlobs.addAll(eventHash, observedBlobs[eventHash])
 
 			if len(obsEvent.NodeIds) >= 2*f+1 {
 				// promote proposal to priority queue

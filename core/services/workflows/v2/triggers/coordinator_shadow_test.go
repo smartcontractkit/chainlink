@@ -334,7 +334,9 @@ type failingQueue struct {
 	puts atomic.Int32
 }
 
-func (q *failingQueue) Peek(int) []CoordinatedEvent { return nil }
+func (q *failingQueue) Peek(int) iter.Seq[CoordinatedEvent] {
+	return func(yield func(CoordinatedEvent) bool) {}
+}
 
 func (q *failingQueue) Remove(ctx context.Context, execIDs iter.Seq[string]) {}
 
