@@ -2,8 +2,11 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	stderrors "errors"
+	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -58,6 +61,57 @@ func (d *DurationParam) UnmarshalPipelineParam(val any) error {
 //
 //	cutoff — hard time limit; when age exceeds cutoff, the sample is dropped
 //	regardless of the decay function value. Acts as a safety valve.
+//
+// ErrStaleSample marks a sample excluded by the staleness task.
+var ErrStaleSample = errors.New("stale sample")
+
+// StaleSampleError is emitted in place of an excluded sample when onStale=fault,
+// so that downstream aggregators count it as a fault. It serializes with the
+// sample's source and timestamps so persisted runs show what was cut.
+type StaleSampleError struct {
+	Source         string
+	TsMs           int64
+	ReferenceTsMs  int64
+	ReferenceIsNow bool
+}
+
+func (e StaleSampleError) Error() string {
+	ref := "freshest sample"
+	if e.ReferenceIsNow {
+		ref = "now"
+	}
+	return fmt.Sprintf("%s %q: ts %d is %dms behind %s (%d)", ErrStaleSample, e.Source, e.TsMs, e.ReferenceTsMs-e.TsMs, ref, e.ReferenceTsMs)
+}
+
+func (e StaleSampleError) Unwrap() error { return ErrStaleSample }
+
+func (e StaleSampleError) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Stale         bool   `json:"stale"`
+		Source        string `json:"source"`
+		TsMs          int64  `json:"ts_ms"`
+		ReferenceTsMs int64  `json:"reference_ts_ms"`
+	}{true, e.Source, e.TsMs, e.ReferenceTsMs})
+}
+
+// Experimental: StalenessTask decays sample weights by age and excludes stale samples.
+//
+// Input:  samples ([]Sample) — may contain upstream errors
+// Output: []Sample (onStale=drop) or []any of Samples and faults (onStale=fault)
+//
+// relativeTo selects the age reference: "now" (default) is the node's wall
+// clock; "freshest" is the newest known sample timestamp, in which case samples
+// with an unknown (zero) timestamp are never excluded.
+//
+// onStale selects what happens to excluded samples: "drop" (default) removes
+// them and discards upstream errors; "fault" emits a StaleSampleError in their
+// place and passes upstream errors through, so a downstream median counts both
+// against its allowedFaults.
+//
+// allowedFaults caps exclusions: upstream errors spend the budget first, then
+// samples are excluded stalest first (ties in input order) until it runs out.
+// Samples that cannot be excluded pass through with their decayed weight.
+// Absent means no cap. Set it to the downstream aggregator's allowedFaults.
 type StalenessTask struct {
 	BaseTask       `mapstructure:",squash"`
 	Samples        string `json:"samples"`
@@ -66,6 +120,9 @@ type StalenessTask struct {
 	HalfLife       string `json:"halfLife"`
 	Cutoff         string `json:"cutoff"`
 	DecayThreshold string `json:"decayThreshold"`
+	RelativeTo     string `json:"relativeTo"`
+	OnStale        string `json:"onStale"`
+	AllowedFaults  string `json:"allowedFaults"`
 }
 
 var _ Task = (*StalenessTask)(nil)
@@ -76,12 +133,15 @@ func (t *StalenessTask) Type() TaskType {
 
 func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
-		samplesAndErrs SliceParam
-		method         StringParam
-		threshold      DurationParam
-		halfLife       DurationParam
-		cutoff         DurationParam
-		decayThreshold DecimalParam
+		samplesAndErrs     SliceParam
+		method             StringParam
+		threshold          DurationParam
+		halfLife           DurationParam
+		cutoff             DurationParam
+		decayThreshold     DecimalParam
+		relativeTo         StringParam
+		onStale            StringParam
+		maybeAllowedFaults MaybeUint64Param
 	)
 
 	resolveOpt := func(out PipelineParamUnmarshaler, getters ...GetterFunc) error {
@@ -99,15 +159,12 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		errors.Wrap(ResolveParam(&halfLife, From(NonemptyString(t.HalfLife), "0s")), "halfLife"),
 		resolveOpt(&cutoff, VarExpr(t.Cutoff, vars), NonemptyString(t.Cutoff)),
 		resolveOpt(&decayThreshold, VarExpr(t.DecayThreshold, vars), NonemptyString(t.DecayThreshold)),
+		errors.Wrap(ResolveParam(&relativeTo, From(NonemptyString(t.RelativeTo), "now")), "relativeTo"),
+		errors.Wrap(ResolveParam(&onStale, From(NonemptyString(t.OnStale), "drop")), "onStale"),
+		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
-	}
-
-	samplesRaw, _ := samplesAndErrs.FilterErrors()
-	var samples SampleSliceParam
-	if err := samples.UnmarshalPipelineParam(samplesRaw); err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "samples: %v", err)}, runInfo
 	}
 
 	m := strings.ToLower(string(method))
@@ -122,34 +179,120 @@ func (t *StalenessTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		return Result{Error: errors.New("halfLife required for exp/exp_cooldown staleness")}, runInfo
 	}
 
-	nowNs := time.Now().UnixNano()
-	out := make([]Sample, 0, len(samples))
-	for _, s := range samples {
-		ageNs := max(nowNs-s.TsMs*int64(time.Millisecond), 0)
+	var relativeToFreshest bool
+	switch strings.ToLower(string(relativeTo)) {
+	case "now":
+	case "freshest":
+		relativeToFreshest = true
+	default:
+		return Result{Error: errors.Errorf("relativeTo: unknown value %q, expected now or freshest", relativeTo)}, runInfo
+	}
+	var faultOnStale bool
+	switch strings.ToLower(string(onStale)) {
+	case "drop":
+	case "fault":
+		faultOnStale = true
+	default:
+		return Result{Error: errors.Errorf("onStale: unknown value %q, expected drop or fault", onStale)}, runInfo
+	}
 
-		// Hard cutoff: drop samples older than the cutoff time limit.
-		if cutoffVal > 0 && ageNs > int64(cutoffVal) {
+	// Parse each element separately so upstream errors keep their position.
+	type entry struct {
+		sample   Sample
+		err      error
+		excluded bool
+	}
+	var entries []entry
+	var upstreamFaults int
+	for _, x := range samplesAndErrs {
+		if e, is := x.(error); is {
+			upstreamFaults++
+			entries = append(entries, entry{err: e})
 			continue
 		}
+		var parsed SampleSliceParam
+		if err := parsed.UnmarshalPipelineParam([]any{x}); err != nil {
+			return Result{Error: errors.Wrapf(ErrBadInput, "samples: %v", err)}, runInfo
+		}
+		for _, sample := range parsed {
+			entries = append(entries, entry{sample: sample})
+		}
+	}
+
+	now := time.Now()
+	referenceMs := now.UnixMilli()
+	referenceNs := now.UnixNano()
+	if relativeToFreshest {
+		referenceMs = 0
+		for _, e := range entries {
+			if e.err == nil && e.sample.TsMs != 0 {
+				referenceMs = max(referenceMs, e.sample.TsMs)
+			}
+		}
+		referenceNs = referenceMs * int64(time.Millisecond)
+	}
+
+	var excluded []int
+	for i := range entries {
+		e := &entries[i]
+		if e.err != nil || (relativeToFreshest && e.sample.TsMs == 0) {
+			continue
+		}
+		ageNs := max(referenceNs-e.sample.TsMs*int64(time.Millisecond), 0)
 
 		mult, err := decayMultiplier(m, time.Duration(ageNs), time.Duration(threshold), time.Duration(halfLife))
 		if err != nil {
 			return Result{Error: err}, runInfo
 		}
+		e.sample.Weight = e.sample.Weight.Mul(mult)
 
-		// Decay threshold K: for asymptotic methods (exp, exp_cooldown), drop
-		// samples whose decay multiplier falls below K ("no data" state).
-		if applyK && mult.LessThan(kVal) {
-			continue
+		if (cutoffVal > 0 && ageNs > int64(cutoffVal)) || (applyK && mult.LessThan(kVal)) || mult.IsZero() {
+			e.excluded = true
+			excluded = append(excluded, i)
 		}
-
-		if mult.IsZero() {
-			continue
-		}
-		s.Weight = s.Weight.Mul(mult)
-		out = append(out, s)
 	}
 
+	if allowed, isSet := maybeAllowedFaults.Uint64(); isSet {
+		allowedFaults := math.MaxInt
+		if allowed <= math.MaxInt {
+			allowedFaults = int(allowed)
+		}
+		budget := min(max(allowedFaults-upstreamFaults, 0), len(excluded))
+		// Keep the budget's worth of stalest exclusions; the rest pass through.
+		sort.SliceStable(excluded, func(a, b int) bool {
+			return entries[excluded[a]].sample.TsMs < entries[excluded[b]].sample.TsMs
+		})
+		for _, i := range excluded[budget:] {
+			entries[i].excluded = false
+		}
+	}
+
+	if !faultOnStale {
+		out := make([]Sample, 0, len(entries))
+		for _, e := range entries {
+			if e.err == nil && !e.excluded {
+				out = append(out, e.sample)
+			}
+		}
+		return Result{Value: out}, runInfo
+	}
+
+	out := make([]any, 0, len(entries))
+	for _, e := range entries {
+		switch {
+		case e.err != nil:
+			out = append(out, e.err)
+		case e.excluded:
+			out = append(out, StaleSampleError{
+				Source:         e.sample.Source,
+				TsMs:           e.sample.TsMs,
+				ReferenceTsMs:  referenceMs,
+				ReferenceIsNow: !relativeToFreshest,
+			})
+		default:
+			out = append(out, e.sample)
+		}
+	}
 	return Result{Value: out}, runInfo
 }
 
