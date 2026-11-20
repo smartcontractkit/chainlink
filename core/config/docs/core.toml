@@ -1004,7 +1004,7 @@ IgnoreJoblessBridges = false # Default
 # JobSpecReporter holds settings for the Job Spec Reporter service, which periodically emits job spec telemetry.
 [JobSpecReporter]
 # Enabled enables the Job Spec Reporter service.
-Enabled = false # Default
+Enabled = true # Default
 # PollingInterval is how often to emit a heartbeat event for each tracked job.
 PollingInterval = "1h" # Default
 # EnabledOCR2PluginTypes restricts OCR2 telemetry to jobs with these plugin types.

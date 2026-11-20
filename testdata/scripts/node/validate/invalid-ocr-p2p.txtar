@@ -457,7 +457,7 @@ IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
 
 [JobSpecReporter]
-Enabled = false
+Enabled = true
 PollingInterval = '1h0m0s'
 EnabledOCR2PluginTypes = ['median']
 
