@@ -800,6 +800,7 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	require.NoError(t, err)
 	_, err = linkContract.TransferAndCall(owner, coordinatorAddress, big.NewInt(0), b)
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = coordinator.AddConsumer(owner, subID, consumerAddress)
 	require.NoError(t, err)
 	backend.Commit()
@@ -807,6 +808,7 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	require.Error(t, err)
 	_, err = consumer.RequestRandomWords(owner, subID, 1, 1, 1, [32]byte{}, false)
 	require.NoError(t, err)
+	backend.Commit()
 
 	// Reassign ownership, check that only new owner can request
 	_, err = consumer.TransferOwnership(owner, random.From)

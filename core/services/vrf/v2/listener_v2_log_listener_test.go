@@ -143,6 +143,7 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
+	backend.Commit()
 	emitterAddress2, _, _, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	backend.Commit()
@@ -221,9 +222,13 @@ func TestLogPollerFilterRegistered(t *testing.T) {
 	// Instantiate listener.
 	th := setupVRFLogPollerListenerTH(t)
 
+	done := make(chan struct{})
 	func() {
 		// Run the log listener. This should register the log poller filter.
-		go th.Listener.runLogListener(time.Second, 1)
+		go func() {
+			defer close(done)
+			th.Listener.runLogListener(time.Second, 1)
+		}()
 		// Close the listener to avoid an orphaned goroutine.
 		defer close(th.Listener.chStop)
 
@@ -238,6 +243,13 @@ func TestLogPollerFilterRegistered(t *testing.T) {
 			return th.Listener.chain.LogPoller().HasFilter(filterName)
 		}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 	}()
+
+	// Wait for the listener to exit so it does not log after the test ends.
+	select {
+	case <-done:
+	case <-time.After(testutils.WaitTimeout(t)):
+		t.Fatal("log listener did not stop")
+	}
 
 	// Assert channel is closed.
 	_, ok := <-th.Listener.chStop
