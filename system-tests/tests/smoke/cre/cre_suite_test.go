@@ -242,9 +242,8 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 		})
 	case suite_config.SuiteScenarioExecutionMetadata:
 		t.Run("Workflow Execution Metadata - "+topology, func(t *testing.T) {
-			if parallelEnabled {
-				t.Parallel()
-			}
+			// Not parallel: this test applies CRE settings overrides, which mutate shared
+			// state and must run serially (see cresettings-override-README.md).
 			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteWorkflowExecutionMetadataTest(t, testEnv)
 		})
