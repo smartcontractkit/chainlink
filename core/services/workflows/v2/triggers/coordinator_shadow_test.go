@@ -334,11 +334,9 @@ type failingQueue struct {
 	puts atomic.Int32
 }
 
-func (q *failingQueue) Sorted() iter.Seq[CoordinatedEvent] {
-	return func(yield func(CoordinatedEvent) bool) {}
-}
+func (q *failingQueue) Peek(int) []CoordinatedEvent { return nil }
 
-func (q *failingQueue) Remove(ctx context.Context, triggerEventIDs []string) {}
+func (q *failingQueue) Remove(ctx context.Context, execIDs iter.Seq[string]) {}
 
 func (q *failingQueue) Put(context.Context, CoordinatedEvent) error {
 	q.puts.Add(1)

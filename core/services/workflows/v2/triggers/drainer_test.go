@@ -1,9 +1,9 @@
 package triggers
 
 import (
-	"container/heap"
 	"context"
 	"errors"
+	"fmt"
 	"iter"
 	"slices"
 	"sync"
@@ -61,33 +61,26 @@ type fakeQueue struct {
 	drainCalls int
 }
 
-func (q *fakeQueue) Sorted() iter.Seq[CoordinatedEvent] {
+func (q *fakeQueue) Peek(limit int) []CoordinatedEvent {
 	q.mu.Lock()
-	events := slices.Clone(q.results[0].events)
+	events := slices.Clone(q.results[0].events)[:min(limit, len(q.results[0].events))]
 	q.mu.Unlock()
-
-	eventHeap := new(coordinatedEventHeap(events))
-	heap.Init(eventHeap)
-	return func(yield func(CoordinatedEvent) bool) {
-		for eventHeap.Len() > 0 {
-			e := heap.Pop(eventHeap).(CoordinatedEvent)
-			if !yield(e) {
-				return
-			}
-		}
-	}
+	return events
 }
 
-func (q *fakeQueue) Remove(ctx context.Context, triggerEventIDs []string) {
-	triggerEventIDSet := map[string]struct{}{}
-	for _, triggerEventID := range triggerEventIDs {
-		triggerEventIDSet[triggerEventID] = struct{}{}
+func (q *fakeQueue) Remove(ctx context.Context, execIDs iter.Seq[string]) {
+	execIDSet := map[string]struct{}{}
+	for execID := range execIDs {
+		execIDSet[execID] = struct{}{}
 	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	for _, r := range q.results {
 		r.events = slices.DeleteFunc(r.events, func(e CoordinatedEvent) bool {
-			_, ok := triggerEventIDSet[e.Event.Event.ID]
+			if err := e.cacheExecutionID(); err != nil {
+				panic(fmt.Errorf("unable to generate execution ID: %w", err))
+			}
+			_, ok := execIDSet[*e.executionID]
 			return ok
 		})
 		// note: empty results remain

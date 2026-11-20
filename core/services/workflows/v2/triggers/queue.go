@@ -1,9 +1,9 @@
 package triggers
 
 import (
-	"container/heap"
 	"context"
 	"errors"
+	"fmt"
 	"iter"
 	"maps"
 	"slices"
@@ -33,11 +33,12 @@ type Queue interface {
 	// Stats reports current length, capacity, and cumulative drops.
 	Stats(context.Context) (Stats, error)
 
-	// Sorted returns an iterator over all events, ordered by deadline and then trigger event ID.
-	// It does not drain the queue. Events remain but can be removed via Remove.
-	Sorted() iter.Seq[CoordinatedEvent]
+	// Peek is like Drain, but does not empty the queue and only returns up to max events.
+	// Events remain but can be removed via Remove.
+	Peek(max int) []CoordinatedEvent
 
-	// Remove removes events from the queue.
+	// Remove removes events from the queue by execution ID.
+	//TODO can't ack with trigger event ID - not unique!
 	Remove(ctx context.Context, triggerEventIDs iter.Seq[string])
 }
 
@@ -87,6 +88,10 @@ func NewQueue(limit limits.BoundLimiter[int], metrics *monitoring.CentralTrigger
 
 // Put appends e, or returns ErrQueueFull and counts the drop when the queue is at capacity.
 func (q *CentralQueue) Put(ctx context.Context, e CoordinatedEvent) error {
+	if err := e.cacheExecutionID(); err != nil {
+		return fmt.Errorf("failed to generate execution ID: %w", err)
+	}
+
 	capacity := q.capacity(ctx)
 
 	q.mu.Lock()
@@ -123,10 +128,10 @@ func (q *CentralQueue) Drain(ctx context.Context) ([]CoordinatedEvent, error) {
 	return events, nil
 }
 
-func (q *CentralQueue) Remove(ctx context.Context, triggerEventIDs iter.Seq[string]) {
-	triggerEventIDSet := map[string]struct{}{}
-	for triggerEventID := range triggerEventIDs {
-		triggerEventIDSet[triggerEventID] = struct{}{}
+func (q *CentralQueue) Remove(ctx context.Context, executionIDs iter.Seq[string]) {
+	execIDSet := map[string]struct{}{}
+	for triggerEventID := range executionIDs {
+		execIDSet[triggerEventID] = struct{}{}
 	}
 
 	capacity := q.capacity(ctx)
@@ -135,8 +140,9 @@ func (q *CentralQueue) Remove(ctx context.Context, triggerEventIDs iter.Seq[stri
 	defer q.mu.Unlock()
 
 	var deleted int
+	//TODO opt: map so we don't have to iterate over them all (just use pointer elements?)
 	q.events = slices.DeleteFunc(q.events, func(e CoordinatedEvent) bool {
-		_, ok := triggerEventIDSet[e.Event.Event.ID]
+		_, ok := execIDSet[*e.executionID] // events are rejected if we cannot set the execution ID
 		if ok {
 			deleted++
 			q.depthByWorkflow[e.WorkflowID]--
@@ -151,52 +157,12 @@ func (q *CentralQueue) Remove(ctx context.Context, triggerEventIDs iter.Seq[stri
 	return
 }
 
-func (q *CentralQueue) Sorted() iter.Seq[CoordinatedEvent] {
+func (q *CentralQueue) Peek(limit int) []CoordinatedEvent {
 	q.mu.Lock()
-	events := slices.Clone(q.events)
+	events := slices.Clone(q.events)[:min(len(q.events), limit)]
 	q.mu.Unlock()
 
-	eventHeap := new(coordinatedEventHeap(events))
-	heap.Init(eventHeap)
-
-	return func(yield func(CoordinatedEvent) bool) {
-		for eventHeap.Len() > 0 {
-			if !yield((*eventHeap)[0]) {
-				return
-			}
-			heap.Pop(eventHeap)
-		}
-	}
-}
-
-type coordinatedEventHeap []CoordinatedEvent
-
-func (c *coordinatedEventHeap) Len() int {
-	if c == nil {
-		return 0
-	}
-	return len(*c)
-}
-
-func (c *coordinatedEventHeap) Less(i, j int) bool {
-	return (*c)[i].CompareDeadline(&(*c)[j]) < 0
-}
-
-func (c *coordinatedEventHeap) Swap(i, j int) {
-	(*c)[i], (*c)[j] = (*c)[j], (*c)[i]
-}
-
-func (c *coordinatedEventHeap) Push(x any) {
-	*c = append(*c, x.(CoordinatedEvent))
-}
-
-func (c *coordinatedEventHeap) Pop() any {
-	if c.Len() == 0 {
-		return nil
-	}
-	e := (*c)[len(*c)-1]
-	*c = (*c)[:len(*c)-1]
-	return e
+	return events
 }
 
 // Stats returns copies of the queue's maps, so callers may keep or change them.

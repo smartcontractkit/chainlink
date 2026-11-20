@@ -78,12 +78,12 @@ func (p *priorityQueue) push(x *pb.ConsensusQueueEvent) { heap.Push(p, x) }
 
 func (p *priorityQueue) pushObservations(timelessHash string, obs *pb.ConsensusQueueObservedEvent) *pb.ConsensusQueueEvent {
 	event := &pb.ConsensusQueueEvent{
-		WorkflowID:     obs.WorkflowID,
-		TriggerEventID: obs.TriggerEventID,
-		ObservedAt:     medianTimestamp(obs.ObservedAts),
-		Deadline:       medianTimestamp(obs.Deadlines),
-		TimelessHash:   []byte(timelessHash),
-		Blobs:          obs.Blobs,
+		WorkflowID:   obs.WorkflowID,
+		ExecutionID:  obs.ExecutionID,
+		ObservedAt:   medianTimestamp(obs.ObservedAts),
+		Deadline:     medianTimestamp(obs.Deadlines),
+		TimelessHash: []byte(timelessHash),
+		Blobs:        obs.Blobs,
 	}
 	p.push(event)
 	return event
@@ -276,9 +276,8 @@ func (s *kvState) prepareWriteObservedEvents() {
 	// sort so that we can drop lowest priority efficiently
 	for _, eventHash := range slices.SortedFunc(maps.Keys(s.observedEvents), func(a string, b string) int {
 		ea, eb := s.observedEvents[a], s.observedEvents[b]
-		//TODO can we use deadline here? is median valid & best option?
-		return cmp.Or(cmp.Compare(len(ea.NodeIds), len(eb.NodeIds)),
-			cmp.Compare(ea.TriggerEventID, eb.TriggerEventID))
+		//TODO can we use deadline here? is median valid & best option? (only have f+1)
+		return cmp.Or(cmp.Compare(len(ea.NodeIds), len(eb.NodeIds)), cmp.Compare(ea.ExecutionID, eb.ExecutionID))
 	}) {
 		event := s.observedEvents[eventHash]
 		event.Blobs = nil // replace all
@@ -366,17 +365,15 @@ func (s *kvState) pruneExpiredObservations(expiration time.Time) {
 		}
 
 		// some expired, so prune them
-		var toDelete []int
-		for i, d := range v.Deadlines {
-			if !unexpiredFn(d) {
-				toDelete = append(toDelete, i)
+		for i := 0; i < len(v.Deadlines); {
+			if !unexpiredFn(v.Deadlines[i]) {
+				v.NodeIds = slices.Delete(v.NodeIds, i, i+1)
+				v.ObservedAts = slices.Delete(v.ObservedAts, i, i+1)
+				v.Deadlines = slices.Delete(v.Deadlines, i, i+1)
+				v.Blobs = slices.Delete(v.Blobs, i, i+1)
+			} else {
+				i++
 			}
-		}
-		for _, i := range toDelete {
-			v.NodeIds = slices.Delete(v.NodeIds, i, i+1)
-			v.ObservedAts = slices.Delete(v.ObservedAts, i, i+1)
-			v.Deadlines = slices.Delete(v.Deadlines, i, i+1)
-			v.Blobs = slices.Delete(v.Blobs, i, i+1)
 		}
 
 		return false

@@ -13,7 +13,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"iter"
 	"math"
 	"slices"
 	"sync"
@@ -34,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
@@ -169,15 +169,14 @@ func (c *consensusQueuePlugin) Observation(
 	protoOpts := proto.MarshalOptions{Deterministic: true}
 
 	// Assemble an observation up to maxObservationBytes
-	var coordEvents []*pb.CoordinatedEvent
-	for coord := range toProtoSeq(c.triggerQueue.Sorted()) {
-		observedAt, deadline := coord.ObservedAt, coord.Deadline
-		coord.ObservedAt, coord.Deadline = nil, nil  // for consistent hashing
-		protoBytes, err2 := protoOpts.Marshal(coord) // TODO opt: avoid remarshalling
+	var events []*pb.CoordinatedEvent
+	for _, event := range c.triggerQueue.Peek(maxObservedEvents) {
+		pbEvent := event.ToProto()
+		observedAt, deadline := pbEvent.ObservedAt, pbEvent.Deadline
+		pbEvent.ObservedAt, pbEvent.Deadline = nil, nil // for consistent hashing
+		protoBytes, err2 := protoOpts.Marshal(pbEvent)  // TODO opt: avoid remarshalling
 		if err2 != nil {
-			c.lggr.Errorw("Failed to marshal event. Excluding from observation", "eventID", coord.Event.Event.Id, "err", err2)
-			//TODO remove from triggerQueue?
-			continue
+			return nil, fmt.Errorf("failed to marshal event: %w", err2)
 		}
 		timelessHash := sha256.Sum256(protoBytes)
 
@@ -188,23 +187,28 @@ func (c *consensusQueuePlugin) Observation(
 			}
 		}
 
+		executionID, err2 := workflows.GenerateExecutionIDWithTriggerIndex(event.WorkflowID, event.Event.Event.ID, event.TriggerIndex)
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to generate execution ID: %w", err2)
+		}
+
 		obs.Events = append(obs.Events, &pb.ConsensusQueueEvent{
-			WorkflowID:     coord.WorkflowID,
-			TriggerEventID: coord.Event.Event.Id,
-			ObservedAt:     observedAt,
-			Deadline:       deadline,
-			TimelessHash:   timelessHash[:],
+			WorkflowID:   pbEvent.WorkflowID,
+			ExecutionID:  executionID,
+			ObservedAt:   observedAt,
+			Deadline:     deadline,
+			TimelessHash: timelessHash[:],
 			Blobs: []*pb.CoordinatedEventBlobHandle{{
 				Blob:    0,
-				Element: uint32(len(coordEvents)),
+				Element: uint32(len(events)),
 			}},
 		})
-		coordEvents = append(coordEvents, coord)
+		events = append(events, pbEvent)
 
 		var addedCap bool
-		if _, ok := obs.WorkflowCapacities[coord.WorkflowID]; !ok {
+		if _, ok := obs.WorkflowCapacities[pbEvent.WorkflowID]; !ok {
 			addedCap = true
-			obs.WorkflowCapacities[coord.WorkflowID] = uint32(min(capacity.PerWorkflow[coord.WorkflowID], math.MaxUint32))
+			obs.WorkflowCapacities[pbEvent.WorkflowID] = uint32(min(capacity.PerWorkflow[pbEvent.WorkflowID], math.MaxUint32))
 		}
 
 		// Check size
@@ -212,15 +216,15 @@ func (c *consensusQueuePlugin) Observation(
 			// too large, remove this one
 			obs.Events = obs.Events[:len(obs.Events)-1]
 			if addedCap {
-				delete(obs.WorkflowCapacities, coord.WorkflowID)
+				delete(obs.WorkflowCapacities, pbEvent.WorkflowID)
 			}
 			break
 		}
 	}
 
 	obs.BlobHandles = nil // remove the placeholders
-	if len(coordEvents) > 0 {
-		blobHandle, n, err2 := broadcastAsBlob(ctx, blobBroadcaster, coordEvents, seqNr, c.onchainCfg.EstimatedRoundInterval)
+	if len(events) > 0 {
+		blobHandle, n, err2 := broadcastAsBlob(ctx, blobBroadcaster, events, seqNr, c.onchainCfg.EstimatedRoundInterval)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -229,10 +233,10 @@ func (c *consensusQueuePlugin) Observation(
 
 		// we verified space for up to maxObservedBlobHandles blobs
 		var offset int
-		for batch := 1; batch < maxObservedBlobHandles && n < len(coordEvents); batch++ {
+		for batch := 1; batch < maxObservedBlobHandles && n < len(events); batch++ {
 			offset += n
-			coordEvents = coordEvents[n:]
-			blobHandle, n, err2 = broadcastAsBlob(ctx, blobBroadcaster, coordEvents, seqNr, c.onchainCfg.EstimatedRoundInterval)
+			events = events[n:]
+			blobHandle, n, err2 = broadcastAsBlob(ctx, blobBroadcaster, events, seqNr, c.onchainCfg.EstimatedRoundInterval)
 			if err2 != nil {
 				return nil, err2
 			}
@@ -245,16 +249,6 @@ func (c *consensusQueuePlugin) Observation(
 	}
 
 	return protoOpts.Marshal(obs)
-}
-
-func toProtoSeq(in iter.Seq[triggers.CoordinatedEvent]) iter.Seq[*pb.CoordinatedEvent] {
-	return func(yield func(*pb.CoordinatedEvent) bool) {
-		for event := range in {
-			if !yield(event.ToProto()) {
-				return
-			}
-		}
-	}
 }
 
 func (c *consensusQueuePlugin) ValidateObservation(
@@ -293,13 +287,13 @@ func (c *consensusQueuePlugin) ValidateObservation(
 
 	//TODO ensure capacity map is only observations and KV observed & queued events
 
-	// ensure no duplicated trigger event ID or timelessHash
-	triggerEventIDs, timelessHashes := make(map[string]struct{}), make(map[string]struct{})
+	// ensure no duplicate execution ID or timelessHash
+	execIDs, timelessHashes := make(map[string]struct{}), make(map[string]struct{})
 	for _, event := range obs.Events {
-		if _, ok := triggerEventIDs[event.TriggerEventID]; ok {
-			return fmt.Errorf("duplicate trigger event ID: %s", event.TriggerEventID)
+		if _, ok := execIDs[event.ExecutionID]; ok {
+			return fmt.Errorf("duplicate workflow execution ID: %s", event.ExecutionID)
 		}
-		triggerEventIDs[event.TriggerEventID] = struct{}{}
+		execIDs[event.ExecutionID] = struct{}{}
 
 		timelessHash := string(event.TimelessHash)
 		if _, ok := timelessHashes[timelessHash]; ok {
@@ -320,8 +314,8 @@ func validateObservedEvent(ctx context.Context, fetcher *blobCache, event *pb.Co
 	if event.WorkflowID == "" {
 		return errors.New("event workflow id is missing")
 	} ///TODO check not too long - exact length?
-	if event.TriggerEventID == "" {
-		return errors.New("event trigger event id is missing")
+	if event.ExecutionID == "" {
+		return errors.New("event execution id is missing")
 	} ///TODO check not too long - exact length?
 	if event.ObservedAt == nil {
 		return errors.New("event observation ts is missing")
@@ -349,13 +343,19 @@ func validateObservedEvent(ctx context.Context, fetcher *blobCache, event *pb.Co
 	coordEvent, pbBytes, err := fetchCoordinatedEventFromBlob(ctx, fetcher, blobHandle, int(event.Blobs[0].Element))
 	if err != nil {
 		return fmt.Errorf("failed to fetch event from blob: %w", err)
+	} else if coordEvent == nil {
+		return fmt.Errorf("failed to fetch event from blob: event is nil")
 	}
 
 	if coordEvent.WorkflowID != event.WorkflowID {
 		return fmt.Errorf("blob workflow ID %s does not match event workflow ID %s", coordEvent.WorkflowID, event.WorkflowID)
 	}
-	if coordEvent.GetEvent().GetEvent().Id != event.TriggerEventID {
-		return fmt.Errorf("blob event ID %s does not match event trigger event ID %s", coordEvent.GetEvent().GetEvent().Id, event.TriggerEventID)
+	executionID, err := workflows.GenerateExecutionIDWithTriggerIndex(event.WorkflowID, coordEvent.GetEvent().GetEvent().Id, int(coordEvent.TriggerIndex))
+	if err != nil {
+		return fmt.Errorf("failed to generate execution ID: %w", err)
+	}
+	if executionID != event.ExecutionID {
+		return fmt.Errorf("blob derived execution ID %s does not match event execution ID %s", executionID, event.ExecutionID)
 	}
 
 	if coordEvent.ObservedAt != nil {
@@ -413,9 +413,9 @@ func (c *consensusQueuePlugin) StateTransition(
 
 	// update state
 	state.pruneExpiredObservations(obs.medianExpiration)
-	var queuedTriggerEventIDs []string // to be removed from the trigger.Queue
+	var queuedTimelessHashes []string // eligible for pruning later if necessary
 	state.addObservedEvents(c.onchainCfg.F, obs.newObservedEvents, obs.observedBlobs, func(event *pb.ConsensusQueueEvent) {
-		queuedTriggerEventIDs = append(queuedTriggerEventIDs, event.TriggerEventID)
+		queuedTimelessHashes = append(queuedTimelessHashes, string(event.TimelessHash))
 	})
 	// pop as many queuedEvents as possible in to consensusEvents (up to capacity or KV limits)
 	for len(state.queuedEvents) > 0 && len(state.consensusEvents) < int(obs.medianCap) {
@@ -427,6 +427,7 @@ func (c *consensusQueuePlugin) StateTransition(
 		// stop when either value or the overall size is too large
 		if events, blobs := state.sizeOfConsensusEvents(), state.sizeOfBlobHandles(); events > maxKeyValueValueBytes ||
 			blobs > maxKeyValueValueBytes || events+blobs > maxKeyValueModifiedKeysPlusValuesBytes/2 {
+			state.queuedEvents.push(event)
 			state.consensusEvents = state.consensusEvents[:len(state.consensusEvents)-1]
 			break
 		}
@@ -438,23 +439,23 @@ func (c *consensusQueuePlugin) StateTransition(
 			state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes) {
 		// sorted by decreasing priority, so prune the last
 		toRemove := state.observedEventEntries[len(state.observedEventEntries)-1]
-		delete(state.observedEvents, toRemove.Event.TriggerEventID)
+		delete(state.observedEvents, string(toRemove.TimelessHash))
 		//TODO opt: drop more than one each time?
 	}
 
 	// prune (newly) queuedEvents if that value, blob handles, or the overall size is too large
-	if len(queuedTriggerEventIDs) > 0 &&
+	if len(queuedTimelessHashes) > 0 &&
 		(state.sizeOfQueuedEvents() > maxKeyValueValueBytes ||
 			state.sizeOfBlobHandles() > maxKeyValueValueBytes ||
 			state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes) {
 		// prune lowest priority queuedEvents from newly added queuedTriggerEventIDs
-		queuedTriggerEventIDSet := map[string]struct{}{}
-		for _, id := range queuedTriggerEventIDs {
-			queuedTriggerEventIDSet[id] = struct{}{}
+		queuedTimelessHashSet := map[string]struct{}{}
+		for _, id := range queuedTimelessHashes {
+			queuedTimelessHashSet[id] = struct{}{}
 		}
 		eligibleEvents := make([]*pb.ConsensusQueueEvent, 0, len(state.queuedEvents))
 		for _, e := range state.queuedEvents {
-			if _, ok := queuedTriggerEventIDSet[e.TriggerEventID]; ok {
+			if _, ok := queuedTimelessHashSet[string(e.TimelessHash)]; ok {
 				eligibleEvents = append(eligibleEvents, e)
 			}
 		}
@@ -468,7 +469,7 @@ func (c *consensusQueuePlugin) StateTransition(
 				state.sizeOf() > maxKeyValueModifiedKeysPlusValuesBytes) {
 			toRemove := heap.Pop(backwardsQueuedEvents).(*pb.ConsensusQueueEvent)
 			//TODO opt: faster delete...but need to maintain state.queuedEvents (though not order)...map indices?
-			state.queuedEvents = slices.DeleteFunc(state.queuedEvents, func(e *pb.ConsensusQueueEvent) bool { return e.TriggerEventID == toRemove.TriggerEventID })
+			state.queuedEvents = slices.DeleteFunc(state.queuedEvents, func(event *pb.ConsensusQueueEvent) bool { return event == toRemove })
 			//TODO opt: drop more than one each time?
 		}
 		// rebuild the priority queue
@@ -526,14 +527,10 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 
 	// If we used median, then honest nodes reporting reduced capacity would not be able to keep up.
 	// Instead, we use the F+1th lowest value - the least honest value.
-	var medianCount int
 	res.medianCap = slices.Sorted(slices.Values(capacities))[f]
 	for wf, caps := range wfCapacities {
-		if len(caps) > 2*f+1 {
+		if len(caps) >= 2*f+1 {
 			res.medianCapPerWF[wf] = slices.Sorted(slices.Values(caps))[f]
-			if medianCount < 2*f+1 {
-				res.medianCapPerWF[wf] = (res.medianCapPerWF[wf] * 9) / 10
-			}
 		}
 	}
 	return
@@ -545,12 +542,12 @@ func (res *observations) addEvent(obs commontypes.OracleID, event *pb.ConsensusQ
 	aggregated, ok := res.newObservedEvents[string(event.TimelessHash)]
 	if !ok {
 		res.newObservedEvents[string(event.TimelessHash)] = &pb.ConsensusQueueObservedEvent{
-			TriggerEventID: event.TriggerEventID,
-			WorkflowID:     event.WorkflowID,
-			NodeIds:        []uint8{uint8(obs)},
-			ObservedAts:    []*timestamppb.Timestamp{event.ObservedAt},
-			Deadlines:      []*timestamppb.Timestamp{event.Deadline},
-			Blobs:          nil, // res.observedBlobs tracks these while in memory
+			WorkflowID:  event.WorkflowID,
+			ExecutionID: event.ExecutionID,
+			NodeIds:     []uint8{uint8(obs)},
+			ObservedAts: []*timestamppb.Timestamp{event.ObservedAt},
+			Deadlines:   []*timestamppb.Timestamp{event.Deadline},
+			Blobs:       nil, // res.observedBlobs tracks these while in memory
 		}
 	} else {
 		// note: trigger event and workflow ID alignment is ensured by ValidateObservation
@@ -579,7 +576,7 @@ func (c *consensusQueuePlugin) commitState(ctx context.Context, kvReader ocr3_1t
 
 	c.triggerQueue.Remove(ctx, func(yield func(string) bool) {
 		for _, e := range consensusEvents {
-			if !yield(e.TriggerEventID) {
+			if !yield(e.ExecutionID) {
 				break
 			}
 		}
@@ -590,7 +587,7 @@ func (c *consensusQueuePlugin) commitState(ctx context.Context, kvReader ocr3_1t
 	}
 	c.triggerQueue.Remove(ctx, func(yield func(string) bool) {
 		for _, e := range queuedEvents {
-			if !yield(e.TriggerEventID) {
+			if !yield(e.ExecutionID) {
 				break
 			}
 		}
@@ -610,7 +607,7 @@ func (c *consensusQueuePlugin) tryStartExecutions(ctx context.Context, done chan
 			defer wg.Done()
 
 			if err2 := c.tryStartExecution(ctx, &fetcher, consensusEvent, blobHandles); err2 != nil {
-				c.lggr.Errorw("Failed to execute event", "eventID", consensusEvent.TriggerEventID, "err", err2)
+				c.lggr.Errorw("Failed to execute event", "executionID", consensusEvent.ExecutionID, "err", err2)
 				return
 			}
 		})
@@ -626,7 +623,7 @@ func (c *consensusQueuePlugin) tryStartExecution(ctx context.Context, fetcher *b
 	var errs []error
 	for _, blob := range consensusEvent.Blobs {
 		var err error
-		if int(blob.Blob) > len(blobHandles) {
+		if int(blob.Blob) >= len(blobHandles) {
 			c.lggr.Errorw("Blob handle index out of bounds", "index", int(blob.Blob), "len", len(blobHandles))
 			continue
 		}
@@ -651,6 +648,7 @@ func (c *consensusQueuePlugin) tryStartExecution(ctx context.Context, fetcher *b
 		return fmt.Errorf("failed to convert CoordinatedEvent from proto: %w", err)
 	}
 
+	//TODO ensure this only *starts* the execution, and does not block while it runs
 	return c.triggerCoordinator.StartExecution(ctx, event)
 }
 
