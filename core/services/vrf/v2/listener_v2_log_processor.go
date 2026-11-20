@@ -521,7 +521,8 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 				continue
 			}
 
-			if startBalanceNoReserved.Cmp(p.maxFee) < 0 {
+			reserved := reservedFee(&p)
+			if startBalanceNoReserved.Cmp(reserved) < 0 {
 				// Insufficient funds, have to wait for a user top up.
 				// Break out of the loop now and process what we are able to process
 				// in the constructed batches.
@@ -531,7 +532,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 
 			batches.addRun(p, fromAddress)
 
-			startBalanceNoReserved.Sub(startBalanceNoReserved, p.maxFee)
+			startBalanceNoReserved.Sub(startBalanceNoReserved, reserved)
 		}
 
 		var processedRequestIDs []string
@@ -669,6 +670,8 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 
 	l.Infow("Processing requests for subscription")
 
+	gasOverhead := lsn.gasOverhead()
+
 	ready, expired := lsn.getReadyAndExpired(l, reqs)
 	for _, reqID := range expired {
 		processed[reqID] = struct{}{}
@@ -767,10 +770,23 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				continue
 			}
 
-			if startBalanceNoReserved.Cmp(p.maxFee) < 0 {
+			reserved := reservedFee(&p)
+			if startBalanceNoReserved.Cmp(reserved) < 0 {
 				// Insufficient funds, have to wait for a user top up. Leave it unprocessed for now
 				ll.Infow("Insufficient balance to fulfill a request, returning")
 				return processed
+			}
+
+			// eth_estimateGas measures the callback as it behaves during estimation,
+			// which can be cheaper than on-chain execution. Floor the gas limit at the
+			// worst case so the fulfillment completes even if the callback uses its
+			// entire allotment.
+			if floor := WorstCaseGasFloor(p.reqCommitment.CallbackGasLimit(), gasOverhead); p.gasLimit < floor {
+				ll.Infow("Estimated gas limit below worst-case floor, bumping",
+					"estimatedGasLimit", p.gasLimit,
+					"gasFloor", floor,
+					"callbackGasLimit", p.reqCommitment.CallbackGasLimit())
+				p.gasLimit = floor
 			}
 
 			ll.Infow("Enqueuing fulfillment")
@@ -781,7 +797,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				}
 
 				var maxLink, maxEth *string
-				tmp := p.maxFee.String()
+				tmp := reserved.String()
 				if p.reqCommitment.NativePayment() {
 					maxEth = &tmp
 				} else {
@@ -820,7 +836,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 
 			// If we successfully enqueued for the txm, subtract that balance
 			// And loop to attempt to enqueue another fulfillment
-			startBalanceNoReserved.Sub(startBalanceNoReserved, p.maxFee)
+			startBalanceNoReserved.Sub(startBalanceNoReserved, reserved)
 			processed[p.req.req.RequestID().String()] = struct{}{}
 			vrfcommon.IncProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version())
 		}
@@ -1040,10 +1056,12 @@ func (lsn *listenerV2) estimateFee(
 	req RandomWordsRequested,
 	maxGasPriceWei *assets.Wei,
 ) (*big.Int, error) {
+	premiumPercentage := lsn.premiumPercentage()
+	gasOverhead := lsn.gasOverhead()
 	// NativePayment() returns true if and only if the version is V2+ and the
 	// request was made in ETH.
 	if req.NativePayment() {
-		return EstimateFeeWei(req.CallbackGasLimit(), maxGasPriceWei.ToInt())
+		return EstimateFeeWei(req.CallbackGasLimit(), gasOverhead, maxGasPriceWei.ToInt(), premiumPercentage)
 	}
 
 	// In the event we are using LINK we need to estimate the fee in juels
@@ -1057,8 +1075,10 @@ func (lsn *listenerV2) estimateFee(
 
 	return EstimateFeeJuels(
 		req.CallbackGasLimit(),
+		gasOverhead,
 		maxGasPriceWei.ToInt(),
 		roundData.Answer,
+		premiumPercentage,
 	)
 }
 
@@ -1077,10 +1097,11 @@ func (lsn *listenerV2) simulateFulfillment(
 	// estimate how much funds are needed so that we can log it if the simulation fails.
 	res.fundsNeeded, err = lsn.estimateFee(ctx, req.req, maxGasPriceWei)
 	if err != nil {
-		// not critical, just log and continue
-		lg.Warnw("unable to estimate funds needed for request, continuing anyway",
-			"err", err)
+		// The worst-case request cost is needed to reserve subscription fees, so
+		// retry this request instead of enqueuing an under-reserved fulfillment.
+		res.err = fmt.Errorf("estimating funds needed for request: %w", err)
 		res.fundsNeeded = big.NewInt(0)
+		return res
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]any{
