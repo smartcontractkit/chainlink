@@ -1025,3 +1025,72 @@ func Test_DataSource_StagingDoesNotObserve(t *testing.T) {
 	require.Nil(t, vals[1], "staging instance must not populate stream values")
 	require.Zero(t, reg.pipelines[1].runCount.Load(), "staging instance must not run pipelines")
 }
+
+func Test_DataSource_ObservedValueGauge(t *testing.T) {
+	t.Parallel()
+	newReg := func() *mockRegistry {
+		reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+		multi := makePipelineWithMultipleStreamResults([]streams.StreamID{1, 2, 3}, []any{
+			decimal.NewFromInt(2181),
+			decimal.NewFromInt(40602),
+			decimal.NewFromInt(15),
+		})
+		reg.pipelines[1] = multi
+		reg.pipelines[2] = multi
+		reg.pipelines[3] = multi
+		return reg
+	}
+
+	t.Run("production records and Close deletes", func(t *testing.T) {
+		t.Parallel()
+		ds := newDataSource(logger.NullLogger, newReg(), telem.NullTelemeter)
+		vec := newTestObservedValueVec()
+		ds.observedValues = newObservedValueGauges(vec)
+		opts := &mockOpts{configDigest: ocr2types.ConfigDigest{6, 5, 4}}
+		digest := opts.configDigest.String()
+		want := map[[3]string]float64{
+			{"1", "benchmark", digest}: 2181,
+			{"2", "benchmark", digest}: 40602,
+			{"3", "benchmark", digest}: 15,
+		}
+
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			ctx, cancel := context.WithTimeout(t.Context(), observationTimeout)
+			defer cancel()
+			assert.NoError(c, ds.Observe(ctx, makeStreamValues(), opts))
+			assert.Equal(c, want, observedSeries(c, vec))
+		}, 5*time.Second, 50*time.Millisecond)
+
+		require.NoError(t, ds.Close())
+		assert.Empty(t, observedSeries(t, vec))
+	})
+
+	t.Run("staging does not record", func(t *testing.T) {
+		t.Parallel()
+		ds := newDataSource(logger.NullLogger, newReg(), telem.NullTelemeter)
+		vec := newTestObservedValueVec()
+		ds.observedValues = newObservedValueGauges(vec)
+		defer ds.Close()
+		production := &mockOpts{configDigest: ocr2types.ConfigDigest{6, 5, 4}}
+		staging := &mockOpts{configDigest: ocr2types.ConfigDigest{9}, lifeCycleStage: lloprotocol.LifeCycleStageStaging}
+
+		// Populate the shared cache through the production instance first, so a staging Observe reads real values.
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			ctx, cancel := context.WithTimeout(t.Context(), observationTimeout)
+			defer cancel()
+			assert.NoError(c, ds.Observe(ctx, makeStreamValues(), production))
+			assert.Len(c, observedSeries(c, vec), 3)
+		}, 5*time.Second, 50*time.Millisecond)
+
+		ctx, cancel := context.WithTimeout(t.Context(), observationTimeout)
+		defer cancel()
+		vals := makeStreamValues()
+		require.NoError(t, ds.Observe(ctx, vals, staging))
+		require.NotNil(t, vals[1], "staging Observe must read the cached value for this test to be meaningful")
+		series := observedSeries(t, vec)
+		assert.Len(t, series, 3, "staging must not add series under its own digest")
+		for k := range series {
+			assert.Equal(t, production.configDigest.String(), k[2])
+		}
+	})
+}
