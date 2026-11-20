@@ -41,6 +41,7 @@ func (rc *ReloadController) Reload(c *gin.Context) {
 
 	result, err := rc.App.ReloadDynamicConfig(c.Request.Context())
 	if err != nil {
+		rc.App.GetLogger().Errorw("dynamic config reload failed", "err", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 
 		return
