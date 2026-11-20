@@ -119,6 +119,9 @@ func (s *FetcherService) RetrieveURL(ctx context.Context, req *storage_service.D
 		return "", ErrEmptyStorageRequest
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, defaultWorkflowSourceTimeout)
+	defer cancel()
+
 	storageResp, err := s.storageClient.DownloadArtifact(ctx, req)
 	if err != nil {
 		return "", err
