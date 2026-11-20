@@ -292,6 +292,8 @@ func TestEngine_ComputeUsageMeterRecord_ConfidentialRun(t *testing.T) {
 	records := emitter.all()
 	require.Len(t, records, 1)
 	u := records[0].GetUtilizations()[0]
+	require.Equal(t, resourcemanager.ResourceTypeWorkflowConfidentialCompute, u.GetResourceType())
+	require.Equal(t, resourcemanager.ResourceTypeWorkflowConfidentialCompute, records[0].GetIdentity().GetResourcePoolId())
 	require.Equal(t, cfg.WorkflowID+":"+executionID, u.GetResourceId())
 	require.Equal(t, "1234", u.GetValue(), "enclave-measured duration, not the round trip")
 }
