@@ -1,0 +1,221 @@
+# Shard failover with per-shard capability DONs, where capability shard 1 is deliberately broken.
+#
+# Same layout as workflow-sharded-capabilities-don.toml (workflow shards host no EVM capability;
+# each is routed to the capability DON sharing its DON family), with two differences:
+#   - ShardingFailoverEnabled is on for both workflow shards, so the secondary caches events;
+#   - chain-capabilities-zone-a-shard-1 hosts no EVM capability, so a workflow owned by workflow
+#     shard 1 can never register or receive its EVM log trigger, while shard 0 / cap-0 is healthy.
+#
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  container_name = "anvil-2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
+  image = "job-distributor:0.22.1"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+[infra]
+  type = "docker"
+
+# --- Workflow shard 0 -------------------------------------------------------
+[[nodesets]]
+  nodes = 4
+  name = "workflow-1-zone-a"
+  don_families = ["zone-a", "zone-a_shard-0"]
+  don_types = ["workflow", "shard"]
+  shard_index = 0
+  override_mode = "each"
+  http_port_range_start = 10100
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"ShardingFailoverEnabled":"true","PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:15.0"
+    port = 13000
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["60051:50051", "19876:9876"]
+      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["19877:9876"]
+      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["19878:9876"]
+      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["19879:9876"]
+      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
+
+# --- Workflow shard 1 -------------------------------------------------------
+[[nodesets]]
+  nodes = 4
+  name = "workflow-1-zone-a-shard-1"
+  don_families = ["zone-a", "zone-a_shard-1"]
+  don_types = ["workflow", "shard"]
+  shard_index = 1
+  override_mode = "all"
+  http_port_range_start = 10400
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"ShardingFailoverEnabled":"true","PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0", "dontime@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:15.0"
+    port = 13400
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = "[Sharding]\nShardingEnabled = true\nShardAssignmentMode = \"manual-only\"\n"
+
+# --- Capability shard 0 (hosts the sharded capability) ----------------------
+[[nodesets]]
+  nodes = 4
+  name = "chain-capabilities-zone-a-shard-0"
+  don_families = ["zone-a_shard-0"]
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true
+  override_mode = "all"
+  http_port_range_start = 10200
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["evm-1337"]
+
+  [nodesets.db]
+    image = "postgres:15.0"
+    port = 13100
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+# --- Capability shard 1 (hosts the same sharded capability) -----------------
+[[nodesets]]
+  nodes = 4
+  name = "chain-capabilities-zone-a-shard-1"
+  don_families = ["zone-a_shard-1"]
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true
+  override_mode = "all"
+  http_port_range_start = 10500
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["http-action"]
+
+  [nodesets.db]
+    image = "postgres:15.0"
+    port = 13500
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+# --- Shared (non-sharded) capability DON, reachable by every workflow shard --
+[[nodesets]]
+  nodes = 4
+  name = "chain-capabilities-zone-a"
+  don_families = ["zone-a_shard-0", "zone-a_shard-1"]
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true
+  override_mode = "all"
+  http_port_range_start = 10600
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["vault"]
+
+  [nodesets.db]
+    image = "postgres:15.0"
+    port = 13600
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+# --- Bootstrap + gateway ----------------------------------------------------
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_families = ["zone-a"]
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+
+  [nodesets.db]
+    image = "postgres:15.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["5002:5002","15002:15002"]
+      user_config_overrides = ""
