@@ -126,19 +126,8 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherF
 	return artifactsStore, nil
 }
 
-// FetchWorkflowArtifacts fetches the workflow binary and config from a cache or the specified URLs if the artifacts have not
-// been cached already. Before a workflow can be started this method must be called to ensure all artifacts used by the
-// workflow are available from the store.
-func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string, existingSpec *job.WorkflowSpec) ([]byte, []byte, error) {
-	if existingSpec != nil && existingSpec.Workflow != "" {
-		// there is no update in the BinaryURL or ConfigURL, lets decode the stored artifacts
-		decodedBinary, err := hex.DecodeString(existingSpec.Workflow)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to decode stored workflow spec: %w", err)
-		}
-		return decodedBinary, []byte(existingSpec.Config), nil
-	}
-
+// FetchWorkflowArtifacts fetches the workflow binary and config from the specified URLs.
+func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error) {
 	// Determine which URL to retrieve workflow binary artifacts from
 	parsedBinaryURL, err := url.Parse(binaryURL)
 	if err != nil {
