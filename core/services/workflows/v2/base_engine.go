@@ -1214,13 +1214,15 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, t
 	)
 }
 
-// executionMetadata returns the metadata to attach to an ExecuteRequest, or nil while
-// FeatureExecutionMetadataActivePeriod does not cover at. The metadata changes the request bytes,
-// which confidential workflows hash across nodes, so at is the execution timestamp (DON time):
-// every node then switches on the same execution. An execution without a timestamp (zero time,
-// when ExecutionTimestampsEnabled is off) stays off unless the window reaches back to year 1.
-func (e *baseEngine) executionMetadata(ctx context.Context, at time.Time, executionID string) *sdkpb.WorkflowExecutionMetadata {
-	if err := e.cfg.LocalLimiters.ExecutionMetadata.Check(ctx, commonconfig.Timestamp(at.Unix())); err != nil {
+// executionMetadata returns execution metadata for an ExecuteRequest, or nil when
+// the execution timestamp is outside FeatureExecutionMetadataActivePeriod.
+// The metadata changes the request bytes, which confidential workflows hash across nodes,
+// therefore, timestamp (featureGateTime) is used to switch a feature
+// together across all nodes (and avoid mixed-version environment inconsistencies).
+// An execution without a timestamp (zero time, when ExecutionTimestampsEnabled is off)
+// stays off unless the window reaches back to year 1.
+func (e *baseEngine) executionMetadata(ctx context.Context, featureGateTime time.Time, executionID string) *sdkpb.WorkflowExecutionMetadata {
+	if err := e.cfg.LocalLimiters.ExecutionMetadata.Check(ctx, commonconfig.Timestamp(featureGateTime.Unix())); err != nil {
 		return nil
 	}
 	return e.getExecutionMetadata(executionID)

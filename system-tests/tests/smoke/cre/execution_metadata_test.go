@@ -19,7 +19,7 @@ import (
 )
 
 const executionMetadataEnabledTOML = `[PerWorkflow]
-FeatureExecutionMetadataActivePeriod = '[2000-01-01 00:00:00 +0000 UTC,2100-01-01 00:00:00 +0000 UTC]'
+FeatureExecutionMetadataActivePeriod = '[0001-01-01 00:00:00 +0000 UTC,2100-01-01 00:00:00 +0000 UTC]'
 ExecutionTimestampsEnabled = 'true'`
 
 //nolint:paralleltest // parallel execution is controlled by CRE_TEST_PARALLEL_ENABLED
@@ -44,15 +44,19 @@ func ExecuteWorkflowExecutionMetadataTest(t *testing.T, testEnv *ttypes.TestEnvi
 		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogs, baseMessages)
 	})
 
+	// Execution metadata is behind FeatureExecutionMetadataActivePeriod, checked against the
+	// execution timestamp, so ExecutionTimestampsEnabled must be on as well. Apply it globally
+	// BEFORE deploying: Subscribe computes metadata at workflow load, and a workflow-scoped
+	// override needs the workflow ID, which only exists after deploy. The window starts at year 1
+	// so an execution without a timestamp (zero time) is covered too.
+	t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(executionMetadataEnabledTOML))
+
 	// Deploy the workflow.
 	workflowID := t_helpers.CompileAndDeployWorkflow[t_helpers.None](t, testEnv, framework.L,
 		t_helpers.UniqueWorkflowName(testEnv, "execution-metadata"), nil, "./executiometadata/main.go",
 		t_helpers.WithArtifactCopyDONTypes(crelib.WorkflowDON, crelib.ShardDON))
 	workflowID = strings.ToLower(strings.TrimPrefix(workflowID, "0x"))
 
-	// Execution metadata is behind FeatureExecutionMetadataActivePeriod, checked against the
-	// execution timestamp, so ExecutionTimestampsEnabled must be on as well.
-	t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Workflow(workflowID, executionMetadataEnabledTOML))
 	require.NotNil(t, testEnv.Execution)
 	owner := strings.ToLower(strings.TrimPrefix(testEnv.Execution.OwnerAddress.Hex(), "0x"))
 	workflowDONs := make(map[string]*crelib.Don)
