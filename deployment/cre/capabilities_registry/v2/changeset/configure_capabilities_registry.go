@@ -38,6 +38,11 @@ type ConfigureCapabilitiesRegistryInput struct {
 	Nodes                       []CapabilitiesRegistryNodeParams   `json:"nodes,omitempty" yaml:"nodes,omitempty"`
 	DONs                        []CapabilitiesRegistryNewDONParams `json:"dons,omitempty" yaml:"dons,omitempty"`
 	Qualifier                   string                             `json:"qualifier,omitempty" yaml:"qualifier,omitempty"`
+
+	// SkipSignerFamilyJobCheck disables the precondition check that, when this change adds
+	// extraSignerFamilies to an OCR3 config, every node already has an APPROVED consensus job with a
+	// key bundle for each family. Use only for emergencies.
+	SkipSignerFamilyJobCheck bool `json:"skipSignerFamilyJobCheck,omitempty" yaml:"skipSignerFamilyJobCheck,omitempty"`
 }
 
 type ConfigureCapabilitiesRegistryDeps struct {
@@ -53,6 +58,22 @@ func (l ConfigureCapabilitiesRegistry) VerifyPreconditions(e cldf.Environment, c
 	}
 	if _, ok := e.BlockChains.EVMChains()[config.ChainSelector]; !ok {
 		return fmt.Errorf("chain %d not found in environment", config.ChainSelector)
+	}
+
+	if !config.SkipSignerFamilyJobCheck {
+		for _, don := range config.DONs {
+			capConfigs := make([]ocr3CapConfig, len(don.CapabilityConfigurations))
+			for i, cc := range don.CapabilityConfigurations {
+				capConfigs[i] = ocr3CapConfig(cc)
+			}
+			families, err := requestedSignerFamilies(capConfigs)
+			if err != nil {
+				return fmt.Errorf("ConfigureCapabilitiesRegistry precondition failed: DON %q: %w", don.Name, err)
+			}
+			if err := verifySignerFamilyJobs(e, don.Nodes, families); err != nil {
+				return fmt.Errorf("ConfigureCapabilitiesRegistry precondition failed: DON %q: %w", don.Name, err)
+			}
+		}
 	}
 
 	return nil

@@ -66,6 +66,11 @@ type UpdateDONInput struct {
 	// the same capability to multiple DONs within a DON family.
 	SkipDuplicateCapabilityValidation bool `json:"skipDuplicateCapabilityValidation,omitempty" yaml:"skipDuplicateCapabilityValidation,omitempty"`
 
+	// SkipSignerFamilyJobCheck disables the precondition check that, when this change adds
+	// extraSignerFamilies to an OCR3 config, every node already has an APPROVED consensus job with a
+	// key bundle for each family. Use only for emergencies.
+	SkipSignerFamilyJobCheck bool `json:"skipSignerFamilyJobCheck,omitempty" yaml:"skipSignerFamilyJobCheck,omitempty"`
+
 	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
 
@@ -88,7 +93,17 @@ func (u UpdateDON) VerifyPreconditions(e cldf.Environment, config UpdateDONInput
 		}
 	}
 
+	if !config.SkipSignerFamilyJobCheck {
+		if err := verifyUpdateDONSignerFamilies(e, config); err != nil {
+			return fmt.Errorf("UpdateDON precondition failed: %w", err)
+		}
+	}
+
 	return nil
+}
+
+func verifyUpdateDONSignerFamilies(e cldf.Environment, config UpdateDONInput) error {
+	return verifyDONSignerFamilies(e, config.RegistryChainSel, config.RegistryQualifier, config.DONName, config.CapabilityConfigs, config.Nodes)
 }
 
 func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.ChangesetOutput, error) {
