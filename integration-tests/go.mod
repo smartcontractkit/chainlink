@@ -435,9 +435,9 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1 // indirect
 	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20261005072841-71e45e418098 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.8 // indirect
-	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20261120192314-cbcce0c797bc // indirect
-	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20261120192314-cbcce0c797bc // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20261120192314-cbcce0c797bc // indirect
+	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20261120230302-112e70c05752 // indirect
+	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20261120230302-112e70c05752 // indirect
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20261120230302-112e70c05752 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
 	github.com/smartcontractkit/go-daml v0.0.0-20260702101944-3a593d4e8e19 // indirect

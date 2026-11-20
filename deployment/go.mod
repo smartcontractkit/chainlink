@@ -61,8 +61,8 @@ require (
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260922143238-46cc062ae5a3
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.8
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9
-	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20261120192314-cbcce0c797bc
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20261120192314-cbcce0c797bc
+	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20261120230302-112e70c05752
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20261120230302-112e70c05752
 	// Using a separate inline `require` here to avoid surrounding line changes
 	// creating potential merge conflicts.
 	github.com/smartcontractkit/chainlink/v2 v2.29.0
@@ -454,7 +454,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260821155228-fa1d775e2138 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5 // indirect
-	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20261120192314-cbcce0c797bc // indirect
+	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20261120230302-112e70c05752 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/go-daml v0.0.0-20260702101944-3a593d4e8e19 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
