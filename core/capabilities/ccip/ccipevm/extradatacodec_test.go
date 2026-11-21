@@ -13,11 +13,13 @@ import (
 )
 
 func Test_decodeExtraData(t *testing.T) {
+	t.Parallel()
 	d := testSetup(t)
 	gasLimit := big.NewInt(rand.Int63())
 	extraDataDecoder := &ExtraDataDecoder{}
 
 	t.Run("decode extra args into map evm v1", func(t *testing.T) {
+		t.Parallel()
 		encoded, err := d.contract.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
 			GasLimit: gasLimit,
 		})
@@ -33,6 +35,7 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map evm v2", func(t *testing.T) {
+		t.Parallel()
 		encoded, err := d.contract.EncodeEVMExtraArgsV2(nil, message_hasher.ClientGenericExtraArgsV2{
 			GasLimit:                 gasLimit,
 			AllowOutOfOrderExecution: true,
@@ -53,6 +56,7 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("decode dest exec data into map", func(t *testing.T) {
+		t.Parallel()
 		destGasAmount := uint32(10000)
 		encoded, err := abiEncodeUint32(destGasAmount)
 		require.NoError(t, err)
@@ -67,10 +71,12 @@ func Test_decodeExtraData(t *testing.T) {
 }
 
 func TestExtraDataDecoder_DecodeExtraArgsToMap_SVMDestination(t *testing.T) {
+	t.Parallel()
 	d := testSetup(t)
 	extraDataDecoder := &ExtraDataDecoder{}
 
 	t.Run("decode extra args into map svm", func(t *testing.T) {
+		t.Parallel()
 		key, err := solana.NewRandomPrivateKey()
 		require.NoError(t, err)
 		cu := uint32(10000)
@@ -113,6 +119,7 @@ func TestExtraDataDecoder_DecodeExtraArgsToMap_SVMDestination(t *testing.T) {
 	})
 
 	t.Run("mostly empty except for out of order execution", func(t *testing.T) {
+		t.Parallel()
 		extraData := hexutil.MustDecode("0x1f3b3aba00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 		m, err := extraDataDecoder.DecodeExtraArgsToMap(extraData)
 		require.NoError(t, err)
@@ -124,6 +131,7 @@ func TestExtraDataDecoder_DecodeExtraArgsToMap_SVMDestination(t *testing.T) {
 	})
 
 	t.Run("real world use case", func(t *testing.T) {
+		t.Parallel()
 		// See tx https://sepolia.etherscan.io/tx/0x9992d5c16e6b498ae94ccdcf942e23067980ee0c9d6b63bde6a1b931b12b12fc
 		extraData := hexutil.MustDecode("0x1f3b3aba0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000001388000000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000032b4c0e1c22b4ecbb7650755cdf3e6ae0815d71cd6828cf1ae9bb57fb37be51bd36b59f124bfe0e67767a2333b5f0d4956074bb4d2b221f2873812988278afd640000000000000000000000000000000000000000000000000000000000000000")
 		m, err := extraDataDecoder.DecodeExtraArgsToMap(extraData)

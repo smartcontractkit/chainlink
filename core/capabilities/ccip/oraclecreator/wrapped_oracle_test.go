@@ -10,6 +10,7 @@ import (
 )
 
 func Test_wrappedOracle_Close(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		oracleErr    error
@@ -46,6 +47,7 @@ func Test_wrappedOracle_Close(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			closers := make([]io.Closer, 0, len(tt.closerErrors))
 			for _, err := range tt.closerErrors {
 				closers = append(closers, mockCloser{err: err})

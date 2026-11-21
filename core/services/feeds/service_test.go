@@ -485,6 +485,7 @@ func Test_Service_GetManager(t *testing.T) {
 }
 
 func Test_Service_UpdateFeedsManager(t *testing.T) {
+	t.Parallel()
 	mgr := feeds.Manager{ID: 1}
 
 	svc := setupTestService(t)
@@ -498,6 +499,7 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 }
 
 func Test_Service_EnableFeedsManager(t *testing.T) {
+	t.Parallel()
 	mgr := feeds.Manager{ID: 1}
 
 	svc := setupTestService(t)
@@ -513,6 +515,7 @@ func Test_Service_EnableFeedsManager(t *testing.T) {
 }
 
 func Test_Service_DisableFeedsManager(t *testing.T) {
+	t.Parallel()
 	mgr := feeds.Manager{ID: 1}
 
 	svc := setupTestService(t)
@@ -547,6 +550,7 @@ func Test_Service_ListManagersByIDs(t *testing.T) {
 }
 
 func Test_Service_CreateChainConfig(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name              string
 		chainType         feeds.ChainType
@@ -587,6 +591,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var (
 				mgr         = feeds.Manager{ID: 1}
 				nodeVersion = &versioning.NodeVersion{
@@ -657,6 +662,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 }
 
 func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
+	t.Parallel()
 	var (
 		mgr = feeds.Manager{ID: 1}
 		cfg = feeds.ChainConfig{
@@ -678,6 +684,7 @@ func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
 }
 
 func Test_Service_DeleteChainConfig(t *testing.T) {
+	t.Parallel()
 	var (
 		mgr         = feeds.Manager{ID: 1}
 		nodeVersion = &versioning.NodeVersion{
@@ -718,6 +725,7 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 }
 
 func Test_Service_ListChainConfigsByManagerIDs(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	var (
 		mgr = feeds.Manager{ID: 1}
@@ -738,6 +746,7 @@ func Test_Service_ListChainConfigsByManagerIDs(t *testing.T) {
 }
 
 func Test_Service_UpdateChainConfig(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name              string
 		chainType         feeds.ChainType
@@ -772,6 +781,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var (
 				mgr         = feeds.Manager{ID: 1}
 				nodeVersion = &versioning.NodeVersion{
@@ -835,6 +845,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 }
 
 func Test_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
+	t.Parallel()
 	var (
 		mgr = feeds.Manager{ID: 1}
 		cfg = feeds.ChainConfig{
@@ -1469,6 +1480,7 @@ answer1      [type=median index=0];
 }
 
 func Test_Service_SyncNodeInfo(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		chainType feeds.ChainType
@@ -1503,6 +1515,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			p2pKey1 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 			p2pKey2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2))
 			p2pKey3 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(3))
@@ -1851,6 +1864,7 @@ func Test_Service_GetJobProposal(t *testing.T) {
 }
 
 func Test_Service_CancelSpec(t *testing.T) {
+	t.Parallel()
 	var (
 		externalJobID = uuid.New()
 		jp            = &feeds.JobProposal{
@@ -2122,6 +2136,7 @@ func Test_Service_ListSpecsByJobProposalIDs(t *testing.T) {
 }
 
 func Test_Service_ApproveSpec(t *testing.T) {
+	t.Parallel()
 	const (
 		approveSpecContractID = "0x613a38AC1659769640aaE063C651F48E0250454C"
 		approveSpecRelay      = "evm"
@@ -2845,6 +2860,7 @@ updateInterval = "30s"
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.OCR2.Enabled = new(true)
 				if tc.httpTimeout != nil {
@@ -2869,6 +2885,7 @@ updateInterval = "30s"
 }
 
 func Test_Service_ApproveSpec_OCR2(t *testing.T) {
+	t.Parallel()
 	address := "0x613a38AC1659769640aaE063C651F48E0250454C"
 	feedIDHex := "0x0000000000000000000000000000000000000000000000000000000000000001"
 	feedID := common.HexToHash(feedIDHex)
@@ -3436,6 +3453,7 @@ updateInterval = "20m"
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.OCR2.Enabled = new(true)
 				if tc.httpTimeout != nil {
@@ -3460,6 +3478,7 @@ updateInterval = "20m"
 }
 
 func Test_Service_ApproveSpec_Stream(t *testing.T) {
+	t.Parallel()
 	externalJobID := uuid.New()
 	streamName := "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 	streamID := uint32(1009001032)
@@ -3837,6 +3856,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.OCR2.Enabled = new(true)
 				if tc.httpTimeout != nil {
@@ -3861,6 +3881,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 }
 
 func Test_Service_ApproveSpec_Bootstrap(t *testing.T) {
+	t.Parallel()
 	address := "0x613a38AC1659769640aaE063C651F48E0250454C"
 	feedIDHex := "0x0000000000000000000000000000000000000000000000000000000000000001"
 	feedID := common.HexToHash(feedIDHex)
@@ -4382,6 +4403,7 @@ chainID = 0
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.OCR2.Enabled = new(true)
 				if tc.httpTimeout != nil {
@@ -4406,6 +4428,7 @@ chainID = 0
 }
 
 func Test_Service_RejectSpec(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx = t.Context()
 		jp  = &feeds.JobProposal{
@@ -4545,6 +4568,7 @@ func Test_Service_RejectSpec(t *testing.T) {
 }
 
 func Test_Service_UpdateSpecDefinition(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx         = t.Context()
 		specID      = int64(1)
@@ -4634,6 +4658,7 @@ func Test_Service_UpdateSpecDefinition(t *testing.T) {
 }
 
 func Test_Service_StartStop(t *testing.T) {
+	t.Parallel()
 	key := cltest.DefaultCSAKey
 
 	var (

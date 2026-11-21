@@ -13,6 +13,7 @@ import (
 )
 
 func TestNewStartUpHealthReport(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 	ibhr := services.NewStartUpHealthReport(1234, lggr)
 

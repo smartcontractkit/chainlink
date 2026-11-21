@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,19 +18,26 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 )
 
-func Test_DB_ReadWriteState(t *testing.T) {
+func newOCRTestDB(t *testing.T) (*sqlx.DB, job.OCROracleSpec) {
+	t.Helper()
 	db := pgtest.NewSqlxDB(t)
-
-	configDigest := cltest.MakeConfigDigest(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
+	return db, cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
+}
+
+func Test_DB_ReadWriteState(t *testing.T) {
+	t.Parallel()
+	configDigest := cltest.MakeConfigDigest(t)
 
 	t.Run("reads and writes state", func(t *testing.T) {
-		t.Log("creating DB")
+		t.Parallel()
+		// Each subtest writes state for the same spec, so it needs its own database.
+		db, spec := newOCRTestDB(t)
 		odb := ocr.NewTestDB(t, db, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                1,
@@ -47,6 +55,8 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("updates state", func(t *testing.T) {
+		t.Parallel()
+		db, spec := newOCRTestDB(t)
 		odb := ocr.NewTestDB(t, db, spec.ID)
 		newState := ocrtypes.PersistentState{
 			Epoch:                2,
@@ -64,6 +74,8 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
+		t.Parallel()
+		db, spec := newOCRTestDB(t)
 		odb := ocr.NewTestDB(t, db, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                3,
@@ -84,6 +96,8 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong config digest", func(t *testing.T) {
+		t.Parallel()
+		db, spec := newOCRTestDB(t)
 		odb := ocr.NewTestDB(t, db, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                4,
@@ -102,8 +116,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 }
 
 func Test_DB_ReadWriteConfig(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	sqlDB := db
+	t.Parallel()
 
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:         cltest.MakeConfigDigest(t),
@@ -113,12 +126,11 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		EncodedConfigVersion: uint64(987654),
 		Encoded:              []byte{1, 2, 3, 4, 5},
 	}
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
-	transmitterAddress := key.Address
 
 	t.Run("reads and writes config", func(t *testing.T) {
+		t.Parallel()
+		// Each subtest writes config for the same spec, so it needs its own database.
+		sqlDB, spec := newOCRTestDB(t)
 		db := ocr.NewTestDB(t, sqlDB, spec.ID)
 
 		err := db.WriteConfig(t.Context(), config)
@@ -131,12 +143,14 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("updates config", func(t *testing.T) {
+		t.Parallel()
+		sqlDB, spec := newOCRTestDB(t)
 		db := ocr.NewTestDB(t, sqlDB, spec.ID)
 
 		newConfig := ocrtypes.ContractConfig{
 			ConfigDigest:         cltest.MakeConfigDigest(t),
-			Signers:              []common.Address{utils.ZeroAddress, transmitterAddress, testutils.NewAddress()},
-			Transmitters:         []common.Address{utils.ZeroAddress, transmitterAddress, testutils.NewAddress()},
+			Signers:              []common.Address{utils.ZeroAddress, testutils.NewAddress(), testutils.NewAddress()},
+			Transmitters:         []common.Address{utils.ZeroAddress, testutils.NewAddress(), testutils.NewAddress()},
 			Threshold:            uint8(36),
 			EncodedConfigVersion: uint64(987655),
 			Encoded:              []byte{2, 3, 4, 5, 6},
@@ -152,6 +166,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
+		t.Parallel()
+		sqlDB, spec := newOCRTestDB(t)
 		db := ocr.NewTestDB(t, sqlDB, spec.ID)
 
 		err := db.WriteConfig(t.Context(), config)
@@ -182,7 +198,9 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 	}
 }
 
+//nolint:paralleltest // subtests build on rows written by earlier subtests
 func Test_DB_PendingTransmissions(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -386,7 +404,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // subtests build on the round saved by the earlier subtest
 func Test_DB_LatestRoundRequested(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 

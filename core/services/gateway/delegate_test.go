@@ -45,6 +45,7 @@ schemaVersion = 1
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			_, err := gateway.ValidatedGatewaySpec(tc.toml)
 			if tc.valid {
 				require.NoError(t, err)

@@ -45,7 +45,9 @@ func setupShardOrchestrator(t *testing.T) (*ring.Store, ringpb.ShardOrchestrator
 }
 
 func TestShardOrchestrator_GetWorkflowShardMapping(t *testing.T) {
+	t.Parallel()
 	t.Run("successfully retrieves workflow mappings", func(t *testing.T) {
+		t.Parallel()
 		ringStore, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
@@ -89,6 +91,7 @@ func TestShardOrchestrator_GetWorkflowShardMapping(t *testing.T) {
 	})
 
 	t.Run("returns error for empty workflow IDs", func(t *testing.T) {
+		t.Parallel()
 		_, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
@@ -105,7 +108,9 @@ func TestShardOrchestrator_GetWorkflowShardMapping(t *testing.T) {
 }
 
 func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
+	t.Parallel()
 	t.Run("successfully reports workflow registration", func(t *testing.T) {
+		t.Parallel()
 		_, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
@@ -126,6 +131,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 	})
 
 	t.Run("handles empty workflow list", func(t *testing.T) {
+		t.Parallel()
 		_, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
@@ -143,6 +149,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 	})
 
 	t.Run("handles multiple shards reporting", func(t *testing.T) {
+		t.Parallel()
 		_, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()
 
@@ -171,6 +178,7 @@ func TestShardOrchestrator_ReportWorkflowTriggerRegistration(t *testing.T) {
 }
 
 func TestShardOrchestrator_Integration(t *testing.T) {
+	t.Parallel()
 	t.Run("end-to-end workflow registration and retrieval", func(t *testing.T) {
 		ringStore, client, cleanup := setupShardOrchestrator(t)
 		defer cleanup()

@@ -9,23 +9,28 @@ import (
 )
 
 func TestValidateEncryptedSharesEntry(t *testing.T) {
+	t.Parallel()
 	t.Run("hex share", func(t *testing.T) {
+		t.Parallel()
 		require.NoError(t, validateEncryptedSharesEntry(&vaultcommon.EncryptedShares{
 			Shares: []string{"abcd"},
 		}))
 	})
 
 	t.Run("binary share", func(t *testing.T) {
+		t.Parallel()
 		require.NoError(t, validateEncryptedSharesEntry(&vaultcommon.EncryptedShares{
 			BinaryShares: [][]byte{{1, 2, 3}},
 		}))
 	})
 
 	t.Run("rejects empty", func(t *testing.T) {
+		t.Parallel()
 		require.ErrorContains(t, validateEncryptedSharesEntry(&vaultcommon.EncryptedShares{}), "exactly 1 share")
 	})
 
 	t.Run("rejects both encodings", func(t *testing.T) {
+		t.Parallel()
 		require.ErrorContains(t, validateEncryptedSharesEntry(&vaultcommon.EncryptedShares{
 			Shares:       []string{"abcd"},
 			BinaryShares: [][]byte{{1}},
@@ -34,26 +39,32 @@ func TestValidateEncryptedSharesEntry(t *testing.T) {
 }
 
 func TestEncryptedShareSizeForLimit(t *testing.T) {
+	t.Parallel()
 	t.Run("hex share", func(t *testing.T) {
+		t.Parallel()
 		n, err := encryptedShareSizeForLimit(&vaultcommon.EncryptedShares{Shares: []string{"abcdef"}})
 		require.NoError(t, err)
 		require.Equal(t, 6, n)
 	})
 
 	t.Run("binary share", func(t *testing.T) {
+		t.Parallel()
 		n, err := encryptedShareSizeForLimit(&vaultcommon.EncryptedShares{BinaryShares: [][]byte{{1, 2, 3, 4}}})
 		require.NoError(t, err)
 		require.Equal(t, 4, n)
 	})
 
 	t.Run("no share", func(t *testing.T) {
+		t.Parallel()
 		_, err := encryptedShareSizeForLimit(&vaultcommon.EncryptedShares{})
 		require.ErrorContains(t, err, "no share to measure")
 	})
 }
 
 func TestAppendEncryptedShareEntry(t *testing.T) {
+	t.Parallel()
 	t.Run("appends hex share", func(t *testing.T) {
+		t.Parallel()
 		dst := &vaultcommon.EncryptedShares{EncryptionKey: "k"}
 		appendEncryptedShareEntry(dst, &vaultcommon.EncryptedShares{Shares: []string{"a"}})
 		require.Equal(t, []string{"a"}, dst.Shares)
@@ -61,6 +72,7 @@ func TestAppendEncryptedShareEntry(t *testing.T) {
 	})
 
 	t.Run("appends binary share", func(t *testing.T) {
+		t.Parallel()
 		dst := &vaultcommon.EncryptedShares{EncryptionKey: "k"}
 		appendEncryptedShareEntry(dst, &vaultcommon.EncryptedShares{BinaryShares: [][]byte{{1, 2}}})
 		require.Len(t, dst.BinaryShares, 1)

@@ -11,11 +11,13 @@ import (
 )
 
 func Test_decodeExtraArgs(t *testing.T) {
+	t.Parallel()
 	d := testSetup(t)
 	gasLimit := big.NewInt(rand.Int63())
 	extraDataDecoder := &ExtraDataDecoder{}
 
 	t.Run("decode extra args into map evm v1", func(t *testing.T) {
+		t.Parallel()
 		encoded, err := d.contract.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
 			GasLimit: gasLimit,
 		})
@@ -31,6 +33,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map evm v2", func(t *testing.T) {
+		t.Parallel()
 		encoded, err := d.contract.EncodeEVMExtraArgsV2(nil, message_hasher.ClientGenericExtraArgsV2{
 			GasLimit:                 gasLimit,
 			AllowOutOfOrderExecution: true,

@@ -128,7 +128,9 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 }
 
 func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
+	t.Parallel()
 	t.Run("returns nil error if gasLanePrice not set in job spec", func(tt *testing.T) {
+		tt.Parallel()
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
 				VRFVersion:       vrfcommon.V2Plus,
@@ -144,6 +146,7 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 	})
 
 	t.Run("returns nil error on valid gas lane <=> key specific gas price setting", func(tt *testing.T) {
+		tt.Parallel()
 		fromAddresses := make([]string, 0, 3)
 		for range 3 {
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
@@ -173,6 +176,7 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 	})
 
 	t.Run("returns error on invalid setting", func(tt *testing.T) {
+		tt.Parallel()
 		fromAddresses := make([]string, 0, 3)
 		for range 3 {
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
@@ -203,7 +207,9 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 }
 
 func Test_CheckFromAddressesExist(t *testing.T) {
+	t.Parallel()
 	t.Run("from addresses exist", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		db := pgtest.NewSqlxDB(t)
 		lggr := logger.TestLogger(t)
@@ -234,6 +240,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 	})
 
 	t.Run("one of from addresses doesn't exist", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		db := pgtest.NewSqlxDB(t)
 		lggr := logger.TestLogger(t)
@@ -266,7 +273,9 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 }
 
 func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
+	t.Parallel()
 	t.Run("all max gas prices equal", func(tt *testing.T) {
+		tt.Parallel()
 		fromAddresses := []string{
 			"0x498C2Dce1d3aEDE31A8c808c511C38a809e67684",
 			"0x253b01b9CaAfbB9dC138d7D8c3ACBCDd47144b4B",
@@ -293,6 +302,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 	})
 
 	t.Run("one max gas price not equal to others", func(tt *testing.T) {
+		tt.Parallel()
 		fromAddresses := []string{
 			"0x498C2Dce1d3aEDE31A8c808c511C38a809e67684",
 			"0x253b01b9CaAfbB9dC138d7D8c3ACBCDd47144b4B",
@@ -323,6 +333,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 }
 
 func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)

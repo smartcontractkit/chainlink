@@ -19,6 +19,7 @@ import (
 )
 
 func TestChipIngressBatchClient_HappyPath(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	// Create mocks
@@ -99,6 +100,7 @@ func TestChipIngressBatchClient_HappyPath(t *testing.T) {
 }
 
 func TestChipIngressBatchClient_MultipleBatches(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	chipClient := chipingressmocks.NewClient(t)
@@ -137,6 +139,7 @@ func TestChipIngressBatchClient_MultipleBatches(t *testing.T) {
 }
 
 func TestChipIngressBatchClient_DifferentTelemetryTypes(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	chipClient := chipingressmocks.NewClient(t)
@@ -191,6 +194,7 @@ func TestChipIngressBatchClient_DifferentTelemetryTypes(t *testing.T) {
 }
 
 func TestChipIngressBatchClient_ContextCancellation(t *testing.T) {
+	t.Parallel()
 	chipClient := chipingressmocks.NewClient(t)
 	chipClient.On("Ping", mock.Anything, mock.Anything, mock.Anything).Return(&chipingress.PingResponse{}, nil).Maybe()
 	chipClient.On("PublishBatch", mock.Anything, mock.Anything, mock.Anything).Return(&chipingress.PublishResponse{}, nil).Maybe()
@@ -218,6 +222,7 @@ func TestChipIngressBatchClient_ContextCancellation(t *testing.T) {
 }
 
 func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	chipClient := chipingressmocks.NewClient(t)
@@ -255,6 +260,7 @@ func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
 }
 
 func TestChipIngressBatchClient_ChainSelectorInAttributes(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	chipClient := chipingressmocks.NewClient(t)
@@ -297,6 +303,7 @@ func TestChipIngressBatchClient_ChainSelectorInAttributes(t *testing.T) {
 }
 
 func TestChipIngressBatchClient_HealthMonitoring(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}
@@ -322,6 +329,7 @@ func TestChipIngressBatchClient_HealthMonitoring(t *testing.T) {
 }
 
 func TestChipIngressBatchClient_HealthMonitoring_PingFailure(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
 	}

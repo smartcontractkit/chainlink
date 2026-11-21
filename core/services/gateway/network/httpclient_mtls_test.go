@@ -148,12 +148,14 @@ func TestNewHTTPClientFactory_MtlsFlow(t *testing.T) {
 	factory := NewHTTPClientFactory(HTTPClientConfig{}, lggr)
 
 	t.Run("nil config returns a working non-mtls client", func(t *testing.T) {
+		t.Parallel()
 		client, err := factory(HTTPClientConfig{})
 		require.NoError(t, err)
 		require.NotNil(t, client)
 	})
 
 	t.Run("valid mtls config returns a working client", func(t *testing.T) {
+		t.Parallel()
 		certPEM, keyPEM, _ := pemKeyPair(t, "client")
 		client, err := factory(HTTPClientConfig{
 			Mtls:               &gateway.MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
@@ -164,6 +166,7 @@ func TestNewHTTPClientFactory_MtlsFlow(t *testing.T) {
 	})
 
 	t.Run("invalid mtls config surface an error", func(t *testing.T) {
+		t.Parallel()
 		client, err := factory(HTTPClientConfig{
 			Mtls: &gateway.MtlsAuth{Certificate: []byte("garbage"), PrivateKey: []byte("garbage")},
 		})

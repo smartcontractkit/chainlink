@@ -12,6 +12,7 @@ import (
 )
 
 func TestTxDBDriver(t *testing.T) {
+	t.Parallel()
 	db := NewSqlxDB(t)
 	dropTable := func() error {
 		_, err := db.Exec(`DROP TABLE IF EXISTS txdb_test`)
@@ -36,6 +37,7 @@ func TestTxDBDriver(t *testing.T) {
 
 	ensureValuesPresent(t, db)
 	t.Run("session has lock_timeout and idle_in_transaction_session_timeout set", func(t *testing.T) {
+		t.Parallel()
 		db2 := NewSqlxDB(t)
 		var lockTimeout string
 		require.NoError(t, db2.Get(&lockTimeout, "SHOW lock_timeout"))
@@ -47,6 +49,7 @@ func TestTxDBDriver(t *testing.T) {
 	})
 
 	t.Run("Cancel of tx's context does not trigger rollback of driver's tx", func(t *testing.T) {
+		t.Parallel()
 		ctx, cancel := context.WithCancel(t.Context())
 		_, err := db.BeginTx(ctx, nil)
 		require.NoError(t, err)

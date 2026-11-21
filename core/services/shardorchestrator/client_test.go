@@ -89,6 +89,7 @@ func createTestClient(t *testing.T, lis *bufconn.Listener) *Client {
 }
 
 func TestClient_GetWorkflowShardMapping(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	mock := &mockShardOrchestratorServer{
@@ -100,12 +101,13 @@ func TestClient_GetWorkflowShardMapping(t *testing.T) {
 	}
 
 	grpcServer, lis := setupTestServer(t, mock)
-	defer grpcServer.Stop()
+	t.Cleanup(grpcServer.Stop)
 
 	client := createTestClient(t, lis)
-	defer client.Close()
+	t.Cleanup(func() { require.NoError(t, client.Close()) })
 
 	t.Run("successful mapping query", func(t *testing.T) {
+		t.Parallel()
 		workflowIDs := []string{"workflow-1", "workflow-2", "workflow-3"}
 		resp, err := client.GetWorkflowShardMapping(ctx, workflowIDs)
 		require.NoError(t, err)
@@ -121,6 +123,7 @@ func TestClient_GetWorkflowShardMapping(t *testing.T) {
 	})
 
 	t.Run("partial workflow query", func(t *testing.T) {
+		t.Parallel()
 		workflowIDs := []string{"workflow-1", "workflow-unknown"}
 		resp, err := client.GetWorkflowShardMapping(ctx, workflowIDs)
 		require.NoError(t, err)
@@ -134,6 +137,7 @@ func TestClient_GetWorkflowShardMapping(t *testing.T) {
 	})
 
 	t.Run("empty workflow list", func(t *testing.T) {
+		t.Parallel()
 		resp, err := client.GetWorkflowShardMapping(ctx, []string{})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -143,6 +147,7 @@ func TestClient_GetWorkflowShardMapping(t *testing.T) {
 }
 
 func TestClient_ReportWorkflowTriggerRegistration(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	mock := &mockShardOrchestratorServer{
@@ -175,6 +180,7 @@ func TestClient_ReportWorkflowTriggerRegistration(t *testing.T) {
 }
 
 func TestClient_Close(t *testing.T) {
+	t.Parallel()
 	mock := &mockShardOrchestratorServer{
 		mappings: map[string]uint32{},
 	}
@@ -196,6 +202,7 @@ func TestClient_Close(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 
 	t.Run("creates client successfully", func(t *testing.T) {
@@ -212,6 +219,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestLocalClient_GetWorkflowShardMapping(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := logger.Test(t)
 	ringStore := ring.NewStore()
@@ -229,6 +237,7 @@ func TestLocalClient_GetWorkflowShardMapping(t *testing.T) {
 }
 
 func TestLocalClient_ReportWorkflowTriggerRegistration(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := logger.Test(t)
 	ringStore := ring.NewStore()

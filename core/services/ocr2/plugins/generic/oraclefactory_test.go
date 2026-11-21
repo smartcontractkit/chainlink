@@ -15,6 +15,7 @@ import (
 )
 
 func TestNewOracleFactory(t *testing.T) {
+	t.Parallel()
 	params := OracleFactoryParams{
 		JobID:   1,
 		JobName: "test-job",
@@ -27,6 +28,7 @@ func TestNewOracleFactory(t *testing.T) {
 }
 
 func TestNewOracleFactory_WithOCRConfigService(t *testing.T) {
+	t.Parallel()
 	mockService := &mockOCRConfigService{}
 
 	params := OracleFactoryParams{
