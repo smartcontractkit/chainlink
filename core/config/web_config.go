@@ -68,6 +68,8 @@ type OIDC interface {
 	SessionTimeout() commonconfig.Duration
 	UserAPITokenEnabled() bool
 	UserAPITokenDuration() commonconfig.Duration
+	DeviceFlowAllowedCIDRs() []string
+	TrustedProxyCIDRs() []string
 }
 
 type WebServer interface {

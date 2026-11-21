@@ -646,6 +646,10 @@ var blacklist = map[string]struct{}{
 	"oldpassword":          {},
 	"current_password":     {},
 	"new_account_password": {},
+	"device_handle":        {},
+	// OIDC authorization code and state, sent to /signin and /oidc-exchange.
+	"code":  {},
+	"state": {},
 }
 
 func isBlacklisted(k string) bool {
