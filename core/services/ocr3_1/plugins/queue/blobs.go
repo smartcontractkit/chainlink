@@ -2,7 +2,6 @@ package queue
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -30,6 +29,7 @@ func (c *blobCache) fetchBlob(ctx context.Context, handle []byte) ([]byte, error
 		c.mu.RUnlock()
 		return fn()
 	}
+
 	c.mu.RUnlock()
 
 	c.mu.Lock()
@@ -37,13 +37,16 @@ func (c *blobCache) fetchBlob(ctx context.Context, handle []byte) ([]byte, error
 		c.mu.Unlock()
 		return fn()
 	}
+
 	fn := sync.OnceValues(func() ([]byte, error) {
 		var blobHandle ocr3_1types.BlobHandle
 		if err := blobHandle.UnmarshalBinary(handle); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal blob handle: %w", err)
 		}
+
 		return c.fetcher.FetchBlob(ctx, blobHandle)
 	})
+
 	c.cache[string(handle)] = fn
 	c.mu.Unlock()
 	return fn()
@@ -60,6 +63,7 @@ func fetchCoordinatedEventFromBlob(ctx context.Context, fetcher *blobCache, hand
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return coordEvent, eb, nil
 }
 
@@ -83,22 +87,27 @@ func extractEvent(b []byte, idx int) (*pb.CoordinatedEvent, []byte, error) {
 		if n < 0 {
 			return nil, nil, protowire.ParseError(n)
 		}
+
 		b = b[n:]
 		if num == coordinatedEventsFieldNumber {
 			if typ != protowire.BytesType {
 				return nil, nil, fmt.Errorf("expected bytes type for field %d, got %d", coordinatedEventsFieldNumber, typ)
 			}
+
 			v, m := protowire.ConsumeBytes(b)
 			if m < 0 {
 				return nil, nil, protowire.ParseError(m)
 			}
+
 			if i == idx {
 				var event pb.CoordinatedEvent
 				if err := proto.Unmarshal(v, &event); err != nil {
 					return nil, v, fmt.Errorf("failed to unmarshal event: %w", err)
 				}
+
 				return &event, v, nil
 			}
+
 			// advance
 			i++
 			b = b[m:]
@@ -108,9 +117,11 @@ func extractEvent(b []byte, idx int) (*pb.CoordinatedEvent, []byte, error) {
 			if n < 0 {
 				return nil, nil, protowire.ParseError(n)
 			}
+
 			b = b[n:]
 		}
 	}
+
 	return nil, nil, fmt.Errorf("index %d out of range", idx)
 }
 
@@ -137,6 +148,7 @@ func blobExpirySeqNr(seqNr uint64, remaining, roundDur time.Duration) uint64 {
 		lifetime := max(0, remaining) + minBlobLifetime
 		rounds = max(rounds, uint64((lifetime+roundDur-1)/roundDur))
 	}
+
 	return seqNr + rounds
 }
 
@@ -156,34 +168,24 @@ func (c *consensusQueuePlugin) broadcastBlob(ctx context.Context, broadcaster oc
 			maxDeadline = t
 		}
 	}
+
 	// An event is kept until its deadline plus the grace period, so its blob must be too.
 	grace, err := c.expirationDur(ctx)
 	if err != nil {
 		c.lggr.Warnw("Failed to get expiration grace duration - using default", "grace", grace, "err", err)
 	}
+
 	expSeqNr := blobExpirySeqNr(seqNr, time.Until(maxDeadline.Add(max(0, grace))), c.onchainCfg.EstimatedRoundInterval)
 
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(&pb.CoordinatedEventList{Events: events})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal blob: %w", err)
 	}
+
 	bh, err := broadcaster.BroadcastBlob(ctx, data, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: expSeqNr})
 	if err != nil {
 		return nil, fmt.Errorf("failed to broadcast blob: %w", err)
 	}
-	return bh.MarshalBinary()
-}
 
-// broadcastAsBlob broadcasts a blob with as many coordinated events as possible, returning the blob handle and count of events included.
-func (c *consensusQueuePlugin) broadcastAsBlob(ctx context.Context, broadcaster ocr3_1types.BlobBroadcaster, events []*pb.CoordinatedEvent,
-	seqNr uint64) (blobHandle []byte, n int, err error) {
-	n = c.blobPrefix(events)
-	if n == 0 {
-		return nil, 0, errors.New("failed to package any events in blob")
-	}
-	blobHandle, err = c.broadcastBlob(ctx, broadcaster, events[:n], seqNr)
-	if err != nil {
-		return nil, -1, err
-	}
-	return blobHandle, n, nil
+	return bh.MarshalBinary()
 }

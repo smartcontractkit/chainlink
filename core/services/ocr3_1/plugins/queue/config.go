@@ -24,12 +24,14 @@ func (c *PluginConfig) Validate() error {
 	if err := c.Limits.Validate(); err != nil {
 		return fmt.Errorf("invalid limits: %w", err)
 	}
+
 	var err error
 	positive := func(name string, v int) {
 		if v <= 0 {
 			err = errors.Join(err, fmt.Errorf("%s (%d) must be positive", name, v))
 		}
 	}
+
 	positive("MaxObservationBytes", c.Limits.MaxObservationBytes)
 	positive("MaxBlobPayloadBytes", c.Limits.MaxBlobPayloadBytes)
 	positive("MaxKeyValueModifiedKeysPlusValuesBytes", c.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
@@ -38,12 +40,15 @@ func (c *PluginConfig) Validate() error {
 		err = errors.Join(err, fmt.Errorf("MaxPerOracleUnexpiredBlobCount (%d) must be at least %d, the blobs in a full observation",
 			c.Limits.MaxPerOracleUnexpiredBlobCount, maxObservedBlobHandles))
 	}
+
 	if c.Limits.MaxKeyValueModifiedKeys < numKVKeys {
 		err = errors.Join(err, fmt.Errorf("MaxKeyValueModifiedKeys (%d) must be at least %d, the number of keys written each round", c.Limits.MaxKeyValueModifiedKeys, numKVKeys))
 	}
+
 	if fullObservation := maxObservedBlobHandles * c.Limits.MaxBlobPayloadBytes; c.Limits.MaxPerOracleUnexpiredBlobCumulativePayloadBytes < fullObservation {
 		err = errors.Join(err, fmt.Errorf("MaxPerOracleUnexpiredBlobCumulativePayloadBytes (%d) must hold the blobs of a full observation (%d x MaxBlobPayloadBytes %d)",
 			c.Limits.MaxPerOracleUnexpiredBlobCumulativePayloadBytes, maxObservedBlobHandles, c.Limits.MaxBlobPayloadBytes))
 	}
+
 	return err
 }

@@ -499,3 +499,19 @@ func TestBroadcastAsBlob_GraceIsOptional(t *testing.T) {
 		assert.InDelta(t, tt.want, int(blobs.hints[0].(ocr3_1types.BlobExpirationHintSequenceNumber).SeqNr), 1, tt.name)
 	}
 }
+
+// broadcastAsBlob (used by tests: Observation divides events between blobs up front) broadcasts a blob with as many coordinated events as possible, returning the blob handle and count of events included.
+func (c *consensusQueuePlugin) broadcastAsBlob(ctx context.Context, broadcaster ocr3_1types.BlobBroadcaster, events []*pb.CoordinatedEvent,
+	seqNr uint64) (blobHandle []byte, n int, err error) {
+	n = c.blobPrefix(events)
+	if n == 0 {
+		return nil, 0, errors.New("failed to package any events in blob")
+	}
+
+	blobHandle, err = c.broadcastBlob(ctx, broadcaster, events[:n], seqNr)
+	if err != nil {
+		return nil, -1, err
+	}
+
+	return blobHandle, n, nil
+}

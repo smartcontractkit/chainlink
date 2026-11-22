@@ -9,7 +9,6 @@ package queue
 import (
 	"bytes"
 	"cmp"
-	"container/heap"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -152,25 +151,61 @@ func (c *consensusQueuePlugin) Observation(
 		// placeholder for accurate size calculation
 		BlobHandles:        slices.Repeat([][]byte{make([]byte, c.blobHandleMarshalledBytesUpperBound)}, maxObservedBlobHandles),
 		Expiration:         timestamppb.New(time.Now().Add(-expirationGraceDur)),
-		Capacity:           uint32(min(capacity.Global, math.MaxUint32)),
-		WorkflowCapacities: make(map[string]uint32),
+		Capacity:           clampUint32(capacity.Global),
+		WorkflowCapacities: stateWorkflowCapacities(capacity, observedEvents, queuedEvents),
 	}
-	// collect KV workflow capacities
-	for _, e := range observedEvents {
-		if wfCap, ok := capacity.PerWorkflow[e.WorkflowID]; ok {
-			obs.WorkflowCapacities[e.WorkflowID] = uint32(min(wfCap, math.MaxUint32))
+	kvWFCapacities := maps.Clone(obs.WorkflowCapacities) // in case we need to rebuild later
+
+	events, err := c.assembleEvents(ctx, obs, observedEvents, capacity.PerWorkflow)
+	if err != nil {
+		return nil, err
+	}
+	obs.BlobHandles = nil // remove placeholders
+
+	fit, err := c.broadcastObservationBlobs(ctx, obs, blobBroadcaster, events, seqNr)
+	if err != nil {
+		return nil, err
+	}
+	if !fit { // events did not all fit, so rebuild the wf capacities
+		obs.WorkflowCapacities = kvWFCapacities
+		for _, event := range obs.Events {
+			if _, ok := obs.WorkflowCapacities[event.WorkflowID]; !ok {
+				obs.WorkflowCapacities[event.WorkflowID] = clampUint32(capacity.PerWorkflow[event.WorkflowID])
+			}
 		}
+	}
+
+	return proto.MarshalOptions{Deterministic: true}.Marshal(obs)
+}
+
+func clampUint32(v int) uint32 { return uint32(max(0, min(v, math.MaxUint32))) }
+
+// stateWorkflowCapacities returns the capacity of every workflow that has an observed or queued event in the KV state.
+func stateWorkflowCapacities(
+	capacity triggers.Capacity, observedEvents map[string]*pb.ConsensusQueueObservedEvent, queuedEvents []*pb.ConsensusQueueEvent,
+) map[string]uint32 {
+	capacities := make(map[string]uint32)
+	add := func(workflowID string) {
+		if wfCap, ok := capacity.PerWorkflow[workflowID]; ok {
+			capacities[workflowID] = clampUint32(wfCap)
+		}
+	}
+	for _, e := range observedEvents {
+		add(e.WorkflowID)
 	}
 	for _, e := range queuedEvents {
-		if wfCap, ok := capacity.PerWorkflow[e.WorkflowID]; ok {
-			obs.WorkflowCapacities[e.WorkflowID] = uint32(min(wfCap, math.MaxUint32))
-		}
+		add(e.WorkflowID)
 	}
-	kvWFCapactities := maps.Clone(obs.WorkflowCapacities) // in case we need to rebuild later
+	return capacities
+}
 
-	// Assemble an observation up to maxObservationBytes
-	var events []*pb.CoordinatedEvent // to be broadcast
-	protoOpts := proto.MarshalOptions{Deterministic: true}
+// assembleEvents adds the local queue's events to obs, in order, up to the observation size limit. It returns the
+// events (without timestamps, as they will appear in blobs) to be broadcast.
+func (c *consensusQueuePlugin) assembleEvents(
+	ctx context.Context, obs *pb.ConsensusQueueObservation, observedEvents map[string]*pb.ConsensusQueueObservedEvent,
+	wfCapacities map[string]int,
+) ([]*pb.CoordinatedEvent, error) {
+	var events []*pb.CoordinatedEvent
 	for timelessHash, event := range c.triggerQueue.Sorted(ctx, maxObservedEvents, c.maxEventBytes()) {
 		// skip if kv observation exists already
 		if obsEvent, ok := observedEvents[string(timelessHash)]; ok {
@@ -180,12 +215,11 @@ func (c *consensusQueuePlugin) Observation(
 		}
 
 		events = append(events, event)
-		newWF, err2 := observeEvent(obs, timelessHash, event, capacity.PerWorkflow)
-		if err2 != nil {
-			return nil, err2
+		newWF, err := observeEvent(obs, timelessHash, event, wfCapacities)
+		if err != nil {
+			return nil, err
 		}
 
-		// Check size
 		if observationSize(obs) > c.limits.MaxObservationBytes {
 			// too large, remove this one
 			events = events[:len(events)-1]
@@ -196,22 +230,7 @@ func (c *consensusQueuePlugin) Observation(
 			break
 		}
 	}
-	obs.BlobHandles = nil // remove placeholders
-
-	fit, err := c.broadcastObservationBlobs(ctx, obs, blobBroadcaster, events, seqNr)
-	if err != nil {
-		return nil, err
-	}
-	if !fit { // events did not all fit, so rebuild the wf capacities
-		obs.WorkflowCapacities = kvWFCapactities
-		for _, event := range obs.Events {
-			if _, ok := obs.WorkflowCapacities[event.WorkflowID]; !ok {
-				obs.WorkflowCapacities[event.WorkflowID] = uint32(min(capacity.PerWorkflow[event.WorkflowID], math.MaxUint32))
-			}
-		}
-	}
-
-	return protoOpts.Marshal(obs)
+	return events, nil
 }
 
 // observationSize returns the encoded size of an observation that grows as events are appended, without sizing every
@@ -300,6 +319,7 @@ func (c *consensusQueuePlugin) broadcastObservationBlobs(
 
 	handles := make([][]byte, len(ends))
 	errs := make([]error, len(ends))
+	// At most maxObservedBlobHandles (10, the vault plugin's limit on concurrent broadcasts) are broadcast at once.
 	var eg errgroup.Group
 	for i, start := 0, 0; i < len(ends); i++ {
 		batch := events[start:ends[i]]
@@ -521,28 +541,28 @@ func (c *consensusQueuePlugin) StateTransition(
 	ctx context.Context, _ uint64, _ ocrtypes.AttributedQuery, aos []ocrtypes.AttributedObservation,
 	kvReaderWriter ocr3_1types.KeyValueStateReadWriter, _ ocr3_1types.BlobFetcher,
 ) (ocr3_1types.ReportsPlusPrecursor, error) {
-	done := make(chan struct{})
-	var obs observations
-
-	go func() {
-		defer close(done)
-		obs.aggregate(ctx, c.onchainCfg.F, aos)
-	}()
-
-	var state kvState
-	err := state.loadFrom(kvReaderWriter)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read state: %w", err)
-	}
-
-	// wait for aggregation, which reports cancellation as its error, so a partial result is never used
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case <-done:
-	}
-	if obs.err != nil {
-		return nil, fmt.Errorf("failed to aggregate observations: %w", obs.err)
+	// Aggregating the observations (CPU) and loading the state (KV) are independent, so they overlap: this takes
+	// about 9ms off a 43ms full round at N=31. Wait returns only when both are done, so neither outlives the call.
+	var (
+		obs   observations
+		state kvState
+		eg    errgroup.Group
+	)
+	eg.Go(func() error {
+		obs.aggregate(ctx, c.onchainCfg.F, aos) // reports cancellation as its error, so a partial result is never used
+		if obs.err != nil {
+			return fmt.Errorf("failed to aggregate observations: %w", obs.err)
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		if err := state.loadFrom(kvReaderWriter); err != nil {
+			return fmt.Errorf("failed to read state: %w", err)
+		}
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	// update state
@@ -551,64 +571,12 @@ func (c *consensusQueuePlugin) StateTransition(
 	state.addObservedEvents(c.onchainCfg.F, obs.newObservedEvents, obs.observedBlobs, func(event *pb.ConsensusQueueEvent) {
 		queuedTimelessHashes = append(queuedTimelessHashes, string(event.TimelessHash))
 	})
-	// pop as many queuedEvents as possible in to consensusEvents (up to capacity or KV limits)
-	for len(state.queuedEvents) > 0 && len(state.consensusEvents) < int(obs.medianCap) {
-		event := state.queuedEvents.popLimited(obs.medianCapPerWF, obs.medianExpiration)
-		if event == nil {
-			break
-		}
-		state.consensusEvents = append(state.consensusEvents, event)
-	}
-	state.trimConsensusEvents(c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
-
-	// prune observations if that value or the overall size is too large
-	state.prepareWriteObservedEvents() // populates the (priority sorted) entries to prune from
-	for len(state.observedEventEntries) > 0 &&
-		(state.sizeOfObservedEvents() > maxKeyValueValueBytes ||
-			state.sizeOf() > c.limits.MaxKeyValueModifiedKeysPlusValuesBytes) {
-		// sorted by decreasing priority, so prune the last
-		toRemove := state.observedEventEntries[len(state.observedEventEntries)-1]
-		delete(state.observedEvents, string(toRemove.TimelessHash))
-		//TODO opt: drop more than one each time?
-	}
-
-	// prune (newly) queuedEvents if that value, blob handles, or the overall size is too large
-	if len(queuedTimelessHashes) > 0 &&
-		(state.sizeOfQueuedEvents() > maxKeyValueValueBytes ||
-			state.sizeOfBlobHandles() > maxKeyValueValueBytes ||
-			state.sizeOf() > c.limits.MaxKeyValueModifiedKeysPlusValuesBytes) {
-		// prune lowest priority queuedEvents from newly added queuedTriggerEventIDs
-		queuedTimelessHashSet := map[string]struct{}{}
-		for _, id := range queuedTimelessHashes {
-			queuedTimelessHashSet[id] = struct{}{}
-		}
-		eligibleEvents := make([]*pb.ConsensusQueueEvent, 0, len(state.queuedEvents))
-		for _, e := range state.queuedEvents {
-			if _, ok := queuedTimelessHashSet[string(e.TimelessHash)]; ok {
-				eligibleEvents = append(eligibleEvents, e)
-			}
-		}
-		backwardsQueuedEvents := &revPriorityQueue{priorityQueue: new(priorityQueue(eligibleEvents))}
-		heap.Init(backwardsQueuedEvents)
-
-		// prune until we fit
-		for backwardsQueuedEvents.Len() > 0 &&
-			(state.sizeOfQueuedEvents() > maxKeyValueValueBytes ||
-				state.sizeOfBlobHandles() > maxKeyValueValueBytes ||
-				state.sizeOf() > c.limits.MaxKeyValueModifiedKeysPlusValuesBytes) {
-			toRemove := heap.Pop(backwardsQueuedEvents).(*pb.ConsensusQueueEvent)
-			//TODO opt: faster delete...but need to maintain state.queuedEvents (though not order)...map indices?
-			state.queuedEvents = slices.DeleteFunc(state.queuedEvents, func(event *pb.ConsensusQueueEvent) bool { return event == toRemove })
-			//TODO opt: drop more than one each time?
-		}
-		// rebuild the priority queue
-		heap.Init(&state.queuedEvents)
-	}
-
+	state.popConsensusEvents(int(obs.medianCap), obs.medianCapPerWF, obs.medianExpiration, c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	state.pruneObservedToFit(c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	state.pruneQueuedToFit(queuedTimelessHashes, c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
 	// note: no need to prune consensus events, since already limited what we collected
 
-	err = state.writeTo(&stateWriter{kv: kvReaderWriter})
-	if err != nil {
+	if err := state.writeTo(&stateWriter{kv: kvReaderWriter}); err != nil {
 		return nil, err
 	}
 

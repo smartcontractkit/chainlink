@@ -41,6 +41,7 @@ func (s *stateWriter) writeValue[M proto.Message](key string, m M) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal %T: %w", m, err)
 	}
+
 	return s.kv.Write([]byte(key), val)
 }
 
@@ -53,6 +54,7 @@ func (p *priorityQueue) Len() int {
 	if p == nil {
 		return 0
 	}
+
 	return len(*p)
 }
 
@@ -73,6 +75,7 @@ func (p *priorityQueue) Pop() any {
 	if p.Len() == 0 {
 		return nil
 	}
+
 	e := (*p)[len(*p)-1]
 	*p = (*p)[:len(*p)-1]
 	return e
@@ -89,6 +92,7 @@ func (s *kvState) queueObservations(timelessHash string, obs *pb.ConsensusQueueO
 		TimelessHash: []byte(timelessHash),
 		// note: observedBlobs tracks blobs while in memory
 	}
+
 	s.queuedEvents.push(event)
 	return event
 }
@@ -99,6 +103,7 @@ func (p *priorityQueue) mustPop() *pb.ConsensusQueueEvent {
 	if p.Len() == 0 {
 		return nil
 	}
+
 	return heap.Pop(p).(*pb.ConsensusQueueEvent)
 }
 
@@ -111,22 +116,27 @@ func (p *priorityQueue) popLimited(capPerWF map[string]uint32, expiration time.T
 		if event == nil {
 			break
 		}
+
 		if event.Deadline.AsTime().Before(expiration) {
 			// drop expired
 			continue
 		}
+
 		if capPerWF[event.WorkflowID] == 0 {
 			// ignore but restore after
 			wfLimited = append(wfLimited, event)
 			continue
 		}
+
 		capPerWF[event.WorkflowID]--
 		break
 	}
+
 	// restore omitted for next time
 	for _, limited := range wfLimited {
 		p.push(limited)
 	}
+
 	return
 }
 
@@ -145,6 +155,7 @@ func (m blobHandleMap) add(eventHash string, blobHandle string, element uint32) 
 	if _, ok := m[eventHash]; !ok {
 		m[eventHash] = make(map[string]uint32)
 	}
+
 	m[eventHash][blobHandle] = element
 }
 
@@ -152,6 +163,7 @@ func (m blobHandleMap) addAll(eventHash string, blobHandles map[string]uint32) {
 	if _, ok := m[eventHash]; !ok {
 		m[eventHash] = make(map[string]uint32)
 	}
+
 	for blobHandle, elementIndex := range blobHandles {
 		m[eventHash][blobHandle] = elementIndex
 	}
@@ -185,6 +197,7 @@ func (s *kvState) loadFrom(kv ocr3_1types.KeyValueStateReadWriter) error {
 	if err != nil {
 		return err
 	}
+
 	s.queuedEvents = queuedEvents
 
 	s.queuedBlobs = make(blobHandleMap)
@@ -192,6 +205,7 @@ func (s *kvState) loadFrom(kv ocr3_1types.KeyValueStateReadWriter) error {
 	if err != nil {
 		return err
 	}
+
 	for _, event := range s.queuedEvents {
 		for _, blob := range event.GetBlobs() {
 			s.queuedBlobs.add(string(event.TimelessHash), string(queuedBlobs[blob.Blob]), blob.Element)
@@ -206,13 +220,16 @@ func readQueuedEvents(kv ocr3_1types.KeyValueStateReader) ([]*pb.ConsensusQueueE
 	if err != nil {
 		return nil, fmt.Errorf("failed to read queued events: %w", err)
 	}
+
 	if v != nil {
 		var queued pb.ConsensusQueueEventList
 		if err = proto.Unmarshal(v, &queued); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal queued events: %w", err)
 		}
+
 		return queued.GetEvents(), nil
 	}
+
 	return nil, nil
 }
 
@@ -221,16 +238,19 @@ func readObservedEvents(kv ocr3_1types.KeyValueStateReader) (observedEvents map[
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read observed events: %w", err)
 	}
+
 	observedBlobs = make(blobHandleMap)
 	if v != nil {
 		var observed pb.ConsensusQueueObservedEvents
 		if err = proto.Unmarshal(v, &observed); err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal observed events: %w", err)
 		}
+
 		observedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
 		for _, e := range observed.GetObservations() {
 			observedEvents[string(e.TimelessHash)] = e.Event
 		}
+
 		blobHandles := observed.GetBlobHandles()
 		for eventHash, event := range observedEvents {
 			for _, b := range event.GetBlobs() {
@@ -240,6 +260,7 @@ func readObservedEvents(kv ocr3_1types.KeyValueStateReader) (observedEvents map[
 	} else {
 		observedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
 	}
+
 	return
 }
 
@@ -295,11 +316,13 @@ func (s *kvState) prepareWriteObservedEvents() {
 				observedBlobIndexes[blobHandle] = idx
 				s.observedBlobHandles = append(s.observedBlobHandles, []byte(blobHandle))
 			}
+
 			event.Blobs = append(event.Blobs, &pb.CoordinatedEventBlobHandle{
 				Blob:    uint32(idx),
 				Element: ei,
 			})
 		}
+
 		s.observedEventEntries = append(s.observedEventEntries, &pb.ConsensusQueueObservedEventEntry{
 			TimelessHash: []byte(eventHash), Event: event})
 	}
@@ -314,6 +337,7 @@ func (s *kvState) prepareWriteBlobHandles() {
 		if len(blobs) == 0 {
 			return nil
 		}
+
 		blobHandles := make([]*pb.CoordinatedEventBlobHandle, 0, len(blobs))
 		for _, blobHandle := range slices.Sorted(maps.Keys(blobs)) {
 			ei := blobs[blobHandle]
@@ -323,16 +347,20 @@ func (s *kvState) prepareWriteBlobHandles() {
 				queuedBlobIndexes[blobHandle] = idx
 				s.queuedBlobHandles = append(s.queuedBlobHandles, []byte(blobHandle))
 			}
+
 			blobHandles = append(blobHandles, &pb.CoordinatedEventBlobHandle{
 				Blob:    uint32(idx),
 				Element: ei,
 			})
 		}
+
 		return blobHandles
 	}
+
 	for _, event := range s.queuedEvents {
 		event.Blobs = addBlobs(s.queuedBlobs[string(event.TimelessHash)])
 	}
+
 	for _, event := range s.consensusEvents {
 		event.Blobs = addBlobs(s.queuedBlobs[string(event.TimelessHash)])
 	}
@@ -351,12 +379,80 @@ func (s *kvState) trimConsensusEvents(maxTotalBytes int) {
 		if next > maxKeyValueValueBytes || blobs > maxKeyValueValueBytes || next+blobs > maxTotalBytes/2 {
 			break
 		}
+
 		events = next
 	}
+
 	for _, event := range s.consensusEvents[n:] {
 		s.queuedEvents.push(event)
 	}
+
 	s.consensusEvents = s.consensusEvents[:n]
+}
+
+// popConsensusEvents pops as many queuedEvents as possible in to consensusEvents, up to capacity (overall, and per
+// workflow) or the KV limits. Expired events are dropped.
+func (s *kvState) popConsensusEvents(capacity int, capPerWF map[string]uint32, expiration time.Time, maxTotalBytes int) {
+	for len(s.queuedEvents) > 0 && len(s.consensusEvents) < capacity {
+		event := s.queuedEvents.popLimited(capPerWF, expiration)
+		if event == nil {
+			break
+		}
+
+		s.consensusEvents = append(s.consensusEvents, event)
+	}
+
+	s.trimConsensusEvents(maxTotalBytes)
+}
+
+// pruneObservedToFit drops the lowest priority observed events until that value, and the overall size, fit.
+func (s *kvState) pruneObservedToFit(maxTotalBytes int) {
+	s.prepareWriteObservedEvents() // populates the (priority sorted) entries to prune from
+	for len(s.observedEventEntries) > 0 &&
+		(s.sizeOfObservedEvents() > maxKeyValueValueBytes || s.sizeOf() > maxTotalBytes) {
+		// sorted by decreasing priority, so prune the last
+		toRemove := s.observedEventEntries[len(s.observedEventEntries)-1]
+		delete(s.observedEvents, string(toRemove.TimelessHash))
+		//TODO opt: drop more than one each time?
+	}
+}
+
+// pruneQueuedToFit drops the lowest priority events of those that were newly queued until the queued events, the blob
+// handles, and the overall size fit.
+func (s *kvState) pruneQueuedToFit(newlyQueued []string, maxTotalBytes int) {
+	fits := func() bool {
+		return s.sizeOfQueuedEvents() <= maxKeyValueValueBytes && s.sizeOfBlobHandles() <= maxKeyValueValueBytes && s.sizeOf() <= maxTotalBytes
+	}
+
+	if len(newlyQueued) == 0 || fits() {
+		return
+	}
+
+	newlyQueuedSet := map[string]struct{}{}
+	for _, hash := range newlyQueued {
+		newlyQueuedSet[hash] = struct{}{}
+	}
+
+	eligibleEvents := make([]*pb.ConsensusQueueEvent, 0, len(s.queuedEvents))
+	for _, e := range s.queuedEvents {
+		if _, ok := newlyQueuedSet[string(e.TimelessHash)]; ok {
+			eligibleEvents = append(eligibleEvents, e)
+		}
+	}
+
+	backwardsQueuedEvents := &revPriorityQueue{priorityQueue: new(priorityQueue(eligibleEvents))}
+	heap.Init(backwardsQueuedEvents)
+
+	// prune until we fit
+	for backwardsQueuedEvents.Len() > 0 && !fits() {
+		toRemove := heap.Pop(backwardsQueuedEvents).(*pb.ConsensusQueueEvent)
+		//TODO opt: faster delete...but need to maintain s.queuedEvents (though not order)...map indices?
+		s.queuedEvents = slices.DeleteFunc(s.queuedEvents, func(event *pb.ConsensusQueueEvent) bool { return event == toRemove })
+		//TODO opt: drop more than one each time?
+	}
+
+	// rebuild the priority queue
+	heap.Init(&s.queuedEvents)
 }
 
 // writeAll writes full state to the KV store, including consensus events.
@@ -422,10 +518,12 @@ func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueOb
 	for _, e := range s.queuedEvents {
 		alreadyQueued[string(e.TimelessHash)] = struct{}{}
 	}
+
 	for _, eventHash := range slices.Sorted(maps.Keys(toAdd)) {
 		if _, ok := alreadyQueued[eventHash]; ok {
 			continue // already waiting for capacity; promoting it again would duplicate it
 		}
+
 		eventToAdd := toAdd[eventHash]
 		obsEvent, ok := s.observedEvents[eventHash]
 		if !ok {
@@ -457,6 +555,7 @@ func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueOb
 					// note: s.observedBlobs tracks blobs while in memory
 				}
 			}
+
 			s.observedBlobs.addAll(eventHash, observedBlobs[eventHash])
 
 			if len(obsEvent.NodeIds) >= 2*f+1 {
@@ -484,6 +583,7 @@ func readConsensusState(kvReader ocr3_1types.KeyValueStateReader) ([]*pb.Consens
 		if err := proto.Unmarshal(v, &pbs); err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal consensus events: %w", err)
 		}
+
 		consensusEvents = pbs.GetEvents()
 	}
 
@@ -491,6 +591,7 @@ func readConsensusState(kvReader ocr3_1types.KeyValueStateReader) ([]*pb.Consens
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return consensusEvents, blobHandles, nil
 }
 
@@ -507,7 +608,9 @@ func readBlobHandles(kvReader ocr3_1types.KeyValueStateReader) ([][]byte, error)
 		if err := proto.Unmarshal(v, &bs); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal consensus blob handles: %w", err)
 		}
+
 		blobHandles = bs.GetBlobHandles()
 	}
+
 	return blobHandles, err
 }
