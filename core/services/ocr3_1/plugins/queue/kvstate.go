@@ -18,7 +18,7 @@ import (
 
 // KV store keys
 const (
-	// observed events waiting for consensus (<2f+1 observers)
+	// observed events waiting for consensus (F+1 <= observers <2F+1)
 	observedEventsKey = "observed_events::index" // pb.ConsensusQueueObservedEvents { map[string]*pb.ConsensusQueueObservedEvent; [][]byte }
 	// priority queue of events waiting for capacity
 	queuedEventsKey = "queued_events::index" // pb.ConsensusQueueEventList { []*pb.ConsensusQueueEvent }
@@ -76,7 +76,7 @@ func (p *priorityQueue) Pop() any {
 
 func (p *priorityQueue) push(x *pb.ConsensusQueueEvent) { heap.Push(p, x) }
 
-func (p *priorityQueue) pushObservations(timelessHash string, obs *pb.ConsensusQueueObservedEvent) *pb.ConsensusQueueEvent {
+func (s *kvState) queueObservations(timelessHash string, obs *pb.ConsensusQueueObservedEvent) *pb.ConsensusQueueEvent {
 	event := &pb.ConsensusQueueEvent{
 		WorkflowID:   obs.WorkflowID,
 		ExecutionID:  obs.ExecutionID,
@@ -85,7 +85,7 @@ func (p *priorityQueue) pushObservations(timelessHash string, obs *pb.ConsensusQ
 		TimelessHash: []byte(timelessHash),
 		// note: observedBlobs tracks blobs while in memory
 	}
-	p.push(event)
+	s.queuedEvents.push(event)
 	return event
 }
 
@@ -392,7 +392,7 @@ func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueOb
 			case len(eventToAdd.NodeIds) >= 2*f+1:
 				// new proposal straight to priority queue
 				s.queuedBlobs.addAll(eventHash, observedBlobs[eventHash])
-				event := s.queuedEvents.pushObservations(eventHash, eventToAdd)
+				event := s.queueObservations(eventHash, eventToAdd)
 				onQueued(event)
 			case len(eventToAdd.NodeIds) >= f+1:
 				// new proposal to the observation set
@@ -423,7 +423,7 @@ func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueOb
 				delete(s.observedEvents, eventHash)
 				s.queuedBlobs[eventHash] = s.observedBlobs[eventHash]
 				delete(s.observedBlobs, eventHash)
-				event := s.queuedEvents.pushObservations(eventHash, obsEvent)
+				event := s.queueObservations(eventHash, obsEvent)
 				onQueued(event)
 			}
 		}

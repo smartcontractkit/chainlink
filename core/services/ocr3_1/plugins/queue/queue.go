@@ -13,6 +13,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"sync"
@@ -149,14 +150,14 @@ func (c *consensusQueuePlugin) Observation(
 		c.lggr.Warnw("Failed to get expiration grace duration - using default", "err", err)
 	}
 
-	emptyBlobHandle := make([]byte, c.blobHandleMarshalledBytesUpperBound)
 	obs := &pb.ConsensusQueueObservation{
 		// placeholder for accurate size calculation
-		BlobHandles:        slices.Repeat([][]byte{emptyBlobHandle}, maxObservedBlobHandles),
+		BlobHandles:        slices.Repeat([][]byte{make([]byte, c.blobHandleMarshalledBytesUpperBound)}, maxObservedBlobHandles),
 		Expiration:         timestamppb.New(time.Now().Add(-expirationGraceDur)),
 		Capacity:           uint32(min(capacity.Global, math.MaxUint32)),
 		WorkflowCapacities: make(map[string]uint32),
 	}
+	// collect KV workflow capacities
 	for _, e := range observedEvents {
 		if wfCap, ok := capacity.PerWorkflow[e.WorkflowID]; ok {
 			obs.WorkflowCapacities[e.WorkflowID] = uint32(min(wfCap, math.MaxUint32))
@@ -167,92 +168,128 @@ func (c *consensusQueuePlugin) Observation(
 			obs.WorkflowCapacities[e.WorkflowID] = uint32(min(wfCap, math.MaxUint32))
 		}
 	}
-
-	protoOpts := proto.MarshalOptions{Deterministic: true}
+	kvWFCapactities := maps.Clone(obs.WorkflowCapacities) // in case we need to rebuild later
 
 	// Assemble an observation up to maxObservationBytes
-	var events []*pb.CoordinatedEvent
-	for event := range c.triggerQueue.Peek(maxObservedEvents) {
-		pbEvent := event.ToProto()
-		observedAt, deadline := pbEvent.ObservedAt, pbEvent.Deadline
-		pbEvent.ObservedAt, pbEvent.Deadline = nil, nil // for consistent hashing
-		protoBytes, err2 := protoOpts.Marshal(pbEvent)  // TODO opt: avoid remarshalling
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to marshal event: %w", err2)
-		}
-		timelessHash := sha256.Sum256(protoBytes)
-
+	var events []*pb.CoordinatedEvent // to be broadcast
+	protoOpts := proto.MarshalOptions{Deterministic: true}
+	for timelessHash, event := range c.triggerQueue.Sorted(maxObservedEvents) {
 		// skip if kv observation exists already
-		if obsEvent, ok := observedEvents[string(timelessHash[:])]; ok {
+		if obsEvent, ok := observedEvents[string(timelessHash)]; ok {
 			if slices.Contains(obsEvent.NodeIds, uint8(c.onchainCfg.OracleID)) {
 				continue
 			}
 		}
 
-		executionID, err2 := workflows.GenerateExecutionIDWithTriggerIndex(event.WorkflowID, event.Event.Event.ID, event.TriggerIndex)
+		events = append(events, event)
+		newWF, err2 := observeEvent(obs, timelessHash, event, capacity.PerWorkflow)
 		if err2 != nil {
-			return nil, fmt.Errorf("failed to generate execution ID: %w", err2)
-		}
-
-		obs.Events = append(obs.Events, &pb.ConsensusQueueEvent{
-			WorkflowID:   pbEvent.WorkflowID,
-			ExecutionID:  executionID,
-			ObservedAt:   observedAt,
-			Deadline:     deadline,
-			TimelessHash: timelessHash[:],
-			Blobs: []*pb.CoordinatedEventBlobHandle{{
-				Blob:    0,
-				Element: uint32(len(events)),
-			}},
-		})
-		events = append(events, pbEvent)
-
-		var addedCap bool
-		if _, ok := obs.WorkflowCapacities[pbEvent.WorkflowID]; !ok {
-			addedCap = true
-			obs.WorkflowCapacities[pbEvent.WorkflowID] = uint32(min(capacity.PerWorkflow[pbEvent.WorkflowID], math.MaxUint32))
+			return nil, err2
 		}
 
 		// Check size
 		if protoOpts.Size(obs) > c.limits.MaxObservationBytes {
 			// too large, remove this one
 			obs.Events = obs.Events[:len(obs.Events)-1]
-			if addedCap {
-				delete(obs.WorkflowCapacities, pbEvent.WorkflowID)
+			if newWF {
+				delete(obs.WorkflowCapacities, event.WorkflowID)
 			}
 			break
 		}
 	}
 
-	obs.BlobHandles = nil // remove the placeholders
-	if len(events) > 0 {
-		blobHandle, n, err2 := c.broadcastAsBlob(ctx, blobBroadcaster, events, seqNr)
-		if err2 != nil {
-			return nil, err2
-		}
-		obs.BlobHandles = append(obs.BlobHandles, blobHandle)
-		// note: elements already reference blob 0 and natural element index is aligned
-
-		// we verified space for up to maxObservedBlobHandles blobs
-		lastEnd := n
-		events = events[n:]
-		for batch := 1; batch < maxObservedBlobHandles && len(events) > 0; batch++ {
-			blobHandle, n, err2 = c.broadcastAsBlob(ctx, blobBroadcaster, events, seqNr)
-			if err2 != nil {
-				return nil, err2
+	fit, err := c.broadcastObservationBlobs(ctx, obs, blobBroadcaster, events, seqNr)
+	if err != nil {
+		return nil, err
+	}
+	if !fit { // events did not all fit, so rebuild the wf capacities
+		obs.WorkflowCapacities = kvWFCapactities
+		for _, event := range obs.Events {
+			if _, ok := obs.WorkflowCapacities[event.WorkflowID]; !ok {
+				obs.WorkflowCapacities[event.WorkflowID] = uint32(min(capacity.PerWorkflow[event.WorkflowID], math.MaxUint32))
 			}
-			obs.BlobHandles = append(obs.BlobHandles, blobHandle)
-			for i := 0; i < n; i++ { // update indices
-				obs.Events[lastEnd+i].Blobs[0].Blob = uint32(batch)
-				obs.Events[lastEnd+i].Blobs[0].Element = uint32(i)
-			}
-			lastEnd += n
-			events = events[n:]
 		}
-		//TODO if we hit max blobs, then drop excess events
 	}
 
 	return protoOpts.Marshal(obs)
+}
+
+// observeEvent adds the event to the observation and updates the workflow capacities if required.
+func observeEvent(
+	obs *pb.ConsensusQueueObservation, timelessHash []byte, event *pb.CoordinatedEvent, wfCapacities map[string]int,
+) (newWF bool, err error) {
+	observedAt, deadline := event.ObservedAt, event.Deadline
+	event.ObservedAt, event.Deadline = nil, nil // for consistent hashing
+
+	executionID, err := workflows.GenerateExecutionIDWithTriggerIndex(event.WorkflowID, event.Event.Event.Id, int(event.TriggerIndex))
+	if err != nil {
+		return false, fmt.Errorf("failed to generate execution ID: %w", err)
+	}
+
+	idx := len(obs.Events)
+	obs.Events = append(obs.Events, &pb.ConsensusQueueEvent{
+		WorkflowID:   event.WorkflowID,
+		ExecutionID:  executionID,
+		ObservedAt:   observedAt,
+		Deadline:     deadline,
+		TimelessHash: timelessHash,
+		Blobs: []*pb.CoordinatedEventBlobHandle{{
+			Blob:    0,
+			Element: uint32(idx),
+		}},
+	})
+
+	if _, ok := obs.WorkflowCapacities[event.WorkflowID]; !ok {
+		newWF = true
+		obs.WorkflowCapacities[event.WorkflowID] = uint32(min(wfCapacities[event.WorkflowID], math.MaxUint32))
+	}
+
+	return
+}
+
+// broadcastObservationBlobs broadcasts up to maxObservedBlobHandles blobs containing events, and updates the observation.
+// It may not be able to broadcast all events, in which case the observed events will be truncated and false returned.
+func (c *consensusQueuePlugin) broadcastObservationBlobs(
+	ctx context.Context, obs *pb.ConsensusQueueObservation, blobBroadcaster ocr3_1types.BlobBroadcaster,
+	events []*pb.CoordinatedEvent, seqNr uint64,
+) (bool, error) {
+	if len(events) == 0 {
+		return true, nil
+	}
+	if len(events) != len(obs.Events) {
+		return false, fmt.Errorf("number of events and observedEvents must match")
+	}
+
+	blobHandle, n, err := c.broadcastAsBlob(ctx, blobBroadcaster, events, seqNr)
+	if err != nil {
+		return false, err
+	}
+	obs.BlobHandles = append(obs.BlobHandles, blobHandle)
+	// note: elements already reference blob 0 and natural element index is aligned
+
+	// we verified space for up to maxObservedBlobHandles blobs
+	lastEnd := n
+	events = events[n:]
+	for batch := 1; batch < maxObservedBlobHandles && len(events) > 0; batch++ {
+		blobHandle, n, err = c.broadcastAsBlob(ctx, blobBroadcaster, events, seqNr)
+		if err != nil {
+			return false, err
+		}
+		obs.BlobHandles = append(obs.BlobHandles, blobHandle)
+		for i := 0; i < n; i++ { // update indices
+			obs.Events[lastEnd+i].Blobs[0].Blob = uint32(batch)
+			obs.Events[lastEnd+i].Blobs[0].Element = uint32(i)
+		}
+		lastEnd += n
+		events = events[n:]
+	}
+	limited := lastEnd < len(obs.Events)
+	if limited {
+		// we hit max blobs, so drop excess events
+		obs.Events = obs.Events[:lastEnd]
+		// note: caller will fix wfCapacity
+	}
+	return !limited, nil
 }
 
 func (c *consensusQueuePlugin) ValidateObservation(
@@ -289,7 +326,13 @@ func (c *consensusQueuePlugin) ValidateObservation(
 		return err
 	}
 
-	//TODO ensure capacity map is only observations and KV observed & queued events
+	// ensure every event has an entry in the capacity map
+	for _, event := range obs.Events {
+		if _, ok := obs.WorkflowCapacities[event.WorkflowID]; !ok {
+			return fmt.Errorf("missing capacity for workflow ID %s", event.WorkflowID)
+		}
+	}
+	//TODO ensure map only contains wfs from observations and KV observed+queued events
 
 	// ensure no duplicate execution ID or timelessHash
 	execIDs, timelessHashes := make(map[string]struct{}), make(map[string]struct{})
@@ -531,6 +574,7 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 
 	// If we used median, then honest nodes reporting reduced capacity would not be able to keep up.
 	// Instead, we use the F+1th lowest value - the least honest value.
+	//TODO fill zeros for missing nodes?
 	res.medianCap = slices.Sorted(slices.Values(capacities))[f]
 	for wf, caps := range wfCapacities {
 		if len(caps) >= 2*f+1 {

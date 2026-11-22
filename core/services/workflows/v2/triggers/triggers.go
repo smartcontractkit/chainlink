@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -184,17 +183,6 @@ type CoordinatedEvent struct {
 	Deadline time.Time
 
 	Event capabilities.TriggerResponse
-
-	executionID *string // cached
-}
-
-func (e *CoordinatedEvent) cacheExecutionID() error {
-	executionID, err := workflows.GenerateExecutionIDWithTriggerIndex(e.WorkflowID, e.Event.Event.ID, e.TriggerIndex)
-	if err != nil {
-		return fmt.Errorf("failed to generate execution ID: %w", err)
-	}
-	e.executionID = &executionID
-	return nil
 }
 
 func (e *CoordinatedEvent) ToProto() *pb.CoordinatedEvent {

@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -334,8 +335,8 @@ type failingQueue struct {
 	puts atomic.Int32
 }
 
-func (q *failingQueue) Peek(int) iter.Seq[CoordinatedEvent] {
-	return func(yield func(CoordinatedEvent) bool) {}
+func (q *failingQueue) Sorted(int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {
+	return func(yield func([]byte, *pb.CoordinatedEvent) bool) {}
 }
 
 func (q *failingQueue) Remove(ctx context.Context, execIDs iter.Seq[string]) {}
@@ -456,7 +457,7 @@ func TestCoordinator_DrainerLifecycle(t *testing.T) {
 	require.NoError(t, c.Start(t.Context()))
 	require.NoError(t, d.Ready(), "the drainer must run once the coordinator starts")
 
-	putAll(t, q, centralEvent(t, "wf-a", 0, "evt-1"))
+	putAll(t, q, centralEvent("wf-a", 0, "evt-1"))
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	require.NoError(t, clock.BlockUntilContext(ctx, 1), "the drainer is not waiting on the clock")
@@ -470,7 +471,7 @@ func TestCoordinator_DrainerLifecycle(t *testing.T) {
 	require.Error(t, d.Ready(), "the drainer must stop when the coordinator closes")
 
 	// Nothing waits on the clock after close, so Advance does nothing unless the drainer goroutine leaked.
-	putAll(t, q, centralEvent(t, "wf-a", 0, "evt-2"))
+	putAll(t, q, centralEvent("wf-a", 0, "evt-2"))
 	clock.Advance(500 * time.Millisecond)
 	assert.Never(t, func() bool {
 		stats, err := q.Stats(t.Context())

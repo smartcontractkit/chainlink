@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -103,13 +104,16 @@ func extractEvent(b []byte, idx int) (*pb.CoordinatedEvent, []byte, error) {
 }
 
 // broadcastAsBlob broadcasts a blob with as many coordinated events as possible, returning the blob handle and count of events included.
-func (c *consensusQueuePlugin) broadcastAsBlob(ctx context.Context, broadcaster ocr3_1types.BlobBroadcastFetcher, events []*pb.CoordinatedEvent,
+func (c *consensusQueuePlugin) broadcastAsBlob(ctx context.Context, broadcaster ocr3_1types.BlobBroadcaster, events []*pb.CoordinatedEvent,
 	seqNr uint64) (blobHandle []byte, n int, err error) {
 	protoOpts := proto.MarshalOptions{Deterministic: true}
-	for ; protoOpts.Size(&pb.CoordinatedEventList{Events: events}) > c.limits.MaxBlobPayloadBytes; events = events[:len(events)-1] {
+	for ; len(events) > 0 && protoOpts.Size(&pb.CoordinatedEventList{Events: events}) > c.limits.MaxBlobPayloadBytes; events = events[:len(events)-1] {
 		//TODO opt: binary search for largest fit instead....
 	}
 	n = len(events)
+	if n == 0 {
+		return nil, 0, errors.New("failed to package any events in blob")
+	}
 	var maxDeadline time.Time
 	for _, event := range events {
 		if t := event.Deadline.AsTime(); t.After(maxDeadline) {

@@ -68,9 +68,9 @@ func testQueueMetrics(t *testing.T) (*monitoring.CentralTriggerQueueMetricLabele
 
 // centralEvent returns an event for the given registration. Deadline and SequenceNumber are set so a test
 // can tell if the queue changes them.
-func centralEvent(t *testing.T, workflowID string, triggerIndex int, id string) CoordinatedEvent {
+func centralEvent(workflowID string, triggerIndex int, id string) CoordinatedEvent {
 	observed := time.Now()
-	e := CoordinatedEvent{
+	return CoordinatedEvent{
 		WorkflowID:   workflowID,
 		TriggerCapID: fmt.Sprintf("trigger-%d@1.0.0", triggerIndex),
 		TriggerIndex: triggerIndex,
@@ -78,8 +78,6 @@ func centralEvent(t *testing.T, workflowID string, triggerIndex int, id string) 
 		Deadline:     observed.Add(time.Minute),
 		Event:        capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: id}},
 	}
-	require.NoError(t, e.cacheExecutionID())
-	return e
 }
 
 func putAll(t *testing.T, q *CentralQueue, events ...CoordinatedEvent) {
@@ -115,9 +113,9 @@ func TestQueue_PutDrain(t *testing.T) {
 	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
 
 	want := []CoordinatedEvent{
-		centralEvent(t, "wf-a", 0, "evt-1"),
-		centralEvent(t, "wf-b", 0, "evt-2"),
-		centralEvent(t, "wf-a", 1, "evt-3"),
+		centralEvent("wf-a", 0, "evt-1"),
+		centralEvent("wf-b", 0, "evt-2"),
+		centralEvent("wf-a", 1, "evt-3"),
 	}
 	putAll(t, q, want...)
 
@@ -125,7 +123,7 @@ func TestQueue_PutDrain(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
 
-	putAll(t, q, centralEvent(t, "wf-c", 0, "evt-4"))
+	putAll(t, q, centralEvent("wf-c", 0, "evt-4"))
 	assert.Equal(t, want, got, "a later put must not write into a drained slice")
 
 	assert.Equal(t, []string{"evt-4"}, drainIDs(t, q))
@@ -141,9 +139,9 @@ func TestQueue_Capacity(t *testing.T) {
 	t.Run("a put at the limit is rejected and not stored", func(t *testing.T) {
 		t.Parallel()
 		q := newTestCentralQueue(t, &fakeLimit{limit: 2})
-		putAll(t, q, centralEvent(t, "wf-a", 0, "evt-1"), centralEvent(t, "wf-a", 0, "evt-2"))
+		putAll(t, q, centralEvent("wf-a", 0, "evt-1"), centralEvent("wf-a", 0, "evt-2"))
 
-		require.ErrorIs(t, q.Put(t.Context(), centralEvent(t, "wf-a", 0, "evt-3")), ErrQueueFull)
+		require.ErrorIs(t, q.Put(t.Context(), centralEvent("wf-a", 0, "evt-3")), ErrQueueFull)
 		assert.Equal(t, []string{"evt-1", "evt-2"}, drainIDs(t, q))
 	})
 
@@ -151,10 +149,10 @@ func TestQueue_Capacity(t *testing.T) {
 		t.Parallel()
 		limit := &fakeLimit{limit: 3}
 		q := newTestCentralQueue(t, limit)
-		putAll(t, q, centralEvent(t, "wf-a", 0, "evt-1"), centralEvent(t, "wf-a", 0, "evt-2"), centralEvent(t, "wf-a", 0, "evt-3"))
+		putAll(t, q, centralEvent("wf-a", 0, "evt-1"), centralEvent("wf-a", 0, "evt-2"), centralEvent("wf-a", 0, "evt-3"))
 
 		limit.set(1, nil)
-		require.ErrorIs(t, q.Put(t.Context(), centralEvent(t, "wf-a", 0, "evt-4")), ErrQueueFull)
+		require.ErrorIs(t, q.Put(t.Context(), centralEvent("wf-a", 0, "evt-4")), ErrQueueFull)
 		assert.Equal(t, []string{"evt-1", "evt-2", "evt-3"}, drainIDs(t, q))
 	})
 
@@ -162,11 +160,11 @@ func TestQueue_Capacity(t *testing.T) {
 		t.Parallel()
 		limit := &fakeLimit{limit: 1}
 		q := newTestCentralQueue(t, limit)
-		putAll(t, q, centralEvent(t, "wf-a", 0, "evt-1"))
-		require.ErrorIs(t, q.Put(t.Context(), centralEvent(t, "wf-a", 0, "evt-2")), ErrQueueFull)
+		putAll(t, q, centralEvent("wf-a", 0, "evt-1"))
+		require.ErrorIs(t, q.Put(t.Context(), centralEvent("wf-a", 0, "evt-2")), ErrQueueFull)
 
 		limit.set(2, nil)
-		putAll(t, q, centralEvent(t, "wf-a", 0, "evt-3"))
+		putAll(t, q, centralEvent("wf-a", 0, "evt-3"))
 		assert.Equal(t, []string{"evt-1", "evt-3"}, drainIDs(t, q))
 	})
 
@@ -174,7 +172,7 @@ func TestQueue_Capacity(t *testing.T) {
 		t.Parallel()
 		// The value returned with the error is ignored.
 		q := newTestCentralQueue(t, &fakeLimit{limit: 1, err: assert.AnError})
-		putAll(t, q, centralEvent(t, "wf-a", 0, "evt-1"), centralEvent(t, "wf-a", 0, "evt-2"))
+		putAll(t, q, centralEvent("wf-a", 0, "evt-1"), centralEvent("wf-a", 0, "evt-2"))
 
 		stats, err := q.Stats(t.Context())
 		require.NoError(t, err)
@@ -187,11 +185,11 @@ func TestQueue_Capacity(t *testing.T) {
 		limit := &fakeLimit{limit: defaultLimit + 5}
 		q := newTestCentralQueue(t, limit)
 		for i := range defaultLimit + 5 {
-			putAll(t, q, centralEvent(t, "wf-a", 0, fmt.Sprintf("evt-%d", i)))
+			putAll(t, q, centralEvent("wf-a", 0, fmt.Sprintf("evt-%d", i)))
 		}
 
 		limit.set(0, assert.AnError)
-		require.ErrorIs(t, q.Put(t.Context(), centralEvent(t, "wf-a", 0, "one-more")), ErrQueueFull)
+		require.ErrorIs(t, q.Put(t.Context(), centralEvent("wf-a", 0, "one-more")), ErrQueueFull)
 
 		stats, err := q.Stats(t.Context())
 		require.NoError(t, err)
@@ -207,9 +205,9 @@ func TestQueue_Stats(t *testing.T) {
 	limit := &fakeLimit{limit: 3}
 	q := newTestCentralQueue(t, limit)
 
-	putAll(t, q, centralEvent(t, "wf-a", 0, "evt-1"), centralEvent(t, "wf-a", 1, "evt-2"), centralEvent(t, "wf-b", 0, "evt-3"))
-	require.ErrorIs(t, q.Put(t.Context(), centralEvent(t, "wf-b", 0, "evt-4")), ErrQueueFull)
-	require.ErrorIs(t, q.Put(t.Context(), centralEvent(t, "wf-a", 1, "evt-5")), ErrQueueFull)
+	putAll(t, q, centralEvent("wf-a", 0, "evt-1"), centralEvent("wf-a", 1, "evt-2"), centralEvent("wf-b", 0, "evt-3"))
+	require.ErrorIs(t, q.Put(t.Context(), centralEvent("wf-b", 0, "evt-4")), ErrQueueFull)
+	require.ErrorIs(t, q.Put(t.Context(), centralEvent("wf-a", 1, "evt-5")), ErrQueueFull)
 
 	stats, err := q.Stats(t.Context())
 	require.NoError(t, err)
@@ -232,8 +230,8 @@ func TestQueue_Stats(t *testing.T) {
 
 	drainIDs(t, q)
 	limit.set(1, nil)
-	putAll(t, q, centralEvent(t, "wf-c", 0, "evt-6"))
-	require.ErrorIs(t, q.Put(t.Context(), centralEvent(t, "wf-b", 0, "evt-7")), ErrQueueFull)
+	putAll(t, q, centralEvent("wf-c", 0, "evt-6"))
+	require.ErrorIs(t, q.Put(t.Context(), centralEvent("wf-b", 0, "evt-7")), ErrQueueFull)
 
 	stats, err = q.Stats(t.Context())
 	require.NoError(t, err)
@@ -271,7 +269,7 @@ func TestQueue_ConcurrentPutDrain(t *testing.T) {
 			for p := range producers {
 				wg.Go(func() {
 					for range perProducer {
-						e := centralEvent(t, fmt.Sprintf("wf-%d", p), 0, "evt")
+						e := centralEvent(fmt.Sprintf("wf-%d", p), 0, "evt")
 						err := q.Put(t.Context(), e)
 						if err == nil {
 							accepted[p]++
@@ -373,11 +371,11 @@ func TestQueue_Metrics(t *testing.T) {
 	qm, reader := testQueueMetrics(t)
 	q := NewQueue(&fakeLimit{limit: 2}, qm, logger.Test(t))
 
-	putAll(t, q, centralEvent(t, "wf-a", 0, "evt-1"), centralEvent(t, "wf-b", 0, "evt-2"))
-	require.ErrorIs(t, q.Put(t.Context(), centralEvent(t, "wf-a", 0, "evt-3")), ErrQueueFull)
+	putAll(t, q, centralEvent("wf-a", 0, "evt-1"), centralEvent("wf-b", 0, "evt-2"))
+	require.ErrorIs(t, q.Put(t.Context(), centralEvent("wf-a", 0, "evt-3")), ErrQueueFull)
 	drainIDs(t, q)
 	assert.Equal(t, int64(0), int64Gauge(t, reader, "platform_engine_central_trigger_queue_depth"), "after drain")
-	putAll(t, q, centralEvent(t, "wf-a", 0, "evt-4"))
+	putAll(t, q, centralEvent("wf-a", 0, "evt-4"))
 
 	stats, err := q.Stats(t.Context())
 	require.NoError(t, err)
@@ -424,7 +422,7 @@ func TestQueue_CapacityGaugeOnDrain(t *testing.T) {
 	qm, reader := testQueueMetrics(t)
 	limit := &fakeLimit{limit: 2}
 	q := NewQueue(limit, qm, logger.Test(t))
-	putAll(t, q, centralEvent(t, "wf-a", 0, "evt-1"))
+	putAll(t, q, centralEvent("wf-a", 0, "evt-1"))
 	require.Equal(t, int64(2), int64Gauge(t, reader, "platform_engine_central_trigger_queue_capacity"))
 
 	limit.set(5, nil)

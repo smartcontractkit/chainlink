@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
@@ -92,6 +93,6 @@ func (n noopQueue) Stats(ctx context.Context) (triggers.Stats, error) {
 	return triggers.Stats{}, nil
 }
 
-func (n noopQueue) Peek(int) iter.Seq[triggers.CoordinatedEvent] { return nil }
+func (n noopQueue) Sorted(int) iter.Seq2[[]byte, *pb.CoordinatedEvent] { return nil }
 
 func (n noopQueue) Remove(ctx context.Context, execIDs iter.Seq[string]) {}

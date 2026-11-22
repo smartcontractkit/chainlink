@@ -1,10 +1,8 @@
 package triggers
 
 import (
-	"cmp"
 	"context"
 	"errors"
-	"fmt"
 	"iter"
 	"slices"
 	"sync"
@@ -21,9 +19,11 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
@@ -62,14 +62,22 @@ type fakeQueue struct {
 	drainCalls int
 }
 
-func (q *fakeQueue) Peek(limit int) iter.Seq[CoordinatedEvent] {
+func (q *fakeQueue) Sorted(limit int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {
 	q.mu.Lock()
 	events := slices.Clone(q.results[0].events)
 	q.mu.Unlock()
-	slices.SortFunc(events, func(a, b CoordinatedEvent) int {
-		return cmp.Or(a.Deadline.Compare(b.Deadline), cmp.Compare(*a.executionID, *b.executionID))
-	})
-	return slices.Values(events[:min(limit, len(events))])
+	slices.SortFunc(events, func(a, b centralQueueEvent) int { return a.Compare(b) })
+	return func(yield func([]byte, *pb.CoordinatedEvent) bool) {
+		var count int
+		for _, cqe := range events[:min(limit, len(events))] {
+			if count++; count > limit {
+				return
+			}
+			if !yield(cqe.timelessHash, cqe.pb) {
+				return
+			}
+		}
+	}
 }
 
 func (q *fakeQueue) Remove(ctx context.Context, execIDs iter.Seq[string]) {
@@ -80,11 +88,8 @@ func (q *fakeQueue) Remove(ctx context.Context, execIDs iter.Seq[string]) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	for _, r := range q.results {
-		r.events = slices.DeleteFunc(r.events, func(e CoordinatedEvent) bool {
-			if err := e.cacheExecutionID(); err != nil {
-				panic(fmt.Errorf("unable to generate execution ID: %w", err))
-			}
-			_, ok := execIDSet[*e.executionID]
+		r.events = slices.DeleteFunc(r.events, func(e centralQueueEvent) bool {
+			_, ok := execIDSet[e.executionID]
 			return ok
 		})
 		// note: empty results remain
@@ -92,7 +97,7 @@ func (q *fakeQueue) Remove(ctx context.Context, execIDs iter.Seq[string]) {
 }
 
 type observeResult struct {
-	events []CoordinatedEvent
+	events []centralQueueEvent
 	err    error
 }
 
@@ -109,7 +114,11 @@ func (q *fakeQueue) Drain(context.Context) ([]CoordinatedEvent, error) {
 	}
 	r := q.results[0]
 	q.results = q.results[1:]
-	return r.events, r.err
+	events := make([]CoordinatedEvent, len(r.events))
+	for i, e := range r.events {
+		events[i] = e.CoordinatedEvent
+	}
+	return events, r.err
 }
 
 func (q *fakeQueue) getDrainCalls() int {
@@ -126,6 +135,28 @@ func (q *fakeQueue) remaining() int {
 
 // batchOf returns a one-event batch tagged with id.
 func batchOf(id string) []CoordinatedEvent { return []CoordinatedEvent{{WorkflowID: id}} }
+
+func centralQueueEvents(t *testing.T, events []CoordinatedEvent) []centralQueueEvent {
+	cqes := make([]centralQueueEvent, len(events))
+	for i, e := range events {
+		pbe := e.ToProto()
+		cqes[i] = centralQueueEvent{
+			CoordinatedEvent: e,
+			pb:               pbe,
+			timelessHash: func() []byte {
+				hash, err := pbe.TimelessHash()
+				require.NoError(t, err)
+				return hash
+			}(),
+			executionID: func() string {
+				execID, err := workflows.GenerateExecutionIDWithTriggerIndex(e.WorkflowID, e.Event.Event.ID, e.TriggerIndex)
+				require.NoError(t, err)
+				return execID
+			}(),
+		}
+	}
+	return cqes
+}
 
 // TestDrainer_Drain calls drain directly (no worker running), so the batches
 // it hands off stay in the channel for inspection.
@@ -153,7 +184,7 @@ func TestDrainer_Drain(t *testing.T) {
 	}{
 		{
 			name:    "queues an observed batch",
-			results: []*observeResult{{events: batchOf("a")}},
+			results: []*observeResult{{events: centralQueueEvents(t, batchOf("a"))}},
 			want:    [][]CoordinatedEvent{batchOf("a")},
 		},
 		{
@@ -162,11 +193,11 @@ func TestDrainer_Drain(t *testing.T) {
 		},
 		{
 			name:    "observe error queues nothing, even with events",
-			results: []*observeResult{{events: batchOf("ignored"), err: errors.New("boom")}},
+			results: []*observeResult{{events: centralQueueEvents(t, batchOf("ignored")), err: errors.New("boom")}},
 		},
 		{
 			name:    "full buffer drops the overflow and keeps the oldest",
-			results: []*observeResult{{events: batchOf("a")}, {events: batchOf("b")}},
+			results: []*observeResult{{events: centralQueueEvents(t, batchOf("a"))}, {events: centralQueueEvents(t, batchOf("b"))}},
 			want:    [][]CoordinatedEvent{batchOf("a")},
 		},
 	}
@@ -198,8 +229,8 @@ func TestDrainer_DroppedEventsMetric(t *testing.T) {
 
 	dm, reader := testDrainerMetrics(t)
 	q := &fakeQueue{results: []*observeResult{
-		{events: batchOf("a")},
-		{events: append(batchOf("b"), batchOf("c")...)}, // dropped: the buffer holds "a"
+		{events: centralQueueEvents(t, batchOf("a"))},
+		{events: append(centralQueueEvents(t, batchOf("b")), centralQueueEvents(t, batchOf("c"))...)}, // dropped: the buffer holds "a"
 	}}
 	d := NewDrainer(q, limits.NewUpperBoundLimiter(time.Hour), drainerHooks{}, dm, clockwork.NewRealClock(), logger.Test(t))
 	d.drain(t.Context())
@@ -221,7 +252,7 @@ func TestDrainer_HookDurationMetric(t *testing.T) {
 	t.Parallel()
 
 	dm, reader := testDrainerMetrics(t)
-	q := &fakeQueue{results: []*observeResult{{events: batchOf("a")}}}
+	q := &fakeQueue{results: []*observeResult{{events: centralQueueEvents(t, batchOf("a"))}}}
 	d := NewDrainer(q, limits.NewUpperBoundLimiter(minDrainInterval), drainerHooks{}, dm, clockwork.NewRealClock(), logger.Test(t))
 	require.NoError(t, d.Start(t.Context()))
 	t.Cleanup(func() { assert.NoError(t, d.Close()) })
@@ -247,12 +278,12 @@ func TestDrainer_Running(t *testing.T) {
 	}{
 		{
 			name:    "hook receives an observed batch",
-			results: []*observeResult{{events: batchOf("a")}},
+			results: []*observeResult{{events: centralQueueEvents(t, batchOf("a"))}},
 			want:    []string{"a"},
 		},
 		{
 			name:    "loop survives an observe error",
-			results: []*observeResult{{err: errors.New("boom")}, {events: batchOf("a")}},
+			results: []*observeResult{{err: errors.New("boom")}, {events: centralQueueEvents(t, batchOf("a"))}},
 			want:    []string{"a"},
 		},
 	}
@@ -304,7 +335,7 @@ func TestDrainer_BlockedHook(t *testing.T) {
 			t.Parallel()
 			results := make([]*observeResult, tt.batches)
 			for i := range results {
-				results[i] = &observeResult{events: batchOf("x")}
+				results[i] = &observeResult{events: centralQueueEvents(t, batchOf("x"))}
 			}
 			q := &fakeQueue{results: results}
 
@@ -423,7 +454,7 @@ func TestNewCentralQueueDrainer_LogsDrainedEvents(t *testing.T) {
 	t.Parallel()
 	clock := clockwork.NewFakeClock()
 	batch := append(append(batchOf("wf-a"), batchOf("wf-b")...), batchOf("wf-a")...)
-	q := &fakeQueue{results: []*observeResult{{events: batch}}}
+	q := &fakeQueue{results: []*observeResult{{events: centralQueueEvents(t, batch)}}}
 	dm, _ := testDrainerMetrics(t)
 	lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
 	d := NewCentralQueueDrainer(q, limits.NewUpperBoundLimiter(minDrainInterval), dm, clock, lggr)

@@ -1,7 +1,9 @@
 package triggers
 
 import (
+	"bytes"
 	"cmp"
+	"container/heap"
 	"context"
 	"errors"
 	"fmt"
@@ -10,9 +12,13 @@ import (
 	"slices"
 	"sync"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
@@ -34,8 +40,8 @@ type Queue interface {
 	// Stats reports current length, capacity, and cumulative drops.
 	Stats(context.Context) (Stats, error)
 
-	// Peek returns a sorted iterator over events. Events remain but can be removed via Remove.
-	Peek(int) iter.Seq[CoordinatedEvent]
+	// Sorted returns a sorted iterator over events, up to limit. Events remain but can be removed via Remove.
+	Sorted(limit int) iter.Seq2[[]byte, *pb.CoordinatedEvent]
 
 	// Remove removes events from the queue by execution ID.
 	//TODO can't ack with trigger event ID - not unique!
@@ -66,10 +72,21 @@ type CentralQueue struct {
 	lggr    logger.Logger
 
 	mu                 sync.Mutex
-	events             []CoordinatedEvent
+	events             []centralQueueEvent
 	depthByWorkflow    map[string]uint64
 	depthByTriggerType map[string]uint64
 	droppedByReason    map[string]uint64
+}
+
+type centralQueueEvent struct {
+	CoordinatedEvent
+	pb           *pb.CoordinatedEvent
+	timelessHash []byte
+	executionID  string
+}
+
+func (q *centralQueueEvent) Compare(other centralQueueEvent) int {
+	return cmp.Or(q.Deadline.Compare(other.Deadline), bytes.Compare(q.timelessHash, other.timelessHash))
 }
 
 // NewQueue returns the node's central trigger queue. limit is read on every Put. If it cannot be read, the
@@ -88,10 +105,6 @@ func NewQueue(limit limits.BoundLimiter[int], metrics *monitoring.CentralTrigger
 
 // Put appends e, or returns ErrQueueFull and counts the drop when the queue is at capacity.
 func (q *CentralQueue) Put(ctx context.Context, e CoordinatedEvent) error {
-	if err := e.cacheExecutionID(); err != nil {
-		return fmt.Errorf("failed to generate execution ID: %w", err)
-	}
-
 	capacity := q.capacity(ctx)
 
 	q.mu.Lock()
@@ -102,7 +115,21 @@ func (q *CentralQueue) Put(ctx context.Context, e CoordinatedEvent) error {
 		q.drop(ctx, monitoring.CentralTriggerQueueDropReasonQueueFull)
 		return ErrQueueFull
 	}
-	q.events = append(q.events, e)
+	pbe := e.ToProto()
+	timelessHash, err := pbe.TimelessHash()
+	if err != nil {
+		return fmt.Errorf("failed to compute timeless hash: %w", err)
+	}
+	execID, err := workflows.GenerateExecutionIDWithTriggerIndex(e.WorkflowID, e.Event.Event.ID, e.TriggerIndex)
+	if err != nil {
+		return fmt.Errorf("failed to generate execution ID: %w", err)
+	}
+	q.events = append(q.events, centralQueueEvent{
+		CoordinatedEvent: e,
+		pb:               pbe,
+		timelessHash:     timelessHash,
+		executionID:      execID,
+	})
 	q.depthByWorkflow[e.WorkflowID]++
 	q.depthByTriggerType[e.TriggerCapID]++
 	q.metrics.IncrementPutsCounter(ctx)
@@ -118,7 +145,10 @@ func (q *CentralQueue) Drain(ctx context.Context) ([]CoordinatedEvent, error) {
 
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	events := q.events
+	events := make([]CoordinatedEvent, len(q.events))
+	for i, pbe := range q.events {
+		events[i] = pbe.CoordinatedEvent
+	}
 	q.events = nil
 	q.depthByWorkflow = map[string]uint64{}
 	q.depthByTriggerType = map[string]uint64{}
@@ -140,13 +170,13 @@ func (q *CentralQueue) Remove(ctx context.Context, executionIDs iter.Seq[string]
 	defer q.mu.Unlock()
 
 	var deleted int
-	//TODO opt: map so we don't have to iterate over them all (just use pointer elements?)
-	q.events = slices.DeleteFunc(q.events, func(e CoordinatedEvent) bool {
-		_, ok := execIDSet[*e.executionID] // events are rejected if we cannot set the execution ID
+	//TODO opt: map so we don't have to iterate over them all
+	q.events = slices.DeleteFunc(q.events, func(cqe centralQueueEvent) bool {
+		_, ok := execIDSet[cqe.executionID]
 		if ok {
 			deleted++
-			q.depthByWorkflow[e.WorkflowID]--
-			q.depthByTriggerType[e.TriggerCapID]--
+			q.depthByWorkflow[cqe.WorkflowID]--
+			q.depthByTriggerType[cqe.TriggerCapID]--
 			//TODO emit metric for time.Since(e.ObservedAt)
 		}
 		return ok
@@ -157,16 +187,21 @@ func (q *CentralQueue) Remove(ctx context.Context, executionIDs iter.Seq[string]
 	return
 }
 
-func (q *CentralQueue) Peek(limit int) iter.Seq[CoordinatedEvent] {
+func (q *CentralQueue) Sorted(limit int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {
 	q.mu.Lock()
-	events := slices.Clone(q.events)
+	events := priorityQueue(slices.Clone(q.events))
 	q.mu.Unlock()
-	//TODO opt: heap
-	slices.SortFunc(events, func(a, b CoordinatedEvent) int {
-		// events are rejected if we cannot set the execution ID
-		return cmp.Or(a.Deadline.Compare(b.Deadline), cmp.Compare(*a.executionID, *b.executionID))
-	})
-	return slices.Values(events[:min(limit, len(events))])
+
+	heap.Init(&events)
+
+	return func(yield func([]byte, *pb.CoordinatedEvent) bool) {
+		for count := 0; events.Len() > 0 && count < limit; count++ {
+			cqe := heap.Pop(&events).(centralQueueEvent)
+			if !yield(cqe.timelessHash, proto.CloneOf(cqe.pb)) {
+				return
+			}
+		}
+	}
 }
 
 // Stats returns copies of the queue's maps, so callers may keep or change them.
@@ -215,4 +250,38 @@ func (q *CentralQueue) drop(ctx context.Context, reason string) {
 type queueCapacity struct {
 	limit int
 	ok    bool
+}
+
+var _ heap.Interface = (*priorityQueue)(nil)
+
+// priorityQueue is a heap of coordinated events, ordered by deadline and then trigger event ID.
+type priorityQueue []centralQueueEvent
+
+func (p *priorityQueue) Len() int {
+	if p == nil {
+		return 0
+	}
+	return len(*p)
+}
+
+func (p *priorityQueue) Less(i, j int) bool {
+	a, b := (*p)[i], (*p)[j]
+	return a.Compare(b) < 0
+}
+
+func (p *priorityQueue) Swap(i, j int) {
+	(*p)[i], (*p)[j] = (*p)[j], (*p)[i]
+}
+
+func (p *priorityQueue) Push(x any) {
+	*p = append(*p, x.(centralQueueEvent))
+}
+
+func (p *priorityQueue) Pop() any {
+	if p.Len() == 0 {
+		return nil
+	}
+	e := (*p)[len(*p)-1]
+	*p = (*p)[:len(*p)-1]
+	return e
 }
