@@ -14,6 +14,8 @@ import (
 // Drop reason values for platform_engine_central_trigger_queue_dropped_events_total (low cardinality).
 const (
 	CentralTriggerQueueDropReasonQueueFull = "queue_full"
+	// CentralTriggerQueueDropReasonOversize is an event too large to ever be observed (it cannot fit in a consensus blob).
+	CentralTriggerQueueDropReasonOversize = "oversize"
 )
 
 // CentralTriggerQueueMetrics are the central trigger queue's instruments. They are separate from

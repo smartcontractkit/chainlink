@@ -2,6 +2,7 @@ package triggers
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"iter"
 	"slices"
@@ -62,7 +63,7 @@ type fakeQueue struct {
 	drainCalls int
 }
 
-func (q *fakeQueue) Sorted(limit int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {
+func (q *fakeQueue) Sorted(_ context.Context, limit, _ int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {
 	q.mu.Lock()
 	events := slices.Clone(q.results[0].events)
 	q.mu.Unlock()
@@ -144,9 +145,10 @@ func centralQueueEvents(t *testing.T, events []CoordinatedEvent) []centralQueueE
 			CoordinatedEvent: e,
 			pb:               pbe,
 			timelessHash: func() []byte {
-				hash, err := pbe.TimelessHash()
+				b, err := pbe.MarshalTimeless()
 				require.NoError(t, err)
-				return hash
+				hash := sha256.Sum256(b)
+				return hash[:]
 			}(),
 			executionID: func() string {
 				execID, err := workflows.GenerateExecutionIDWithTriggerIndex(e.WorkflowID, e.Event.Event.ID, e.TriggerIndex)

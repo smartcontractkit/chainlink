@@ -8,6 +8,7 @@ package queue
 
 import (
 	"bytes"
+	"cmp"
 	"container/heap"
 	"context"
 	"crypto/sha256"
@@ -22,6 +23,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
@@ -32,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
@@ -69,10 +70,7 @@ func NewConsensusQueuePluginFactory(
 		cfg:                cfg,
 		triggerCoordinator: triggerCoordinator,
 		triggerQueue:       triggerQueue,
-		expirationDur: func(ctx context.Context) (time.Duration, error) {
-			//TODO also allow this grace period in the trigger coordinator
-			return cresettings.Default.ConsensusQueueExpirationInterval.GetOrDefault(ctx, limitsFactory.Settings)
-		},
+		expirationDur:      triggers.ConsensusQueueExpirationGrace(limitsFactory),
 	}, nil
 }
 
@@ -173,7 +171,7 @@ func (c *consensusQueuePlugin) Observation(
 	// Assemble an observation up to maxObservationBytes
 	var events []*pb.CoordinatedEvent // to be broadcast
 	protoOpts := proto.MarshalOptions{Deterministic: true}
-	for timelessHash, event := range c.triggerQueue.Sorted(maxObservedEvents) {
+	for timelessHash, event := range c.triggerQueue.Sorted(ctx, maxObservedEvents, c.maxEventBytes()) {
 		// skip if kv observation exists already
 		if obsEvent, ok := observedEvents[string(timelessHash)]; ok {
 			if slices.Contains(obsEvent.NodeIds, uint8(c.onchainCfg.OracleID)) {
@@ -188,8 +186,9 @@ func (c *consensusQueuePlugin) Observation(
 		}
 
 		// Check size
-		if protoOpts.Size(obs) > c.limits.MaxObservationBytes {
+		if observationSize(obs) > c.limits.MaxObservationBytes {
 			// too large, remove this one
+			events = events[:len(events)-1]
 			obs.Events = obs.Events[:len(obs.Events)-1]
 			if newWF {
 				delete(obs.WorkflowCapacities, event.WorkflowID)
@@ -197,6 +196,7 @@ func (c *consensusQueuePlugin) Observation(
 			break
 		}
 	}
+	obs.BlobHandles = nil // remove placeholders
 
 	fit, err := c.broadcastObservationBlobs(ctx, obs, blobBroadcaster, events, seqNr)
 	if err != nil {
@@ -212,6 +212,27 @@ func (c *consensusQueuePlugin) Observation(
 	}
 
 	return protoOpts.Marshal(obs)
+}
+
+// observationSize returns the encoded size of an observation that grows as events are appended, without sizing every
+// event again each time (which would make assembling an observation quadratic).
+//
+// It uses proto.MarshalOptions.UseCachedSize, which reuses the size a previous Size call stored in each message. That
+// is only correct for a message that has not changed since it was sized, so it is not applied to obs itself, which does
+// change. Instead it sizes a shallow copy, a new message whose own size was never cached, and which shares obs's fields
+// (including any added to the message in the future). The events are unchanged since they were added, so their sizes
+// are valid. An event not sized yet has no cached size, and is computed as usual.
+//
+// Callers must not modify events, or any message inside them, between calls. (Marshaling obs, which does not use
+// cached sizes, recomputes and refreshes them, so modifying events afterwards is fine.)
+func observationSize(obs *pb.ConsensusQueueObservation) int {
+	m := obs.ProtoReflect()
+	probe := m.New()
+	m.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		probe.Set(fd, v)
+		return true
+	})
+	return proto.MarshalOptions{Deterministic: true, UseCachedSize: true}.Size(probe.Interface())
 }
 
 // observeEvent adds the event to the observation and updates the workflow capacities if required.
@@ -249,6 +270,7 @@ func observeEvent(
 
 // broadcastObservationBlobs broadcasts up to maxObservedBlobHandles blobs containing events, and updates the observation.
 // It may not be able to broadcast all events, in which case the observed events will be truncated and false returned.
+// The events are divided between blobs first, so that the blobs can be broadcast concurrently.
 func (c *consensusQueuePlugin) broadcastObservationBlobs(
 	ctx context.Context, obs *pb.ConsensusQueueObservation, blobBroadcaster ocr3_1types.BlobBroadcaster,
 	events []*pb.CoordinatedEvent, seqNr uint64,
@@ -260,33 +282,63 @@ func (c *consensusQueuePlugin) broadcastObservationBlobs(
 		return false, fmt.Errorf("number of events and observedEvents must match")
 	}
 
-	blobHandle, n, err := c.broadcastAsBlob(ctx, blobBroadcaster, events, seqNr)
-	if err != nil {
-		return false, err
+	// ends[i] is the index after the last event of blob i. We verified space for maxObservedBlobHandles handles.
+	var ends []int
+	for start := 0; start < len(events) && len(ends) < maxObservedBlobHandles; {
+		n := c.blobPrefix(events[start:])
+		if n == 0 {
+			break
+		}
+		start += n
+		ends = append(ends, start)
 	}
-	obs.BlobHandles = append(obs.BlobHandles, blobHandle)
-	// note: elements already reference blob 0 and natural element index is aligned
+	if len(ends) == 0 {
+		c.lggr.Warnw("No events fit in a blob - omitting events from observation", "events", len(events), "blobLimit", c.limits.MaxBlobPayloadBytes)
+		obs.Events = obs.Events[:0]
+		return false, nil
+	}
 
-	// we verified space for up to maxObservedBlobHandles blobs
-	lastEnd := n
-	events = events[n:]
-	for batch := 1; batch < maxObservedBlobHandles && len(events) > 0; batch++ {
-		blobHandle, n, err = c.broadcastAsBlob(ctx, blobBroadcaster, events, seqNr)
-		if err != nil {
-			return false, err
-		}
-		obs.BlobHandles = append(obs.BlobHandles, blobHandle)
-		for i := 0; i < n; i++ { // update indices
-			obs.Events[lastEnd+i].Blobs[0].Blob = uint32(batch)
-			obs.Events[lastEnd+i].Blobs[0].Element = uint32(i)
-		}
-		lastEnd += n
-		events = events[n:]
+	handles := make([][]byte, len(ends))
+	errs := make([]error, len(ends))
+	var eg errgroup.Group
+	for i, start := 0, 0; i < len(ends); i++ {
+		batch := events[start:ends[i]]
+		start = ends[i]
+		eg.Go(func() error {
+			handles[i], errs[i] = c.broadcastBlob(ctx, blobBroadcaster, batch, seqNr)
+			return nil
+		})
 	}
-	limited := lastEnd < len(obs.Events)
+	_ = eg.Wait()
+	if err := ctx.Err(); err != nil {
+		return false, err // cancelled, so there is no point in observing at all
+	}
+
+	// Keep the blobs before the first failure. A failed broadcast must not fail Observation (see libocr
+	// BlobBroadcaster), so observe without the events that did not make it.
+	keep := len(ends)
+	for i, err := range errs {
+		if err != nil {
+			c.lggr.Warnw("Failed to broadcast events blob - omitting it and the remaining events from observation", "blob", i, "err", err)
+			keep = i
+			break
+		}
+	}
+	if keep == 0 {
+		obs.Events = obs.Events[:0]
+		return false, nil
+	}
+
+	obs.BlobHandles = append(obs.BlobHandles, handles[:keep]...)
+	for i, start := 0, 0; i < keep; i++ { // point every event at its blob and element
+		for j, e := range obs.Events[start:ends[i]] {
+			e.Blobs[0].Blob, e.Blobs[0].Element = uint32(i), uint32(j)
+		}
+		start = ends[i]
+	}
+	limited := ends[keep-1] < len(obs.Events)
 	if limited {
-		// we hit max blobs, so drop excess events
-		obs.Events = obs.Events[:lastEnd]
+		obs.Events = obs.Events[:ends[keep-1]] // drop the events that did not fit in the blobs, or whose blob failed
 		// note: caller will fix wfCapacity
 	}
 	return !limited, nil
@@ -294,7 +346,7 @@ func (c *consensusQueuePlugin) broadcastObservationBlobs(
 
 func (c *consensusQueuePlugin) ValidateObservation(
 	ctx context.Context, _ uint64, _ ocrtypes.AttributedQuery, ao ocrtypes.AttributedObservation,
-	_ ocr3_1types.KeyValueStateReader, blobFetcher ocr3_1types.BlobFetcher,
+	kvReader ocr3_1types.KeyValueStateReader, blobFetcher ocr3_1types.BlobFetcher,
 ) error {
 	var obs pb.ConsensusQueueObservation
 	err := proto.Unmarshal(ao.Observation, &obs)
@@ -307,7 +359,14 @@ func (c *consensusQueuePlugin) ValidateObservation(
 	if obs.Expiration == nil {
 		return errors.New("expiration is missing")
 	}
-	//TODO what do we expect from WF capacities? check KV state and insist 100% match? or subset - none extra?
+	if err = obs.Expiration.CheckValid(); err != nil {
+		return fmt.Errorf("invalid expiration: %w", err)
+	}
+	for i, handle := range obs.BlobHandles {
+		if len(handle) > c.blobHandleMarshalledBytesUpperBound {
+			return fmt.Errorf("blob handle %d is %d bytes, more than the maximum %d", i, len(handle), c.blobHandleMarshalledBytesUpperBound)
+		}
+	}
 
 	if len(obs.Events) > maxObservedEvents {
 		return fmt.Errorf("events are limited to %d but got %d", maxObservedEvents, len(obs.Events))
@@ -332,7 +391,32 @@ func (c *consensusQueuePlugin) ValidateObservation(
 			return fmt.Errorf("missing capacity for workflow ID %s", event.WorkflowID)
 		}
 	}
-	//TODO ensure map only contains wfs from observations and KV observed+queued events
+
+	// ensure the capacity map only covers workflows an honest node reports: those with events in this observation,
+	// or with observed or queued events in the KV state
+	allowed := make(map[string]struct{})
+	for _, event := range obs.Events {
+		allowed[event.WorkflowID] = struct{}{}
+	}
+	observedEvents, _, err := readObservedEvents(kvReader)
+	if err != nil {
+		return fmt.Errorf("failed to read observed events: %w", err)
+	}
+	for _, event := range observedEvents {
+		allowed[event.WorkflowID] = struct{}{}
+	}
+	queuedEvents, err := readQueuedEvents(kvReader)
+	if err != nil {
+		return fmt.Errorf("failed to read queued events: %w", err)
+	}
+	for _, event := range queuedEvents {
+		allowed[event.WorkflowID] = struct{}{}
+	}
+	for wf := range obs.WorkflowCapacities {
+		if _, ok := allowed[wf]; !ok {
+			return fmt.Errorf("unexpected capacity for workflow ID %s", wf)
+		}
+	}
 
 	// ensure no duplicate execution ID or timelessHash
 	execIDs, timelessHashes := make(map[string]struct{}), make(map[string]struct{})
@@ -360,19 +444,25 @@ func (c *consensusQueuePlugin) ValidateObservation(
 func validateObservedEvent(ctx context.Context, fetcher *blobCache, event *pb.ConsensusQueueEvent, blobHandles [][]byte) error {
 	if event.WorkflowID == "" {
 		return errors.New("event workflow id is missing")
-	} ///TODO check not too long - exact length?
+	} // TODO ensure not too long
 	if event.ExecutionID == "" {
-		return errors.New("event execution id is missing")
-	} ///TODO check not too long - exact length?
+		return errors.New("event execution id is missing") // (the exact value is checked against the blob below)
+	}
 	if event.ObservedAt == nil {
 		return errors.New("event observation ts is missing")
+	} else if err := event.ObservedAt.CheckValid(); err != nil {
+		return fmt.Errorf("invalid event observation ts: %w", err)
 	}
 	if event.Deadline == nil {
 		return errors.New("event deadline is missing")
+	} else if err := event.Deadline.CheckValid(); err != nil {
+		return fmt.Errorf("invalid event deadline: %w", err)
 	}
-	if event.TimelessHash == nil {
+	if len(event.TimelessHash) == 0 {
 		return fmt.Errorf("event blob hash is missing")
-	} ///TODO check not too long - exact length?
+	} else if len(event.TimelessHash) != sha256.Size {
+		return fmt.Errorf("event blob hash must be %d bytes but got %d", sha256.Size, len(event.TimelessHash))
+	}
 
 	if len(event.Blobs) == 0 {
 		return fmt.Errorf("event blob is missing")
@@ -397,7 +487,7 @@ func validateObservedEvent(ctx context.Context, fetcher *blobCache, event *pb.Co
 	if coordEvent.WorkflowID != event.WorkflowID {
 		return fmt.Errorf("blob workflow ID %s does not match event workflow ID %s", coordEvent.WorkflowID, event.WorkflowID)
 	}
-	executionID, err := workflows.GenerateExecutionIDWithTriggerIndex(event.WorkflowID, coordEvent.GetEvent().GetEvent().Id, int(coordEvent.TriggerIndex))
+	executionID, err := workflows.GenerateExecutionIDWithTriggerIndex(event.WorkflowID, coordEvent.GetEvent().GetEvent().GetId(), int(coordEvent.TriggerIndex))
 	if err != nil {
 		return fmt.Errorf("failed to generate execution ID: %w", err)
 	}
@@ -445,14 +535,11 @@ func (c *consensusQueuePlugin) StateTransition(
 		return nil, fmt.Errorf("failed to read state: %w", err)
 	}
 
-	// wait for aggregation
+	// wait for aggregation, which reports cancellation as its error, so a partial result is never used
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case <-done:
-		if err = ctx.Err(); err != nil {
-			return nil, err
-		}
 	}
 	if obs.err != nil {
 		return nil, fmt.Errorf("failed to aggregate observations: %w", obs.err)
@@ -471,16 +558,11 @@ func (c *consensusQueuePlugin) StateTransition(
 			break
 		}
 		state.consensusEvents = append(state.consensusEvents, event)
-		// stop when either value or the overall size is too large
-		if events, blobs := state.sizeOfConsensusEvents(), state.sizeOfBlobHandles(); events > maxKeyValueValueBytes ||
-			blobs > maxKeyValueValueBytes || events+blobs > c.limits.MaxKeyValueModifiedKeysPlusValuesBytes/2 {
-			state.queuedEvents.push(event)
-			state.consensusEvents = state.consensusEvents[:len(state.consensusEvents)-1]
-			break
-		}
 	}
+	state.trimConsensusEvents(c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
 
 	// prune observations if that value or the overall size is too large
+	state.prepareWriteObservedEvents() // populates the (priority sorted) entries to prune from
 	for len(state.observedEventEntries) > 0 &&
 		(state.sizeOfObservedEvents() > maxKeyValueValueBytes ||
 			state.sizeOf() > c.limits.MaxKeyValueModifiedKeysPlusValuesBytes) {
@@ -547,11 +629,23 @@ type observations struct {
 func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.AttributedObservation) {
 	res.medianCapPerWF = make(map[string]uint32)
 	res.newObservedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
+	res.observedBlobs = make(blobHandleMap)
+
+	// normalize the order, so that the outcome never depends on the order observations arrive in
+	if len(aos) <= f { // quorum guarantees more, but never index out of range
+		res.err = fmt.Errorf("need more than F=%d observations but got %d", f, len(aos))
+		return
+	}
+	aos = slices.SortedFunc(slices.Values(aos), func(a, b ocrtypes.AttributedObservation) int { return cmp.Compare(a.Observer, b.Observer) })
 
 	expirations := make([]*timestamppb.Timestamp, 0, len(aos))
 	capacities := make([]uint32, 0, len(aos))
 	wfCapacities := make(map[string][]uint32)
 	for _, ao := range aos {
+		if err := ctx.Err(); err != nil { // a cancelled aggregation is partial, so it must never look successful
+			res.err = err
+			return
+		}
 		var obs pb.ConsensusQueueObservation
 		err := proto.Unmarshal(ao.Observation, &obs)
 		if err != nil {
@@ -564,7 +658,8 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 			wfCapacities[wf] = append(wfCapacities[wf], c)
 		}
 		for _, event := range obs.Events {
-			if ctx.Err() != nil {
+			if err2 := ctx.Err(); err2 != nil {
+				res.err = err2
 				return
 			}
 			res.addEvent(ao.Observer, event, obs.BlobHandles)
@@ -574,12 +669,12 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 
 	// If we used median, then honest nodes reporting reduced capacity would not be able to keep up.
 	// Instead, we use the F+1th lowest value - the least honest value.
-	//TODO fill zeros for missing nodes?
 	res.medianCap = slices.Sorted(slices.Values(capacities))[f]
 	for wf, caps := range wfCapacities {
-		if len(caps) >= 2*f+1 {
-			res.medianCapPerWF[wf] = slices.Sorted(slices.Values(caps))[f]
-		}
+		// A node that did not report a workflow counts as zero capacity. Otherwise up to F nodes (faulty, or just
+		// without the workflow) could omit it and leave too few reports to ever run it.
+		caps = append(caps, make([]uint32, len(aos)-len(caps))...)
+		res.medianCapPerWF[wf] = slices.Sorted(slices.Values(caps))[f]
 	}
 	return
 }
@@ -612,6 +707,9 @@ func (c *consensusQueuePlugin) Committed(ctx context.Context, _ uint64, kvReader
 }
 
 // commitState executes the consensus events, and remove events from the trigger queue that have been queued or executed.
+// Starting an execution is best effort: once an event is in consensus, it leaves the local queue whether or not starting
+// it succeeds, and a failure is only logged. (Committed and the next Observation each try, as consensus events stay in
+// KV until the next StateTransition, but the queue never holds an event to retry it.)
 func (c *consensusQueuePlugin) commitState(ctx context.Context, kvReader ocr3_1types.KeyValueStateReader) ([]*pb.ConsensusQueueEvent, error) {
 	consensusEvents, blobHandles, err := readConsensusState(kvReader)
 	if err != nil {
@@ -697,6 +795,7 @@ func (c *consensusQueuePlugin) tryStartExecution(ctx context.Context, fetcher *b
 	}
 
 	//TODO ensure this only *starts* the execution, and does not block while it runs
+	// TestCommitted_DoesNotWaitForExecutions
 	return c.triggerCoordinator.StartExecution(ctx, event)
 }
 

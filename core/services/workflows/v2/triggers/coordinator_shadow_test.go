@@ -335,7 +335,7 @@ type failingQueue struct {
 	puts atomic.Int32
 }
 
-func (q *failingQueue) Sorted(int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {
+func (q *failingQueue) Sorted(context.Context, int, int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {
 	return func(yield func([]byte, *pb.CoordinatedEvent) bool) {}
 }
 

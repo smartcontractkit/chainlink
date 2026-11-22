@@ -157,6 +157,9 @@ type coordinator struct {
 
 	drainTimeout time.Duration
 
+	// expirationGrace is how long past its deadline an event may still run. nil means none.
+	expirationGrace func(context.Context) (time.Duration, error)
+
 	// shadow is nil unless WithShadowMode is set.
 	shadow *shadowMode
 	// drainer is nil unless WithDrainer is set.
@@ -241,6 +244,34 @@ func NewCoordinator(
 
 // CoordinatorOption configures optional coordinator behaviour.
 type CoordinatorOption func(*coordinator)
+
+// ConsensusQueueExpirationGrace returns how long past its deadline an event is still kept, as configured by
+// ConsensusQueueExpirationGraceInterval. The consensus queue and the coordinator both honor it, so they agree on what has expired.
+// It is node-wide rather than per workflow: each event's deadline already reflects its workflow's timeout, and the grace
+// is slack for clock skew and consensus latency, which the consensus queue applies to every workflow at once.
+func ConsensusQueueExpirationGrace(lf limits.Factory) func(context.Context) (time.Duration, error) {
+	return func(ctx context.Context) (time.Duration, error) {
+		return cresettings.Default.ConsensusQueueExpirationGraceInterval.GetOrDefault(ctx, lf.Settings)
+	}
+}
+
+// WithExpirationGrace lets events run for up to grace past their deadline, instead of dropping them at the deadline.
+// If grace returns an error, its (default) value is still used.
+func WithExpirationGrace(grace func(context.Context) (time.Duration, error)) CoordinatorOption {
+	return func(c *coordinator) { c.expirationGrace = grace }
+}
+
+// expirationGraceDur returns the current grace period, which is zero if unset.
+func (c *coordinator) expirationGraceDur(ctx context.Context, lggr logger.Logger) time.Duration {
+	if c.expirationGrace == nil {
+		return 0
+	}
+	grace, err := c.expirationGrace(ctx)
+	if err != nil {
+		lggr.Warnw("Failed to get expiration grace duration - using default", "grace", grace, "err", err)
+	}
+	return max(0, grace)
+}
 
 // WithShadowMode copies each event observed inside activePeriod to queue before the event enters its
 // workflow's own queue. The copy is best-effort. A full queue never delays or drops the event.
@@ -664,7 +695,7 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 		eventAge := now.Sub(event.ObservedAt)
 		cw.lggr.Debugw("Popped a trigger event from the queue", "eventID", event.Event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
 		tm.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
-		if now.After(event.Deadline) { //TODO grace period
+		if now.After(event.Deadline.Add(c.expirationGraceDur(ctx, cw.lggr))) {
 			cw.lggr.Warnw("Trigger event is too old, skipping execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
 			tm.IncrementTriggerEventExpiredCounter(ctx)
 			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExpired)

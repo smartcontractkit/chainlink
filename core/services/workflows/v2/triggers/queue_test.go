@@ -3,6 +3,7 @@ package triggers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -476,4 +478,110 @@ func dataPointAttributes(t *testing.T, m metricdata.Metrics) []attribute.Set {
 		t.Fatalf("unexpected data type %T for %s", m.Data, m.Name)
 	}
 	return sets
+}
+
+func TestQueue_BlobSize(t *testing.T) {
+	t.Parallel()
+
+	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
+	require.NoError(t, q.Put(t.Context(), centralEvent("wf", 0, "a")))
+
+	// the size recorded at Put is that of the event as it appears in a blob: timestamps stripped
+	stripped := proto.CloneOf(q.events[0].pb)
+	stripped.ObservedAt, stripped.Deadline = nil, nil
+	want, err := proto.MarshalOptions{Deterministic: true}.Marshal(stripped)
+	require.NoError(t, err)
+	assert.Equal(t, len(want), q.events[0].blobSize)
+	assert.NotNil(t, q.events[0].pb.ObservedAt, "stored event keeps its timestamps")
+	assert.NotNil(t, q.events[0].pb.Deadline)
+}
+
+func TestQueue_SortedDropsOversize(t *testing.T) {
+	t.Parallel()
+
+	newQueue := func(t *testing.T) (q *CentralQueue, maxSmall int) {
+		q = newTestCentralQueue(t, &fakeLimit{limit: 10})
+		big := centralEvent("big-wf", 1, "big")
+		big.Event.Event.TriggerType = strings.Repeat("x", 5000)
+		a, b := centralEvent("wf", 0, "a"), centralEvent("wf", 0, "b")
+		a.Deadline = a.Deadline.Add(-time.Second) // explicit order: a, big, b
+		b.Deadline = b.Deadline.Add(time.Second)
+		require.NoError(t, q.Put(t.Context(), a))
+		require.NoError(t, q.Put(t.Context(), big))
+		require.NoError(t, q.Put(t.Context(), b))
+		return q, max(q.events[0].blobSize, q.events[2].blobSize)
+	}
+	ids := func(q *CentralQueue, limit, maxSize int) (got []string) {
+		for _, e := range q.Sorted(t.Context(), limit, maxSize) {
+			got = append(got, e.Event.Event.Id)
+		}
+		return
+	}
+
+	t.Run("oversize events are dropped, counted and no longer queued", func(t *testing.T) {
+		t.Parallel()
+		q, maxSmall := newQueue(t)
+
+		assert.ElementsMatch(t, []string{"a", "b"}, ids(q, 10, maxSmall))
+
+		stats, err := q.Stats(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, uint64(2), stats.Len)
+		assert.Equal(t, uint64(1), stats.DroppedByReason[monitoring.CentralTriggerQueueDropReasonOversize])
+		assert.Zero(t, stats.DepthByWorkflow["big-wf"])
+		assert.Equal(t, uint64(2), stats.DepthByWorkflow["wf"])
+
+		// dropping happens once
+		assert.ElementsMatch(t, []string{"a", "b"}, ids(q, 10, maxSmall))
+		stats, err = q.Stats(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), stats.DroppedByReason[monitoring.CentralTriggerQueueDropReasonOversize])
+	})
+
+	t.Run("an event exactly at the limit is kept", func(t *testing.T) {
+		t.Parallel()
+		q, maxSmall := newQueue(t)
+		assert.Len(t, ids(q, 10, maxSmall), 2)
+		assert.Len(t, ids(q, 10, maxSmall-1), 0, "one byte less and the small events no longer fit")
+	})
+
+	t.Run("no maximum disables filtering", func(t *testing.T) {
+		t.Parallel()
+		q, _ := newQueue(t)
+		assert.Len(t, ids(q, 10, 0), 3)
+		assert.Len(t, ids(q, 10, -1), 3)
+		stats, err := q.Stats(t.Context())
+		require.NoError(t, err)
+		assert.Zero(t, stats.DroppedByReason[monitoring.CentralTriggerQueueDropReasonOversize])
+	})
+
+	t.Run("only events that are pulled are examined", func(t *testing.T) {
+		t.Parallel()
+		q, maxSmall := newQueue(t) // sorted: a, big, b
+		assert.Equal(t, []string{"a"}, ids(q, 1, maxSmall), "stops after the first, never reaching big")
+		stats, err := q.Stats(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, uint64(3), stats.Len, "nothing was dropped")
+		assert.Zero(t, stats.DroppedByReason[monitoring.CentralTriggerQueueDropReasonOversize])
+	})
+
+	t.Run("breaking out still drops the oversize events already skipped", func(t *testing.T) {
+		t.Parallel()
+		q, maxSmall := newQueue(t)
+		for _, e := range q.Sorted(t.Context(), 10, maxSmall) { // sorted: a, big (skipped), b
+			if e.Event.Event.Id == "b" {
+				break
+			}
+		}
+		stats, err := q.Stats(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, uint64(2), stats.Len)
+		assert.Equal(t, uint64(1), stats.DroppedByReason[monitoring.CentralTriggerQueueDropReasonOversize])
+	})
+
+	t.Run("the limit applies after filtering", func(t *testing.T) {
+		t.Parallel()
+		q, maxSmall := newQueue(t)
+		assert.Len(t, ids(q, 1, maxSmall), 1)
+	})
 }

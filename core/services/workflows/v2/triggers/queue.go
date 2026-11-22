@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"container/heap"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"iter"
@@ -41,7 +42,10 @@ type Queue interface {
 	Stats(context.Context) (Stats, error)
 
 	// Sorted returns a sorted iterator over events, up to limit. Events remain but can be removed via Remove.
-	Sorted(limit int) iter.Seq2[[]byte, *pb.CoordinatedEvent]
+	// Events are filtered as they are pulled: those whose encoded size (without timestamps, i.e. as an element of a
+	// blob) exceeds maxEventBytes can never be observed, so they are skipped (not counting toward limit), and dropped
+	// from the queue (counted and logged) when iteration ends. maxEventBytes <= 0 disables this.
+	Sorted(ctx context.Context, limit, maxEventBytes int) iter.Seq2[[]byte, *pb.CoordinatedEvent]
 
 	// Remove removes events from the queue by execution ID.
 	//TODO can't ack with trigger event ID - not unique!
@@ -83,6 +87,7 @@ type centralQueueEvent struct {
 	pb           *pb.CoordinatedEvent
 	timelessHash []byte
 	executionID  string
+	blobSize     int // encoded size of pb without timestamps: its size as an element of a blob
 }
 
 func (q *centralQueueEvent) Compare(other centralQueueEvent) int {
@@ -116,10 +121,11 @@ func (q *CentralQueue) Put(ctx context.Context, e CoordinatedEvent) error {
 		return ErrQueueFull
 	}
 	pbe := e.ToProto()
-	timelessHash, err := pbe.TimelessHash()
+	timelessBytes, err := pbe.MarshalTimeless() // as it appears in a blob: hashed, and sized for the oversize filter
 	if err != nil {
-		return fmt.Errorf("failed to compute timeless hash: %w", err)
+		return fmt.Errorf("failed to marshal event without timestamps: %w", err)
 	}
+	timelessHash := sha256.Sum256(timelessBytes)
 	execID, err := workflows.GenerateExecutionIDWithTriggerIndex(e.WorkflowID, e.Event.Event.ID, e.TriggerIndex)
 	if err != nil {
 		return fmt.Errorf("failed to generate execution ID: %w", err)
@@ -127,8 +133,9 @@ func (q *CentralQueue) Put(ctx context.Context, e CoordinatedEvent) error {
 	q.events = append(q.events, centralQueueEvent{
 		CoordinatedEvent: e,
 		pb:               pbe,
-		timelessHash:     timelessHash,
+		timelessHash:     timelessHash[:],
 		executionID:      execID,
+		blobSize:         len(timelessBytes),
 	})
 	q.depthByWorkflow[e.WorkflowID]++
 	q.depthByTriggerType[e.TriggerCapID]++
@@ -187,7 +194,7 @@ func (q *CentralQueue) Remove(ctx context.Context, executionIDs iter.Seq[string]
 	return
 }
 
-func (q *CentralQueue) Sorted(limit int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {
+func (q *CentralQueue) Sorted(ctx context.Context, limit, maxEventBytes int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {
 	q.mu.Lock()
 	events := priorityQueue(slices.Clone(q.events))
 	q.mu.Unlock()
@@ -195,12 +202,53 @@ func (q *CentralQueue) Sorted(limit int) iter.Seq2[[]byte, *pb.CoordinatedEvent]
 	heap.Init(&events)
 
 	return func(yield func([]byte, *pb.CoordinatedEvent) bool) {
-		for count := 0; events.Len() > 0 && count < limit; count++ {
+		// Events are only examined as they are pulled. Those too large to ever be observed are skipped (they do not
+		// count toward limit), and then dropped from the queue once the caller is done pulling.
+		var oversize []centralQueueEvent
+		defer func() { q.dropOversize(ctx, oversize, maxEventBytes) }()
+
+		for count := 0; events.Len() > 0 && count < limit; {
 			cqe := heap.Pop(&events).(centralQueueEvent)
+			if maxEventBytes > 0 && cqe.blobSize > maxEventBytes {
+				oversize = append(oversize, cqe)
+				continue
+			}
+			count++
 			if !yield(cqe.timelessHash, proto.CloneOf(cqe.pb)) {
 				return
 			}
 		}
+	}
+}
+
+// dropOversize removes the events from the queue, if they are still there.
+// TODO should we fall back to executing instead of just dropping?
+func (q *CentralQueue) dropOversize(ctx context.Context, oversize []centralQueueEvent, maxEventBytes int) {
+	if len(oversize) == 0 {
+		return
+	}
+	executionIDs := make(map[string]struct{}, len(oversize))
+	for _, cqe := range oversize {
+		executionIDs[cqe.executionID] = struct{}{}
+	}
+
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	var dropped int
+	q.events = slices.DeleteFunc(q.events, func(cqe centralQueueEvent) bool {
+		if _, ok := executionIDs[cqe.executionID]; !ok {
+			return false
+		}
+		dropped++
+		q.depthByWorkflow[cqe.WorkflowID]--
+		q.depthByTriggerType[cqe.TriggerCapID]--
+		q.lggr.Errorw("Dropping event too large to be observed", "workflowID", cqe.WorkflowID, "executionID", cqe.executionID,
+			"size", cqe.blobSize, "maxSize", maxEventBytes)
+		q.drop(ctx, monitoring.CentralTriggerQueueDropReasonOversize)
+		return true
+	})
+	if dropped > 0 {
+		q.metrics.RecordDepth(ctx, len(q.events))
 	}
 }
 

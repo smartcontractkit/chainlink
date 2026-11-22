@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -15,6 +16,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 )
+
+// numKVKeys is the number of KV keys written each round.
+const numKVKeys = 4
 
 // KV store keys
 const (
@@ -254,10 +258,12 @@ func (s *kvState) sizeOfObservedEvents() int {
 }
 
 func (s *kvState) sizeOfQueuedEvents() int {
+	s.prepareWriteBlobHandles() // events must carry their blob refs to be sized accurately
 	return proto.MarshalOptions{Deterministic: true}.Size(&pb.ConsensusQueueEventList{Events: s.queuedEvents})
 }
 
 func (s *kvState) sizeOfConsensusEvents() int {
+	s.prepareWriteBlobHandles() // events must carry their blob refs to be sized accurately
 	return proto.MarshalOptions{Deterministic: true}.Size(&pb.ConsensusQueueEventList{Events: s.consensusEvents})
 }
 
@@ -277,7 +283,7 @@ func (s *kvState) prepareWriteObservedEvents() {
 	for _, eventHash := range slices.SortedFunc(maps.Keys(s.observedEvents), func(a string, b string) int {
 		ea, eb := s.observedEvents[a], s.observedEvents[b]
 		//TODO can we use deadline here? is median valid & best option? (only have f+1)
-		return cmp.Or(cmp.Compare(len(eb.NodeIds), len(ea.NodeIds)), cmp.Compare(eb.ExecutionID, ea.ExecutionID))
+		return cmp.Or(cmp.Compare(len(eb.NodeIds), len(ea.NodeIds)), cmp.Compare(a, b))
 	}) {
 		event := s.observedEvents[eventHash]
 		event.Blobs = nil // replace all
@@ -305,7 +311,10 @@ func (s *kvState) prepareWriteBlobHandles() {
 	s.queuedBlobHandles = nil
 	queuedBlobIndexes := make(map[string]int)
 	addBlobs := func(blobs map[string]uint32) []*pb.CoordinatedEventBlobHandle {
-		var blobHandles []*pb.CoordinatedEventBlobHandle
+		if len(blobs) == 0 {
+			return nil
+		}
+		blobHandles := make([]*pb.CoordinatedEventBlobHandle, 0, len(blobs))
 		for _, blobHandle := range slices.Sorted(maps.Keys(blobs)) {
 			ei := blobs[blobHandle]
 			idx, ok := queuedBlobIndexes[blobHandle]
@@ -329,10 +338,34 @@ func (s *kvState) prepareWriteBlobHandles() {
 	}
 }
 
+// trimConsensusEvents moves the lowest priority consensus events (the last ones) back to the queue until the consensus
+// events and the blob handles fit: each in a value, and together in half of maxTotalBytes. The blob handles cover every
+// queued and consensus event, so they are the same wherever an event sits, and the events can be sized once.
+func (s *kvState) trimConsensusEvents(maxTotalBytes int) {
+	s.prepareWriteBlobHandles() // events carry their blob refs, and the handles are collected
+	blobs := proto.MarshalOptions{Deterministic: true}.Size(&pb.ConsensusQueueBlobHandleList{BlobHandles: s.queuedBlobHandles})
+
+	var events, n int
+	for ; n < len(s.consensusEvents); n++ {
+		next := events + protowire.SizeTag(1) + protowire.SizeBytes(proto.Size(s.consensusEvents[n])) // as an element of the list
+		if next > maxKeyValueValueBytes || blobs > maxKeyValueValueBytes || next+blobs > maxTotalBytes/2 {
+			break
+		}
+		events = next
+	}
+	for _, event := range s.consensusEvents[n:] {
+		s.queuedEvents.push(event)
+	}
+	s.consensusEvents = s.consensusEvents[:n]
+}
+
 // writeAll writes full state to the KV store, including consensus events.
 // prepareWrite must be called to include blob handles.
 func (s *kvState) writeTo(w *stateWriter) error {
 	//TODO MarshalOptions{UseCachedSize}?
+
+	s.prepareWriteObservedEvents()
+	s.prepareWriteBlobHandles()
 
 	err := w.writeValue(observedEventsKey, &pb.ConsensusQueueObservedEvents{Observations: s.observedEventEntries, BlobHandles: s.observedBlobHandles})
 	if err != nil {
@@ -359,8 +392,9 @@ func (s *kvState) writeTo(w *stateWriter) error {
 
 func (s *kvState) pruneExpiredObservations(expiration time.Time) {
 	maps.DeleteFunc(s.observedEvents, func(k string, v *pb.ConsensusQueueObservedEvent) bool {
+		// a deadline equal to the expiration is not expired, consistent with popLimited
 		if !slices.ContainsFunc(v.Deadlines, func(t *timestamppb.Timestamp) bool {
-			return t.AsTime().After(expiration)
+			return !t.AsTime().Before(expiration)
 		}) {
 			return true // all deadlines expired, so delete the whole thing
 		}
@@ -384,7 +418,14 @@ func (s *kvState) pruneExpiredObservations(expiration time.Time) {
 // addObserved adds the observed events to the set, promoting to the priority queue on 2f+1 and calling onQueued.
 // Events with fewer than f+1 observations are ignored.
 func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueObservedEvent, observedBlobs blobHandleMap, onQueued func(event *pb.ConsensusQueueEvent)) {
+	alreadyQueued := make(map[string]struct{}, len(s.queuedEvents))
+	for _, e := range s.queuedEvents {
+		alreadyQueued[string(e.TimelessHash)] = struct{}{}
+	}
 	for _, eventHash := range slices.Sorted(maps.Keys(toAdd)) {
+		if _, ok := alreadyQueued[eventHash]; ok {
+			continue // already waiting for capacity; promoting it again would duplicate it
+		}
 		eventToAdd := toAdd[eventHash]
 		obsEvent, ok := s.observedEvents[eventHash]
 		if !ok {

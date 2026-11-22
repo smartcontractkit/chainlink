@@ -857,6 +857,56 @@ func TestCoordinator_Admission(t *testing.T) {
 		assert.Equal(t, []string{"evt-1", "evt-2"}, f.engine.executedIDs(), "evt-3 must never reach ExecuteTrigger")
 	})
 
+	t.Run("an event past its deadline but within the grace period still executes; past the grace it is dropped", func(t *testing.T) {
+		t.Parallel()
+		for _, tt := range []struct {
+			name         string
+			grace        func(context.Context) (time.Duration, error)
+			advance      time.Duration
+			wantExecuted []string
+			wantExpired  int64
+		}{
+			{"within grace", func(context.Context) (time.Duration, error) { return 5 * time.Minute, nil }, 2 * time.Minute, []string{"evt-1", "evt-2", "evt-3"}, 0},
+			{"past grace", func(context.Context) (time.Duration, error) { return time.Minute, nil }, 3 * time.Minute, []string{"evt-1", "evt-2"}, 1},
+			{"grace read error still uses the returned default", func(context.Context) (time.Duration, error) { return 5 * time.Minute, errors.New("boom") }, 2 * time.Minute, []string{"evt-1", "evt-2", "evt-3"}, 0},
+			{"negative grace is treated as none", func(context.Context) (time.Duration, error) { return -time.Hour, nil }, 2 * time.Minute, []string{"evt-1", "evt-2"}, 1},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				admission, pool := singleSlot(func(a *AdmissionLimiters) {
+					a.TriggerEventQueueTimeout = limits.NewUpperBoundLimiter(time.Minute)
+				})
+				wfMetrics, reader := newTestMeterMetrics(t)
+				f := newCoordinatorFixture(t, withAdmission(admission), withMetrics(wfMetrics), withCoordinatorOptions(WithExpirationGrace(tt.grace)))
+				trigger, eventCh := f.expectTrigger(t)
+				trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+				release := f.holdExecutions(t)
+				_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+				require.NoError(t, err)
+
+				eventCh <- triggerEvent("evt-1")
+				require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+				eventCh <- triggerEvent("evt-2")
+				require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond)
+				eventCh <- triggerEvent("evt-3")
+				require.Eventually(t, func() bool { return queueLen(t, f) == 1 }, 5*time.Second, 5*time.Millisecond)
+
+				f.clock.Advance(tt.advance) // evt-3's 1-minute deadline passes while it is queued
+				release()
+
+				if tt.wantExpired == 0 {
+					require.Eventually(t, func() bool { return len(f.engine.executed()) == len(tt.wantExecuted) }, 5*time.Second, 5*time.Millisecond)
+				} else {
+					expired := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonExpired}
+					require.Eventually(t, func() bool {
+						return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", expired) == tt.wantExpired
+					}, 5*time.Second, 5*time.Millisecond)
+				}
+				assert.Equal(t, tt.wantExecuted, f.engine.executedIDs())
+			})
+		}
+	})
+
 	t.Run("the deadline is stamped at dispatch, so a later timeout change does not move it", func(t *testing.T) {
 		t.Parallel()
 		timeout := &mutableTimeoutLimiter{value: time.Minute}

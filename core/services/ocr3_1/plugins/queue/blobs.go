@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -64,6 +65,16 @@ func fetchCoordinatedEventFromBlob(ctx context.Context, fetcher *blobCache, hand
 
 const coordinatedEventsFieldNumber = 1 // pb.CoordinatedEventList.Events
 
+// maxEventFramingOverhead is the most framing (field tag + length prefix) an event adds as an element of a blob.
+// The length prefix is at most as long as the varint of the blob payload limit, which is capped by MaxMaxBlobPayloadBytes.
+var maxEventFramingOverhead = protowire.SizeTag(coordinatedEventsFieldNumber) + protowire.SizeVarint(uint64(ocr3_1types.MaxMaxBlobPayloadBytes))
+
+// maxEventBytes returns the largest encoded event (without timestamps) guaranteed to fit alone in a blob.
+// It is conservative by at most a few bytes.
+func (c *consensusQueuePlugin) maxEventBytes() int {
+	return max(0, c.limits.MaxBlobPayloadBytes-maxEventFramingOverhead)
+}
+
 // extractEvent extracts the idx-th event from the blob, without unmarshaling any other events.
 func extractEvent(b []byte, idx int) (*pb.CoordinatedEvent, []byte, error) {
 	i := 0
@@ -103,35 +114,76 @@ func extractEvent(b []byte, idx int) (*pb.CoordinatedEvent, []byte, error) {
 	return nil, nil, fmt.Errorf("index %d out of range", idx)
 }
 
-// broadcastAsBlob broadcasts a blob with as many coordinated events as possible, returning the blob handle and count of events included.
-func (c *consensusQueuePlugin) broadcastAsBlob(ctx context.Context, broadcaster ocr3_1types.BlobBroadcaster, events []*pb.CoordinatedEvent,
-	seqNr uint64) (blobHandle []byte, n int, err error) {
+const (
+	// minBlobLifetime is the least time a blob is kept past the events in it expiring. Peers reap expired blobs
+	// asynchronously, and nodes that are behind, or that never received the blob, need time to fetch it.
+	minBlobLifetime = 30 * time.Second
+	// minBlobLifetimeRounds is the fewest rounds a blob is kept, however the round interval compares to minBlobLifetime.
+	// The events in it are executed in Committed for its round and in the Observation of the next, which both fetch it.
+	minBlobLifetimeRounds = 3
+)
+
+// blobExpirySeqNr returns the sequence number at which a blob broadcast in round seqNr may expire, so that it outlives
+// the time remaining until its last event expires, plus minBlobLifetime.
+//
+// The time is converted to rounds by dividing by the estimated round interval, which in OCR3.1 is DeltaRound: the
+// leader waits at least that long between rounds. Rounds are normally longer, so this over-counts the rounds in the
+// remaining time and keeps the blob a little longer than needed. That is the safe direction, as an early expiry
+// loses events but a late one only holds storage. Partial rounds are rounded up. If the interval is unknown, the blob
+// is kept for minBlobLifetimeRounds.
+func blobExpirySeqNr(seqNr uint64, remaining, roundDur time.Duration) uint64 {
+	rounds := uint64(minBlobLifetimeRounds)
+	if roundDur > 0 {
+		lifetime := max(0, remaining) + minBlobLifetime
+		rounds = max(rounds, uint64((lifetime+roundDur-1)/roundDur))
+	}
+	return seqNr + rounds
+}
+
+// blobPrefix returns how many of the events (from the first) fit in one blob.
+func (c *consensusQueuePlugin) blobPrefix(events []*pb.CoordinatedEvent) int {
 	protoOpts := proto.MarshalOptions{Deterministic: true}
-	for ; len(events) > 0 && protoOpts.Size(&pb.CoordinatedEventList{Events: events}) > c.limits.MaxBlobPayloadBytes; events = events[:len(events)-1] {
-		//TODO opt: binary search for largest fit instead....
-	}
-	n = len(events)
-	if n == 0 {
-		return nil, 0, errors.New("failed to package any events in blob")
-	}
+	return sort.Search(len(events), func(i int) bool {
+		return protoOpts.Size(&pb.CoordinatedEventList{Events: events[:i+1]}) > c.limits.MaxBlobPayloadBytes
+	})
+}
+
+// broadcastBlob broadcasts a blob with all of the events, which must fit, and returns its marshaled handle.
+func (c *consensusQueuePlugin) broadcastBlob(ctx context.Context, broadcaster ocr3_1types.BlobBroadcaster, events []*pb.CoordinatedEvent, seqNr uint64) ([]byte, error) {
 	var maxDeadline time.Time
 	for _, event := range events {
 		if t := event.Deadline.AsTime(); t.After(maxDeadline) {
 			maxDeadline = t
 		}
 	}
-	roundDur := c.onchainCfg.EstimatedRoundInterval //TODO OK? pad?
-	//TODO pad extra time and/or rounds?
-	expSeqNr := seqNr + uint64(time.Until(maxDeadline)/roundDur)
-
-	data, err := protoOpts.Marshal(&pb.CoordinatedEventList{Events: events})
+	// An event is kept until its deadline plus the grace period, so its blob must be too.
+	grace, err := c.expirationDur(ctx)
 	if err != nil {
-		return nil, -1, fmt.Errorf("failed to marshal blob: %w", err)
+		c.lggr.Warnw("Failed to get expiration grace duration - using default", "grace", grace, "err", err)
+	}
+	expSeqNr := blobExpirySeqNr(seqNr, time.Until(maxDeadline.Add(max(0, grace))), c.onchainCfg.EstimatedRoundInterval)
+
+	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(&pb.CoordinatedEventList{Events: events})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal blob: %w", err)
 	}
 	bh, err := broadcaster.BroadcastBlob(ctx, data, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: expSeqNr})
 	if err != nil {
-		return nil, -1, fmt.Errorf("failed to broadcast blob: %w", err)
+		return nil, fmt.Errorf("failed to broadcast blob: %w", err)
 	}
-	blobHandle, err = bh.MarshalBinary()
-	return
+	return bh.MarshalBinary()
+}
+
+// broadcastAsBlob broadcasts a blob with as many coordinated events as possible, returning the blob handle and count of events included.
+func (c *consensusQueuePlugin) broadcastAsBlob(ctx context.Context, broadcaster ocr3_1types.BlobBroadcaster, events []*pb.CoordinatedEvent,
+	seqNr uint64) (blobHandle []byte, n int, err error) {
+	n = c.blobPrefix(events)
+	if n == 0 {
+		return nil, 0, errors.New("failed to package any events in blob")
+	}
+	blobHandle, err = c.broadcastBlob(ctx, broadcaster, events[:n], seqNr)
+	if err != nil {
+		return nil, -1, err
+	}
+	return blobHandle, n, nil
 }

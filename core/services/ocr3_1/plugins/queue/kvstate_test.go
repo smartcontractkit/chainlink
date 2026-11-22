@@ -1,0 +1,664 @@
+package queue
+
+import (
+	"container/heap"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+)
+
+// memKV is an in-memory ocr3_1types.KeyValueStateReadWriter.
+type memKV map[string][]byte
+
+func (m memKV) Read(k []byte) ([]byte, error) { return m[string(k)], nil }
+func (m memKV) Write(k, v []byte) error {
+	if v == nil {
+		v = []byte{}
+	}
+	m[string(k)] = v
+	return nil
+}
+func (m memKV) Delete(k []byte) error { delete(m, string(k)); return nil }
+
+func qEvent(wf, execID, hash string, deadlineSec int64) *pb.ConsensusQueueEvent {
+	return &pb.ConsensusQueueEvent{
+		WorkflowID: wf, ExecutionID: execID, TimelessHash: []byte(hash),
+		ObservedAt: ts(deadlineSec - 1), Deadline: ts(deadlineSec),
+	}
+}
+
+// obsEvent is an observed event seen by the given nodes, each with deadline base+nodeID.
+func obsEvent(wf, execID string, base int64, nodes ...byte) *pb.ConsensusQueueObservedEvent {
+	e := &pb.ConsensusQueueObservedEvent{WorkflowID: wf, ExecutionID: execID, NodeIds: nodes}
+	for _, n := range nodes {
+		e.ObservedAts = append(e.ObservedAts, ts(base+int64(n)-1))
+		e.Deadlines = append(e.Deadlines, ts(base+int64(n)))
+	}
+	return e
+}
+
+func newKVState() *kvState {
+	return &kvState{
+		observedEvents: map[string]*pb.ConsensusQueueObservedEvent{},
+		observedBlobs:  blobHandleMap{},
+		queuedBlobs:    blobHandleMap{},
+	}
+}
+
+func TestPriorityQueue_Order(t *testing.T) {
+	t.Parallel()
+
+	var pq priorityQueue
+	pq.push(qEvent("wf", "c", "h3", 30))
+	pq.push(qEvent("wf", "a", "h2", 10)) // same deadline as next, ordered by hash
+	pq.push(qEvent("wf", "b", "h1", 10))
+	pq.push(qEvent("wf", "d", "h4", 20))
+
+	var got []string
+	for pq.Len() > 0 {
+		got = append(got, string(pq.mustPop().TimelessHash))
+	}
+	require.Equal(t, []string{"h1", "h2", "h4", "h3"}, got)
+	require.Nil(t, pq.mustPop(), "empty queue pops nil")
+}
+
+func TestPriorityQueue_RevOrder(t *testing.T) {
+	t.Parallel()
+
+	pq := priorityQueue{qEvent("wf", "a", "h1", 10), qEvent("wf", "b", "h2", 30), qEvent("wf", "c", "h3", 20)}
+	rev := &revPriorityQueue{priorityQueue: &pq}
+	heap.Init(rev)
+	require.Equal(t, "h2", string(heap.Pop(rev).(*pb.ConsensusQueueEvent).TimelessHash), "latest deadline first")
+}
+
+func TestPopLimited(t *testing.T) {
+	t.Parallel()
+
+	now := int64(100)
+	expiration := time.Unix(now, 0)
+
+	t.Run("drops expired", func(t *testing.T) {
+		t.Parallel()
+		var pq priorityQueue
+		pq.push(qEvent("wf", "old", "h1", now-10))
+		pq.push(qEvent("wf", "new", "h2", now+10))
+		got := pq.popLimited(map[string]uint32{"wf": 5}, expiration)
+		require.NotNil(t, got)
+		assert.Equal(t, "new", got.ExecutionID)
+		assert.Equal(t, 0, pq.Len(), "expired event is dropped, not restored")
+	})
+
+	t.Run("workflow capacity limits and restores", func(t *testing.T) {
+		t.Parallel()
+		var pq priorityQueue
+		pq.push(qEvent("full", "a", "h1", now+1)) // first by deadline, but no capacity
+		pq.push(qEvent("ok", "b", "h2", now+2))
+		caps := map[string]uint32{"ok": 1}
+		got := pq.popLimited(caps, expiration)
+		require.NotNil(t, got)
+		assert.Equal(t, "b", got.ExecutionID)
+		assert.Equal(t, uint32(0), caps["ok"], "capacity is decremented")
+		require.Equal(t, 1, pq.Len(), "limited event is restored")
+		assert.Equal(t, "a", pq.mustPop().ExecutionID)
+	})
+
+	t.Run("absent workflow has no capacity", func(t *testing.T) {
+		t.Parallel()
+		var pq priorityQueue
+		pq.push(qEvent("unknown", "a", "h1", now+1))
+		require.Nil(t, pq.popLimited(map[string]uint32{}, expiration))
+		assert.Equal(t, 1, pq.Len())
+	})
+
+	t.Run("empty", func(t *testing.T) {
+		t.Parallel()
+		var pq priorityQueue
+		require.Nil(t, pq.popLimited(nil, expiration))
+	})
+}
+
+func TestBlobHandleMap(t *testing.T) {
+	t.Parallel()
+
+	m := blobHandleMap{}
+	m.add("h1", "b1", 3)
+	m.add("h1", "b2", 4)
+	m.addAll("h1", map[string]uint32{"b2": 9, "b3": 1})
+	m.addAll("h2", nil)
+
+	assert.Equal(t, map[string]uint32{"b1": 3, "b2": 9, "b3": 1}, m["h1"], "addAll overwrites and merges")
+	assert.Contains(t, m, "h2")
+	assert.Empty(t, m["h2"])
+}
+
+func TestPruneExpiredObservations(t *testing.T) {
+	t.Parallel()
+
+	expiration := time.Unix(100, 0)
+
+	t.Run("all expired deletes entry", func(t *testing.T) {
+		t.Parallel()
+		s := newKVState()
+		s.observedEvents["gone"] = obsEvent("wf", "e1", 10, 1, 2)
+		s.pruneExpiredObservations(expiration)
+		assert.Empty(t, s.observedEvents)
+	})
+
+	t.Run("none expired keeps entry intact", func(t *testing.T) {
+		t.Parallel()
+		s := newKVState()
+		s.observedEvents["keep"] = obsEvent("wf", "e1", 200, 1, 2)
+		s.pruneExpiredObservations(expiration)
+		require.Contains(t, s.observedEvents, "keep")
+		assert.Equal(t, []byte{1, 2}, s.observedEvents["keep"].NodeIds)
+	})
+
+	t.Run("partially expired removes only expired and keeps slices aligned", func(t *testing.T) {
+		t.Parallel()
+		s := newKVState()
+		e := obsEvent("wf", "e1", 0, 1, 2, 3, 4)
+		// nodes 1 & 3 expired, 2 & 4 live
+		e.Deadlines = []*timestamppb.Timestamp{ts(50), ts(150), ts(60), ts(160)}
+		s.observedEvents["h"] = e
+		s.pruneExpiredObservations(expiration)
+
+		got := s.observedEvents["h"]
+		require.NotNil(t, got)
+		assert.Equal(t, []byte{2, 4}, got.NodeIds)
+		require.Len(t, got.Deadlines, 2)
+		require.Len(t, got.ObservedAts, 2)
+		assert.Equal(t, int64(150), got.Deadlines[0].Seconds)
+		assert.Equal(t, int64(160), got.Deadlines[1].Seconds)
+		assert.Equal(t, int64(1), got.ObservedAts[0].Seconds, "observedAts stay paired with node 2")
+		assert.Equal(t, int64(3), got.ObservedAts[1].Seconds, "observedAts stay paired with node 4")
+	})
+}
+
+func TestAddObservedEvents(t *testing.T) {
+	t.Parallel()
+	const f = 1
+
+	collect := func(into *[]*pb.ConsensusQueueEvent) func(*pb.ConsensusQueueEvent) {
+		return func(e *pb.ConsensusQueueEvent) { *into = append(*into, e) }
+	}
+
+	t.Run("fewer than f+1 is ignored", func(t *testing.T) {
+		t.Parallel()
+		s := newKVState()
+		var queued []*pb.ConsensusQueueEvent
+		s.addObservedEvents(f, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "e", 100, 1)}, blobHandleMap{}, collect(&queued))
+		assert.Empty(t, s.observedEvents)
+		assert.Empty(t, s.queuedEvents)
+		assert.Empty(t, queued)
+	})
+
+	t.Run("f+1 goes to observed set", func(t *testing.T) {
+		t.Parallel()
+		s := newKVState()
+		var queued []*pb.ConsensusQueueEvent
+		blobs := blobHandleMap{}
+		blobs.add("h", "blob", 0)
+		s.addObservedEvents(f, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "e", 100, 1, 2)}, blobs, collect(&queued))
+		require.Contains(t, s.observedEvents, "h")
+		assert.Empty(t, s.queuedEvents)
+		assert.Empty(t, queued)
+		assert.Equal(t, map[string]uint32{"blob": 0}, s.observedBlobs["h"])
+	})
+
+	t.Run("2f+1 goes straight to the priority queue", func(t *testing.T) {
+		t.Parallel()
+		s := newKVState()
+		var queued []*pb.ConsensusQueueEvent
+		blobs := blobHandleMap{}
+		blobs.add("h", "blob", 0)
+		s.addObservedEvents(f, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "e", 100, 1, 2, 3)}, blobs, collect(&queued))
+		assert.Empty(t, s.observedEvents)
+		require.Len(t, s.queuedEvents, 1)
+		require.Len(t, queued, 1)
+		assert.Equal(t, "h", string(queued[0].TimelessHash))
+		assert.Equal(t, int64(102), queued[0].Deadline.Seconds, "median of 101,102,103")
+		assert.Equal(t, map[string]uint32{"blob": 0}, s.queuedBlobs["h"])
+	})
+
+	t.Run("update promotes at 2f+1 and carries blobs", func(t *testing.T) {
+		t.Parallel()
+		s := newKVState()
+		var queued []*pb.ConsensusQueueEvent
+		// previously observed by nodes 1 & 2 (with their blob)
+		s.observedEvents["h"] = obsEvent("wf", "e", 100, 1, 2)
+		s.observedBlobs.add("h", "old-blob", 1)
+
+		newBlobs := blobHandleMap{}
+		newBlobs.add("h", "new-blob", 5)
+		// node 3 is new; node 2 re-observes with a new deadline
+		toAdd := obsEvent("wf", "e", 100, 2, 3)
+		toAdd.Deadlines[0] = ts(500)
+		s.addObservedEvents(f, map[string]*pb.ConsensusQueueObservedEvent{"h": toAdd}, newBlobs, collect(&queued))
+
+		assert.Empty(t, s.observedEvents, "promoted out of the observed set")
+		assert.Empty(t, s.observedBlobs, "observed blobs moved")
+		require.Len(t, queued, 1)
+		assert.Equal(t, map[string]uint32{"old-blob": 1, "new-blob": 5}, s.queuedBlobs["h"])
+	})
+
+	t.Run("update below 2f+1 stays observed and does not panic", func(t *testing.T) {
+		t.Parallel()
+		s := newKVState()
+		s.observedEvents["h"] = obsEvent("wf", "e", 100, 1, 2)
+		toAdd := obsEvent("wf", "e", 200, 2) // existing node, overwrite
+		require.NotPanics(t, func() {
+			s.addObservedEvents(f, map[string]*pb.ConsensusQueueObservedEvent{"h": toAdd}, blobHandleMap{}, func(*pb.ConsensusQueueEvent) {})
+		})
+		got := s.observedEvents["h"]
+		require.NotNil(t, got)
+		assert.Equal(t, []byte{1, 2}, got.NodeIds)
+		assert.Equal(t, int64(202), got.Deadlines[1].Seconds, "node 2's deadline overwritten")
+	})
+}
+
+func TestKVState_RoundTrip(t *testing.T) {
+	t.Parallel()
+
+	s := newKVState()
+	s.observedEvents["obs"] = obsEvent("wf", "e-obs", 100, 1, 2)
+	s.observedBlobs.add("obs", "blobA", 0)
+	s.queuedEvents.push(qEvent("wf", "e-q", "q", 300))
+	s.queuedBlobs.add("q", "blobB", 2)
+	s.consensusEvents = append(s.consensusEvents, qEvent("wf", "e-c", "c", 200))
+	s.queuedBlobs.add("c", "blobB", 7)
+
+	// size* calls prepare the write; mirrors what StateTransition does.
+	require.Positive(t, s.sizeOf())
+
+	kv := memKV{}
+	require.NoError(t, s.writeTo(&stateWriter{kv: kv}))
+
+	var loaded kvState
+	require.NoError(t, loaded.loadFrom(kv))
+	require.Contains(t, loaded.observedEvents, "obs")
+	assert.Equal(t, map[string]uint32{"blobA": 0}, loaded.observedBlobs["obs"])
+	require.Len(t, loaded.queuedEvents, 1)
+	assert.Equal(t, map[string]uint32{"blobB": 2}, loaded.queuedBlobs["q"])
+
+	consensus, handles, err := readConsensusState(kv)
+	require.NoError(t, err)
+	require.Len(t, consensus, 1)
+	require.Len(t, consensus[0].Blobs, 1)
+	assert.Equal(t, "blobB", string(handles[consensus[0].Blobs[0].Blob]))
+	assert.Equal(t, uint32(7), consensus[0].Blobs[0].Element)
+}
+
+// writeTo is called by StateTransition without any size check having run first when no events are popped/pruned.
+// It must still persist observed events and blob handles.
+func TestKVState_WriteToWithoutSizeCheck(t *testing.T) {
+	t.Parallel()
+
+	s := newKVState()
+	s.observedEvents["obs"] = obsEvent("wf", "e-obs", 100, 1, 2)
+	s.observedBlobs.add("obs", "blobA", 0)
+	s.queuedEvents.push(qEvent("wf", "e-q", "q", 300))
+	s.queuedBlobs.add("q", "blobB", 2)
+
+	kv := memKV{}
+	require.NoError(t, s.writeTo(&stateWriter{kv: kv}))
+
+	var loaded kvState
+	require.NoError(t, loaded.loadFrom(kv))
+	assert.Contains(t, loaded.observedEvents, "obs", "observed events must be persisted")
+	require.Len(t, loaded.queuedEvents, 1)
+	assert.Equal(t, map[string]uint32{"blobB": 2}, loaded.queuedBlobs["q"], "queued event must keep its blob reference")
+}
+
+func TestPrepareWriteObservedEvents_Order(t *testing.T) {
+	t.Parallel()
+
+	s := newKVState()
+	s.observedEvents["few"] = obsEvent("wf", "zzz", 100, 1, 2)
+	s.observedEvents["many"] = obsEvent("wf", "b", 100, 1, 2, 3)
+	s.observedEvents["tie-x"] = obsEvent("wf", "same", 100, 1, 2)
+	s.observedEvents["tie-y"] = obsEvent("wf", "same", 100, 1, 2)
+
+	order := func() (got []string) {
+		s.prepareWriteObservedEvents()
+		for _, e := range s.observedEventEntries {
+			got = append(got, string(e.TimelessHash))
+		}
+		return
+	}
+	first := order()
+	require.Equal(t, "many", first[0], "most endorsed first, so the last (pruned) is the least endorsed")
+	require.Equal(t, []string{"few", "tie-x", "tie-y"}, first[1:], "ties on votes break on hash")
+	for range 50 { // map iteration is random; ties on votes and execution ID must still order identically
+		require.Equal(t, first, order())
+	}
+}
+
+// errKV fails reads and/or writes of specific keys.
+type errKV struct {
+	memKV
+	readErrKey, writeErrKey string
+}
+
+func (e *errKV) Read(k []byte) ([]byte, error) {
+	if string(k) == e.readErrKey {
+		return nil, errBoom
+	}
+	return e.memKV.Read(k)
+}
+
+func (e *errKV) Write(k, v []byte) error {
+	if string(k) == e.writeErrKey {
+		return errBoom
+	}
+	return e.memKV.Write(k, v)
+}
+
+var allKeys = []string{observedEventsKey, queuedEventsKey, consensusEventsKey, blobHandlesKey}
+
+func TestPriorityQueue_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	var nilPQ *priorityQueue
+	assert.Equal(t, 0, nilPQ.Len())
+
+	var pq priorityQueue
+	assert.Nil(t, pq.Pop())
+	assert.Nil(t, pq.mustPop())
+}
+
+func TestQueueObservations(t *testing.T) {
+	t.Parallel()
+
+	s := newKVState()
+	got := s.queueObservations("hash", obsEvent("wf", "exec", 100, 1, 2, 3))
+
+	assert.Equal(t, "wf", got.WorkflowID)
+	assert.Equal(t, "exec", got.ExecutionID)
+	assert.Equal(t, []byte("hash"), got.TimelessHash)
+	assert.Equal(t, int64(101), got.ObservedAt.Seconds, "median of 100,101,102")
+	assert.Equal(t, int64(102), got.Deadline.Seconds, "median of 101,102,103")
+	assert.Empty(t, got.Blobs, "blobs are tracked separately and attached on write")
+	require.Len(t, s.queuedEvents, 1)
+	assert.Same(t, got, s.queuedEvents[0])
+}
+
+func TestPopLimited_Sequence(t *testing.T) {
+	t.Parallel()
+
+	var pq priorityQueue
+	for i, d := range []int64{400, 100, 300, 200} {
+		pq.push(qEvent("a", string(rune('a'+i)), string(rune('a'+i)), d))
+	}
+	caps := map[string]uint32{"a": 2}
+	past := time.Unix(0, 0)
+
+	assert.Equal(t, int64(100), pq.popLimited(caps, past).Deadline.Seconds)
+	assert.Equal(t, int64(200), pq.popLimited(caps, past).Deadline.Seconds)
+	assert.Nil(t, pq.popLimited(caps, past), "workflow capacity exhausted")
+	require.Equal(t, 2, pq.Len(), "limited events are restored")
+
+	caps["a"] = 5
+	assert.Equal(t, int64(300), pq.popLimited(caps, past).Deadline.Seconds, "restored events keep priority order")
+	assert.Equal(t, int64(400), pq.popLimited(caps, past).Deadline.Seconds)
+}
+
+func TestReadFunctions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("absent keys read as empty", func(t *testing.T) {
+		t.Parallel()
+		kv := memKV{}
+
+		queued, err := readQueuedEvents(kv)
+		require.NoError(t, err)
+		assert.Empty(t, queued)
+
+		observed, blobs, err := readObservedEvents(kv)
+		require.NoError(t, err)
+		assert.NotNil(t, observed, "must be usable as a map")
+		assert.NotNil(t, blobs)
+		assert.Empty(t, observed)
+
+		consensus, handles, err := readConsensusState(kv)
+		require.NoError(t, err)
+		assert.Empty(t, consensus)
+		assert.Empty(t, handles)
+
+		handles, err = readBlobHandles(kv)
+		require.NoError(t, err)
+		assert.Empty(t, handles)
+	})
+
+	t.Run("corrupt values error", func(t *testing.T) {
+		t.Parallel()
+		for _, key := range allKeys {
+			kv := memKV{key: {0xff, 0xff, 0xff}}
+			var err error
+			switch key {
+			case queuedEventsKey:
+				_, err = readQueuedEvents(kv)
+			case observedEventsKey:
+				_, _, err = readObservedEvents(kv)
+			case consensusEventsKey:
+				_, _, err = readConsensusState(kv)
+			case blobHandlesKey:
+				_, err = readBlobHandles(kv)
+			}
+			require.Error(t, err, key)
+		}
+	})
+
+	t.Run("read errors are returned", func(t *testing.T) {
+		t.Parallel()
+		_, err := readQueuedEvents(&errKV{readErrKey: queuedEventsKey})
+		require.ErrorIs(t, err, errBoom)
+		_, _, err = readObservedEvents(&errKV{readErrKey: observedEventsKey})
+		require.ErrorIs(t, err, errBoom)
+		_, _, err = readConsensusState(&errKV{readErrKey: consensusEventsKey})
+		require.ErrorIs(t, err, errBoom)
+		_, _, err = readConsensusState(&errKV{readErrKey: blobHandlesKey}) // blob handles are read as part of consensus state
+		require.ErrorIs(t, err, errBoom)
+		_, err = readBlobHandles(&errKV{readErrKey: blobHandlesKey})
+		require.ErrorIs(t, err, errBoom)
+	})
+}
+
+func TestLoadFrom_Errors(t *testing.T) {
+	t.Parallel()
+
+	for _, key := range []string{observedEventsKey, queuedEventsKey, blobHandlesKey} {
+		t.Run("read error "+key, func(t *testing.T) {
+			t.Parallel()
+			var s kvState
+			require.ErrorIs(t, s.loadFrom(&errKV{memKV: memKV{}, readErrKey: key}), errBoom)
+		})
+		t.Run("corrupt "+key, func(t *testing.T) {
+			t.Parallel()
+			var s kvState
+			require.Error(t, s.loadFrom(memKV{key: {0xff, 0xff, 0xff}}))
+		})
+	}
+
+	t.Run("consensus events are not loaded", func(t *testing.T) {
+		t.Parallel()
+		var s kvState
+		require.NoError(t, s.loadFrom(memKV{consensusEventsKey: {0xff, 0xff, 0xff}}))
+		assert.Empty(t, s.consensusEvents)
+	})
+}
+
+func TestWriteTo_Errors(t *testing.T) {
+	t.Parallel()
+
+	for _, key := range allKeys {
+		t.Run(key, func(t *testing.T) {
+			t.Parallel()
+			s := newKVState()
+			err := s.writeTo(&stateWriter{kv: &errKV{memKV: memKV{}, writeErrKey: key}})
+			require.ErrorIs(t, err, errBoom)
+		})
+	}
+}
+
+// sizeOf is used to stay within libocr's KV limits, so it must equal what is actually written.
+func TestKVState_SizeOfMatchesWrittenBytes(t *testing.T) {
+	t.Parallel()
+
+	s := newKVState()
+	s.observedEvents["o1"] = obsEvent("wf", "e-o1", 100, 1, 2)
+	s.observedEvents["o2"] = obsEvent("wf", "e-o2", 100, 1, 2, 3)
+	s.observedBlobs.add("o1", "blobA", 0)
+	s.observedBlobs.add("o2", "blobA", 1)
+	s.queuedEvents.push(qEvent("wf", "e-q", "q", 300))
+	s.queuedBlobs.add("q", "blobB", 2)
+	s.consensusEvents = append(s.consensusEvents, qEvent("wf", "e-c", "c", 200))
+	s.queuedBlobs.add("c", "blobB", 3)
+
+	size := s.sizeOf()
+	kv := memKV{}
+	require.NoError(t, s.writeTo(&stateWriter{kv: kv}))
+
+	var written int
+	for k, v := range kv {
+		written += len(k) + len(v)
+	}
+	assert.Equal(t, written, size)
+}
+
+func TestPrepareWriteBlobHandles(t *testing.T) {
+	t.Parallel()
+
+	// resolve returns an event's blob refs as handle -> element
+	resolve := func(s *kvState, e *pb.ConsensusQueueEvent) map[string]uint32 {
+		out := map[string]uint32{}
+		for _, b := range e.Blobs {
+			out[string(s.queuedBlobHandles[b.Blob])] = b.Element
+		}
+		return out
+	}
+
+	s := newKVState()
+	s.queuedEvents.push(qEvent("wf", "e1", "h1", 10))
+	s.queuedEvents.push(qEvent("wf", "e2", "h2", 20))
+	s.consensusEvents = append(s.consensusEvents, qEvent("wf", "e3", "h3", 5))
+	s.queuedBlobs.add("h1", "blobX", 0)
+	s.queuedBlobs.add("h2", "blobX", 1)
+	s.queuedBlobs.add("h3", "blobY", 0)
+	s.queuedBlobs.add("h3", "blobX", 2)
+
+	s.prepareWriteBlobHandles()
+
+	assert.ElementsMatch(t, [][]byte{[]byte("blobX"), []byte("blobY")}, s.queuedBlobHandles, "shared handles are stored once")
+	for _, e := range slices.Concat(s.queuedEvents, s.consensusEvents) {
+		assert.Equal(t, s.queuedBlobs[string(e.TimelessHash)], resolve(s, e), e.ExecutionID)
+	}
+
+	t.Run("idempotent", func(t *testing.T) {
+		handles := slices.Clone(s.queuedBlobHandles)
+		s.prepareWriteBlobHandles()
+		assert.Equal(t, handles, s.queuedBlobHandles)
+		for _, e := range slices.Concat(s.queuedEvents, s.consensusEvents) {
+			assert.Equal(t, s.queuedBlobs[string(e.TimelessHash)], resolve(s, e))
+			assert.Len(t, e.Blobs, len(s.queuedBlobs[string(e.TimelessHash)]), "blobs are replaced, not appended")
+		}
+	})
+
+	t.Run("event without blobs", func(t *testing.T) {
+		s := newKVState()
+		s.queuedEvents.push(qEvent("wf", "e1", "h1", 10))
+		require.NotPanics(t, s.prepareWriteBlobHandles)
+		assert.Empty(t, s.queuedBlobHandles)
+		assert.Empty(t, s.queuedEvents[0].Blobs)
+	})
+}
+
+func TestPrepareWriteObservedEvents_SharedBlobs(t *testing.T) {
+	t.Parallel()
+
+	s := newKVState()
+	s.observedEvents["h1"] = obsEvent("wf", "e1", 100, 1, 2)
+	s.observedEvents["h2"] = obsEvent("wf", "e2", 100, 1, 2)
+	s.observedBlobs.add("h1", "blobX", 0)
+	s.observedBlobs.add("h2", "blobX", 1)
+	s.observedBlobs.add("h2", "blobY", 0) // two observers used different blobs
+
+	s.prepareWriteObservedEvents()
+
+	assert.ElementsMatch(t, [][]byte{[]byte("blobX"), []byte("blobY")}, s.observedBlobHandles)
+	require.Len(t, s.observedEventEntries, 2)
+	for _, entry := range s.observedEventEntries {
+		got := map[string]uint32{}
+		for _, b := range entry.Event.Blobs {
+			got[string(s.observedBlobHandles[b.Blob])] = b.Element
+		}
+		assert.Equal(t, s.observedBlobs[string(entry.TimelessHash)], got)
+	}
+}
+
+// pruneExpiredObservations and popLimited must agree on whether a deadline equal to the expiration is expired.
+// popLimited keeps it (Deadline.Before(expiration) is false); pruning must not delete it either.
+func TestPruneExpiredObservations_BoundaryMatchesPopLimited(t *testing.T) {
+	t.Parallel()
+
+	expiration := time.Unix(100, 0)
+
+	var pq priorityQueue
+	pq.push(qEvent("wf", "e", "h", 100))
+	require.NotNil(t, pq.popLimited(map[string]uint32{"wf": 1}, expiration), "popLimited keeps an event whose deadline equals the expiration")
+
+	s := newKVState()
+	s.observedEvents["h"] = &pb.ConsensusQueueObservedEvent{
+		WorkflowID: "wf", ExecutionID: "e", NodeIds: []byte{1},
+		ObservedAts: []*timestamppb.Timestamp{ts(99)}, Deadlines: []*timestamppb.Timestamp{ts(100)}, // deadline == expiration
+	}
+	s.pruneExpiredObservations(expiration)
+	assert.Contains(t, s.observedEvents, "h", "pruning must not delete an observation popLimited would still accept")
+}
+
+func TestAddObservedEvents_Order(t *testing.T) {
+	t.Parallel()
+
+	toAdd := map[string]*pb.ConsensusQueueObservedEvent{}
+	for _, h := range []string{"d", "b", "e", "a", "c"} {
+		toAdd[h] = obsEvent("wf", "exec-"+h, 100, 1, 2, 3)
+	}
+	for range 20 { // map iteration is random; callbacks must not depend on it
+		s := newKVState()
+		var got []string
+		s.addObservedEvents(1, toAdd, blobHandleMap{}, func(e *pb.ConsensusQueueEvent) { got = append(got, string(e.TimelessHash)) })
+		require.Equal(t, []string{"a", "b", "c", "d", "e"}, got)
+	}
+}
+
+// An event that already sits in the priority queue must not be promoted again if it is observed again
+// (e.g. by a node that was slow to drop it from its local queue).
+func TestAddObservedEvents_AlreadyQueued(t *testing.T) {
+	t.Parallel()
+
+	s := newKVState()
+	s.queuedEvents.push(qEvent("wf", "exec", "h", 100))
+	s.queuedBlobs.add("h", "blob", 0)
+
+	var queued int
+	s.addObservedEvents(1, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "exec", 100, 1, 2, 3)},
+		blobHandleMap{}, func(*pb.ConsensusQueueEvent) { queued++ })
+
+	assert.Zero(t, queued, "already queued")
+	assert.Len(t, s.queuedEvents, 1, "no duplicate in the priority queue")
+}
+
+func TestAddObservedEvents_UpdateDeduplicatesNodes(t *testing.T) {
+	t.Parallel()
+
+	s := newKVState()
+	s.observedEvents["h"] = obsEvent("wf", "e", 100, 1, 2)
+	s.addObservedEvents(2, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "e", 100, 1, 2)}, blobHandleMap{}, func(*pb.ConsensusQueueEvent) {})
+	assert.Equal(t, []byte{1, 2}, s.observedEvents["h"].NodeIds, "re-observation by the same nodes adds no votes")
+	assert.Empty(t, s.queuedEvents)
+}

@@ -941,6 +941,7 @@ func newWorkflowRegistrySyncerV2(
 		coordinatorClock,
 		triggers.WithShadowMode(centralQueue, engineLimiters.ShadowTriggerMode),
 		triggers.WithDrainer(centralQueueDrainer),
+		triggers.WithExpirationGrace(triggers.ConsensusQueueExpirationGrace(lf)),
 	)
 
 	handlerOpts := []syncerV2.EventHandlerOption{
