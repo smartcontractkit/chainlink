@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"strings"
 	"testing"
 	"time"
 
@@ -1173,46 +1172,139 @@ func TestCoordinator_DeliveryLogs(t *testing.T) {
 func TestCoordinator_StartExecution(t *testing.T) {
 	t.Parallel()
 
-	newEvent := func(f *coordinatorFixture, age time.Duration) CoordinatedEvent {
+	// register returns a fixture with the workflow's triggers registered, as StartExecution requires.
+	register := func(t *testing.T, opts ...fixtureOption) *coordinatorFixture {
+		t.Helper()
+		f := newCoordinatorFixture(t, opts...)
+		trigger, _ := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+		return f
+	}
+	oneSlot := func() (AdmissionLimiters, *countingPool) {
+		pool := &countingPool{ResourcePoolLimiter: limits.GlobalResourcePoolLimiter(1)}
+		admission := newTestAdmission()
+		admission.ExecutionConcurrency = pool
+		return admission, pool
+	}
+	newEvent := func(f *coordinatorFixture, id string, age time.Duration) CoordinatedEvent {
 		return CoordinatedEvent{
 			WorkflowID: validWorkflowID, TriggerCapID: testTriggerCapID,
 			ObservedAt: f.clock.Now().Add(-age), Deadline: f.clock.Now().Add(time.Minute),
-			Event: capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "evt-1"}},
+			Event: capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: id}},
 		}
 	}
+	executed := func(f *coordinatorFixture, n int) func() bool {
+		return func() bool { return len(f.engine.executed()) == n }
+	}
 
-	t.Run("executes the event and records how long it was queued", func(t *testing.T) {
+	t.Run("starts the event for the workflow's tenant, and records how long it was queued", func(t *testing.T) {
 		t.Parallel()
 		wfMetrics, reader := newTestMeterMetrics(t)
-		f := newCoordinatorFixture(t, withMetrics(wfMetrics))
+		f := register(t, withMetrics(wfMetrics))
 
-		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, 5*time.Second)))
+		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 5*time.Second)))
+		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond)
 
 		assert.Equal(t, []string{"evt-1"}, f.engine.executedIDs())
+		f.engine.mu.Lock()
+		assert.Equal(t, validWorkflowID, f.engine.tenants[0].Workflow, "the execution runs as the workflow's tenant, as an admitted one does")
+		f.engine.mu.Unlock()
 		count, sum := histogramSum(t, reader, "platform_engine_trigger_event_queue_wait_seconds")
 		assert.Equal(t, uint64(1), count)
 		assert.InDelta(t, 5.0, sum, 0.001, "measured against the coordinator's clock")
 	})
 
-	t.Run("unknown workflow", func(t *testing.T) {
+	t.Run("returns once the execution has started, not when it finishes", func(t *testing.T) {
 		t.Parallel()
-		wfMetrics, reader := newTestMeterMetrics(t)
-		f := newCoordinatorFixture(t, withMetrics(wfMetrics))
-		event := newEvent(f, time.Second)
-		event.WorkflowID = hexWorkflowID(7) // no engine
-		require.Error(t, f.c.StartExecution(t.Context(), event))
-		count, _ := histogramSum(t, reader, "platform_engine_trigger_event_queue_wait_seconds")
-		assert.Zero(t, count, "nothing started, so nothing is recorded")
+		f := register(t)
+		release := f.holdExecutions(t)
+
+		done := make(chan error, 1)
+		go func() { done <- f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)) }()
+		select {
+		case err := <-done:
+			require.NoError(t, err)
+		case <-time.After(5 * time.Second):
+			t.Fatal("StartExecution waited for the execution to finish")
+		}
+		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond, "and the execution is running")
+		release()
 	})
 
-	t.Run("invalid workflow ID", func(t *testing.T) {
+	t.Run("holds an execution slot until the execution finishes", func(t *testing.T) {
 		t.Parallel()
-		f := newCoordinatorFixture(t)
-		event := newEvent(f, time.Second)
+		admission, pool := oneSlot()
+		f := register(t, withAdmission(admission))
+		release := f.holdExecutions(t)
+
+		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)))
+		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond)
+
+		// the second has to wait for the slot, so capacity reflects the first
+		second := make(chan error, 1)
+		go func() { second <- f.c.StartExecution(t.Context(), newEvent(f, "evt-2", 0)) }()
+		require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond, "waiting for the slot")
+		assert.Len(t, f.engine.executed(), 1, "not started without a slot")
+
+		release()
+		require.NoError(t, <-second)
+		require.Eventually(t, executed(f, 2), 5*time.Second, 5*time.Millisecond)
+	})
+
+	t.Run("a slot that cannot be taken is an error and nothing starts", func(t *testing.T) {
+		t.Parallel()
+		admission, _ := oneSlot()
+		f := register(t, withAdmission(admission))
+		release := f.holdExecutions(t)
+		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)))
+		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond)
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		err := f.c.StartExecution(ctx, newEvent(f, "evt-2", 0))
+		require.ErrorIs(t, err, context.Canceled)
+		assert.Len(t, f.engine.executed(), 1)
+		release()
+	})
+
+	t.Run("starting an event that is already executing is not an error", func(t *testing.T) {
+		t.Parallel()
+		f := register(t)
+		f.engine.err = ErrDuplicateExecution
+
+		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)))
+		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond)
+	})
+
+	t.Run("the slot is released when the execution fails", func(t *testing.T) {
+		t.Parallel()
+		admission, pool := oneSlot()
+		f := register(t, withAdmission(admission))
+		f.engine.err = errors.New("boom")
+
+		for i := range 3 { // would block forever on the second if the slot leaked
+			require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, fmt.Sprint("evt-", i), 0)))
+		}
+		require.Eventually(t, executed(f, 3), 5*time.Second, 5*time.Millisecond)
+		assert.Equal(t, int32(3), pool.waits.Load())
+	})
+
+	t.Run("workflows that cannot run the event are errors", func(t *testing.T) {
+		t.Parallel()
+		unregistered := newCoordinatorFixture(t)
+		require.ErrorContains(t, unregistered.c.StartExecution(t.Context(), newEvent(unregistered, "evt-1", 0)), "not registered")
+		assert.Empty(t, unregistered.engine.executed())
+
+		notCoordinated := register(t)
+		notCoordinated.engine.coordinated = false
+		require.ErrorIs(t, notCoordinated.c.StartExecution(t.Context(), newEvent(notCoordinated, "evt-1", 0)), errEngineNotCoordinated)
+
+		invalid := register(t)
+		event := newEvent(invalid, "evt-1", 0)
 		event.WorkflowID = "not-hex"
-		require.Error(t, f.c.StartExecution(t.Context(), event))
-		assert.Empty(t, f.engine.executedIDs())
+		require.Error(t, invalid.c.StartExecution(t.Context(), event))
+		assert.Empty(t, invalid.engine.executed())
 	})
 }
-
-func hexWorkflowID(i byte) string { return strings.Repeat(fmt.Sprintf("%02x", i), 32) }

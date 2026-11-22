@@ -1118,7 +1118,6 @@ type recCoordinator struct {
 	mu       sync.Mutex
 	started  []triggers.CoordinatedEvent
 	startErr error
-	block    chan struct{} // if set, StartExecution blocks until closed (like a running workflow)
 	capacity triggers.Capacity
 	capErr   error
 }
@@ -1128,9 +1127,6 @@ func (r *recCoordinator) AvailableCapacity(context.Context) (triggers.Capacity, 
 }
 
 func (r *recCoordinator) StartExecution(_ context.Context, e triggers.CoordinatedEvent) error {
-	if r.block != nil {
-		<-r.block
-	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.started = append(r.started, e)
@@ -1319,27 +1315,6 @@ func TestCommitted(t *testing.T) {
 		require.Len(t, started, 1)
 		assert.Equal(t, "b", started[0].Event.Event.ID)
 	})
-}
-
-// Executions must only be *started* on the OCR call path: a workflow that runs for a long time must not hold up the round.
-// (Open issue: commitState currently waits for every StartExecution to return.)
-func TestCommitted_DoesNotWaitForExecutions(t *testing.T) {
-	t.Parallel()
-
-	coord, blobs, kv := &recCoordinator{block: make(chan struct{})}, &memBlobs{}, memKV{}
-	c := newCommitPlugin(t, coord, &recQueue{}, blobs)
-	seedKV(t, kv, blobs, []string{"a"}, nil)
-
-	done := make(chan error, 1)
-	go func() { done <- c.Committed(t.Context(), 1, kv) }()
-	t.Cleanup(func() { close(coord.block) }) // always release the "workflow"
-
-	select {
-	case err := <-done:
-		require.NoError(t, err)
-	case <-time.After(time.Second):
-		t.Fatal("Committed blocked on a running workflow execution")
-	}
 }
 
 func TestObservation_StartsExecutionsFromState(t *testing.T) {

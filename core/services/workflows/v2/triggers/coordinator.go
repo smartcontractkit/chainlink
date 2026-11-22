@@ -84,7 +84,11 @@ type Coordinator interface {
 	// limiter does not break down by scope.
 	AvailableCapacity(ctx context.Context) (Capacity, error)
 
-	// StartExecution starts execution of the triggered event or returns an error.
+	// StartExecution starts execution of the triggered event, and returns once it has started, not when it finishes.
+	// It takes an execution slot like any admitted event, and holds it until the execution finishes, so that
+	// AvailableCapacity reflects it. It waits for a slot if there is none free, and returns an error if the workflow is
+	// not registered, its engine is gone, or the slot cannot be taken. How the execution itself ends is logged.
+	// Starting an event that is already executing is not an error, so it is safe to call repeatedly.
 	StartExecution(context.Context, CoordinatedEvent) error
 }
 
@@ -511,36 +515,35 @@ func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistration
 }
 
 func (c *coordinator) StartExecution(ctx context.Context, event CoordinatedEvent) error {
-	wfID, err := types.WorkflowIDFromHex(event.WorkflowID)
-	if err != nil {
-		return err
-	}
-
-	//TODO share code with admitEvent?
-
-	eng, ok := c.engines.Get(wfID)
+	cw, ok := c.workflows.get(event.WorkflowID)
 	if !ok {
-		return fmt.Errorf("workflow %s: engine not found", wfID)
+		return fmt.Errorf("workflow %s: not registered", event.WorkflowID)
 	}
-	if !eng.IsCoordinated() {
-		return fmt.Errorf("workflow %s: engine not coordinated", wfID)
-	}
-
-	//TODO more admission checks?
-	// c.admission.ExecutionConcurrency.Wait(ctx, 1)?
-
-	// the time the event spent queued, as recorded by the admitter for events that do not go through consensus
-	wfMetrics := c.deps.Metrics
-	if cw, ok := c.workflows.get(event.WorkflowID); ok {
-		wfMetrics = cw.metrics
-	}
-	wfMetrics.With(platform.KeyTriggerID, event.TriggerCapID).RecordTriggerEventQueueWaitSeconds(ctx, c.clock.Since(event.ObservedAt).Seconds())
-
-	// The event has already left the queue, and starting it is best effort: a failure is the caller's to log.
-	if err = eng.ExecuteTrigger(ctx, event); err != nil {
-		return fmt.Errorf("workflow %s: failed to execute trigger %s: %w", wfID, event.Event.Event.ID, err)
+	engine, err := c.lookupEngine(cw.wid)
+	if err != nil {
+		return fmt.Errorf("workflow %s: %w", cw.wid, err)
 	}
 
+	// Like the admitter, act for the workflow's tenant, so that the slot is taken from its scopes' pools.
+	ctx = contexts.WithCRE(ctx, cw.cre)
+	tm := cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID)
+	tm.RecordTriggerEventQueueWaitSeconds(ctx, c.clock.Since(event.ObservedAt).Seconds())
+
+	semWaitStart := c.clock.Now()
+	free, err := c.admission.ExecutionConcurrency.Wait(ctx, 1)
+	tm.RecordExecutionSemaphoreWaitSeconds(ctx, c.clock.Now().Sub(semWaitStart).Seconds())
+	if err != nil {
+		return fmt.Errorf("workflow %s: failed to acquire an execution slot: %w", cw.wid, err)
+	}
+
+	c.eng.Go(func(context.Context) {
+		defer free()
+		// WithoutCancel: the caller returns as soon as the execution has started, which must not cancel it.
+		err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event)
+		// Starting the same event again is routine here: it is started when it is committed and again by the next
+		// observation, in case the first was missed. The engine ignores the repeats.
+		logExecuteResult(cw.lggr, event, err, true)
+	})
 	return nil
 }
 
@@ -732,15 +735,7 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 			defer free()
 			// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
 			err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event)
-			switch {
-			case err == nil:
-			case errors.Is(err, ErrEngineDraining):
-				cw.lggr.Infow("Engine is draining, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
-			case errors.Is(err, ErrDuplicateExecution), errors.Is(err, ErrEngineClosed):
-				cw.lggr.Infow("Skipping trigger event execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
-			default:
-				cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
-			}
+			logExecuteResult(cw.lggr, event, err, false)
 		})
 	}
 }
@@ -749,19 +744,52 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 // instead of caching it, since the engine for a workflow can change while the
 // registration is running. It reports false, after logging why and counting
 // the drop, if there is no engine to deliver to.
-func (c *coordinator) coordinatedEngine(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) (RegisteredEngine, bool) {
-	engine, found := c.engines.Get(cw.wid)
+var (
+	errEngineGone           = errors.New("engine not found")
+	errEngineNotCoordinated = errors.New("engine not coordinated")
+)
+
+// lookupEngine returns the workflow's engine, if it exists and is coordinated.
+func (c *coordinator) lookupEngine(wid types.WorkflowID) (RegisteredEngine, error) {
+	engine, found := c.engines.Get(wid)
 	if !found {
-		cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
-		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineGone)
-		return nil, false
+		return nil, errEngineGone
 	}
 	if !engine.IsCoordinated() {
+		return nil, errEngineNotCoordinated
+	}
+	return engine, nil
+}
+
+func (c *coordinator) coordinatedEngine(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) (RegisteredEngine, bool) {
+	engine, err := c.lookupEngine(cw.wid)
+	switch {
+	case err == nil:
+		return engine, true
+	case errors.Is(err, errEngineGone):
+		cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineGone)
+	default:
 		cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
 		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineNotCoordinated)
-		return nil, false
 	}
-	return engine, true
+	return nil, false
+}
+
+// logExecuteResult logs how an execution ended, at a level that suits it. routineDuplicates is for callers that start an
+// event more than once on purpose, for which a duplicate is not worth more than a debug message.
+func logExecuteResult(lggr logger.Logger, event CoordinatedEvent, err error, routineDuplicates bool) {
+	switch {
+	case err == nil:
+	case errors.Is(err, ErrEngineDraining):
+		lggr.Infow("Engine is draining, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
+	case errors.Is(err, ErrDuplicateExecution) && routineDuplicates:
+		lggr.Debugw("Trigger event is already executing", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
+	case errors.Is(err, ErrDuplicateExecution), errors.Is(err, ErrEngineClosed):
+		lggr.Infow("Skipping trigger event execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+	default:
+		lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+	}
 }
 
 // dropDeniedEvent handles an event the engine's admission check rejected with err. The event will never execute, so

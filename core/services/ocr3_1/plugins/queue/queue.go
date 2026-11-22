@@ -765,8 +765,7 @@ func (c *consensusQueuePlugin) tryStartExecution(ctx context.Context, fetcher *b
 		return fmt.Errorf("failed to convert CoordinatedEvent from proto: %w", err)
 	}
 
-	//TODO ensure this only *starts* the execution, and does not block while it runs
-	// TestCommitted_DoesNotWaitForExecutions
+	// StartExecution returns once the execution has started, not when it finishes.
 	return c.triggerCoordinator.StartExecution(ctx, event)
 }
 
