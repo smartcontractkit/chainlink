@@ -578,6 +578,17 @@ func (c *coordinator) StartExecution(ctx context.Context, event CoordinatedEvent
 	tm := cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID)
 	tm.RecordTriggerEventQueueWaitSeconds(ctx, c.clock.Since(event.ObservedAt).Seconds())
 
+	// In shadow mode the event is only logged. The plugin that calls this still treats it as started, so it is not
+	// started again, while the workflow runs the event from its own queue as usual.
+	if active, err := c.shadowActive(contexts.WithCRE(ctx, cw.cre), event); err != nil {
+		cw.lggr.Warnw("Failed to check shadow trigger mode, starting the event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+	} else if active {
+		tm.IncrementTriggerEventShadowSkippedCounter(ctx)
+		cw.lggr.Infow("Shadow mode: not starting the coordinated event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID,
+			"triggerIndex", event.TriggerIndex, "observedAt", event.ObservedAt)
+		return nil
+	}
+
 	// Everything else happens in the background, so that the caller never waits: not for the execution, and not for a
 	// slot either. Events are started more than once on purpose, and the engine ignores the repeats, but only after a
 	// slot has been taken. If the caller waited for it, a repeat would wait behind the slot held by the first run.
@@ -679,22 +690,34 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 	}
 }
 
+// shadowActive reports whether shadow mode is on for the event: whether the second it was observed in is inside the
+// window. The window is read every time, never cached. Outside the window, or with shadow mode not configured, is
+// not an error. An error is a failed read of the window, which callers treat as off.
+func (c *coordinator) shadowActive(ctx context.Context, event CoordinatedEvent) (bool, error) {
+	if c.shadow == nil {
+		return false, nil
+	}
+	if err := c.shadow.activePeriod.Check(ctx, commonconfig.NewTimestamp(event.ObservedAt)); err != nil {
+		if _, outside := errors.AsType[limits.ErrorRangeLimited[commonconfig.Timestamp]](err); outside {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // putShadow copies event to the central queue when shadow mode is on for it. The window is checked for every
 // event and never cached, so a settings change applies to the next event. A read error counts as off. A
 // failed copy is never returned, because the event still runs on the engine path. Accepted and failed copies
 // are counted on tm, which carries the workflow labels. An event outside the window is not a failure.
 func (c *coordinator) putShadow(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) {
-	if c.shadow == nil {
+	if active, err := c.shadowActive(ctx, event); err != nil {
+		cw.lggr.Warnw("Failed to check shadow trigger mode, not copying the event to the central queue", "err", err)
+		tm.IncrementTriggerEventShadowFailedCounter(ctx, monitoring.ShadowFailReasonWindowCheckFailed)
+		return
+	} else if !active {
 		return
 	}
-	if err := c.shadow.activePeriod.Check(ctx, commonconfig.NewTimestamp(event.ObservedAt)); err != nil {
-		if _, outside := errors.AsType[limits.ErrorRangeLimited[commonconfig.Timestamp]](err); !outside {
-			cw.lggr.Warnw("Failed to check shadow trigger mode, not copying the event to the central queue", "err", err)
-			tm.IncrementTriggerEventShadowFailedCounter(ctx, monitoring.ShadowFailReasonWindowCheckFailed)
-		}
-		return
-	}
-	// TODO(CRE-6181): stamp SequenceNumber before the put.
 	if err := c.shadow.queue.Put(ctx, event); err != nil {
 		cw.lggr.Debugw("Failed to copy trigger event to the central queue", "triggerID", event.TriggerCapID,
 			"eventID", event.Event.Event.ID, "err", err)

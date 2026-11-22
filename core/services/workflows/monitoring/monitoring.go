@@ -73,6 +73,7 @@ type EngineMetrics struct {
 	triggerEventEnqueuedCounter         metric.Int64Counter
 	triggerEventShadowedCounter         metric.Int64Counter
 	triggerEventShadowFailedCounter     metric.Int64Counter
+	triggerEventShadowSkippedCounter    metric.Int64Counter
 	triggerEventEnqueueDroppedCounter   metric.Int64Counter
 	triggerEventDequeueDroppedCounter   metric.Int64Counter
 	triggerEventDroppedTotal            metric.Int64Counter
@@ -402,6 +403,14 @@ func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, er
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger event shadow failed counter: %w", err)
+	}
+
+	em.triggerEventShadowSkippedCounter, err = meter.Int64Counter(
+		"platform_engine_trigger_event_shadow_skipped_total",
+		metric.WithDescription("Coordinated trigger events chosen by consensus that were not started because shadow mode was on for them"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event shadow skipped counter: %w", err)
 	}
 
 	em.triggerEventEnqueueDroppedCounter, err = meter.Int64Counter(
@@ -894,6 +903,13 @@ func (c WorkflowsMetricLabeler) IncrementTriggerEventShadowFailedCounter(ctx con
 	lc := c.With(platform.KeyTriggerDropReason, reason)
 	otelLabels := beholder.OtelAttributes(lc.Labels).AsStringAttributes()
 	lc.em.triggerEventShadowFailedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementTriggerEventShadowSkippedCounter counts one event chosen by consensus that was not started, because shadow
+// mode was on for it. The event still executes from its workflow's own queue.
+func (c WorkflowsMetricLabeler) IncrementTriggerEventShadowSkippedCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventShadowSkippedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueueDroppedCounter(ctx context.Context) {

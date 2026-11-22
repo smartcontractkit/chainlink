@@ -478,3 +478,28 @@ func TestCoordinator_DrainerLifecycle(t *testing.T) {
 		return err != nil || stats.Len != 1
 	}, 100*time.Millisecond, 5*time.Millisecond, "an event put after close was drained")
 }
+
+// TestCoordinator_StartExecutionInShadowMode asserts an event chosen by consensus is not started while shadow mode
+// is on for it, though the caller is told it was, so the event is not offered again. Outside the window it starts.
+func TestCoordinator_StartExecutionInShadowMode(t *testing.T) {
+	t.Parallel()
+	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
+	shadow := newShadowMode(t, globalWindow(shadowStart.Add(time.Minute), shadowStart.Add(2*time.Minute)))
+	wfMetrics, reader := newTestMeterMetrics(t)
+	f := newCoordinatorFixture(t, withClock(clockwork.NewFakeClockAt(shadowStart)), withMetrics(wfMetrics),
+		withCoordinatorOptions(WithShadowMode(q, shadow)))
+	registerWorkflow(t, f, newTestSubscriber())
+
+	event := func(id string, observed time.Time) CoordinatedEvent {
+		return CoordinatedEvent{
+			WorkflowID: validWorkflowID, TriggerCapID: testTriggerCapID, ObservedAt: observed, Deadline: observed.Add(time.Hour),
+			Event: capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: id}},
+		}
+	}
+
+	require.NoError(t, f.c.StartExecution(t.Context(), event("shadowed", shadowStart.Add(90*time.Second))))
+	require.NoError(t, f.c.StartExecution(t.Context(), event("outside", shadowStart)))
+	require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+	assert.Equal(t, []string{"outside"}, f.engine.executedIDs(), "the shadowed event is logged, not started")
+	assert.Equal(t, int64(1), counterTotal(t, reader, "platform_engine_trigger_event_shadow_skipped_total", nil), "and counted")
+}
