@@ -1,9 +1,29 @@
-// Package queue contains the consensus queue OCR 3.1 reporting plugin, for coordinating execution of triggered events.
-// Each node has a local [triggers.Queue] of [triggers.CoordinatedEvent], which are observed (and broadcast) by the plugin.
-// When consensus is reached, events are put in to the KeyValueState priority queue (and removed from the [triggers.Queue]).
-// The priority queue is ordered by deadline (with nanosecond precision) and then by trigger event ID.
-// Each round, as many events as possible are popped from the priority queue and then (fetched and) executed via [triggers.Coordinator.Deliver].
-// Capacity, both overall and per-workflow, limits what may execute. Capacities are observed and medianized.
+// Package queue contains the consensus queue OCR 3.1 reporting plugin, which makes a DON agree on which coordinated
+// trigger events to execute, so that each runs once however many nodes saw it. The README has a diagram of a round.
+//
+// Each node has a local [triggers.Queue] of [triggers.CoordinatedEvent]. In Observation a node reports the events at the
+// front of its queue (that it hasn't voted for already), broadcasting them in blobs, and how much it can run. StateTransition
+// then turns the observations into one outcome, which is the same on every node:
+//
+//   - an event that F+1 nodes observed (so at least one is honest) joins the KV state's priority queue, ordered by deadline
+//     (with nanosecond precision) and then by hash;
+//   - each round, events are popped from the priority queue into the consensus events, as many as the capacity allows,
+//     both overall and per workflow, and expired events are dropped. Capacity is the F+1th lowest reported, with a node
+//     that doesn't report a workflow counting as zero, so F faulty nodes can't raise or starve it. Expiration is the median.
+//
+// Committed (and the next Observation, as Committed isn't guaranteed to run) fetches the blob of each consensus event and
+// starts it with [triggers.Coordinator.StartExecution], without waiting for the execution, then removes it from the local
+// queue. Starting is idempotent, as the workflow engine ignores an execution ID it has seen, and is not retried: once an
+// event is in consensus it leaves the queue whether or not starting it worked.
+//
+// The KV state is bounded by the plugin's limits: events and blob handles are pruned, lowest priority first, to fit.
+// A faulty node can't make the others spend unbounded CPU, storage or blob handles, as observations and the blobs they
+// refer to are bounded, and each voter has one blob per event.
+//
+// FeatureConsensusQueueKVDrainActivePeriod is a recovery mode. While more than F nodes report it, rounds only work
+// through the existing state: no new events are observed or queued, and every queued event is taken regardless of capacity.
+//
+// The plugin knows nothing of shadow mode: the coordinator decides whether StartExecution runs an event.
 package queue
 
 import (

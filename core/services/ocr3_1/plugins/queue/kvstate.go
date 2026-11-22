@@ -350,7 +350,8 @@ func (s *kvState) prepareWriteObservedEvents() {
 	// sort so that we can drop lowest priority efficiently
 	for _, eventHash := range slices.SortedFunc(maps.Keys(s.observedEvents), func(a string, b string) int {
 		ea, eb := s.observedEvents[a], s.observedEvents[b]
-		//TODO can we use deadline here? is median valid & best option? (only have f+1)
+		// Most votes first, so the events dropped first are those furthest from the F+1 they need. The deadline is not
+		// used: until an event has F+1 votes it has no value that is certain to be honest to take it from.
 		return cmp.Or(cmp.Compare(len(eb.NodeIds), len(ea.NodeIds)), cmp.Compare(a, b))
 	}) {
 		event := s.observedEvents[eventHash]

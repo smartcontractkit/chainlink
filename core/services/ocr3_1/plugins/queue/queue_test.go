@@ -638,8 +638,7 @@ func TestValidateObservation(t *testing.T) {
 		require.NoError(t, validate(t, c, blobs, obs))
 	})
 
-	// Completeness (C4): fields that feed StateTransition but are not bound to the honest value.
-	// These document the open TODOs in ValidateObservation; they fail until each field is bounded.
+	// Completeness (C4): fields that feed StateTransition must be bound to what an honest node reports.
 	t.Run("workflow capacities for workflows without events are bounded", func(t *testing.T) {
 		t.Parallel()
 		c, blobs, obs := observeN(t, 1)
