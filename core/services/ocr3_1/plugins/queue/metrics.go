@@ -45,6 +45,7 @@ type pluginMetrics struct {
 	admittedEvents    metric.Int64Counter   // events that reached consensus, and joined the queue
 	consensusEvents   metric.Int64Counter   // events chosen to be started, from the queue
 	droppedEvents     metric.Int64Counter   // events removed without being started, by reason
+	discardedEvents   metric.Int64Counter   // events removed from the local queue by KV drain mode, without being observed
 	queueDepth        metric.Int64Gauge     // events in the queue, by org
 	observedDepth     metric.Int64Gauge     // events waiting for enough votes to reach consensus
 	stateBytes        metric.Int64Gauge     // bytes in each KV value written by a state transition
@@ -72,6 +73,7 @@ func newPluginMetrics(meter metric.Meter, configDigest string) (*pluginMetrics, 
 	m.admittedEvents = counter("admitted_events_total", "Events that reached consensus and were added to the queue")
 	m.consensusEvents = counter("consensus_events_total", "Events taken from the queue to be started, as decided by consensus")
 	m.droppedEvents = counter("dropped_events_total", "Events removed from the consensus queue without being started, by reason")
+	m.discardedEvents = counter("discarded_events_total", "Events removed from the local queue without being observed, because KV drain mode is on")
 	m.queueDepth = gauge("queue_depth", "Events in the consensus queue, by org (unknown for workflows not registered on this node)", "{event}")
 	m.observedDepth = gauge("observed_depth", "Events observed by too few nodes to have reached consensus yet", "{event}")
 	m.stateBytes = gauge("state_bytes", "Bytes in each of the KV values written by the last state transition", "By")
@@ -95,6 +97,11 @@ func (m *pluginMetrics) attrs(extra ...attribute.KeyValue) metric.MeasurementOpt
 func (m *pluginMetrics) recordObservation(ctx context.Context, events int) {
 	m.observedEvents.Add(ctx, int64(events), m.attrs())
 	m.observationEvents.Record(ctx, int64(events), m.attrs())
+}
+
+// recordDiscarded records events removed from the local queue unobserved, in KV drain mode.
+func (m *pluginMetrics) recordDiscarded(ctx context.Context, events int) {
+	m.discardedEvents.Add(ctx, int64(events), m.attrs())
 }
 
 // transition is what a state transition did to the state, and what it left.

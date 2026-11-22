@@ -442,6 +442,15 @@ func (s *kvState) trimConsensusEvents(maxTotalBytes int) {
 	s.consensusEvents = s.consensusEvents[:n]
 }
 
+// queuedWorkflowCapacities returns a capacity of n for every workflow that has a queued event.
+func (s *kvState) queuedWorkflowCapacities(n uint32) map[string]uint32 {
+	caps := make(map[string]uint32)
+	for _, event := range s.queuedEvents {
+		caps[event.WorkflowID] = n
+	}
+	return caps
+}
+
 // popConsensusEvents pops as many queuedEvents as possible in to consensusEvents, up to capacity (overall, and per
 // workflow) or the KV limits. Expired events are dropped.
 func (s *kvState) popConsensusEvents(capacity int, capPerWF map[string]uint32, expiration time.Time, maxTotalBytes int) {

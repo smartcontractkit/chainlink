@@ -33,6 +33,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
@@ -692,6 +693,7 @@ type nodeOpts struct {
 	capacity   uint32
 	wfCaps     map[string]uint32
 	expiration int64 // seconds
+	drain      bool  // reports KV drain mode
 }
 
 var stdNode = nodeOpts{capacity: 10, wfCaps: map[string]uint32{testWF: 10}, expiration: 100}
@@ -704,6 +706,7 @@ func nodeObs(t testing.TB, o nodeOpts, events ...hashedEvent) *pb.ConsensusQueue
 		Expiration:         ts(o.expiration),
 		Capacity:           o.capacity,
 		WorkflowCapacities: maps.Clone(o.wfCaps),
+		KvDrainActive:      o.drain,
 	}
 	if obs.WorkflowCapacities == nil {
 		obs.WorkflowCapacities = map[string]uint32{}
@@ -2474,4 +2477,190 @@ func TestCommitted_FetchesAnEventsBlobsConcurrently(t *testing.T) {
 	require.Len(t, started, 2)
 	ids := []string{started[0].Event.Event.ID, started[1].Event.Event.ID}
 	assert.ElementsMatch(t, []string{"a", "b"}, ids, "B was started from X after it was released")
+}
+
+// removalQueue is a queue that serves events, and records those removed from it.
+type removalQueue struct {
+	sliceQueue
+	mu      sync.Mutex
+	removed []string
+}
+
+func (q *removalQueue) Remove(_ context.Context, executionIDs iter.Seq[string]) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.removed = slices.AppendSeq(q.removed, executionIDs)
+}
+
+func (q *removalQueue) removedIDs() []string {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return slices.Clone(q.removed)
+}
+
+// drainSwitch is a KV drain mode that can be flipped while the plugin runs.
+type drainSwitch struct{ on atomic.Bool }
+
+func (d *drainSwitch) check(context.Context, time.Time) (bool, error) { return d.on.Load(), nil }
+
+func TestKVDrainActive(t *testing.T) {
+	t.Parallel()
+	active := func(settingsJSON string, at time.Time) (bool, error) {
+		var getter settings.Getter
+		if settingsJSON != "" {
+			var err error
+			getter, err = settings.NewJSONGetter([]byte(settingsJSON))
+			require.NoError(t, err)
+		}
+		return KVDrainActive(limits.Factory{Logger: logger.Test(t), Settings: getter})(t.Context(), at)
+	}
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	window := fmt.Sprintf(`{"global":{"FeatureConsensusQueueKVDrainActivePeriod":"[%d,%d]"}}`, start.Unix(), start.Add(time.Hour).Unix())
+
+	on, err := active("", start)
+	require.NoError(t, err)
+	assert.False(t, on, "off by default")
+
+	for at, want := range map[time.Time]bool{
+		start.Add(-time.Second): false, start: true, start.Add(time.Hour): true, start.Add(time.Hour + time.Second): false,
+	} {
+		on, err = active(window, at)
+		require.NoError(t, err)
+		assert.Equal(t, want, on, at.String())
+	}
+}
+
+func TestObservation_KVDrain(t *testing.T) {
+	t.Parallel()
+
+	events := mkEvents(t, 3, int64(time.Now().Add(time.Hour).Unix()))
+	q := &removalQueue{sliceQueue: sliceQueue{events: events}}
+	blobs := &memBlobs{}
+	c := testPlugin(t, q.sliceQueue, blobs, 1<<19)
+	c.triggerQueue = q
+	drain := &drainSwitch{}
+	c.kvDrain = drain.check
+	kv := memKV{}
+
+	drain.on.Store(true)
+	obs, err := observe(t, c, kv, blobs)
+	require.NoError(t, err)
+	assert.Empty(t, obs.Events, "no new events are reported")
+	assert.Empty(t, obs.BlobHandles, "so none are broadcast")
+	assert.True(t, obs.KvDrainActive, "and the mode is reported, for consensus")
+	assert.NotNil(t, obs.Expiration, "though what consensus needs is still reported")
+	assert.Len(t, q.removedIDs(), 3, "the local queue is emptied")
+	assert.Empty(t, blobs.payloads, "nothing was broadcast")
+
+	// a flip takes effect on the next round
+	drain.on.Store(false)
+	obs, err = observe(t, c, kv, blobs)
+	require.NoError(t, err)
+	assert.Len(t, obs.Events, 3, "events are observed again")
+	assert.False(t, obs.KvDrainActive)
+}
+
+func TestStateTransition_KVDrain(t *testing.T) {
+	t.Parallel()
+
+	c := newSTPlugin(t)
+	kv := memKV{}
+	events := mkEvents(t, 4, 2000)
+	all := func(o nodeOpts, ev ...hashedEvent) []ocrtypes.AttributedObservation {
+		return []ocrtypes.AttributedObservation{ao(t, 0, nodeObs(t, o, ev...)), ao(t, 1, nodeObs(t, o, ev...)), ao(t, 2, nodeObs(t, o, ev...))}
+	}
+
+	// no capacity: all four wait in the queue
+	noCapacity := nodeOpts{capacity: 0, wfCaps: map[string]uint32{testWF: 0}, expiration: 100}
+	require.NoError(t, stateTransition(t, c, kv, all(noCapacity, events...)...))
+	require.Len(t, loadState(t, kv).queuedEvents, 4)
+
+	// drain: still no capacity, and a faulty node still reports new events, but nothing is added and all queued are taken
+	late := mkEvents(t, 2, 3000)
+	for i := range late {
+		_, late[i].event = newCoordinatedEvent(t, testWF, fmt.Sprintf("late-%d", i))
+		late[i].event.Deadline = ts(3000 + int64(i))
+	}
+	draining := noCapacity
+	draining.drain = true
+	require.NoError(t, stateTransition(t, c, kv,
+		ao(t, 0, nodeObs(t, draining)), ao(t, 1, nodeObs(t, draining)), ao(t, 2, nodeObs(t, noCapacity, late...))))
+	state := loadState(t, kv)
+	assert.Empty(t, state.queuedEvents, "every queued event was taken")
+	assert.Empty(t, state.observedEvents, "and nothing new was added")
+	assert.Len(t, consensusIDs(t, kv), 4, "to execute")
+
+	// the next round without the flag adds events again
+	require.NoError(t, stateTransition(t, c, kv, all(noCapacity, late...)...))
+	assert.Len(t, loadState(t, kv).queuedEvents, 2)
+}
+
+// KV drain mode takes the votes of F+1 nodes: at least one honest. N=4, F=1.
+func TestStateTransition_KVDrainNeedsFPlusOneVotes(t *testing.T) {
+	t.Parallel()
+
+	for votes, wantDrain := range map[int]bool{0: false, 1: false, 2: true, 3: true} {
+		t.Run(fmt.Sprintf("%d of 3 vote", votes), func(t *testing.T) {
+			t.Parallel()
+			c := newSTPlugin(t)
+			kv := memKV{}
+			noCapacity := nodeOpts{capacity: 0, wfCaps: map[string]uint32{testWF: 0}, expiration: 100}
+			events := mkEvents(t, 2, 2000)
+			require.NoError(t, stateTransition(t, c, kv,
+				ao(t, 0, nodeObs(t, noCapacity, events...)), ao(t, 1, nodeObs(t, noCapacity, events...)), ao(t, 2, nodeObs(t, noCapacity, events...))))
+			require.Len(t, loadState(t, kv).queuedEvents, 2)
+
+			var aos []ocrtypes.AttributedObservation
+			for i := range 3 {
+				o := noCapacity
+				o.drain = i < votes
+				aos = append(aos, ao(t, i, nodeObs(t, o)))
+			}
+			require.NoError(t, stateTransition(t, c, kv, aos...))
+			if wantDrain {
+				assert.Len(t, consensusIDs(t, kv), 2)
+			} else {
+				assert.Empty(t, consensusIDs(t, kv), "no capacity, so nothing is taken")
+			}
+		})
+	}
+}
+
+func TestStateTransition_KVDrainDropsExpired(t *testing.T) {
+	t.Parallel()
+
+	c := newSTPlugin(t)
+	kv := memKV{}
+	events := mkEvents(t, 3, 2000) // deadlines 2000, 2001, 2002
+	noCapacity := nodeOpts{capacity: 0, wfCaps: map[string]uint32{testWF: 0}, expiration: 100}
+	require.NoError(t, stateTransition(t, c, kv,
+		ao(t, 0, nodeObs(t, noCapacity, events...)), ao(t, 1, nodeObs(t, noCapacity, events...)), ao(t, 2, nodeObs(t, noCapacity, events...))))
+
+	expired := nodeOpts{capacity: 0, wfCaps: map[string]uint32{testWF: 0}, expiration: 2001, drain: true} // only the first has expired
+	require.NoError(t, stateTransition(t, c, kv,
+		ao(t, 0, nodeObs(t, expired)), ao(t, 1, nodeObs(t, expired)), ao(t, 2, nodeObs(t, expired))))
+	assert.Equal(t, []string{execIDOf(t, "evt-01"), execIDOf(t, "evt-02")}, consensusIDs(t, kv), "the expired event is dropped, not taken")
+	assert.Empty(t, loadState(t, kv).queuedEvents)
+}
+
+func TestValidateObservation_KVDrain(t *testing.T) {
+	t.Parallel()
+
+	c := newSTPlugin(t)
+	validate := func(obs *pb.ConsensusQueueObservation) error {
+		return c.ValidateObservation(t.Context(), 1, ocrtypes.AttributedQuery{}, ao(t, 1, obs), memKV{}, &memBlobs{})
+	}
+	drain := nodeOpts{capacity: 3, wfCaps: map[string]uint32{}, expiration: 100, drain: true}
+
+	empty := nodeObs(t, drain)
+	empty.BlobHandles = nil // as the helper always references a shared blob
+	require.NoError(t, validate(empty), "no events and no blob handles")
+
+	withEvents := nodeObs(t, drain, mkEvents(t, 1, 2000)...)
+	assert.ErrorContains(t, validate(withEvents), "KV drain mode reports no new events")
+
+	withHandles := nodeObs(t, drain)
+	withHandles.Events = nil
+	withHandles.BlobHandles = [][]byte{handleBytes(1)}
+	assert.ErrorContains(t, validate(withHandles), "KV drain mode reports no new events")
 }

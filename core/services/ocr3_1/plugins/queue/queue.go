@@ -32,8 +32,10 @@ import (
 	"github.com/smartcontractkit/libocr/quorumhelper"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -48,7 +50,21 @@ type consensusQueuePluginFactory struct {
 	triggerCoordinator triggers.Coordinator
 	triggerQueue       triggers.Queue
 	expirationDur      func(context.Context) (time.Duration, error)
+	kvDrain            func(ctx context.Context, at time.Time) (bool, error)
 	meter              metric.Meter
+}
+
+// KVDrainActive returns a func that reports whether the KV drain recovery mode is on at a time, according to
+// FeatureConsensusQueueKVDrainActivePeriod. The setting is read on every call, never cached, so a change applies to the
+// next round without a restart. A read error is returned with false.
+func KVDrainActive(lf limits.Factory) func(ctx context.Context, at time.Time) (bool, error) {
+	return func(ctx context.Context, at time.Time) (bool, error) {
+		period, err := cresettings.Default.FeatureConsensusQueueKVDrainActivePeriod.GetOrDefault(ctx, lf.Settings)
+		if err != nil {
+			return false, err
+		}
+		return period.Contains(config.NewTimestamp(at)), nil
+	}
 }
 
 func NewConsensusQueuePluginFactory(
@@ -77,6 +93,7 @@ func NewConsensusQueuePluginFactory(
 		triggerCoordinator: triggerCoordinator,
 		triggerQueue:       triggerQueue,
 		expirationDur:      triggers.ConsensusQueueExpirationGrace(limitsFactory),
+		kvDrain:            KVDrainActive(limitsFactory),
 		meter:              meter,
 	}, nil
 }
@@ -87,6 +104,7 @@ func (c *consensusQueuePluginFactory) NewReportingPlugin(ctx context.Context, co
 		return nil, nil, err
 	}
 	plugin := newConsensusQueuePlugin(c.lggr, config, c.cfg.Limits, c.triggerCoordinator, c.triggerQueue, c.expirationDur, blobs, metrics)
+	plugin.kvDrain = c.kvDrain
 	pluginInfo := ocr3_1types.ReportingPluginInfo1{
 		Name:   "ConsensusQueueReportingPlugin",
 		Limits: c.cfg.Limits,
@@ -107,7 +125,31 @@ type consensusQueuePlugin struct {
 	triggerQueue                        triggers.Queue
 	blobBroadcastFetcher                ocr3_1types.BlobBroadcastFetcher
 	expirationDur                       func(context.Context) (time.Duration, error)
-	metrics                             *pluginMetrics
+	// kvDrain reports whether the KV drain recovery mode is on at a time. Nil means it never is.
+	kvDrain func(ctx context.Context, at time.Time) (bool, error)
+	metrics *pluginMetrics
+}
+
+// draining reports whether the KV drain recovery mode is on at a time. A failure to read the setting counts as off, and
+// is logged, as the mode is for recovering and normal operation is the safe default.
+//
+// In this mode the plugin only works through the state it already has, without consensus on anything new: Observation
+// reports no events, and discards those in the local queue, and StateTransition adds nothing to the state, and takes
+// every queued event for execution, as well as dropping expired ones. Committed is unchanged.
+//
+// Each node checks at its own expiration time (the time of the round, less the grace period) and reports the result in
+// its observation. StateTransition never reads the setting: it acts on the nodes' agreement, so that every node makes the
+// same transition. See observations.kvDrain.
+func (c *consensusQueuePlugin) draining(ctx context.Context, at time.Time) bool {
+	if c.kvDrain == nil {
+		return false
+	}
+	on, err := c.kvDrain(ctx, at)
+	if err != nil {
+		c.lggr.Warnw("Failed to check KV drain mode - treating it as off", "err", err)
+		return false
+	}
+	return on
 }
 
 func newConsensusQueuePlugin(
@@ -161,12 +203,24 @@ func (c *consensusQueuePlugin) Observation(
 		c.lggr.Warnw("Failed to get expiration grace duration - using default", "err", err)
 	}
 
+	expiration := time.Now().Add(-expirationGraceDur)
 	obs := &pb.ConsensusQueueObservation{
 		// placeholder for accurate size calculation
 		BlobHandles:        slices.Repeat([][]byte{make([]byte, c.blobHandleMarshalledBytesUpperBound)}, maxObservedBlobHandles),
-		Expiration:         timestamppb.New(time.Now().Add(-expirationGraceDur)),
+		Expiration:         timestamppb.New(expiration),
 		Capacity:           clampUint32(capacity.Global),
 		WorkflowCapacities: stateWorkflowCapacities(capacity, observedEvents, queuedEvents),
+	}
+
+	if c.draining(ctx, expiration) {
+		// No new events, so nothing to broadcast. The local queue is emptied, or it would only fill up.
+		obs.KvDrainActive = true
+		obs.BlobHandles = nil
+		if err := c.discardQueue(ctx); err != nil {
+			return nil, err
+		}
+		c.metrics.recordObservation(ctx, 0)
+		return proto.MarshalOptions{Deterministic: true}.Marshal(obs)
 	}
 	kvWFCapacities := maps.Clone(obs.WorkflowCapacities) // in case we need to rebuild later
 
@@ -191,6 +245,21 @@ func (c *consensusQueuePlugin) Observation(
 
 	c.metrics.recordObservation(ctx, len(obs.Events))
 	return proto.MarshalOptions{Deterministic: true}.Marshal(obs)
+}
+
+// discardQueue removes the events at the front of the local queue, without observing them.
+func (c *consensusQueuePlugin) discardQueue(ctx context.Context) error {
+	var executionIDs []string
+	for _, event := range c.triggerQueue.Sorted(ctx, maxObservedEvents, c.maxEventBytes()) {
+		id, err := workflows.GenerateExecutionIDWithTriggerIndex(event.WorkflowID, event.Event.Event.Id, int(event.TriggerIndex))
+		if err != nil {
+			return fmt.Errorf("failed to generate execution ID: %w", err)
+		}
+		executionIDs = append(executionIDs, id)
+	}
+	c.triggerQueue.Remove(ctx, slices.Values(executionIDs))
+	c.metrics.recordDiscarded(ctx, len(executionIDs))
+	return nil
 }
 
 func clampUint32(v int) uint32 { return uint32(max(0, min(v, math.MaxUint32))) }
@@ -403,6 +472,10 @@ func (c *consensusQueuePlugin) ValidateObservation(
 		}
 	}
 
+	if obs.KvDrainActive && (len(obs.Events) > 0 || len(obs.BlobHandles) > 0) {
+		return fmt.Errorf("KV drain mode reports no new events, but got %d events and %d blob handles", len(obs.Events), len(obs.BlobHandles))
+	}
+
 	if len(obs.Events) > maxObservedEvents {
 		return fmt.Errorf("events are limited to %d but got %d", maxObservedEvents, len(obs.Events))
 	}
@@ -586,11 +659,16 @@ func (c *consensusQueuePlugin) StateTransition(
 	state.pruneExpiredObservations(obs.medianExpiration)
 	var queuedTimelessHashes []string // eligible for pruning later if necessary
 	var admitted int
-	state.addObservedEvents(c.onchainCfg.F, obs.newObservedEvents, obs.observedBlobs, func(event *pb.ConsensusQueueEvent) {
-		queuedTimelessHashes = append(queuedTimelessHashes, string(event.TimelessHash))
-		admitted++
-	})
-	state.popConsensusEvents(int(obs.medianCap), obs.medianCapPerWF, obs.medianExpiration, c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	if obs.kvDrain {
+		// Recovery: nothing new is added, and everything queued is taken, whatever the capacity.
+		state.popConsensusEvents(math.MaxInt32, state.queuedWorkflowCapacities(math.MaxUint32), obs.medianExpiration, c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	} else {
+		state.addObservedEvents(c.onchainCfg.F, obs.newObservedEvents, obs.observedBlobs, func(event *pb.ConsensusQueueEvent) {
+			queuedTimelessHashes = append(queuedTimelessHashes, string(event.TimelessHash))
+			admitted++
+		})
+		state.popConsensusEvents(int(obs.medianCap), obs.medianCapPerWF, obs.medianExpiration, c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	}
 	state.pruneObservedToFit(c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
 	state.pruneQueuedToFit(queuedTimelessHashes, c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
 	// note: no need to prune consensus events, since already limited what we collected
@@ -627,9 +705,12 @@ func (c *consensusQueuePlugin) recordTransition(ctx context.Context, state *kvSt
 }
 
 type observations struct {
-	medianExpiration  time.Time
-	medianCap         uint32
-	medianCapPerWF    map[string]uint32                          // wf ID -> capacity
+	medianExpiration time.Time
+	medianCap        uint32
+	medianCapPerWF   map[string]uint32 // wf ID -> capacity
+	// kvDrain is whether the KV drain recovery mode is on: F+1 nodes say so, so at least one of them is honest. A faulty
+	// node alone can neither start it nor stop it. Near either end of the window nodes may disagree, and this decides.
+	kvDrain           bool
 	newObservedEvents map[string]*pb.ConsensusQueueObservedEvent // key: timeless hash
 	observedBlobs     voterBlobs
 
@@ -649,6 +730,7 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 	aos = slices.SortedFunc(slices.Values(aos), func(a, b ocrtypes.AttributedObservation) int { return cmp.Compare(a.Observer, b.Observer) })
 
 	expirations := make([]*timestamppb.Timestamp, 0, len(aos))
+	drainVotes := 0
 	capacities := make([]uint32, 0, len(aos))
 	wfCapacities := make(map[string][]uint32)
 	for _, ao := range aos {
@@ -663,6 +745,9 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 			return
 		}
 		expirations = append(expirations, obs.Expiration)
+		if obs.KvDrainActive {
+			drainVotes++
+		}
 		capacities = append(capacities, obs.Capacity)
 		for wf, c := range obs.WorkflowCapacities {
 			wfCapacities[wf] = append(wfCapacities[wf], c)
@@ -676,6 +761,7 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 		}
 	}
 	res.medianExpiration = medianTimestamp(expirations).AsTime()
+	res.kvDrain = drainVotes > f
 
 	// If we used median, then honest nodes reporting reduced capacity would not be able to keep up.
 	// Instead, we use the F+1th lowest value - the least honest value.
