@@ -50,6 +50,16 @@ type InMemoryStore struct {
 	// maximumExecutionAge is the maximum age of a non-completed execution before it is
 	// considered expired and eligible for pruning regardless of its status
 	maximumExecutionAge time.Duration
+
+	// minimumCompletedRetention, if set, extends completedExecutionRetention when it is longer.
+	minimumCompletedRetention func() time.Duration
+}
+
+// SetMinimumCompletedRetention makes the store keep a completed execution for at least as long as min returns, if that
+// is longer than the configured retention. This is for callers that can run an event again until it expires, whose
+// duplicate must be caught for as long as that is possible. min is called on each sweep, and must be set before Start.
+func (s *InMemoryStore) SetMinimumCompletedRetention(min func() time.Duration) {
+	s.minimumCompletedRetention = min
 }
 
 func NewInMemoryStore(lggr logger.Logger, clock clockwork.Clock) *InMemoryStore {
@@ -210,7 +220,11 @@ func (s *InMemoryStore) pruneExpiredExecutionEntries() {
 // See https://100go.co/28-maps-memory-leaks/
 func (s *InMemoryStore) pruneCompletedAndExpiredExecutions() {
 	now := s.clock.Now()
-	completedCutoff := now.Add(-s.completedExecutionRetention)
+	retention := s.completedExecutionRetention
+	if s.minimumCompletedRetention != nil {
+		retention = max(retention, s.minimumCompletedRetention())
+	}
+	completedCutoff := now.Add(-retention)
 	expirationTime := now.Add(-s.maximumExecutionAge)
 
 	s.mu.Lock()

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1233,7 +1235,7 @@ func TestCoordinator_StartExecution(t *testing.T) {
 		release()
 	})
 
-	t.Run("holds an execution slot until the execution finishes", func(t *testing.T) {
+	t.Run("holds an execution slot until the execution finishes, without making the caller wait for one", func(t *testing.T) {
 		t.Parallel()
 		admission, pool := oneSlot()
 		f := register(t, withAdmission(admission))
@@ -1242,31 +1244,55 @@ func TestCoordinator_StartExecution(t *testing.T) {
 		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)))
 		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond)
 
-		// the second has to wait for the slot, so capacity reflects the first
+		// the second has to wait for the slot, which capacity reflects, but the caller does not
 		second := make(chan error, 1)
 		go func() { second <- f.c.StartExecution(t.Context(), newEvent(f, "evt-2", 0)) }()
+		select {
+		case err := <-second:
+			require.NoError(t, err)
+		case <-time.After(5 * time.Second):
+			t.Fatal("StartExecution waited for a slot")
+		}
 		require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond, "waiting for the slot")
 		assert.Len(t, f.engine.executed(), 1, "not started without a slot")
 
 		release()
-		require.NoError(t, <-second)
-		require.Eventually(t, executed(f, 2), 5*time.Second, 5*time.Millisecond)
+		require.Eventually(t, executed(f, 2), 5*time.Second, 5*time.Millisecond, "starts once the slot is free")
 	})
 
-	t.Run("a slot that cannot be taken is an error and nothing starts", func(t *testing.T) {
+	t.Run("a repeat of a running event does not make the caller wait behind its slot", func(t *testing.T) {
 		t.Parallel()
 		admission, _ := oneSlot()
 		f := register(t, withAdmission(admission))
 		release := f.holdExecutions(t)
-		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)))
-		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond)
 
-		ctx, cancel := context.WithCancel(t.Context())
-		cancel()
-		err := f.c.StartExecution(ctx, newEvent(f, "evt-2", 0))
-		require.ErrorIs(t, err, context.Canceled)
-		assert.Len(t, f.engine.executed(), 1)
+		for range 3 { // as when a set is started by Committed, and again by the next Observation
+			done := make(chan error, 1)
+			go func() { done <- f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)) }()
+			select {
+			case err := <-done:
+				require.NoError(t, err)
+			case <-time.After(5 * time.Second):
+				t.Fatal("a repeat start waited behind the running execution's slot")
+			}
+		}
+		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond)
 		release()
+	})
+
+	t.Run("a slot that cannot be taken drops the event and counts it", func(t *testing.T) {
+		t.Parallel()
+		admission, _ := oneSlot()
+		admission.ExecutionConcurrency = failingWaitPool{admission.ExecutionConcurrency}
+		wfMetrics, reader := newTestMeterMetrics(t)
+		f := register(t, withAdmission(admission), withMetrics(wfMetrics))
+
+		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)))
+		reason := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonExecutionSemaphoreWaitFailed}
+		require.Eventually(t, func() bool {
+			return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", reason) == 1
+		}, 5*time.Second, 5*time.Millisecond)
+		assert.Empty(t, f.engine.executed())
 	})
 
 	t.Run("starting an event that is already executing is not an error", func(t *testing.T) {
@@ -1307,4 +1333,88 @@ func TestCoordinator_StartExecution(t *testing.T) {
 		require.Error(t, invalid.c.StartExecution(t.Context(), event))
 		assert.Empty(t, invalid.engine.executed())
 	})
+}
+
+// failingWaitPool cannot give out slots.
+type failingWaitPool struct {
+	limits.ResourcePoolLimiter[int]
+}
+
+func (failingWaitPool) Wait(context.Context, int) (func(), error) { return nil, errors.New("no slots") }
+
+func TestEventLifetime(t *testing.T) {
+	t.Parallel()
+
+	defaultTimeout := cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.DefaultValue
+	graceOf := func(d time.Duration, err error) func(context.Context) (time.Duration, error) {
+		return func(context.Context) (time.Duration, error) { return d, err }
+	}
+
+	t.Run("starts at the default timeout plus the grace", func(t *testing.T) {
+		t.Parallel()
+		l := NewEventLifetime(graceOf(time.Minute, nil))
+		assert.Equal(t, defaultTimeout+time.Minute, l.Longest(t.Context()))
+	})
+
+	t.Run("follows the longest timeout seen, and never shrinks", func(t *testing.T) {
+		t.Parallel()
+		l := NewEventLifetime(graceOf(time.Minute, nil))
+		l.observeTimeout(time.Second)
+		assert.Equal(t, defaultTimeout+time.Minute, l.Longest(t.Context()), "a shorter timeout changes nothing")
+		l.observeTimeout(2 * time.Hour)
+		assert.Equal(t, 2*time.Hour+time.Minute, l.Longest(t.Context()))
+		l.observeTimeout(time.Hour)
+		assert.Equal(t, 2*time.Hour+time.Minute, l.Longest(t.Context()), "the longest is kept")
+	})
+
+	t.Run("reads the grace each time, so a change applies", func(t *testing.T) {
+		t.Parallel()
+		var grace atomic.Int64
+		grace.Store(int64(time.Minute))
+		l := NewEventLifetime(func(context.Context) (time.Duration, error) { return time.Duration(grace.Load()), nil })
+		grace.Store(int64(5 * time.Minute))
+		assert.Equal(t, defaultTimeout+5*time.Minute, l.Longest(t.Context()))
+	})
+
+	t.Run("a grace read error still uses the value returned with it, and a negative grace is none", func(t *testing.T) {
+		t.Parallel()
+		assert.Equal(t, defaultTimeout+30*time.Second, NewEventLifetime(graceOf(30*time.Second, errors.New("boom"))).Longest(t.Context()))
+		assert.Equal(t, defaultTimeout, NewEventLifetime(graceOf(-time.Hour, nil)).Longest(t.Context()))
+	})
+
+	t.Run("is safe for concurrent use", func(t *testing.T) {
+		t.Parallel()
+		l := NewEventLifetime(graceOf(0, nil))
+		var wg sync.WaitGroup
+		for i := range 50 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				l.observeTimeout(time.Duration(i) * time.Hour)
+				l.Longest(t.Context())
+			}()
+		}
+		wg.Wait()
+		assert.Equal(t, 49*time.Hour, l.Longest(t.Context()))
+	})
+}
+
+// The coordinator stamps each event's deadline from its workflow's timeout, which is where the longest one is learned.
+func TestCoordinator_LearnsEventLifetime(t *testing.T) {
+	t.Parallel()
+
+	lifetime := NewEventLifetime(func(context.Context) (time.Duration, error) { return time.Minute, nil })
+	admission := newTestAdmission()
+	admission.TriggerEventQueueTimeout = limits.NewUpperBoundLimiter(3 * time.Hour)
+	f := newCoordinatorFixture(t, withAdmission(admission), withCoordinatorOptions(WithEventLifetime(lifetime)))
+	trigger, eventCh := f.expectTrigger(t)
+	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+	_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+	require.NoError(t, err)
+
+	require.Equal(t, cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.DefaultValue+time.Minute, lifetime.Longest(t.Context()))
+	eventCh <- triggerEvent("evt-1")
+	require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+
+	assert.Equal(t, 3*time.Hour+time.Minute, lifetime.Longest(t.Context()), "the workflow's 3h timeout, plus the grace")
 }

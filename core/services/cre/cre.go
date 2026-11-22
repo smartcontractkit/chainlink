@@ -76,6 +76,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
+// completedExecutionRetentionMargin is added to the longest event lifetime to decide how long to remember completed
+// executions. It allows for clock skew between nodes, as an event's agreed deadline is a median of theirs.
+const completedExecutionRetentionMargin = time.Minute
+
 // Keystore is the minimal interface needed from keystore for CRE
 type Keystore interface {
 	CSA() keystore.CSA
@@ -923,6 +927,7 @@ func newWorkflowRegistrySyncerV2(
 	// Shadow mode copies coordinated trigger events to the central queue while
 	// FeatureShadowTriggerModeActivePeriod is open. The copies are for observation only.
 	// The drainer logs and discards them, and each event still executes on its workflow's own queue.
+	eventLifetime := triggers.NewEventLifetime(triggers.ConsensusQueueExpirationGrace(lf))
 	centralQueue := triggers.NewQueue(engineLimiters.CentralTriggerEventQueue,
 		wfmonitoring.NewCentralTriggerQueueMetricLabeler(commonmetrics.NewLabeler(), centralQueueMetrics), lggr)
 	centralQueueDrainer := triggers.NewCentralQueueDrainer(centralQueue, engineLimiters.CentralTriggerQueueDrainInterval,
@@ -942,6 +947,7 @@ func newWorkflowRegistrySyncerV2(
 		triggers.WithShadowMode(centralQueue, engineLimiters.ShadowTriggerMode),
 		triggers.WithDrainer(centralQueueDrainer),
 		triggers.WithExpirationGrace(triggers.ConsensusQueueExpirationGrace(lf)),
+		triggers.WithEventLifetime(eventLifetime),
 	)
 
 	handlerOpts := []syncerV2.EventHandlerOption{
@@ -1048,9 +1054,15 @@ func newWorkflowRegistrySyncerV2(
 		}
 	}
 
+	// An event can be queued again (by nodes that were late to see it) until it expires, and the store is what tells the
+	// engine that such an event already ran. So it must remember executions for at least that long.
+	workflowStore := workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock())
+	workflowStore.SetMinimumCompletedRetention(func() time.Duration {
+		return eventLifetime.Longest(context.Background()) + completedExecutionRetentionMargin
+	})
 	eventHandler, err := syncerV2.NewEventHandler(
 		lggr,
-		workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		workflowStore,
 		dontimeStore,
 		opts.UseLocalTimeProvider,
 		opts.CapabilitiesRegistry,

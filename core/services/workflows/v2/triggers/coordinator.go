@@ -84,11 +84,12 @@ type Coordinator interface {
 	// limiter does not break down by scope.
 	AvailableCapacity(ctx context.Context) (Capacity, error)
 
-	// StartExecution starts execution of the triggered event, and returns once it has started, not when it finishes.
-	// It takes an execution slot like any admitted event, and holds it until the execution finishes, so that
-	// AvailableCapacity reflects it. It waits for a slot if there is none free, and returns an error if the workflow is
-	// not registered, its engine is gone, or the slot cannot be taken. How the execution itself ends is logged.
-	// Starting an event that is already executing is not an error, so it is safe to call repeatedly.
+	// StartExecution starts execution of the triggered event, and returns without waiting for anything beyond finding the
+	// workflow's engine: not for an execution slot, and not for the execution to finish. In the background it takes an
+	// execution slot like any admitted event, and holds it until the execution finishes, so that AvailableCapacity
+	// reflects it. It returns an error if the workflow is not registered, or its engine is gone or not coordinated.
+	// How the execution itself ends, or that no slot could be taken, is logged and counted.
+	// Starting an event that is already executing is not an error, the engine ignores it, so it is safe to call repeatedly.
 	StartExecution(context.Context, CoordinatedEvent) error
 }
 
@@ -163,6 +164,9 @@ type coordinator struct {
 
 	// expirationGrace is how long past its deadline an event may still run. nil means none.
 	expirationGrace func(context.Context) (time.Duration, error)
+
+	// lifetime, if set, learns the timeout of every event.
+	lifetime *EventLifetime
 
 	// shadow is nil unless WithShadowMode is set.
 	shadow *shadowMode
@@ -257,6 +261,41 @@ func ConsensusQueueExpirationGrace(lf limits.Factory) func(context.Context) (tim
 	return func(ctx context.Context) (time.Duration, error) {
 		return cresettings.Default.ConsensusQueueExpirationGraceInterval.GetOrDefault(ctx, lf.Settings)
 	}
+}
+
+// EventLifetime tracks how long an event can be held for: the longest timeout that events have been given, plus the
+// grace period. The timeout is a per workflow setting, so there is no fixed maximum, only the longest seen so far.
+// It is for anything that has to remember an event for as long as it can be run, to tell a repeat from a new event.
+type EventLifetime struct {
+	grace func(context.Context) (time.Duration, error)
+
+	mu      sync.Mutex
+	longest time.Duration
+}
+
+// NewEventLifetime returns a tracker that starts with the default timeout, and adds the grace period.
+func NewEventLifetime(grace func(context.Context) (time.Duration, error)) *EventLifetime {
+	return &EventLifetime{grace: grace, longest: cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.DefaultValue}
+}
+
+func (l *EventLifetime) observeTimeout(timeout time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.longest = max(l.longest, timeout)
+}
+
+// Longest returns the longest time an event can be held for, so far. If the grace period cannot be read, the value
+// that was returned with the error is used.
+func (l *EventLifetime) Longest(ctx context.Context) time.Duration {
+	grace, _ := l.grace(ctx)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.longest + max(0, grace)
+}
+
+// WithEventLifetime records the timeout of every event that is given a deadline in lifetime.
+func WithEventLifetime(lifetime *EventLifetime) CoordinatorOption {
+	return func(c *coordinator) { c.lifetime = lifetime }
 }
 
 // WithExpirationGrace lets events run for up to grace past their deadline, instead of dropping them at the deadline.
@@ -524,24 +563,29 @@ func (c *coordinator) StartExecution(ctx context.Context, event CoordinatedEvent
 		return fmt.Errorf("workflow %s: %w", cw.wid, err)
 	}
 
-	// Like the admitter, act for the workflow's tenant, so that the slot is taken from its scopes' pools.
-	ctx = contexts.WithCRE(ctx, cw.cre)
 	tm := cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID)
 	tm.RecordTriggerEventQueueWaitSeconds(ctx, c.clock.Since(event.ObservedAt).Seconds())
 
-	semWaitStart := c.clock.Now()
-	free, err := c.admission.ExecutionConcurrency.Wait(ctx, 1)
-	tm.RecordExecutionSemaphoreWaitSeconds(ctx, c.clock.Now().Sub(semWaitStart).Seconds())
-	if err != nil {
-		return fmt.Errorf("workflow %s: failed to acquire an execution slot: %w", cw.wid, err)
-	}
+	// Everything else happens in the background, so that the caller never waits: not for the execution, and not for a
+	// slot either. Events are started more than once on purpose, and the engine ignores the repeats, but only after a
+	// slot has been taken. If the caller waited for it, a repeat would wait behind the slot held by the first run.
+	c.eng.Go(func(ctx context.Context) {
+		// Like the admitter, act for the workflow's tenant, so that the slot is taken from its scopes' pools.
+		ctx = contexts.WithCRE(ctx, cw.cre)
 
-	c.eng.Go(func(context.Context) {
+		semWaitStart := c.clock.Now()
+		free, err := c.admission.ExecutionConcurrency.Wait(ctx, 1)
+		tm.RecordExecutionSemaphoreWaitSeconds(ctx, c.clock.Now().Sub(semWaitStart).Seconds())
+		if err != nil {
+			cw.lggr.Errorw("Failed to acquire executions semaphore", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExecutionSemaphoreWaitFailed)
+			return
+		}
 		defer free()
-		// WithoutCancel: the caller returns as soon as the execution has started, which must not cancel it.
-		err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event)
-		// Starting the same event again is routine here: it is started when it is committed and again by the next
-		// observation, in case the first was missed. The engine ignores the repeats.
+
+		// WithoutCancel: as for the admitter, stopping must not kill an execution that is already running.
+		err = engine.ExecuteTrigger(context.WithoutCancel(ctx), event)
+		// Starting the same event again is routine here, so a duplicate is not worth more than a debug message.
 		logExecuteResult(cw.lggr, event, err, true)
 	})
 	return nil
@@ -597,6 +641,9 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 			cw.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.Key)
 		}
 		event.Deadline = event.ObservedAt.Add(queueTimeout)
+		if c.lifetime != nil {
+			c.lifetime.observeTimeout(queueTimeout)
+		}
 
 		// Events are copied to the central queue before being put to the workflow queue, so the central queue also
 		// sees events the engine path later drops.
