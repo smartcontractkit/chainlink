@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"sort"
 	"time"
 
 	"google.golang.org/protobuf/encoding/protowire"
@@ -138,15 +139,6 @@ func (p *priorityQueue) popLimited(capPerWF map[string]uint32, expiration time.T
 	}
 
 	return
-}
-
-type revPriorityQueue struct {
-	*priorityQueue
-}
-
-func (r *revPriorityQueue) Less(i, j int) bool {
-	a, b := (*r.priorityQueue)[i], (*r.priorityQueue)[j]
-	return b.CompareDeadline(a) < 0
 }
 
 type blobHandleMap map[string]map[string]uint32 // eventHash -> blobHandle -> idx
@@ -405,24 +397,38 @@ func (s *kvState) popConsensusEvents(capacity int, capPerWF map[string]uint32, e
 }
 
 // pruneObservedToFit drops the lowest priority observed events until that value, and the overall size, fit.
+//
+// Size only ever shrinks as more events are dropped, so the fewest to drop is found by binary search, rather than by
+// dropping one at a time and measuring the whole state again each time (which is quadratic, and took 300ms to drop 500).
 func (s *kvState) pruneObservedToFit(maxTotalBytes int) {
-	s.prepareWriteObservedEvents() // populates the (priority sorted) entries to prune from
-	for len(s.observedEventEntries) > 0 &&
-		(s.sizeOfObservedEvents() > maxKeyValueValueBytes || s.sizeOf() > maxTotalBytes) {
-		// sorted by decreasing priority, so prune the last
-		toRemove := s.observedEventEntries[len(s.observedEventEntries)-1]
-		delete(s.observedEvents, string(toRemove.TimelessHash))
-		//TODO opt: drop more than one each time?
+	s.prepareWriteObservedEvents() // populates the entries, sorted by decreasing priority, so the last are dropped first
+	fits := func() bool { return s.sizeOfObservedEvents() <= maxKeyValueValueBytes && s.sizeOf() <= maxTotalBytes }
+	if len(s.observedEventEntries) == 0 || fits() {
+		return
 	}
+
+	entries, all := s.observedEventEntries, s.observedEvents
+	keepFirst := func(n int) { // n is how many of the highest priority events to keep
+		kept := make(map[string]*pb.ConsensusQueueObservedEvent, n)
+		for _, e := range entries[:n] {
+			kept[string(e.TimelessHash)] = all[string(e.TimelessHash)]
+		}
+		s.observedEvents = kept
+	}
+	// the most that fit, in terms of those dropped: fewest dropped is the most kept
+	dropped := sort.Search(len(entries), func(drop int) bool {
+		keepFirst(len(entries) - drop)
+		return fits()
+	})
+	keepFirst(len(entries) - dropped)
 }
 
 // pruneQueuedToFit drops the lowest priority events of those that were newly queued until the queued events, the blob
-// handles, and the overall size fit.
+// handles, and the overall size fit. As for pruneObservedToFit, the fewest to drop is found by binary search.
 func (s *kvState) pruneQueuedToFit(newlyQueued []string, maxTotalBytes int) {
 	fits := func() bool {
 		return s.sizeOfQueuedEvents() <= maxKeyValueValueBytes && s.sizeOfBlobHandles() <= maxKeyValueValueBytes && s.sizeOf() <= maxTotalBytes
 	}
-
 	if len(newlyQueued) == 0 || fits() {
 		return
 	}
@@ -431,24 +437,28 @@ func (s *kvState) pruneQueuedToFit(newlyQueued []string, maxTotalBytes int) {
 	for _, hash := range newlyQueued {
 		newlyQueuedSet[hash] = struct{}{}
 	}
-
 	eligibleEvents := make([]*pb.ConsensusQueueEvent, 0, len(s.queuedEvents))
 	for _, e := range s.queuedEvents {
 		if _, ok := newlyQueuedSet[string(e.TimelessHash)]; ok {
 			eligibleEvents = append(eligibleEvents, e)
 		}
 	}
+	// lowest priority (latest deadline) first, which is the order they are dropped in
+	slices.SortFunc(eligibleEvents, func(a, b *pb.ConsensusQueueEvent) int { return b.CompareDeadline(a) })
 
-	backwardsQueuedEvents := &revPriorityQueue{priorityQueue: new(priorityQueue(eligibleEvents))}
-	heap.Init(backwardsQueuedEvents)
-
-	// prune until we fit
-	for backwardsQueuedEvents.Len() > 0 && !fits() {
-		toRemove := heap.Pop(backwardsQueuedEvents).(*pb.ConsensusQueueEvent)
-		//TODO opt: faster delete...but need to maintain s.queuedEvents (though not order)...map indices?
-		s.queuedEvents = slices.DeleteFunc(s.queuedEvents, func(event *pb.ConsensusQueueEvent) bool { return event == toRemove })
-		//TODO opt: drop more than one each time?
+	queued := s.queuedEvents
+	drop := func(n int) {
+		dropped := make(map[*pb.ConsensusQueueEvent]struct{}, n)
+		for _, e := range eligibleEvents[:n] {
+			dropped[e] = struct{}{}
+		}
+		s.queuedEvents = slices.DeleteFunc(slices.Clone(queued), func(e *pb.ConsensusQueueEvent) bool { _, ok := dropped[e]; return ok })
 	}
+	n := sort.Search(len(eligibleEvents), func(n int) bool {
+		drop(n)
+		return fits()
+	})
+	drop(n)
 
 	// rebuild the priority queue
 	heap.Init(&s.queuedEvents)

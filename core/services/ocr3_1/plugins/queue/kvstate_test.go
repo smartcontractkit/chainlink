@@ -2,6 +2,9 @@ package queue
 
 import (
 	"container/heap"
+	"fmt"
+	"maps"
+	"math/rand"
 	"slices"
 	"testing"
 	"time"
@@ -66,15 +69,6 @@ func TestPriorityQueue_Order(t *testing.T) {
 	}
 	require.Equal(t, []string{"h1", "h2", "h4", "h3"}, got)
 	require.Nil(t, pq.mustPop(), "empty queue pops nil")
-}
-
-func TestPriorityQueue_RevOrder(t *testing.T) {
-	t.Parallel()
-
-	pq := priorityQueue{qEvent("wf", "a", "h1", 10), qEvent("wf", "b", "h2", 30), qEvent("wf", "c", "h3", 20)}
-	rev := &revPriorityQueue{priorityQueue: &pq}
-	heap.Init(rev)
-	require.Equal(t, "h2", string(heap.Pop(rev).(*pb.ConsensusQueueEvent).TimelessHash), "latest deadline first")
 }
 
 func TestPopLimited(t *testing.T) {
@@ -661,4 +655,118 @@ func TestAddObservedEvents_UpdateDeduplicatesNodes(t *testing.T) {
 	s.addObservedEvents(2, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "e", 100, 1, 2)}, blobHandleMap{}, func(*pb.ConsensusQueueEvent) {})
 	assert.Equal(t, []byte{1, 2}, s.observedEvents["h"].NodeIds, "re-observation by the same nodes adds no votes")
 	assert.Empty(t, s.queuedEvents)
+}
+
+// revPQ pops the latest deadline first.
+type revPQ struct{ *priorityQueue }
+
+func (r *revPQ) Less(i, j int) bool {
+	a, b := (*r.priorityQueue)[i], (*r.priorityQueue)[j]
+	return b.CompareDeadline(a) < 0
+}
+
+// naivePruneObservedToFit is the original algorithm: drop the last event and measure everything again, until it fits.
+// (The original read the entries before they were refreshed, so it panicked when the rest of the state alone was over
+// the limit and the last observed event was dropped. This one refreshes them first.)
+func naivePruneObservedToFit(s *kvState, maxTotalBytes int) {
+	for {
+		s.prepareWriteObservedEvents()
+		if len(s.observedEventEntries) == 0 || (s.sizeOfObservedEvents() <= maxKeyValueValueBytes && s.sizeOf() <= maxTotalBytes) {
+			return
+		}
+		delete(s.observedEvents, string(s.observedEventEntries[len(s.observedEventEntries)-1].TimelessHash))
+	}
+}
+
+// naivePruneQueuedToFit is the original algorithm: pop the lowest priority new event, drop it, and measure everything again.
+func naivePruneQueuedToFit(s *kvState, newlyQueued []string, maxTotalBytes int) {
+	fits := func() bool {
+		return s.sizeOfQueuedEvents() <= maxKeyValueValueBytes && s.sizeOfBlobHandles() <= maxKeyValueValueBytes && s.sizeOf() <= maxTotalBytes
+	}
+	if len(newlyQueued) == 0 || fits() {
+		return
+	}
+	set := map[string]struct{}{}
+	for _, h := range newlyQueued {
+		set[h] = struct{}{}
+	}
+	var eligible []*pb.ConsensusQueueEvent
+	for _, e := range s.queuedEvents {
+		if _, ok := set[string(e.TimelessHash)]; ok {
+			eligible = append(eligible, e)
+		}
+	}
+	backwards := &revPQ{priorityQueue: new(priorityQueue(eligible))}
+	heap.Init(backwards)
+	for backwards.Len() > 0 && !fits() {
+		toRemove := heap.Pop(backwards).(*pb.ConsensusQueueEvent)
+		s.queuedEvents = slices.DeleteFunc(s.queuedEvents, func(e *pb.ConsensusQueueEvent) bool { return e == toRemove })
+	}
+	heap.Init(&s.queuedEvents)
+}
+
+// randomState builds a state with observed and queued events sharing a pool of blob handles.
+func randomState(seed int64) (s *kvState, newlyQueued []string) {
+	rng := rand.New(rand.NewSource(seed))
+	s = newKVState()
+	pool := make([]string, 3+rng.Intn(12))
+	for i := range pool {
+		pool[i] = string(handleBytes(byte(i + 1)))
+	}
+	for i := range 5 + rng.Intn(120) {
+		hash := fmt.Sprintf("observed-%03d", i)
+		nodes := make([]byte, 2+rng.Intn(3))
+		for v := range nodes {
+			nodes[v] = byte(v)
+		}
+		s.observedEvents[hash] = obsEvent(hexID("wf", i%7), hexID("exec-o", i), int64(100+rng.Intn(1000)), nodes...)
+		for range 1 + rng.Intn(2) {
+			s.observedBlobs.add(hash, pool[rng.Intn(len(pool))], uint32(rng.Intn(1000)))
+		}
+	}
+	for i := range 5 + rng.Intn(200) {
+		hash := fmt.Sprintf("queued-%03d", i)
+		s.queuedEvents.push(&pb.ConsensusQueueEvent{
+			WorkflowID: hexID("wf", i%7), ExecutionID: hexID("exec-q", i), TimelessHash: []byte(hash),
+			ObservedAt: ts(int64(rng.Intn(100))), Deadline: ts(int64(100 + rng.Intn(1000))),
+		})
+		for range 1 + rng.Intn(3) {
+			s.queuedBlobs.add(hash, pool[rng.Intn(len(pool))], uint32(rng.Intn(1000)))
+		}
+		if rng.Intn(2) == 0 {
+			newlyQueued = append(newlyQueued, hash)
+		}
+	}
+	return s, newlyQueued
+}
+
+// The binary searches must drop exactly the events the one-at-a-time algorithms did, for any state and limit.
+func TestPruneToFit_MatchesNaive(t *testing.T) {
+	t.Parallel()
+
+	for seed := range int64(12) {
+		sizeProbe, _ := randomState(seed)
+		full := sizeProbe.sizeOf()
+		rng := rand.New(rand.NewSource(seed*7 + 1))
+		limits := []int{1, full / 8, full/4 + rng.Intn(full), full + 1} // nothing fits, a lot dropped, some dropped, none dropped
+		for _, maxTotal := range limits {
+			naive, newlyQueued := randomState(seed)
+			fast, _ := randomState(seed)
+
+			naivePruneObservedToFit(naive, maxTotal)
+			naivePruneQueuedToFit(naive, newlyQueued, maxTotal)
+			fast.pruneObservedToFit(maxTotal)
+			fast.pruneQueuedToFit(newlyQueued, maxTotal)
+
+			require.ElementsMatch(t, slices.Collect(maps.Keys(naive.observedEvents)), slices.Collect(maps.Keys(fast.observedEvents)),
+				"seed %d limit %d: observed events", seed, maxTotal)
+			hashes := func(q priorityQueue) (out []string) {
+				for _, e := range q {
+					out = append(out, string(e.TimelessHash))
+				}
+				return
+			}
+			require.Equal(t, hashes(naive.queuedEvents), hashes(fast.queuedEvents), "seed %d limit %d: queued events (and heap order)", seed, maxTotal)
+		}
+	}
 }

@@ -735,7 +735,7 @@ func stateTransition(t testing.TB, c *consensusQueuePlugin, kv ocr3_1types.KeyVa
 	return err
 }
 
-func loadState(t *testing.T, kv memKV) *kvState {
+func loadState(t testing.TB, kv memKV) *kvState {
 	t.Helper()
 	var s kvState
 	require.NoError(t, s.loadFrom(kv))
@@ -2272,5 +2272,62 @@ func TestObservationSize(t *testing.T) {
 		assert.Equal(t, before, stale, "the cached size of obs is that of before the event was added")
 		assert.NotEqual(t, actual, stale)
 		assert.Equal(t, actual, observationSize(obs), "but the shallow copy is exact")
+	})
+}
+
+// BenchmarkFullStateTransitionOverLimit measures rounds that must prune state to fit: a burst that overflows the
+// observed set, and a full queue that is sent 3000 more events.
+func BenchmarkFullStateTransitionOverLimit(b *testing.B) {
+	const n = 4
+	open := nodeOpts{capacity: 1 << 20, wfCaps: map[string]uint32{}, expiration: 100}
+	none := open
+	none.capacity = 0 // nothing executes, so events pile up in the queue
+	all := packedEvents(b, 12000, 0)
+	for _, e := range all {
+		open.wfCaps[e.event.WorkflowID] = 1 << 20
+		none.wfCaps[e.event.WorkflowID] = 1 << 20
+	}
+	round := func(b *testing.B, o nodeOpts, events []hashedEvent, nodes int) []ocrtypes.AttributedObservation {
+		var aos []ocrtypes.AttributedObservation
+		for node := range n {
+			var seen []hashedEvent
+			if node < nodes {
+				seen = events
+			}
+			aos = append(aos, ao(b, node, nodeObs(b, o, seen...)))
+		}
+		return aos
+	}
+
+	run := func(b *testing.B, c *consensusQueuePlugin, seed memKV, aos []ocrtypes.AttributedObservation, metric func(memKV) float64, unit string) {
+		var last memKV
+		b.ResetTimer()
+		for range b.N {
+			b.StopTimer()
+			kv := maps.Clone(seed)
+			b.StartTimer()
+			require.NoError(b, stateTransition(b, c, kv, aos...))
+			last = kv
+		}
+		b.StopTimer()
+		b.ReportMetric(metric(last), unit)
+	}
+
+	b.Run("observed set overflows", func(b *testing.B) {
+		c := newSTPlugin(b)
+		c.limits.MaxKeyValueModifiedKeysPlusValuesBytes = 100 << 10 // room for about 300 of the 1000 observed events
+		aos := round(b, open, all[:1000], 2)                        // f+1 votes: observed, not queued
+		run(b, c, memKV{}, aos, func(kv memKV) float64 { return float64(len(loadState(b, kv).observedEvents)) }, "kept/op")
+	})
+
+	b.Run("full queue receives 3000 more", func(b *testing.B) {
+		c := newSTPlugin(b)
+		seed := memKV{}
+		for i := 0; i < 9; i++ { // fill the queue to just under its value limit
+			require.NoError(b, stateTransition(b, c, seed, round(b, none, all[i*1000:(i+1)*1000], n)...))
+		}
+		queued := func(kv memKV) float64 { return float64(len(loadState(b, kv).queuedEvents)) }
+		b.ReportMetric(queued(seed), "queuedBefore")
+		run(b, c, seed, round(b, none, all[9000:12000], n), queued, "queuedAfter/op")
 	})
 }
