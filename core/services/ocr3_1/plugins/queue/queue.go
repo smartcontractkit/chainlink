@@ -592,7 +592,7 @@ type observations struct {
 	medianCap         uint32
 	medianCapPerWF    map[string]uint32                          // wf ID -> capacity
 	newObservedEvents map[string]*pb.ConsensusQueueObservedEvent // key: timeless hash
-	observedBlobs     blobHandleMap
+	observedBlobs     voterBlobs
 
 	err error
 }
@@ -600,7 +600,7 @@ type observations struct {
 func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.AttributedObservation) {
 	res.medianCapPerWF = make(map[string]uint32)
 	res.newObservedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
-	res.observedBlobs = make(blobHandleMap)
+	res.observedBlobs = make(voterBlobs)
 
 	// normalize the order, so that the outcome never depends on the order observations arrive in
 	if len(aos) <= f { // quorum guarantees more, but never index out of range
@@ -652,7 +652,7 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 
 // addEvent adds the observed event to the observation set, either merging it into an existing event or creating a new one.
 func (res *observations) addEvent(obs commontypes.OracleID, event *pb.ConsensusQueueEvent, blobHandles [][]byte) {
-	res.observedBlobs.add(string(event.TimelessHash), string(blobHandles[event.Blobs[0].Blob]), event.Blobs[0].Element)
+	res.observedBlobs.add(string(event.TimelessHash), uint8(obs), string(blobHandles[event.Blobs[0].Blob]), event.Blobs[0].Element)
 	aggregated, ok := res.newObservedEvents[string(event.TimelessHash)]
 	if !ok {
 		res.newObservedEvents[string(event.TimelessHash)] = &pb.ConsensusQueueObservedEvent{
@@ -720,7 +720,9 @@ func (c *consensusQueuePlugin) tryStartExecutions(ctx context.Context, done chan
 	var wg sync.WaitGroup
 	for _, consensusEvent := range consensusEvents {
 		wg.Add(1)
-		c.eng.GoCtx(ctx, func(ctx context.Context) {
+		// The commit's ctx is used throughout, not the one that the goroutine for the event is given, which ends with it.
+		// Attempts to read the event's blobs outlive it, and share the fetch of a blob with other events.
+		c.eng.GoCtx(ctx, func(context.Context) {
 			defer wg.Done()
 
 			if err2 := c.tryStartExecution(ctx, &fetcher, consensusEvent, blobHandles); err2 != nil {
@@ -735,27 +737,11 @@ func (c *consensusQueuePlugin) tryStartExecutions(ctx context.Context, done chan
 }
 
 func (c *consensusQueuePlugin) tryStartExecution(ctx context.Context, fetcher *blobCache, consensusEvent *pb.ConsensusQueueEvent, blobHandles [][]byte) error {
-	// any blob will do, first that exists
-	var pbEvent *pb.CoordinatedEvent
-	var errs []error
-	for _, blob := range consensusEvent.Blobs {
-		var err error
-		if int(blob.Blob) >= len(blobHandles) {
-			c.lggr.Errorw("Blob handle index out of bounds", "index", int(blob.Blob), "len", len(blobHandles))
-			continue
-		}
-		blobHandle := blobHandles[int(blob.Blob)]
-		pbEvent, _, err = fetchCoordinatedEventFromBlob(ctx, fetcher, blobHandle, int(blob.Element))
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to fetch blob: %w", err))
-			c.lggr.Errorw("Failed to fetch blob", "handle", blobHandle, "index", blob.Element, "err", err)
-			continue // try next blob
-		}
-		break
+	pbEvent, err := c.fetchEvent(ctx, fetcher, consensusEvent, blobHandles)
+	if err != nil {
+		return err
 	}
-	if pbEvent == nil {
-		return fmt.Errorf("failed to fetch blob from all %d handles: %w", len(consensusEvent.Blobs), errors.Join(errs...))
-	}
+
 	// fill in medianized timestamps
 	pbEvent.ObservedAt = consensusEvent.ObservedAt
 	pbEvent.Deadline = consensusEvent.Deadline
@@ -767,6 +753,49 @@ func (c *consensusQueuePlugin) tryStartExecution(ctx context.Context, fetcher *b
 
 	// StartExecution returns once the execution has started, not when it finishes.
 	return c.triggerCoordinator.StartExecution(ctx, event)
+}
+
+// fetchEvent returns the event from the first of its blobs to provide it. Any blob will do, since each holds the same
+// event, but not every voter's blob is to be relied on: one may be slow, expired, or gone. So they are all tried at
+// once, which means that a bad one cannot hold up a good one, however it sorts.
+//
+// The attempts that are not needed are left to finish, not cancelled, because the cache shares one fetch of a blob
+// between every event that uses it, and cancelling would cache the cancellation as the result for all of them. So ctx
+// must outlive this event: it is the commit's, which they end with.
+func (c *consensusQueuePlugin) fetchEvent(ctx context.Context, fetcher *blobCache, consensusEvent *pb.ConsensusQueueEvent, blobHandles [][]byte) (*pb.CoordinatedEvent, error) {
+	type result struct {
+		event *pb.CoordinatedEvent
+		err   error
+	}
+	results := make(chan result, len(consensusEvent.Blobs)) // buffered, so that attempts that are late do not block
+
+	var attempts int
+	for _, blob := range consensusEvent.Blobs {
+		if int(blob.Blob) >= len(blobHandles) {
+			c.lggr.Errorw("Blob handle index out of bounds", "index", int(blob.Blob), "len", len(blobHandles))
+			continue
+		}
+
+		attempts++
+		handle, element := blobHandles[blob.Blob], int(blob.Element)
+		c.eng.GoCtx(ctx, func(ctx context.Context) {
+			event, _, err := fetchCoordinatedEventFromBlob(ctx, fetcher, handle, element)
+			if err != nil {
+				c.lggr.Debugw("Failed to fetch event from blob", "handle", handle, "index", element, "err", err)
+			}
+			results <- result{event, err}
+		})
+	}
+
+	var errs []error
+	for range attempts {
+		r := <-results
+		if r.err == nil {
+			return r.event, nil
+		}
+		errs = append(errs, r.err)
+	}
+	return nil, fmt.Errorf("failed to fetch blob from all %d handles: %w", len(consensusEvent.Blobs), errors.Join(errs...))
 }
 
 func (c *consensusQueuePlugin) Reports(ctx context.Context, _ uint64, _ ocr3_1types.ReportsPlusPrecursor) ([]ocr3types.ReportPlus[[]byte], error) {

@@ -49,7 +49,7 @@ func obsEvent(wf, execID string, base int64, nodes ...byte) *pb.ConsensusQueueOb
 func newKVState() *kvState {
 	return &kvState{
 		observedEvents: map[string]*pb.ConsensusQueueObservedEvent{},
-		observedBlobs:  blobHandleMap{},
+		observedBlobs:  voterBlobs{},
 		queuedBlobs:    blobHandleMap{},
 	}
 }
@@ -131,6 +131,57 @@ func TestBlobHandleMap(t *testing.T) {
 	assert.Empty(t, m["h2"])
 }
 
+func TestVoterBlobs(t *testing.T) {
+	t.Parallel()
+
+	m := voterBlobs{}
+	m.add("h", 1, "b1", 3)
+	m.add("h", 2, "b1", 5) // shares a blob, and disagrees about where the event is
+	m.add("h", 3, "b2", 9)
+	m.add("h", 1, "b3", 4) // voter 1 votes again
+
+	assert.Equal(t, map[uint8]blobRef{1: {"b3", 4}, 2: {"b1", 5}, 3: {"b2", 9}}, m["h"], "a voter has one blob, the latest")
+	assert.Equal(t, map[string]uint32{"b1": 5, "b3": 4, "b2": 9}, m.handles("h"))
+	assert.Empty(t, m.handles("unknown"))
+
+	t.Run("handles picks the lowest index when voters disagree, whatever the order", func(t *testing.T) {
+		for range 50 {
+			m := voterBlobs{}
+			for _, voter := range rand.Perm(10) {
+				m.add("h", uint8(voter), "shared", uint32(100+voter))
+			}
+			require.Equal(t, map[string]uint32{"shared": 100}, m.handles("h"))
+		}
+	})
+}
+
+// A voter that votes again, round after round, must not make the blobs of an event grow: that would let one oracle
+// fill the KV state, and have every other event pruned from it, and give the event a dead blob to try for each round.
+func TestAddObservedEvents_OneBlobPerVoter(t *testing.T) {
+	t.Parallel()
+	const f = 2 // so that 2 or 3 votes stay in the observed set (it takes 2f+1=5 to promote)
+
+	s := newKVState()
+	s.observedEvents["h"] = obsEvent("wf", "e", 100, 1, 2)
+	s.observedBlobs.add("h", 1, "blob-1", 0)
+	s.observedBlobs.add("h", 2, "blob-2", 0)
+
+	for round := range 200 {
+		blobs := voterBlobs{}
+		blobs.add("h", 2, fmt.Sprintf("fresh-blob-%d", round), uint32(round)) // node 2 keeps voting, with a new blob each time
+		s.addObservedEvents(f, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "e", 100, 2)}, blobs, func(*pb.ConsensusQueueEvent) {})
+	}
+
+	require.Contains(t, s.observedEvents, "h")
+	assert.Equal(t, []byte{1, 2}, s.observedEvents["h"].NodeIds)
+	assert.Equal(t, map[uint8]blobRef{1: {"blob-1", 0}, 2: {"fresh-blob-199", 199}}, s.observedBlobs["h"], "still one blob each")
+
+	// and so it is on disk
+	s.prepareWriteObservedEvents()
+	assert.Len(t, s.observedEventEntries[0].Event.Blobs, 2)
+	assert.Len(t, s.observedBlobHandles, 2)
+}
+
 func TestPruneExpiredObservations(t *testing.T) {
 	t.Parallel()
 
@@ -186,7 +237,7 @@ func TestAddObservedEvents(t *testing.T) {
 		t.Parallel()
 		s := newKVState()
 		var queued []*pb.ConsensusQueueEvent
-		s.addObservedEvents(f, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "e", 100, 1)}, blobHandleMap{}, collect(&queued))
+		s.addObservedEvents(f, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "e", 100, 1)}, voterBlobs{}, collect(&queued))
 		assert.Empty(t, s.observedEvents)
 		assert.Empty(t, s.queuedEvents)
 		assert.Empty(t, queued)
@@ -196,21 +247,24 @@ func TestAddObservedEvents(t *testing.T) {
 		t.Parallel()
 		s := newKVState()
 		var queued []*pb.ConsensusQueueEvent
-		blobs := blobHandleMap{}
-		blobs.add("h", "blob", 0)
+		blobs := voterBlobs{}
+		blobs.add("h", 1, "blob-1", 0)
+		blobs.add("h", 2, "blob-2", 3)
 		s.addObservedEvents(f, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "e", 100, 1, 2)}, blobs, collect(&queued))
 		require.Contains(t, s.observedEvents, "h")
 		assert.Empty(t, s.queuedEvents)
 		assert.Empty(t, queued)
-		assert.Equal(t, map[string]uint32{"blob": 0}, s.observedBlobs["h"])
+		assert.Equal(t, map[uint8]blobRef{1: {"blob-1", 0}, 2: {"blob-2", 3}}, s.observedBlobs["h"], "each voter's blob")
 	})
 
 	t.Run("2f+1 goes straight to the priority queue", func(t *testing.T) {
 		t.Parallel()
 		s := newKVState()
 		var queued []*pb.ConsensusQueueEvent
-		blobs := blobHandleMap{}
-		blobs.add("h", "blob", 0)
+		blobs := voterBlobs{}
+		for voter := range uint8(3) {
+			blobs.add("h", voter+1, "blob", 0) // the voters share a blob
+		}
 		s.addObservedEvents(f, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "e", 100, 1, 2, 3)}, blobs, collect(&queued))
 		assert.Empty(t, s.observedEvents)
 		require.Len(t, s.queuedEvents, 1)
@@ -224,12 +278,14 @@ func TestAddObservedEvents(t *testing.T) {
 		t.Parallel()
 		s := newKVState()
 		var queued []*pb.ConsensusQueueEvent
-		// previously observed by nodes 1 & 2 (with their blob)
+		// previously observed by nodes 1 & 2 (with their blobs)
 		s.observedEvents["h"] = obsEvent("wf", "e", 100, 1, 2)
-		s.observedBlobs.add("h", "old-blob", 1)
+		s.observedBlobs.add("h", 1, "blob-1", 1)
+		s.observedBlobs.add("h", 2, "old-blob-2", 2)
 
-		newBlobs := blobHandleMap{}
-		newBlobs.add("h", "new-blob", 5)
+		newBlobs := voterBlobs{}
+		newBlobs.add("h", 2, "new-blob-2", 5) // node 2 votes again, with a new blob
+		newBlobs.add("h", 3, "blob-3", 7)
 		// node 3 is new; node 2 re-observes with a new deadline
 		toAdd := obsEvent("wf", "e", 100, 2, 3)
 		toAdd.Deadlines[0] = ts(500)
@@ -238,7 +294,7 @@ func TestAddObservedEvents(t *testing.T) {
 		assert.Empty(t, s.observedEvents, "promoted out of the observed set")
 		assert.Empty(t, s.observedBlobs, "observed blobs moved")
 		require.Len(t, queued, 1)
-		assert.Equal(t, map[string]uint32{"old-blob": 1, "new-blob": 5}, s.queuedBlobs["h"])
+		assert.Equal(t, map[string]uint32{"blob-1": 1, "new-blob-2": 5, "blob-3": 7}, s.queuedBlobs["h"], "node 2's old blob is replaced, not kept")
 	})
 
 	t.Run("update below 2f+1 stays observed and does not panic", func(t *testing.T) {
@@ -247,7 +303,7 @@ func TestAddObservedEvents(t *testing.T) {
 		s.observedEvents["h"] = obsEvent("wf", "e", 100, 1, 2)
 		toAdd := obsEvent("wf", "e", 200, 2) // existing node, overwrite
 		require.NotPanics(t, func() {
-			s.addObservedEvents(f, map[string]*pb.ConsensusQueueObservedEvent{"h": toAdd}, blobHandleMap{}, func(*pb.ConsensusQueueEvent) {})
+			s.addObservedEvents(f, map[string]*pb.ConsensusQueueObservedEvent{"h": toAdd}, voterBlobs{}, func(*pb.ConsensusQueueEvent) {})
 		})
 		got := s.observedEvents["h"]
 		require.NotNil(t, got)
@@ -261,7 +317,8 @@ func TestKVState_RoundTrip(t *testing.T) {
 
 	s := newKVState()
 	s.observedEvents["obs"] = obsEvent("wf", "e-obs", 100, 1, 2)
-	s.observedBlobs.add("obs", "blobA", 0)
+	s.observedBlobs.add("obs", 1, "blobA", 0)
+	s.observedBlobs.add("obs", 2, "blobC", 4)
 	s.queuedEvents.push(qEvent("wf", "e-q", "q", 300))
 	s.queuedBlobs.add("q", "blobB", 2)
 	s.consensusEvents = append(s.consensusEvents, qEvent("wf", "e-c", "c", 200))
@@ -276,7 +333,7 @@ func TestKVState_RoundTrip(t *testing.T) {
 	var loaded kvState
 	require.NoError(t, loaded.loadFrom(kv))
 	require.Contains(t, loaded.observedEvents, "obs")
-	assert.Equal(t, map[string]uint32{"blobA": 0}, loaded.observedBlobs["obs"])
+	assert.Equal(t, map[uint8]blobRef{1: {"blobA", 0}, 2: {"blobC", 4}}, loaded.observedBlobs["obs"], "each voter's blob survives a round trip")
 	require.Len(t, loaded.queuedEvents, 1)
 	assert.Equal(t, map[string]uint32{"blobB": 2}, loaded.queuedBlobs["q"])
 
@@ -295,7 +352,8 @@ func TestKVState_WriteToWithoutSizeCheck(t *testing.T) {
 
 	s := newKVState()
 	s.observedEvents["obs"] = obsEvent("wf", "e-obs", 100, 1, 2)
-	s.observedBlobs.add("obs", "blobA", 0)
+	s.observedBlobs.add("obs", 1, "blobA", 0)
+	s.observedBlobs.add("obs", 2, "blobA", 0)
 	s.queuedEvents.push(qEvent("wf", "e-q", "q", 300))
 	s.queuedBlobs.add("q", "blobB", 2)
 
@@ -507,8 +565,12 @@ func TestKVState_SizeOfMatchesWrittenBytes(t *testing.T) {
 	s := newKVState()
 	s.observedEvents["o1"] = obsEvent("wf", "e-o1", 100, 1, 2)
 	s.observedEvents["o2"] = obsEvent("wf", "e-o2", 100, 1, 2, 3)
-	s.observedBlobs.add("o1", "blobA", 0)
-	s.observedBlobs.add("o2", "blobA", 1)
+	for _, voter := range []uint8{1, 2} {
+		s.observedBlobs.add("o1", voter, "blobA", 0)
+	}
+	for _, voter := range []uint8{1, 2, 3} {
+		s.observedBlobs.add("o2", voter, "blobA", 1)
+	}
 	s.queuedEvents.push(qEvent("wf", "e-q", "q", 300))
 	s.queuedBlobs.add("q", "blobB", 2)
 	s.consensusEvents = append(s.consensusEvents, qEvent("wf", "e-c", "c", 200))
@@ -578,20 +640,22 @@ func TestPrepareWriteObservedEvents_SharedBlobs(t *testing.T) {
 	s := newKVState()
 	s.observedEvents["h1"] = obsEvent("wf", "e1", 100, 1, 2)
 	s.observedEvents["h2"] = obsEvent("wf", "e2", 100, 1, 2)
-	s.observedBlobs.add("h1", "blobX", 0)
-	s.observedBlobs.add("h2", "blobX", 1)
-	s.observedBlobs.add("h2", "blobY", 0) // two observers used different blobs
+	s.observedBlobs.add("h1", 1, "blobX", 0)
+	s.observedBlobs.add("h1", 2, "blobX", 0)
+	s.observedBlobs.add("h2", 1, "blobX", 1)
+	s.observedBlobs.add("h2", 2, "blobY", 0) // two observers used different blobs
 
 	s.prepareWriteObservedEvents()
 
-	assert.ElementsMatch(t, [][]byte{[]byte("blobX"), []byte("blobY")}, s.observedBlobHandles)
+	assert.ElementsMatch(t, [][]byte{[]byte("blobX"), []byte("blobY")}, s.observedBlobHandles, "a shared blob is stored once")
 	require.Len(t, s.observedEventEntries, 2)
 	for _, entry := range s.observedEventEntries {
-		got := map[string]uint32{}
-		for _, b := range entry.Event.Blobs {
-			got[string(s.observedBlobHandles[b.Blob])] = b.Element
+		hash := string(entry.TimelessHash)
+		require.Len(t, entry.Event.Blobs, len(entry.Event.NodeIds), "one blob per vote, aligned with NodeIds")
+		for i, voter := range entry.Event.NodeIds {
+			b := entry.Event.Blobs[i]
+			assert.Equal(t, s.observedBlobs[hash][voter], blobRef{string(s.observedBlobHandles[b.Blob]), b.Element}, "event %s voter %d", hash, voter)
 		}
-		assert.Equal(t, s.observedBlobs[string(entry.TimelessHash)], got)
 	}
 }
 
@@ -625,7 +689,7 @@ func TestAddObservedEvents_Order(t *testing.T) {
 	for range 20 { // map iteration is random; callbacks must not depend on it
 		s := newKVState()
 		var got []string
-		s.addObservedEvents(1, toAdd, blobHandleMap{}, func(e *pb.ConsensusQueueEvent) { got = append(got, string(e.TimelessHash)) })
+		s.addObservedEvents(1, toAdd, voterBlobs{}, func(e *pb.ConsensusQueueEvent) { got = append(got, string(e.TimelessHash)) })
 		require.Equal(t, []string{"a", "b", "c", "d", "e"}, got)
 	}
 }
@@ -641,7 +705,7 @@ func TestAddObservedEvents_AlreadyQueued(t *testing.T) {
 
 	var queued int
 	s.addObservedEvents(1, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "exec", 100, 1, 2, 3)},
-		blobHandleMap{}, func(*pb.ConsensusQueueEvent) { queued++ })
+		voterBlobs{}, func(*pb.ConsensusQueueEvent) { queued++ })
 
 	assert.Zero(t, queued, "already queued")
 	assert.Len(t, s.queuedEvents, 1, "no duplicate in the priority queue")
@@ -652,7 +716,7 @@ func TestAddObservedEvents_UpdateDeduplicatesNodes(t *testing.T) {
 
 	s := newKVState()
 	s.observedEvents["h"] = obsEvent("wf", "e", 100, 1, 2)
-	s.addObservedEvents(2, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "e", 100, 1, 2)}, blobHandleMap{}, func(*pb.ConsensusQueueEvent) {})
+	s.addObservedEvents(2, map[string]*pb.ConsensusQueueObservedEvent{"h": obsEvent("wf", "e", 100, 1, 2)}, voterBlobs{}, func(*pb.ConsensusQueueEvent) {})
 	assert.Equal(t, []byte{1, 2}, s.observedEvents["h"].NodeIds, "re-observation by the same nodes adds no votes")
 	assert.Empty(t, s.queuedEvents)
 }
@@ -720,8 +784,8 @@ func randomState(seed int64) (s *kvState, newlyQueued []string) {
 			nodes[v] = byte(v)
 		}
 		s.observedEvents[hash] = obsEvent(hexID("wf", i%7), hexID("exec-o", i), int64(100+rng.Intn(1000)), nodes...)
-		for range 1 + rng.Intn(2) {
-			s.observedBlobs.add(hash, pool[rng.Intn(len(pool))], uint32(rng.Intn(1000)))
+		for _, node := range nodes {
+			s.observedBlobs.add(hash, node, pool[rng.Intn(len(pool))], uint32(rng.Intn(1000)))
 		}
 	}
 	for i := range 5 + rng.Intn(200) {
@@ -767,6 +831,143 @@ func TestPruneToFit_MatchesNaive(t *testing.T) {
 				return
 			}
 			require.Equal(t, hashes(naive.queuedEvents), hashes(fast.queuedEvents), "seed %d limit %d: queued events (and heap order)", seed, maxTotal)
+		}
+	}
+}
+
+// popLimited is the original way to pop: one event at a time, putting back the skipped events after each.
+func (p *priorityQueue) popLimited(capPerWF map[string]uint32, expiration time.Time) (event *pb.ConsensusQueueEvent) {
+	var wfLimited []*pb.ConsensusQueueEvent // omitted due to workflow limit
+	for {
+		event = p.mustPop()
+		if event == nil {
+			break
+		}
+
+		if event.Deadline.AsTime().Before(expiration) {
+			// drop expired
+			continue
+		}
+
+		if capPerWF[event.WorkflowID] == 0 {
+			// ignore but restore after
+			wfLimited = append(wfLimited, event)
+			continue
+		}
+
+		capPerWF[event.WorkflowID]--
+		break
+	}
+
+	// restore omitted for next time
+	for _, limited := range wfLimited {
+		p.push(limited)
+	}
+
+	return
+}
+
+func randomQueue(rng *rand.Rand, n int, workflows int) (priorityQueue, map[string]uint32) {
+	var pq priorityQueue
+	caps := map[string]uint32{}
+	for w := range workflows {
+		if rng.Intn(3) != 0 { // some workflows have no capacity at all
+			caps[hexID("wf", w)] = uint32(rng.Intn(6))
+		}
+	}
+	for i := range n {
+		pq.push(&pb.ConsensusQueueEvent{
+			WorkflowID: hexID("wf", rng.Intn(workflows)), ExecutionID: hexID("exec", i), TimelessHash: []byte(fmt.Sprintf("h%05d", i)),
+			ObservedAt: ts(1), Deadline: ts(int64(50 + rng.Intn(200))), // some are before the expiration
+		})
+	}
+	return pq, caps
+}
+
+// Popping in a single pass must pop the same events, in the same order, and leave the same ones queued, as popping
+// one at a time did.
+func TestPopEligible_MatchesPoppingOneAtATime(t *testing.T) {
+	t.Parallel()
+
+	expiration := time.Unix(100, 0)
+	for seed := range int64(100) {
+		rng := rand.New(rand.NewSource(seed))
+		n, workflows, want := rng.Intn(300), 1+rng.Intn(12), rng.Intn(60)
+
+		oneByOne, capsA := randomQueue(rand.New(rand.NewSource(seed*3+1)), n, workflows)
+		singlePass, capsB := randomQueue(rand.New(rand.NewSource(seed*3+1)), n, workflows)
+
+		var wantPopped []string
+		for len(wantPopped) < want {
+			event := oneByOne.popLimited(capsA, expiration)
+			if event == nil {
+				break
+			}
+			wantPopped = append(wantPopped, event.ExecutionID)
+		}
+		var gotPopped []string
+		for _, event := range singlePass.popEligible(want, capsB, expiration) {
+			gotPopped = append(gotPopped, event.ExecutionID)
+		}
+
+		require.Equal(t, wantPopped, gotPopped, "seed %d: popped events", seed)
+		require.Equal(t, capsA, capsB, "seed %d: workflow capacities left", seed)
+		remaining := func(q priorityQueue) (out []string) {
+			for _, e := range q {
+				out = append(out, e.ExecutionID)
+			}
+			slices.Sort(out)
+			return
+		}
+		require.Equal(t, remaining(oneByOne), remaining(singlePass), "seed %d: events left in the queue", seed)
+	}
+}
+
+func TestPopEligible_Edges(t *testing.T) {
+	t.Parallel()
+
+	var pq priorityQueue
+	pq.push(qEvent(testWF, "a", "h1", 200))
+	assert.Empty(t, pq.popEligible(0, map[string]uint32{testWF: 5}, time.Unix(0, 0)), "nothing wanted")
+	assert.Empty(t, pq.popEligible(-3, map[string]uint32{testWF: 5}, time.Unix(0, 0)), "a negative amount is nothing")
+	assert.Equal(t, 1, pq.Len())
+	assert.Empty(t, (&priorityQueue{}).popEligible(5, nil, time.Unix(0, 0)), "an empty queue")
+}
+
+// Events waiting on a workflow without capacity must not slow down popping the rest: it was quadratic in them, with
+// 10000 of them taking 1.9s to pop 1000 events for other workflows.
+func BenchmarkPopEligible_StuckEvents(b *testing.B) {
+	for _, stuck := range []int{0, 1000, 10000} {
+		fill := func() priorityQueue {
+			var pq priorityQueue
+			for i := range stuck {
+				pq.push(&pb.ConsensusQueueEvent{WorkflowID: hexID("stuck", 0), ExecutionID: hexID("s", i), TimelessHash: []byte(fmt.Sprintf("s%06d", i)), Deadline: ts(int64(100 + i))})
+			}
+			for i := range 1000 {
+				pq.push(&pb.ConsensusQueueEvent{WorkflowID: hexID("ok", 0), ExecutionID: hexID("o", i), TimelessHash: []byte(fmt.Sprintf("o%06d", i)), Deadline: ts(int64(100000 + i))})
+			}
+			return pq
+		}
+		b.Run(fmt.Sprintf("single pass/%d stuck", stuck), func(b *testing.B) {
+			for range b.N {
+				b.StopTimer()
+				pq := fill()
+				b.StartTimer()
+				pq.popEligible(1000, map[string]uint32{hexID("ok", 0): 1000}, time.Unix(0, 0))
+			}
+		})
+		if stuck <= 1000 { // one at a time is too slow to wait for beyond this
+			b.Run(fmt.Sprintf("one at a time/%d stuck", stuck), func(b *testing.B) {
+				for range b.N {
+					b.StopTimer()
+					pq := fill()
+					caps := map[string]uint32{hexID("ok", 0): 1000}
+					b.StartTimer()
+					for range 1000 {
+						pq.popLimited(caps, time.Unix(0, 0))
+					}
+				}
+			})
 		}
 	}
 }

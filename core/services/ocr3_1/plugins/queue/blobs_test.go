@@ -3,6 +3,8 @@ package queue
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -514,4 +516,95 @@ func (c *consensusQueuePlugin) broadcastAsBlob(ctx context.Context, broadcaster 
 	}
 
 	return blobHandle, n, nil
+}
+
+// extractEvent returns the idx-th event in the blob, and its marshaled bytes. (Production code reads events through
+// blobCache, which splits a blob once.)
+func extractEvent(b []byte, idx int) (*pb.CoordinatedEvent, []byte, error) {
+	events, err := splitEvents(b, math.MaxInt)
+	if err != nil {
+		return nil, nil, err
+	}
+	if idx < 0 || idx >= len(events) {
+		return nil, nil, fmt.Errorf("index %d out of range", idx)
+	}
+	var event pb.CoordinatedEvent
+	if err := proto.Unmarshal(events[idx], &event); err != nil {
+		return nil, events[idx], fmt.Errorf("failed to unmarshal event: %w", err)
+	}
+	return &event, events[idx], nil
+}
+
+func TestSplitEvents(t *testing.T) {
+	t.Parallel()
+
+	element := func(b []byte) []byte {
+		out := protowire.AppendTag(nil, coordinatedEventsFieldNumber, protowire.BytesType)
+		return protowire.AppendBytes(out, b)
+	}
+	blobOf := func(n int) (b []byte) {
+		for range n {
+			b = append(b, element([]byte{0x0a, 0x01, 'x'})...)
+		}
+		return b
+	}
+
+	t.Run("a blob of exactly the maximum is split", func(t *testing.T) {
+		t.Parallel()
+		events, err := splitEvents(blobOf(maxEventsPerBlob), maxEventsPerBlob)
+		require.NoError(t, err)
+		assert.Len(t, events, maxEventsPerBlob)
+	})
+
+	t.Run("a blob of more than the maximum is rejected", func(t *testing.T) {
+		t.Parallel()
+		_, err := splitEvents(blobOf(maxEventsPerBlob+1), maxEventsPerBlob)
+		require.ErrorContains(t, err, "more than")
+	})
+
+	t.Run("fields that are not events are not counted", func(t *testing.T) {
+		t.Parallel()
+		b := blobOf(2)
+		for range 10 {
+			b = protowire.AppendTag(b, 2, protowire.VarintType)
+			b = protowire.AppendVarint(b, 7)
+		}
+		events, err := splitEvents(b, 2)
+		require.NoError(t, err)
+		assert.Len(t, events, 2)
+	})
+}
+
+// A blob is fetched and split once however many of its events are read, so reading them costs the size of the blob, not
+// the size of the blob for each event.
+func TestBlobCache_SplitsOnce(t *testing.T) {
+	t.Parallel()
+
+	_, e0 := newCoordinatedEvent(t, testWF, "e0")
+	_, e1 := newCoordinatedEvent(t, testWF, "e1")
+	f := &countingFetcher{payload: marshalEvents(t, e0, e1)}
+	c := newBlobCache(f)
+
+	first, err := c.fetchElements(t.Context(), handleBytes(1))
+	require.NoError(t, err)
+	second, err := c.fetchElements(t.Context(), handleBytes(1))
+	require.NoError(t, err)
+	require.Len(t, first, 2)
+	assert.Same(t, &first[0], &second[0], "the same split is returned, not a new one")
+	assert.Equal(t, 1, f.count())
+
+	t.Run("a rejected blob stays rejected without fetching again", func(t *testing.T) {
+		var big []byte
+		for range maxEventsPerBlob + 1 {
+			big = protowire.AppendTag(big, coordinatedEventsFieldNumber, protowire.BytesType)
+			big = protowire.AppendBytes(big, nil)
+		}
+		f := &countingFetcher{payload: big}
+		c := newBlobCache(f)
+		for range 3 {
+			_, _, err := fetchCoordinatedEventFromBlob(t.Context(), c, handleBytes(2), 0)
+			require.ErrorContains(t, err, "more than")
+		}
+		assert.Equal(t, 1, f.count())
+	})
 }

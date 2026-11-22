@@ -262,7 +262,9 @@ func TestCalibration_KVState(t *testing.T) {
 				e.ObservedAts = append(e.ObservedAts, randTS(rng))
 				e.Deadlines = append(e.Deadlines, randTS(rng))
 			}
-			e.Blobs = []*pb.CoordinatedEventBlobHandle{{Blob: uint32(rng.Intn(maxObservedBlobHandles * n)), Element: uint32(rng.Intn(maxObservedEvents))}}
+			for range 2 * f { // the blob of each vote
+				e.Blobs = append(e.Blobs, &pb.CoordinatedEventBlobHandle{Blob: uint32(rng.Intn(maxObservedBlobHandles * n)), Element: uint32(rng.Intn(maxObservedEvents))})
+			}
 			entry := &pb.ConsensusQueueObservedEventEntry{TimelessHash: make([]byte, sha256.Size), Event: e}
 			return protowire.SizeBytes(proto.Size(entry)) + protowire.SizeTag(1)
 		})

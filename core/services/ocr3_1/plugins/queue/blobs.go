@@ -15,12 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 )
 
-// blobCache is a short-lived cache for coordinating concurrent fetches of event blobs.
+// blobCache is a short-lived cache for coordinating concurrent fetches of event blobs, and of splitting them up.
 type blobCache struct {
 	fetcher ocr3_1types.BlobFetcher
 
-	mu    sync.RWMutex
-	cache map[string]func() ([]byte, error) // blob handle -> blob
+	mu       sync.RWMutex
+	cache    map[string]func() ([]byte, error)   // blob handle -> blob
+	elements map[string]func() ([][]byte, error) // blob handle -> its events, split up
 }
 
 func (c *blobCache) fetchBlob(ctx context.Context, handle []byte) ([]byte, error) {
@@ -52,19 +53,45 @@ func (c *blobCache) fetchBlob(ctx context.Context, handle []byte) ([]byte, error
 	return fn()
 }
 
-// fetchCoordinatedEventFromBlob fetches and extracts the idx-th event from the blob, without unmarshaling any other events.
+// fetchElements fetches the blob and splits it into its events once, however many events are read from it. Finding an
+// event by scanning from the start of a blob each time is quadratic in its events, which a peer could exploit by padding
+// a blob with empty events.
+func (c *blobCache) fetchElements(ctx context.Context, handle []byte) ([][]byte, error) {
+	c.mu.Lock()
+	fn, ok := c.elements[string(handle)]
+	if !ok {
+		fn = sync.OnceValues(func() ([][]byte, error) {
+			blob, err := c.fetchBlob(ctx, handle)
+			if err != nil {
+				return nil, err
+			}
+			return splitEvents(blob, maxEventsPerBlob)
+		})
+		if c.elements == nil {
+			c.elements = make(map[string]func() ([][]byte, error))
+		}
+		c.elements[string(handle)] = fn
+	}
+	c.mu.Unlock()
+	return fn()
+}
+
+// fetchCoordinatedEventFromBlob fetches the blob and returns the idx-th event in it, and its marshaled bytes, without
+// unmarshaling any other events.
 func fetchCoordinatedEventFromBlob(ctx context.Context, fetcher *blobCache, handle []byte, idx int) (*pb.CoordinatedEvent, []byte, error) {
-	bb, err := fetcher.fetchBlob(ctx, handle)
+	elements, err := fetcher.fetchElements(ctx, handle)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch blob: %w", err)
 	}
-
-	coordEvent, eb, err := extractEvent(bb, idx)
-	if err != nil {
-		return nil, nil, err
+	if idx < 0 || idx >= len(elements) {
+		return nil, nil, fmt.Errorf("index %d out of range", idx)
 	}
 
-	return coordEvent, eb, nil
+	var event pb.CoordinatedEvent
+	if err := proto.Unmarshal(elements[idx], &event); err != nil {
+		return nil, elements[idx], fmt.Errorf("failed to unmarshal event: %w", err)
+	}
+	return &event, elements[idx], nil
 }
 
 const coordinatedEventsFieldNumber = 1 // pb.CoordinatedEventList.Events
@@ -79,50 +106,48 @@ func (c *consensusQueuePlugin) maxEventBytes() int {
 	return max(0, c.limits.MaxBlobPayloadBytes-maxEventFramingOverhead)
 }
 
-// extractEvent extracts the idx-th event from the blob, without unmarshaling any other events.
-func extractEvent(b []byte, idx int) (*pb.CoordinatedEvent, []byte, error) {
-	i := 0
+// maxEventsPerBlob is the most events a blob may hold. An observation has at most maxObservedEvents events in all of
+// its blobs, so an honest blob has no more. Anything else only makes reading it costly.
+const maxEventsPerBlob = maxObservedEvents
+
+// splitEvents splits a blob into its marshaled events, without unmarshaling any of them. It rejects a blob with more
+// than max events.
+func splitEvents(b []byte, max int) ([][]byte, error) {
+	var events [][]byte
 	for len(b) > 0 {
 		num, typ, n := protowire.ConsumeTag(b)
 		if n < 0 {
-			return nil, nil, protowire.ParseError(n)
+			return nil, protowire.ParseError(n)
 		}
 
 		b = b[n:]
-		if num == coordinatedEventsFieldNumber {
-			if typ != protowire.BytesType {
-				return nil, nil, fmt.Errorf("expected bytes type for field %d, got %d", coordinatedEventsFieldNumber, typ)
-			}
-
-			v, m := protowire.ConsumeBytes(b)
-			if m < 0 {
-				return nil, nil, protowire.ParseError(m)
-			}
-
-			if i == idx {
-				var event pb.CoordinatedEvent
-				if err := proto.Unmarshal(v, &event); err != nil {
-					return nil, v, fmt.Errorf("failed to unmarshal event: %w", err)
-				}
-
-				return &event, v, nil
-			}
-
-			// advance
-			i++
-			b = b[m:]
-			continue
-		} else {
+		if num != coordinatedEventsFieldNumber {
 			n := protowire.ConsumeFieldValue(num, typ, b)
 			if n < 0 {
-				return nil, nil, protowire.ParseError(n)
+				return nil, protowire.ParseError(n)
 			}
 
 			b = b[n:]
+			continue
 		}
-	}
 
-	return nil, nil, fmt.Errorf("index %d out of range", idx)
+		if typ != protowire.BytesType {
+			return nil, fmt.Errorf("expected bytes type for field %d, got %d", coordinatedEventsFieldNumber, typ)
+		}
+
+		v, m := protowire.ConsumeBytes(b)
+		if m < 0 {
+			return nil, protowire.ParseError(m)
+		}
+
+		if len(events) == max {
+			return nil, fmt.Errorf("blob has more than %d events", max)
+		}
+
+		events = append(events, v)
+		b = b[m:]
+	}
+	return events, nil
 }
 
 const (

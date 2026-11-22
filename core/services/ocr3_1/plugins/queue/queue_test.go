@@ -21,6 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -338,7 +339,7 @@ func TestObservationsAggregate(t *testing.T) {
 		require.NotNil(t, got)
 		assert.Equal(t, []byte{0, 1, 3}, got.NodeIds)
 		assert.Len(t, got.Deadlines, 3)
-		assert.Equal(t, map[string]uint32{"handle": 0}, res.observedBlobs[string(hash)])
+		assert.Equal(t, map[uint8]blobRef{0: {"handle", 0}, 1: {"handle", 0}, 3: {"handle", 0}}, res.observedBlobs[string(hash)], "each voter's blob")
 	})
 }
 
@@ -796,7 +797,7 @@ func TestStateTransition_Lifecycle(t *testing.T) {
 	st := loadState(t, kv)
 	require.Contains(t, st.observedEvents, string(e[0].hash), "observed events must be persisted")
 	assert.Equal(t, []byte{0, 1}, st.observedEvents[string(e[0].hash)].NodeIds)
-	assert.Equal(t, map[string]uint32{string(handleBytes(1)): 0}, st.observedBlobs[string(e[0].hash)])
+	assert.Equal(t, map[uint8]blobRef{0: {string(handleBytes(1)), 0}, 1: {string(handleBytes(1)), 0}}, st.observedBlobs[string(e[0].hash)])
 	assert.Empty(t, st.queuedEvents)
 	assert.Empty(t, consensusIDs(t, kv))
 
@@ -2305,4 +2306,154 @@ func BenchmarkFullStateTransitionOverLimit(b *testing.B) {
 		b.ReportMetric(queued(seed), "queuedBefore")
 		run(b, c, seed, round(b, none, all[9000:12000], n), queued, "queuedAfter/op")
 	})
+}
+
+// A peer can pad a blob with empty events, to make finding each of its real events by scanning from the start cost a
+// lot: validating 1000 events behind 2M empty ones took over half a second on 16 cores (seconds of CPU). Such a blob
+// has more events than any observation can use, so it is rejected, cheaply.
+func TestValidateObservation_RejectsBlobPaddedWithEmptyEvents(t *testing.T) {
+	t.Parallel()
+
+	blobs := &memBlobs{}
+	c := testPlugin(t, sliceQueue{}, blobs, ocr3_1types.MaxMaxObservationBytes)
+
+	padding := 2 * maxEventsPerBlob
+	var payload []byte
+	for range padding {
+		payload = protowire.AppendTag(payload, coordinatedEventsFieldNumber, protowire.BytesType)
+		payload = protowire.AppendBytes(payload, nil)
+	}
+	obs := &pb.ConsensusQueueObservation{BlobHandles: [][]byte{handleBytes(1)}, Expiration: ts(100), WorkflowCapacities: map[string]uint32{testWF: 1}}
+	for i := range 10 {
+		ce, qe := blobEvent(t, testWF, fmt.Sprintf("evt-%02d", i))
+		qe.Deadline = ts(int64(2000 + i))
+		qe.Blobs = []*pb.CoordinatedEventBlobHandle{{Blob: 0, Element: uint32(padding + i)}}
+		payload = append(payload, marshalEvents(t, ce)[:]...)
+		obs.Events = append(obs.Events, qe)
+	}
+	blobs.store(handleBytes(1), payload)
+	raw, err := proto.Marshal(obs)
+	require.NoError(t, err)
+
+	err = c.ValidateObservation(t.Context(), 1, ocrtypes.AttributedQuery{}, ocrtypes.AttributedObservation{Observation: raw}, memKV{}, blobs)
+	require.ErrorContains(t, err, "more than")
+}
+
+// A node that votes for the same event round after round, with a new blob each time, must not make the stored state
+// grow. Each round adds one blob handle for it, until the event is pruned or promoted, which it need not be.
+func TestStateTransition_RepeatedVotesDoNotGrowState(t *testing.T) {
+	t.Parallel()
+
+	c := newSTPlugin(t) // N=4, F=1: two votes are tracked, and it takes three to promote
+	kv := memKV{}
+	e := mkEvents(t, 1, 2000)
+	vote := func(node int, round int) ocrtypes.AttributedObservation {
+		obs := nodeObs(t, stdNode, e...)
+		obs.BlobHandles[0] = handleBytes(byte(10 + round)) // a new blob each round
+		return ao(t, node, obs)
+	}
+	none := func(node int) ocrtypes.AttributedObservation { return ao(t, node, nodeObs(t, stdNode)) }
+
+	require.NoError(t, stateTransition(t, c, kv, vote(0, 0), vote(1, 0), none(2)))
+
+	var sizeAfter10 int
+	for round := 1; round <= 100; round++ {
+		require.NoError(t, stateTransition(t, c, kv, vote(0, round), none(1), none(2)))
+		if round == 10 {
+			sizeAfter10 = kvTotal(kv)
+		}
+	}
+
+	st := loadState(t, kv)
+	require.Contains(t, st.observedEvents, string(e[0].hash), "still waiting for a third vote")
+	assert.Equal(t, []byte{0, 1}, st.observedEvents[string(e[0].hash)].NodeIds)
+	assert.Len(t, st.observedBlobs[string(e[0].hash)], 2, "one blob per voter")
+	assert.Equal(t, blobRef{string(handleBytes(110)), 0}, st.observedBlobs[string(e[0].hash)][0], "node 0's latest")
+	assert.Equal(t, sizeAfter10, kvTotal(kv), "90 more rounds of votes did not add a byte")
+
+	// and when a third node votes, the event is promoted with just those two nodes' blobs and the new one
+	require.NoError(t, stateTransition(t, c, kv, vote(2, 101), none(1), none(0)))
+	cons, handles, err := readConsensusState(kv)
+	require.NoError(t, err)
+	require.Len(t, cons, 1)
+	assert.Len(t, cons[0].Blobs, 3, "a blob for each of the three voters")
+	assert.Len(t, handles, 3)
+}
+
+// gatedBlobs holds back fetches of some blobs until their gate is closed (or the fetch is cancelled).
+type gatedBlobs struct {
+	memBlobs
+	gates map[string]chan struct{} // marshaled handle -> gate
+}
+
+func (g *gatedBlobs) FetchBlob(ctx context.Context, h ocr3_1types.BlobHandle) ([]byte, error) {
+	if gate, ok := g.gates[marshalHandle(h)]; ok {
+		select {
+		case <-gate:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return g.memBlobs.FetchBlob(ctx, h)
+}
+
+// Any one blob of an event will do, so they are tried together: a blob that is slow or unavailable cannot hold up the
+// event, however it sorts, and the attempts that are not needed must not be cancelled, as the fetch of a blob is shared
+// by every event that uses it.
+func TestCommitted_FetchesAnEventsBlobsConcurrently(t *testing.T) {
+	t.Parallel()
+
+	// two blobs with the same two events. X is the first of an event's blobs, and is held back.
+	ceA, qeA := blobEvent(t, testWF, "a")
+	ceB, qeB := blobEvent(t, testWF, "b")
+	payload := marshalEvents(t, ceA, ceB)
+	x, y := handleBytes(1), handleBytes(2)
+	// A has both blobs, X first. B has only X.
+	qeA.Blobs = []*pb.CoordinatedEventBlobHandle{{Blob: 0, Element: 0}, {Blob: 1, Element: 0}}
+	qeB.Blobs = []*pb.CoordinatedEventBlobHandle{{Blob: 0, Element: 1}}
+
+	gate := make(chan struct{})
+	var once sync.Once
+	release := func() { once.Do(func() { close(gate) }) }
+	t.Cleanup(release)
+	blobs := &gatedBlobs{}
+	blobs.store(x, payload)
+	blobs.store(y, payload)
+	var hx ocr3_1types.BlobHandle
+	require.NoError(t, hx.UnmarshalBinary(x))
+	blobs.gates = map[string]chan struct{}{marshalHandle(hx): gate}
+
+	events, err := proto.Marshal(&pb.ConsensusQueueEventList{Events: []*pb.ConsensusQueueEvent{qeA, qeB}})
+	require.NoError(t, err)
+	handles, err := proto.Marshal(&pb.ConsensusQueueBlobHandleList{BlobHandles: [][]byte{x, y}})
+	require.NoError(t, err)
+	kv := memKV{consensusEventsKey: events, blobHandlesKey: handles}
+
+	coord := &recCoordinator{}
+	c := newCommitPlugin(t, coord, &recQueue{}, blobs)
+	committed := make(chan error, 1)
+	go func() { committed <- c.Committed(t.Context(), 1, kv) }()
+
+	// A is started through Y, while X is still held back, and so is not waited for
+	require.Eventually(t, func() bool { return len(coord.startedEvents()) == 1 }, 5*time.Second, 5*time.Millisecond,
+		"an event is not held up by its other, unavailable blob")
+	assert.Equal(t, "a", coord.startedEvents()[0].Event.Event.ID)
+	select {
+	case err := <-committed:
+		t.Fatalf("B can only be read from X, so committing waits for it, but it returned %v (started %d)", err, len(coord.startedEvents()))
+	default:
+	}
+
+	// X was the loser for A, and must not have been cancelled for it: B needs it
+	release()
+	select {
+	case err := <-committed:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Committed did not finish")
+	}
+	started := coord.startedEvents()
+	require.Len(t, started, 2)
+	ids := []string{started[0].Event.Event.ID, started[1].Event.Event.ID}
+	assert.ElementsMatch(t, []string{"a", "b"}, ids, "B was started from X after it was released")
 }

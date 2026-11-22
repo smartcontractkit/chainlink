@@ -5,6 +5,7 @@ import (
 	"container/heap"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"sort"
 	"time"
@@ -23,7 +24,8 @@ const numKVKeys = 4
 
 // KV store keys
 const (
-	// observed events waiting for consensus (F+1 <= observers <2F+1)
+	// observed events waiting for consensus (F+1 <= observers <2F+1). Each event's Blobs are aligned with its NodeIds: the
+	// blob of each vote.
 	observedEventsKey = "observed_events::index" // pb.ConsensusQueueObservedEvents { map[string]*pb.ConsensusQueueObservedEvent; [][]byte }
 	// priority queue of events waiting for capacity
 	queuedEventsKey = "queued_events::index" // pb.ConsensusQueueEventList { []*pb.ConsensusQueueEvent }
@@ -108,37 +110,39 @@ func (p *priorityQueue) mustPop() *pb.ConsensusQueueEvent {
 	return heap.Pop(p).(*pb.ConsensusQueueEvent)
 }
 
-// popLimited pops up to capacity events from the queue, each of which must also have sufficient wf capacity.
+// popEligible pops up to n events from the queue, in priority order, each of which also has capacity left for its
+// workflow, which it uses up. Expired events are dropped. Events without workflow capacity stay in the queue.
 // Note: capPerWF is mutated.
-func (p *priorityQueue) popLimited(capPerWF map[string]uint32, expiration time.Time) (event *pb.ConsensusQueueEvent) {
-	var wfLimited []*pb.ConsensusQueueEvent // omitted due to workflow limit
-	for {
-		event = p.mustPop()
+//
+// It makes a single pass, and puts back the events it skipped once at the end. A workflow's capacity only goes down
+// while popping, so an event that was skipped stays ineligible, and looking at it again for each event popped (as popping
+// one at a time did) is wasted work: quadratic in the events waiting on workflows without capacity (1.9s for 10000).
+func (p *priorityQueue) popEligible(n int, capPerWF map[string]uint32, expiration time.Time) []*pb.ConsensusQueueEvent {
+	var popped, skipped []*pb.ConsensusQueueEvent
+	for len(popped) < n {
+		event := p.mustPop()
 		if event == nil {
 			break
 		}
 
 		if event.Deadline.AsTime().Before(expiration) {
-			// drop expired
-			continue
+			continue // drop expired
 		}
 
 		if capPerWF[event.WorkflowID] == 0 {
-			// ignore but restore after
-			wfLimited = append(wfLimited, event)
+			skipped = append(skipped, event)
 			continue
 		}
 
 		capPerWF[event.WorkflowID]--
-		break
+		popped = append(popped, event)
 	}
 
-	// restore omitted for next time
-	for _, limited := range wfLimited {
-		p.push(limited)
+	for _, event := range skipped {
+		p.push(event)
 	}
 
-	return
+	return popped
 }
 
 type blobHandleMap map[string]map[string]uint32 // eventHash -> blobHandle -> idx
@@ -161,11 +165,42 @@ func (m blobHandleMap) addAll(eventHash string, blobHandles map[string]uint32) {
 	}
 }
 
+// voterBlobs is the blob each voter observed each event in: eventHash -> voter -> blob. There is one per voter, so a voter
+// that votes again replaces its blob instead of adding to those that the event refers to, which would let it grow
+// without limit.
+type voterBlobs map[string]map[uint8]blobRef
+
+type blobRef struct {
+	handle  string
+	element uint32 // the index of the event in the blob
+}
+
+func (m voterBlobs) add(eventHash string, voter uint8, blobHandle string, element uint32) {
+	if _, ok := m[eventHash]; !ok {
+		m[eventHash] = make(map[uint8]blobRef)
+	}
+
+	m[eventHash][voter] = blobRef{handle: blobHandle, element: element}
+}
+
+// handles returns the distinct blobs of the event's voters, and where the event is in each. Voters may share a blob,
+// but if they disagree on where the event is in it, the lowest index is used so that the result is deterministic.
+func (m voterBlobs) handles(eventHash string) map[string]uint32 {
+	handles := make(map[string]uint32, len(m[eventHash]))
+	for _, ref := range m[eventHash] {
+		if element, ok := handles[ref.handle]; !ok || ref.element < element {
+			handles[ref.handle] = ref.element
+		}
+	}
+
+	return handles
+}
+
 type kvState struct {
 	// observedEventsKey
 	observedEvents       map[string]*pb.ConsensusQueueObservedEvent // key: timeless hash
 	observedEventEntries []*pb.ConsensusQueueObservedEventEntry     // only populated before write
-	observedBlobs        blobHandleMap
+	observedBlobs        voterBlobs
 	observedBlobHandles  [][]byte // only populated before write
 
 	// priorityQueueKey
@@ -200,7 +235,9 @@ func (s *kvState) loadFrom(kv ocr3_1types.KeyValueStateReadWriter) error {
 
 	for _, event := range s.queuedEvents {
 		for _, blob := range event.GetBlobs() {
-			s.queuedBlobs.add(string(event.TimelessHash), string(queuedBlobs[blob.Blob]), blob.Element)
+			if int(blob.Blob) < len(queuedBlobs) {
+				s.queuedBlobs.add(string(event.TimelessHash), string(queuedBlobs[blob.Blob]), blob.Element)
+			}
 		}
 	}
 
@@ -225,13 +262,13 @@ func readQueuedEvents(kv ocr3_1types.KeyValueStateReader) ([]*pb.ConsensusQueueE
 	return nil, nil
 }
 
-func readObservedEvents(kv ocr3_1types.KeyValueStateReader) (observedEvents map[string]*pb.ConsensusQueueObservedEvent, observedBlobs blobHandleMap, err error) {
+func readObservedEvents(kv ocr3_1types.KeyValueStateReader) (observedEvents map[string]*pb.ConsensusQueueObservedEvent, observedBlobs voterBlobs, err error) {
 	v, err := kv.Read([]byte(observedEventsKey))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read observed events: %w", err)
 	}
 
-	observedBlobs = make(blobHandleMap)
+	observedBlobs = make(voterBlobs)
 	if v != nil {
 		var observed pb.ConsensusQueueObservedEvents
 		if err = proto.Unmarshal(v, &observed); err != nil {
@@ -245,8 +282,11 @@ func readObservedEvents(kv ocr3_1types.KeyValueStateReader) (observedEvents map[
 
 		blobHandles := observed.GetBlobHandles()
 		for eventHash, event := range observedEvents {
-			for _, b := range event.GetBlobs() {
-				observedBlobs.add(eventHash, string(blobHandles[b.Blob]), b.Element)
+			// Blobs[i] is the blob of the vote of NodeIds[i]
+			for i, voter := range event.GetNodeIds() {
+				if i < len(event.Blobs) && int(event.Blobs[i].Blob) < len(blobHandles) {
+					observedBlobs.add(eventHash, voter, string(blobHandles[event.Blobs[i].Blob]), event.Blobs[i].Element)
+				}
 			}
 		}
 	} else {
@@ -298,19 +338,24 @@ func (s *kvState) prepareWriteObservedEvents() {
 		return cmp.Or(cmp.Compare(len(eb.NodeIds), len(ea.NodeIds)), cmp.Compare(a, b))
 	}) {
 		event := s.observedEvents[eventHash]
-		event.Blobs = nil // replace all
-		for _, blobHandle := range slices.Sorted(maps.Keys(s.observedBlobs[eventHash])) {
-			ei := s.observedBlobs[eventHash][blobHandle]
-			idx, ok := observedBlobIndexes[blobHandle]
+		event.Blobs = nil // replace all, with one per vote
+		for _, voter := range event.NodeIds {
+			ref, ok := s.observedBlobs[eventHash][voter]
+			if !ok { // every vote has a blob, but keep Blobs aligned with NodeIds regardless
+				event.Blobs = append(event.Blobs, &pb.CoordinatedEventBlobHandle{Blob: math.MaxUint32})
+				continue
+			}
+
+			idx, ok := observedBlobIndexes[ref.handle]
 			if !ok {
 				idx = len(s.observedBlobHandles)
-				observedBlobIndexes[blobHandle] = idx
-				s.observedBlobHandles = append(s.observedBlobHandles, []byte(blobHandle))
+				observedBlobIndexes[ref.handle] = idx
+				s.observedBlobHandles = append(s.observedBlobHandles, []byte(ref.handle))
 			}
 
 			event.Blobs = append(event.Blobs, &pb.CoordinatedEventBlobHandle{
 				Blob:    uint32(idx),
-				Element: ei,
+				Element: ref.element,
 			})
 		}
 
@@ -384,15 +429,7 @@ func (s *kvState) trimConsensusEvents(maxTotalBytes int) {
 // popConsensusEvents pops as many queuedEvents as possible in to consensusEvents, up to capacity (overall, and per
 // workflow) or the KV limits. Expired events are dropped.
 func (s *kvState) popConsensusEvents(capacity int, capPerWF map[string]uint32, expiration time.Time, maxTotalBytes int) {
-	for len(s.queuedEvents) > 0 && len(s.consensusEvents) < capacity {
-		event := s.queuedEvents.popLimited(capPerWF, expiration)
-		if event == nil {
-			break
-		}
-
-		s.consensusEvents = append(s.consensusEvents, event)
-	}
-
+	s.consensusEvents = append(s.consensusEvents, s.queuedEvents.popEligible(capacity-len(s.consensusEvents), capPerWF, expiration)...)
 	s.trimConsensusEvents(maxTotalBytes)
 }
 
@@ -499,16 +536,17 @@ func (s *kvState) pruneExpiredObservations(expiration time.Time) {
 		if !slices.ContainsFunc(v.Deadlines, func(t *timestamppb.Timestamp) bool {
 			return !t.AsTime().Before(expiration)
 		}) {
+			delete(s.observedBlobs, k)
 			return true // all deadlines expired, so delete the whole thing
 		}
 
 		// some expired, so prune them
 		for i := 0; i < len(v.Deadlines); {
 			if v.Deadlines[i].AsTime().Before(expiration) {
+				delete(s.observedBlobs[k], v.NodeIds[i]) // the vote goes, and so does its blob
 				v.NodeIds = slices.Delete(v.NodeIds, i, i+1)
 				v.ObservedAts = slices.Delete(v.ObservedAts, i, i+1)
 				v.Deadlines = slices.Delete(v.Deadlines, i, i+1)
-				// note: s.observedBlobs tracks blobs while in memory
 			} else {
 				i++
 			}
@@ -520,7 +558,7 @@ func (s *kvState) pruneExpiredObservations(expiration time.Time) {
 
 // addObserved adds the observed events to the set, promoting to the priority queue on 2f+1 and calling onQueued.
 // Events with fewer than f+1 observations are ignored.
-func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueObservedEvent, observedBlobs blobHandleMap, onQueued func(event *pb.ConsensusQueueEvent)) {
+func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueObservedEvent, observedBlobs voterBlobs, onQueued func(event *pb.ConsensusQueueEvent)) {
 	alreadyQueued := make(map[string]struct{}, len(s.queuedEvents))
 	for _, e := range s.queuedEvents {
 		alreadyQueued[string(e.TimelessHash)] = struct{}{}
@@ -537,12 +575,12 @@ func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueOb
 			switch {
 			case len(eventToAdd.NodeIds) >= 2*f+1:
 				// new proposal straight to priority queue
-				s.queuedBlobs.addAll(eventHash, observedBlobs[eventHash])
+				s.queuedBlobs.addAll(eventHash, observedBlobs.handles(eventHash))
 				event := s.queueObservations(eventHash, eventToAdd)
 				onQueued(event)
 			case len(eventToAdd.NodeIds) >= f+1:
 				// new proposal to the observation set
-				s.observedBlobs.addAll(eventHash, observedBlobs[eventHash])
+				s.observedBlobs[eventHash] = maps.Clone(observedBlobs[eventHash])
 				s.observedEvents[eventHash] = eventToAdd
 			default:
 				// new proposal without enough observations < f + 1
@@ -555,20 +593,21 @@ func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueOb
 					obsEvent.NodeIds = append(obsEvent.NodeIds, node)
 					obsEvent.ObservedAts = append(obsEvent.ObservedAts, eventToAdd.ObservedAts[i])
 					obsEvent.Deadlines = append(obsEvent.Deadlines, eventToAdd.Deadlines[i])
-					// note: s.observedBlobs tracks blobs while in memory
 				} else { // overwrite previous observation
 					obsEvent.ObservedAts[prev] = eventToAdd.ObservedAts[i]
 					obsEvent.Deadlines[prev] = eventToAdd.Deadlines[i]
-					// note: s.observedBlobs tracks blobs while in memory
+				}
+
+				// the voter's blob, which replaces its previous one
+				if ref, ok := observedBlobs[eventHash][node]; ok {
+					s.observedBlobs.add(eventHash, node, ref.handle, ref.element)
 				}
 			}
-
-			s.observedBlobs.addAll(eventHash, observedBlobs[eventHash])
 
 			if len(obsEvent.NodeIds) >= 2*f+1 {
 				// promote proposal to priority queue
 				delete(s.observedEvents, eventHash)
-				s.queuedBlobs[eventHash] = s.observedBlobs[eventHash]
+				s.queuedBlobs.addAll(eventHash, s.observedBlobs.handles(eventHash))
 				delete(s.observedBlobs, eventHash)
 				event := s.queueObservations(eventHash, obsEvent)
 				onQueued(event)
