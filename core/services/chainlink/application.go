@@ -843,6 +843,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				OCRConfigService:               creServices.OCRConfigService,
 				TriggerCoordinator:             creServices.TriggerCoordinator,
 				TriggerQueue:                   creServices.TriggerQueue,
+				Meter:                          meter,
 				DefaultBootstrappers:           safeDefaultBootstrappers(cfg),
 				CapRegistryAddress:             safeExternalRegistryAddress(cfg),
 				CapRegistryChainID:             safeExternalRegistryChainID(cfg),

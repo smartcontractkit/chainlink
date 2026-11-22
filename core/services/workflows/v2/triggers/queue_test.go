@@ -3,6 +3,7 @@ package triggers
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -584,4 +585,35 @@ func TestQueue_SortedDropsOversize(t *testing.T) {
 		q, maxSmall := newQueue(t)
 		assert.Len(t, ids(q, 1, maxSmall), 1)
 	})
+}
+
+// How long an event was queued is recorded when consensus takes it from the queue, and not for those left in it.
+func TestQueue_RecordsHowLongRemovedEventsWereQueued(t *testing.T) {
+	t.Parallel()
+	qm, reader := testQueueMetrics(t)
+	q := NewQueue(&fakeLimit{limit: 10}, qm, logger.Test(t))
+
+	observedAgo := func(id string, ago time.Duration) CoordinatedEvent {
+		e := centralEvent("wf", 0, id)
+		e.ObservedAt = time.Now().Add(-ago)
+		return e
+	}
+	putAll(t, q, observedAgo("a", 5*time.Second), observedAgo("b", 9*time.Second), observedAgo("stays", time.Hour))
+	require.Len(t, q.events, 3)
+	removed := []string{q.events[0].executionID, q.events[1].executionID}
+
+	q.Remove(t.Context(), slices.Values(removed))
+
+	m := findMetric(t, reader, "platform_engine_central_trigger_queue_event_age_seconds")
+	require.NotNil(t, m)
+	hist, ok := m.Data.(metricdata.Histogram[float64])
+	require.True(t, ok)
+	require.Len(t, hist.DataPoints, 1)
+	assert.Equal(t, uint64(2), hist.DataPoints[0].Count, "one for each event removed, none for the one left")
+	assert.InDelta(t, 14.0, hist.DataPoints[0].Sum, 0.5, "5s and 9s")
+
+	q.Remove(t.Context(), slices.Values([]string{"not-queued"}))
+	m = findMetric(t, reader, "platform_engine_central_trigger_queue_event_age_seconds")
+	hist = m.Data.(metricdata.Histogram[float64])
+	assert.Equal(t, uint64(2), hist.DataPoints[0].Count, "removing what is not there records nothing")
 }

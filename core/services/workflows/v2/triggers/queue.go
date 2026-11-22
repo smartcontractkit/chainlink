@@ -12,6 +12,7 @@ import (
 	"maps"
 	"slices"
 	"sync"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -182,7 +183,7 @@ func (q *CentralQueue) Remove(ctx context.Context, executionIDs iter.Seq[string]
 			deleted++
 			q.depthByWorkflow[cqe.WorkflowID]--
 			q.depthByTriggerType[cqe.TriggerCapID]--
-			//TODO emit metric for time.Since(e.ObservedAt)
+			q.metrics.RecordEventAge(ctx, time.Since(cqe.ObservedAt).Seconds())
 		}
 		return ok
 	})

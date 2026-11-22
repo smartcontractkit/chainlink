@@ -6,6 +6,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -13,7 +16,7 @@ import (
 )
 
 func Test_ReportingPlugin_WrapsAllMethods(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "test", "abc")
 	require.NoError(t, err)
 
 	plugin := newReportingPlugin(
@@ -69,7 +72,7 @@ func Test_ReportingPlugin_WrapsAllMethods(t *testing.T) {
 }
 
 func Test_ReportingPlugin_PropagatesErrors(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "test", "abc")
 	require.NoError(t, err)
 
 	expectedErr := errors.New("test error")
@@ -110,7 +113,7 @@ func Test_ReportingPlugin_PropagatesErrors(t *testing.T) {
 }
 
 func Test_InstrumentedBlobBroadcastFetcher(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "test", "abc")
 	require.NoError(t, err)
 
 	inner := &fakeBlobBroadcastFetcher{
@@ -140,7 +143,7 @@ func Test_InstrumentedBlobBroadcastFetcher(t *testing.T) {
 }
 
 func Test_InstrumentedBlobBroadcastFetcher_PropagatesErrors(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "test", "abc")
 	require.NoError(t, err)
 
 	expectedErr := errors.New("blob error")
@@ -162,7 +165,7 @@ func Test_InstrumentedBlobBroadcastFetcher_PropagatesErrors(t *testing.T) {
 }
 
 func Test_InstrumentedBlobFetcher(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "test", "abc")
 	require.NoError(t, err)
 
 	inner := &fakeBlobFetcher{fetchPayload: []byte("fetched-data")}
@@ -175,7 +178,7 @@ func Test_InstrumentedBlobFetcher(t *testing.T) {
 }
 
 func Test_InstrumentedBlobFetcher_PropagatesErrors(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "test", "abc")
 	require.NoError(t, err)
 
 	expectedErr := errors.New("fetch error")
@@ -187,7 +190,7 @@ func Test_InstrumentedBlobFetcher_PropagatesErrors(t *testing.T) {
 }
 
 func Test_ReportingPlugin_WrapsBlobs(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "test", "abc")
 	require.NoError(t, err)
 
 	innerBlob := &fakeBlobBroadcastFetcher{
@@ -228,7 +231,7 @@ func Test_ReportingPlugin_WrapsBlobs(t *testing.T) {
 }
 
 func Test_InstrumentedKVStateReader(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "test", "abc")
 	require.NoError(t, err)
 
 	inner := &fakeKVStateReader{data: map[string][]byte{"key1": []byte("value1")}}
@@ -247,7 +250,7 @@ func Test_InstrumentedKVStateReader(t *testing.T) {
 }
 
 func Test_InstrumentedKVStateReader_PropagatesErrors(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "test", "abc")
 	require.NoError(t, err)
 
 	expectedErr := errors.New("read error")
@@ -259,7 +262,7 @@ func Test_InstrumentedKVStateReader_PropagatesErrors(t *testing.T) {
 }
 
 func Test_InstrumentedKVStateReadWriter(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "test", "abc")
 	require.NoError(t, err)
 
 	inner := &fakeKVStateReadWriter{fakeKVStateReader: fakeKVStateReader{data: map[string][]byte{}}}
@@ -290,7 +293,7 @@ func Test_InstrumentedKVStateReadWriter(t *testing.T) {
 }
 
 func Test_InstrumentedKVStateReadWriter_PropagatesErrors(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "test", "abc")
 	require.NoError(t, err)
 
 	expectedErr := errors.New("write error")
@@ -311,7 +314,7 @@ func Test_InstrumentedKVStateReadWriter_PropagatesErrors(t *testing.T) {
 }
 
 func Test_ReportingPlugin_WrapsKV(t *testing.T) {
-	metrics, err := newPluginMetrics("test", "abc")
+	metrics, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "test", "abc")
 	require.NoError(t, err)
 
 	innerReader := &fakeKVStateReader{data: map[string][]byte{}}
@@ -594,4 +597,52 @@ func (f *fakePlugin[RI]) ShouldTransmitAcceptedReport(context.Context, uint64, o
 
 func (f *fakePlugin[RI]) Close() error {
 	return f.err
+}
+
+// The sequence number of the latest committed round is the round progress.
+func Test_ReportingPlugin_RecordsCommittedSeqNr(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+
+	metrics, err := newPluginMetrics(mp.Meter("test"), "test", "abc")
+	require.NoError(t, err)
+	plugin := newReportingPlugin(&fakePlugin[uint]{}, metrics)
+
+	committed := func() (value int64, found bool) {
+		var rm metricdata.ResourceMetrics
+		require.NoError(t, reader.Collect(t.Context(), &rm))
+		for _, sm := range rm.ScopeMetrics {
+			for _, m := range sm.Metrics {
+				if m.Name != MetricPrefix+"_committed_seq_nr" {
+					continue
+				}
+				g, ok := m.Data.(metricdata.Gauge[int64])
+				require.True(t, ok)
+				require.Len(t, g.DataPoints, 1)
+				p, _ := g.DataPoints[0].Attributes.Value("plugin")
+				d, _ := g.DataPoints[0].Attributes.Value("configDigest")
+				require.Equal(t, "test", p.AsString())
+				require.Equal(t, "abc", d.AsString())
+				return g.DataPoints[0].Value, true
+			}
+		}
+		return 0, false
+	}
+
+	_, found := committed()
+	require.False(t, found, "nothing committed yet")
+
+	for _, seqNr := range []uint64{7, 8, 12} {
+		require.NoError(t, plugin.Committed(t.Context(), seqNr, nil))
+		got, found := committed()
+		require.True(t, found)
+		require.Equal(t, int64(seqNr), got, "the latest committed round")
+	}
+
+	// a plugin that fails to act on a round does not stop the round from having been committed
+	failing := newReportingPlugin(&fakePlugin[uint]{err: errors.New("boom")}, metrics)
+	require.Error(t, failing.Committed(t.Context(), 13, nil))
+	got, _ := committed()
+	require.Equal(t, int64(13), got)
 }

@@ -1418,3 +1418,23 @@ func TestCoordinator_LearnsEventLifetime(t *testing.T) {
 
 	assert.Equal(t, 3*time.Hour+time.Minute, lifetime.Longest(t.Context()), "the workflow's 3h timeout, plus the grace")
 }
+
+func TestCoordinator_WorkflowOrg(t *testing.T) {
+	t.Parallel()
+
+	f := newCoordinatorFixture(t)
+	_, ok := f.c.WorkflowOrg(validWorkflowID)
+	assert.False(t, ok, "not registered yet")
+
+	trigger, _ := f.expectTrigger(t)
+	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+	_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+	require.NoError(t, err)
+
+	org, ok := f.c.WorkflowOrg(validWorkflowID)
+	require.True(t, ok)
+	assert.Equal(t, testOrg, org)
+
+	_, ok = f.c.WorkflowOrg("some-other-workflow")
+	assert.False(t, ok)
+}

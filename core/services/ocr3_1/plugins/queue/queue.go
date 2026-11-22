@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/libocr/commontypes"
+	"go.opentelemetry.io/otel/metric"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -47,6 +48,7 @@ type consensusQueuePluginFactory struct {
 	triggerCoordinator triggers.Coordinator
 	triggerQueue       triggers.Queue
 	expirationDur      func(context.Context) (time.Duration, error)
+	meter              metric.Meter
 }
 
 func NewConsensusQueuePluginFactory(
@@ -55,6 +57,7 @@ func NewConsensusQueuePluginFactory(
 	limitsFactory limits.Factory,
 	triggerCoordinator triggers.Coordinator,
 	triggerQueue triggers.Queue,
+	meter metric.Meter,
 ) (ocr3_1types.ReportingPluginFactory[[]byte], error) {
 	if cfg == nil {
 		return nil, errors.New("cfg cannot be nil")
@@ -65,17 +68,25 @@ func NewConsensusQueuePluginFactory(
 	if triggerQueue == nil {
 		return nil, errors.New("triggerQueue cannot be nil")
 	}
+	if meter == nil {
+		return nil, errors.New("meter cannot be nil")
+	}
 	return &consensusQueuePluginFactory{
 		lggr:               lggr,
 		cfg:                cfg,
 		triggerCoordinator: triggerCoordinator,
 		triggerQueue:       triggerQueue,
 		expirationDur:      triggers.ConsensusQueueExpirationGrace(limitsFactory),
+		meter:              meter,
 	}, nil
 }
 
 func (c *consensusQueuePluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, blobs ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
-	plugin := newConsensusQueuePlugin(c.lggr, config, c.cfg.Limits, c.triggerCoordinator, c.triggerQueue, c.expirationDur, blobs)
+	metrics, err := newPluginMetrics(c.meter, config.ConfigDigest.String())
+	if err != nil {
+		return nil, nil, err
+	}
+	plugin := newConsensusQueuePlugin(c.lggr, config, c.cfg.Limits, c.triggerCoordinator, c.triggerQueue, c.expirationDur, blobs, metrics)
 	pluginInfo := ocr3_1types.ReportingPluginInfo1{
 		Name:   "ConsensusQueueReportingPlugin",
 		Limits: c.cfg.Limits,
@@ -96,12 +107,13 @@ type consensusQueuePlugin struct {
 	triggerQueue                        triggers.Queue
 	blobBroadcastFetcher                ocr3_1types.BlobBroadcastFetcher
 	expirationDur                       func(context.Context) (time.Duration, error)
+	metrics                             *pluginMetrics
 }
 
 func newConsensusQueuePlugin(
 	lggr logger.Logger, onchainCfg ocr3types.ReportingPluginConfig, limits ocr3_1types.ReportingPluginLimits, triggerCoordinator triggers.Coordinator,
 	triggerQueue triggers.Queue, expirationGraceDur func(context.Context) (time.Duration, error),
-	blobs ocr3_1types.BlobBroadcastFetcher,
+	blobs ocr3_1types.BlobBroadcastFetcher, metrics *pluginMetrics,
 ) *consensusQueuePlugin {
 	c := &consensusQueuePlugin{
 		lggr:                                logger.Named(lggr, "ConsensusQueuePlugin"),
@@ -112,6 +124,7 @@ func newConsensusQueuePlugin(
 		triggerQueue:                        triggerQueue,
 		blobBroadcastFetcher:                blobs,
 		expirationDur:                       expirationGraceDur,
+		metrics:                             metrics,
 	}
 	c.Service, c.eng = services.Config{
 		Name: "ConsensusQueueReportingPlugin",
@@ -176,6 +189,7 @@ func (c *consensusQueuePlugin) Observation(
 		}
 	}
 
+	c.metrics.recordObservation(ctx, len(obs.Events))
 	return proto.MarshalOptions{Deterministic: true}.Marshal(obs)
 }
 
@@ -571,20 +585,45 @@ func (c *consensusQueuePlugin) StateTransition(
 	// update state
 	state.pruneExpiredObservations(obs.medianExpiration)
 	var queuedTimelessHashes []string // eligible for pruning later if necessary
+	var admitted int
 	state.addObservedEvents(c.onchainCfg.F, obs.newObservedEvents, obs.observedBlobs, func(event *pb.ConsensusQueueEvent) {
 		queuedTimelessHashes = append(queuedTimelessHashes, string(event.TimelessHash))
+		admitted++
 	})
 	state.popConsensusEvents(int(obs.medianCap), obs.medianCapPerWF, obs.medianExpiration, c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
 	state.pruneObservedToFit(c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
 	state.pruneQueuedToFit(queuedTimelessHashes, c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
 	// note: no need to prune consensus events, since already limited what we collected
 
-	if err := state.writeTo(&stateWriter{kv: kvReaderWriter}); err != nil {
+	writer := &stateWriter{kv: kvReaderWriter}
+	if err := state.writeTo(writer); err != nil {
 		return nil, err
 	}
+	c.recordTransition(ctx, &state, writer, admitted)
 
 	// no report to return, executions start when committed
 	return nil, nil
+}
+
+// recordTransition records what a state transition did, once its state is written.
+func (c *consensusQueuePlugin) recordTransition(ctx context.Context, state *kvState, writer *stateWriter, admitted int) {
+	t := transition{
+		admitted:   admitted,
+		consensus:  len(state.consensusEvents),
+		stats:      state.stats,
+		observed:   len(state.observedEvents),
+		queuedByWF: make(map[string]int),
+		stateBytes: map[string]int{
+			stateObserved:  writer.sizes[observedEventsKey],
+			stateQueued:    writer.sizes[queuedEventsKey],
+			stateConsensus: writer.sizes[consensusEventsKey],
+			stateBlobs:     writer.sizes[blobHandlesKey],
+		},
+	}
+	for _, event := range state.queuedEvents {
+		t.queuedByWF[event.WorkflowID]++
+	}
+	c.metrics.recordTransition(ctx, t, c.triggerCoordinator.WorkflowOrg)
 }
 
 type observations struct {

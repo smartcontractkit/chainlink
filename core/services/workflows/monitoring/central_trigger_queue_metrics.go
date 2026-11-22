@@ -26,6 +26,7 @@ type CentralTriggerQueueMetrics struct {
 	drainedEventsCounter metric.Int64Counter
 	depthGauge           metric.Int64Gauge
 	capacityGauge        metric.Int64Gauge
+	eventAgeSeconds      metric.Float64Histogram
 }
 
 // InitCentralTriggerQueueMetrics registers the central trigger queue instruments on the beholder meter.
@@ -78,6 +79,15 @@ func NewCentralTriggerQueueMetrics(meter metric.Meter) (*CentralTriggerQueueMetr
 	if err != nil {
 		return nil, fmt.Errorf("register central trigger queue capacity gauge: %w", err)
 	}
+
+	qm.eventAgeSeconds, err = meter.Float64Histogram(
+		"platform_engine_central_trigger_queue_event_age_seconds",
+		metric.WithDescription("Time from a trigger event being observed until it left the central trigger queue, as consensus took it"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("register central trigger queue event age histogram: %w", err)
+	}
 	return &qm, nil
 }
 
@@ -113,6 +123,11 @@ func (c CentralTriggerQueueMetricLabeler) IncrementDroppedEventsCounter(ctx cont
 // IncrementDrainedEventsCounter adds n drained events.
 func (c CentralTriggerQueueMetricLabeler) IncrementDrainedEventsCounter(ctx context.Context, n int) {
 	c.qm.drainedEventsCounter.Add(ctx, int64(n), c.attributes())
+}
+
+// RecordEventAge records how long an event was in the queue, from when it was observed.
+func (c CentralTriggerQueueMetricLabeler) RecordEventAge(ctx context.Context, seconds float64) {
+	c.qm.eventAgeSeconds.Record(ctx, seconds, c.attributes())
 }
 
 // RecordDepth records the number of queued events.

@@ -568,6 +568,12 @@ func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, er
 func MetricViews() []sdkmetric.View {
 	return []sdkmetric.View{
 		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_central_trigger_queue_event_age_seconds"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0.01, 0.1, 0.5, 1, 2, 5, 10, 30, 60, 300, 600},
+			}},
+		),
+		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_workflow_completed_time_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
 				Boundaries: []float64{0.25, 0.5, 1, 2, 5, 10, 20, 60, 120, 300, 600},

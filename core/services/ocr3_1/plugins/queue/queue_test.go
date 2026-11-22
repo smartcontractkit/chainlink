@@ -21,6 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/metric/noop"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -43,7 +44,7 @@ func TestConsensusQueuePluginFactory_NewReportingPlugin(t *testing.T) {
 	t.Parallel()
 
 	cfg := &PluginConfig{Limits: ocr3_1types.ReportingPluginLimits{MaxKeyValueModifiedKeys: 1}}
-	factory, err := NewConsensusQueuePluginFactory(logger.Test(t), cfg, limits.Factory{}, noopCoordinator{}, noopQueue{})
+	factory, err := NewConsensusQueuePluginFactory(logger.Test(t), cfg, limits.Factory{}, noopCoordinator{}, noopQueue{}, noop.NewMeterProvider().Meter("test"))
 	require.NoError(t, err)
 
 	plugin, info, err := factory.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{N: 4, F: 1}, nil)
@@ -99,6 +100,8 @@ func (n noopCoordinator) AvailableCapacity(ctx context.Context) (triggers.Capaci
 func (n noopCoordinator) StartExecution(ctx context.Context, event triggers.CoordinatedEvent) error {
 	return nil
 }
+
+func (n noopCoordinator) WorkflowOrg(string) (string, bool) { return "", false }
 
 type noopQueue struct{}
 
@@ -239,7 +242,15 @@ func testPlugin(t testing.TB, q sliceQueue, blobs ocr3_1types.BlobBroadcastFetch
 	return newConsensusQueuePlugin(logger.Test(t),
 		ocr3types.ReportingPluginConfig{N: 4, F: 1, OracleID: 0, EstimatedRoundInterval: time.Second},
 		limits, noopCoordinator{}, q,
-		func(context.Context) (time.Duration, error) { return time.Minute, nil }, blobs)
+		func(context.Context) (time.Duration, error) { return time.Minute, nil }, blobs, testMetrics(t))
+}
+
+// testMetrics returns metrics that record nowhere.
+func testMetrics(tb testing.TB) *pluginMetrics {
+	tb.Helper()
+	m, err := newPluginMetrics(noop.NewMeterProvider().Meter("test"), "digest")
+	require.NoError(tb, err)
+	return m
 }
 
 func TestObserveEvent(t *testing.T) {
@@ -1185,7 +1196,7 @@ func newCommitPlugin(t testing.TB, coord triggers.Coordinator, q triggers.Queue,
 	}
 	c := newConsensusQueuePlugin(logger.Test(t),
 		ocr3types.ReportingPluginConfig{N: 4, F: 1, OracleID: 0, EstimatedRoundInterval: time.Second},
-		limits, coord, q, func(context.Context) (time.Duration, error) { return time.Minute, nil }, blobs)
+		limits, coord, q, func(context.Context) (time.Duration, error) { return time.Minute, nil }, blobs, testMetrics(t))
 	require.NoError(t, c.Start(t.Context()))
 	t.Cleanup(func() { require.NoError(t, c.Close()) })
 	return c
@@ -1682,11 +1693,18 @@ func TestNewConsensusQueuePluginFactory_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			f, err := NewConsensusQueuePluginFactory(logger.Test(t), tt.cfg, limits.Factory{}, tt.coord, tt.queue)
+			f, err := NewConsensusQueuePluginFactory(logger.Test(t), tt.cfg, limits.Factory{}, tt.coord, tt.queue, noop.NewMeterProvider().Meter("test"))
 			require.Error(t, err)
 			assert.Nil(t, f)
 		})
 	}
+}
+
+func TestNewConsensusQueuePluginFactory_NilMeter(t *testing.T) {
+	t.Parallel()
+	f, err := NewConsensusQueuePluginFactory(logger.Test(t), &PluginConfig{}, limits.Factory{}, noopCoordinator{}, noopQueue{}, nil)
+	require.ErrorContains(t, err, "meter")
+	assert.Nil(t, f)
 }
 
 func TestBroadcastAsBlob_LargestFit(t *testing.T) {

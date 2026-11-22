@@ -36,7 +36,8 @@ const (
 )
 
 type stateWriter struct {
-	kv ocr3_1types.KeyValueStateReadWriter
+	kv    ocr3_1types.KeyValueStateReadWriter
+	sizes map[string]int // key -> bytes written
 }
 
 func (s *stateWriter) writeValue[M proto.Message](key string, m M) error {
@@ -45,6 +46,10 @@ func (s *stateWriter) writeValue[M proto.Message](key string, m M) error {
 		return fmt.Errorf("failed to marshal %T: %w", m, err)
 	}
 
+	if s.sizes == nil {
+		s.sizes = make(map[string]int)
+	}
+	s.sizes[key] = len(val)
 	return s.kv.Write([]byte(key), val)
 }
 
@@ -117,8 +122,8 @@ func (p *priorityQueue) mustPop() *pb.ConsensusQueueEvent {
 // It makes a single pass, and puts back the events it skipped once at the end. A workflow's capacity only goes down
 // while popping, so an event that was skipped stays ineligible, and looking at it again for each event popped (as popping
 // one at a time did) is wasted work: quadratic in the events waiting on workflows without capacity (1.9s for 10000).
-func (p *priorityQueue) popEligible(n int, capPerWF map[string]uint32, expiration time.Time) []*pb.ConsensusQueueEvent {
-	var popped, skipped []*pb.ConsensusQueueEvent
+func (p *priorityQueue) popEligible(n int, capPerWF map[string]uint32, expiration time.Time) (popped []*pb.ConsensusQueueEvent, expired int) {
+	var skipped []*pb.ConsensusQueueEvent
 	for len(popped) < n {
 		event := p.mustPop()
 		if event == nil {
@@ -126,6 +131,7 @@ func (p *priorityQueue) popEligible(n int, capPerWF map[string]uint32, expiratio
 		}
 
 		if event.Deadline.AsTime().Before(expiration) {
+			expired++
 			continue // drop expired
 		}
 
@@ -142,7 +148,7 @@ func (p *priorityQueue) popEligible(n int, capPerWF map[string]uint32, expiratio
 		p.push(event)
 	}
 
-	return popped
+	return popped, expired
 }
 
 type blobHandleMap map[string]map[string]uint32 // eventHash -> blobHandle -> idx
@@ -196,7 +202,17 @@ func (m voterBlobs) handles(eventHash string) map[string]uint32 {
 	return handles
 }
 
+// kvStats counts what a state transition removed from the state, other than by executing it.
+type kvStats struct {
+	expiredObserved int // observed events whose votes had all expired
+	expiredQueued   int // queued events that had expired
+	prunedObserved  int // observed events dropped to fit the state limits
+	prunedQueued    int // queued events dropped to fit the state limits
+}
+
 type kvState struct {
+	stats kvStats
+
 	// observedEventsKey
 	observedEvents       map[string]*pb.ConsensusQueueObservedEvent // key: timeless hash
 	observedEventEntries []*pb.ConsensusQueueObservedEventEntry     // only populated before write
@@ -429,7 +445,9 @@ func (s *kvState) trimConsensusEvents(maxTotalBytes int) {
 // popConsensusEvents pops as many queuedEvents as possible in to consensusEvents, up to capacity (overall, and per
 // workflow) or the KV limits. Expired events are dropped.
 func (s *kvState) popConsensusEvents(capacity int, capPerWF map[string]uint32, expiration time.Time, maxTotalBytes int) {
-	s.consensusEvents = append(s.consensusEvents, s.queuedEvents.popEligible(capacity-len(s.consensusEvents), capPerWF, expiration)...)
+	popped, expired := s.queuedEvents.popEligible(capacity-len(s.consensusEvents), capPerWF, expiration)
+	s.stats.expiredQueued += expired
+	s.consensusEvents = append(s.consensusEvents, popped...)
 	s.trimConsensusEvents(maxTotalBytes)
 }
 
@@ -458,6 +476,7 @@ func (s *kvState) pruneObservedToFit(maxTotalBytes int) {
 		return fits()
 	})
 	keepFirst(len(entries) - dropped)
+	s.stats.prunedObserved += dropped
 }
 
 // pruneQueuedToFit drops the lowest priority events of those that were newly queued until the queued events, the blob
@@ -496,6 +515,7 @@ func (s *kvState) pruneQueuedToFit(newlyQueued []string, maxTotalBytes int) {
 		return fits()
 	})
 	drop(n)
+	s.stats.prunedQueued += n
 
 	// rebuild the priority queue
 	heap.Init(&s.queuedEvents)
@@ -537,6 +557,7 @@ func (s *kvState) pruneExpiredObservations(expiration time.Time) {
 			return !t.AsTime().Before(expiration)
 		}) {
 			delete(s.observedBlobs, k)
+			s.stats.expiredObserved++
 			return true // all deadlines expired, so delete the whole thing
 		}
 

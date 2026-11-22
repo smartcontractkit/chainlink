@@ -906,7 +906,8 @@ func TestPopEligible_MatchesPoppingOneAtATime(t *testing.T) {
 			wantPopped = append(wantPopped, event.ExecutionID)
 		}
 		var gotPopped []string
-		for _, event := range singlePass.popEligible(want, capsB, expiration) {
+		popped, _ := singlePass.popEligible(want, capsB, expiration)
+		for _, event := range popped {
 			gotPopped = append(gotPopped, event.ExecutionID)
 		}
 
@@ -928,10 +929,14 @@ func TestPopEligible_Edges(t *testing.T) {
 
 	var pq priorityQueue
 	pq.push(qEvent(testWF, "a", "h1", 200))
-	assert.Empty(t, pq.popEligible(0, map[string]uint32{testWF: 5}, time.Unix(0, 0)), "nothing wanted")
-	assert.Empty(t, pq.popEligible(-3, map[string]uint32{testWF: 5}, time.Unix(0, 0)), "a negative amount is nothing")
+	popped, expired := pq.popEligible(0, map[string]uint32{testWF: 5}, time.Unix(0, 0))
+	assert.Empty(t, popped, "nothing wanted")
+	popped, _ = pq.popEligible(-3, map[string]uint32{testWF: 5}, time.Unix(0, 0))
+	assert.Empty(t, popped, "a negative amount is nothing")
 	assert.Equal(t, 1, pq.Len())
-	assert.Empty(t, (&priorityQueue{}).popEligible(5, nil, time.Unix(0, 0)), "an empty queue")
+	popped, expired = (&priorityQueue{}).popEligible(5, nil, time.Unix(0, 0))
+	assert.Empty(t, popped, "an empty queue")
+	assert.Zero(t, expired)
 }
 
 // Events waiting on a workflow without capacity must not slow down popping the rest: it was quadratic in them, with
@@ -970,4 +975,51 @@ func BenchmarkPopEligible_StuckEvents(b *testing.B) {
 			})
 		}
 	}
+}
+
+// What a state transition removes from the state is counted, for the metrics.
+func TestKVState_Stats(t *testing.T) {
+	t.Parallel()
+
+	t.Run("observed events whose votes all expired", func(t *testing.T) {
+		t.Parallel()
+		s := newKVState()
+		s.observedEvents["old"] = obsEvent("wf", "e1", 10, 1, 2)  // votes expired
+		s.observedEvents["old2"] = obsEvent("wf", "e2", 10, 1, 2) // votes expired
+		s.observedEvents["new"] = obsEvent("wf", "e3", 500, 1, 2)
+		s.pruneExpiredObservations(time.Unix(100, 0))
+		assert.Equal(t, 2, s.stats.expiredObserved)
+		assert.Len(t, s.observedEvents, 1)
+	})
+
+	t.Run("queued events that expired", func(t *testing.T) {
+		t.Parallel()
+		s := newKVState()
+		for i := range 5 {
+			s.queuedEvents.push(qEvent(testWF, fmt.Sprintf("e%d", i), fmt.Sprintf("h%d", i), int64(10+i*100))) // deadlines 10,110,210,...
+		}
+		s.popConsensusEvents(10, map[string]uint32{testWF: 10}, time.Unix(150, 0), 1<<20)
+		assert.Equal(t, 2, s.stats.expiredQueued, "those with deadlines before 150")
+		assert.Len(t, s.consensusEvents, 3)
+	})
+
+	t.Run("events pruned to fit", func(t *testing.T) {
+		t.Parallel()
+		naiveObserved, naiveQueued := 0, 0
+		for seed := range int64(12) {
+			s, newlyQueued := randomState(seed)
+			beforeObserved, beforeQueued := len(s.observedEvents), len(s.queuedEvents)
+			maxTotal := s.sizeOf() / 3
+
+			s.pruneObservedToFit(maxTotal)
+			s.pruneQueuedToFit(newlyQueued, maxTotal)
+
+			assert.Equal(t, beforeObserved-len(s.observedEvents), s.stats.prunedObserved, "seed %d", seed)
+			assert.Equal(t, beforeQueued-len(s.queuedEvents), s.stats.prunedQueued, "seed %d", seed)
+			naiveObserved += s.stats.prunedObserved
+			naiveQueued += s.stats.prunedQueued
+		}
+		assert.Positive(t, naiveObserved, "some of the cases prune observed events")
+		assert.Positive(t, naiveQueued, "some of the cases prune queued events")
+	})
 }

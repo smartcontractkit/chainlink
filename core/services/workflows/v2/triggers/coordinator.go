@@ -91,6 +91,10 @@ type Coordinator interface {
 	// How the execution itself ends, or that no slot could be taken, is logged and counted.
 	// Starting an event that is already executing is not an error, the engine ignores it, so it is safe to call repeatedly.
 	StartExecution(context.Context, CoordinatedEvent) error
+
+	// WorkflowOrg returns the org of a workflow that is registered with the coordinator, to label metrics with.
+	// ok is false if the workflow is not registered.
+	WorkflowOrg(workflowID string) (orgID string, ok bool)
 }
 
 // RegisteredEngine is what EngineRegistry.Get returns: a sink the coordinator
@@ -551,6 +555,14 @@ func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistration
 		lggr, wfMetrics = cw.lggr, cw.metrics
 	}
 	return Ack(ctx, lggr, wfMetrics, triggerCapID, triggerRegistrationID, eventID, handle)
+}
+
+func (c *coordinator) WorkflowOrg(workflowID string) (string, bool) {
+	cw, ok := c.workflows.get(workflowID)
+	if !ok {
+		return "", false
+	}
+	return cw.cre.Org, true
 }
 
 func (c *coordinator) StartExecution(ctx context.Context, event CoordinatedEvent) error {
