@@ -269,7 +269,6 @@ func (s *kvState) sizeOf() (size int) {
 
 	size += len(observedEventsKey) + len(queuedEventsKey) + len(consensusEventsKey) + len(blobHandlesKey)
 	size += s.sizeOfObservedEvents() + s.sizeOfQueuedEvents() + s.sizeOfConsensusEvents() + s.sizeOfBlobHandles()
-	//TODO opt: proto.MarshalOptions.UseCachedSize
 	return
 }
 
@@ -458,8 +457,6 @@ func (s *kvState) pruneQueuedToFit(newlyQueued []string, maxTotalBytes int) {
 // writeAll writes full state to the KV store, including consensus events.
 // prepareWrite must be called to include blob handles.
 func (s *kvState) writeTo(w *stateWriter) error {
-	//TODO MarshalOptions{UseCachedSize}?
-
 	s.prepareWriteObservedEvents()
 	s.prepareWriteBlobHandles()
 
@@ -542,7 +539,7 @@ func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueOb
 			}
 		} else {
 			// update proposal
-			// TODO opt: build a map to avoid n^2?
+			// (quadratic in the number of nodes, which is small)
 			for i, node := range eventToAdd.NodeIds {
 				if prev := slices.Index(obsEvent.NodeIds, node); prev == -1 {
 					obsEvent.NodeIds = append(obsEvent.NodeIds, node)

@@ -135,6 +135,9 @@ func newCoordinatedEvent(t testing.TB, wf, eventID string) (hash []byte, event *
 	return hash, event
 }
 
+// testWF is a valid workflow ID (32 bytes of hex), as events must have.
+var testWF = hexID("wf", 0)
+
 type hashedEvent struct {
 	hash  []byte
 	event *pb.CoordinatedEvent
@@ -286,13 +289,13 @@ func TestObservationsAggregate(t *testing.T) {
 		t.Parallel()
 		var res observations
 		res.aggregate(t.Context(), f, []ocrtypes.AttributedObservation{
-			mkAO(0, base(10, map[string]uint32{"wf": 5})),
-			mkAO(1, base(1, map[string]uint32{"wf": 1})),
-			mkAO(2, base(7, map[string]uint32{"wf": 9})),
+			mkAO(0, base(10, map[string]uint32{testWF: 5})),
+			mkAO(1, base(1, map[string]uint32{testWF: 1})),
+			mkAO(2, base(7, map[string]uint32{testWF: 9})),
 		})
 		require.NoError(t, res.err)
 		assert.Equal(t, uint32(7), res.medianCap, "F+1th lowest of 1,7,10")
-		assert.Equal(t, uint32(5), res.medianCapPerWF["wf"], "F+1th lowest of 1,5,9")
+		assert.Equal(t, uint32(5), res.medianCapPerWF[testWF], "F+1th lowest of 1,5,9")
 		assert.Equal(t, time.Unix(100, 0).UTC(), res.medianExpiration.UTC())
 	})
 
@@ -317,11 +320,11 @@ func TestObservationsAggregate(t *testing.T) {
 
 	t.Run("events are merged by hash across observers", func(t *testing.T) {
 		t.Parallel()
-		hash, event := newCoordinatedEvent(t, "wf", "evt")
+		hash, event := newCoordinatedEvent(t, testWF, "evt")
 		mkObs := func() *pb.ConsensusQueueObservation {
-			o := base(5, map[string]uint32{"wf": 5})
+			o := base(5, map[string]uint32{testWF: 5})
 			o.BlobHandles = [][]byte{[]byte("handle")}
-			_, err := observeEvent(o, hash, proto.CloneOf(event), map[string]int{"wf": 5})
+			_, err := observeEvent(o, hash, proto.CloneOf(event), map[string]int{testWF: 5})
 			require.NoError(t, err)
 			return o
 		}
@@ -357,7 +360,7 @@ func TestBroadcastObservationBlobs(t *testing.T) {
 		obs := &pb.ConsensusQueueObservation{WorkflowCapacities: map[string]uint32{}}
 		var events []*pb.CoordinatedEvent
 		for _, id := range []string{"a", "b", "c"} {
-			h, e := newCoordinatedEvent(t, "wf", id)
+			h, e := newCoordinatedEvent(t, testWF, id)
 			events = append(events, e)
 			_, err := observeEvent(obs, h, e, nil)
 			require.NoError(t, err)
@@ -374,7 +377,7 @@ func TestBroadcastObservationBlobs(t *testing.T) {
 		t.Parallel()
 		blobs := &memBlobs{}
 		c := testPlugin(t, sliceQueue{}, blobs, ocr3_1types.MaxMaxObservationBytes)
-		_, e := newCoordinatedEvent(t, "wf", "a")
+		_, e := newCoordinatedEvent(t, testWF, "a")
 		_, err := c.broadcastObservationBlobs(t.Context(), &pb.ConsensusQueueObservation{}, blobs, []*pb.CoordinatedEvent{e}, 1)
 		require.Error(t, err)
 	})
@@ -386,7 +389,7 @@ func TestObservation_PassesValidateObservation(t *testing.T) {
 
 	var events []hashedEvent
 	for _, id := range []string{"a", "b"} {
-		h, e := newCoordinatedEvent(t, "wf", id)
+		h, e := newCoordinatedEvent(t, testWF, id)
 		events = append(events, hashedEvent{h, e})
 	}
 	blobs := &memBlobs{}
@@ -427,7 +430,7 @@ func TestObservation_SizeLimited(t *testing.T) {
 
 	var events []hashedEvent
 	for _, id := range []string{"a", "b", "c"} {
-		h, e := newCoordinatedEvent(t, "wf", id)
+		h, e := newCoordinatedEvent(t, testWF, id)
 		events = append(events, hashedEvent{h, e})
 	}
 
@@ -441,7 +444,7 @@ func TestObservation_SizeLimited(t *testing.T) {
 	for i := range probe.BlobHandles {
 		probe.BlobHandles[i] = make([]byte, c0.blobHandleMarshalledBytesUpperBound)
 	}
-	_, e0 := newCoordinatedEvent(t, "wf", "a")
+	_, e0 := newCoordinatedEvent(t, testWF, "a")
 	_, err := observeEvent(probe, events[0].hash, e0, nil)
 	require.NoError(t, err)
 	limit := proto.Size(probe) + 8
@@ -490,6 +493,9 @@ func TestValidateObservedEvent(t *testing.T) {
 	}{
 		{name: "valid"},
 		{name: "missing workflow id", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.WorkflowID = "" }, wantErr: "workflow id is missing"},
+		{name: "workflow id not hex", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.WorkflowID = "not-a-workflow-id" }, wantErr: "invalid event workflow id"},
+		{name: "workflow id too short", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.WorkflowID = "abcd" }, wantErr: "invalid event workflow id"},
+		{name: "workflow id too long", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.WorkflowID = hexID("a", 0) + "00" }, wantErr: "invalid event workflow id"},
 		{name: "missing execution id", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.ExecutionID = "" }, wantErr: "execution id is missing"},
 		{name: "missing observed at", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.ObservedAt = nil }, wantErr: "observation ts is missing"},
 		{name: "missing deadline", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.Deadline = nil }, wantErr: "deadline is missing"},
@@ -499,7 +505,7 @@ func TestValidateObservedEvent(t *testing.T) {
 		{name: "blob index out of range", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.Blobs[0].Blob = uint32(len(handles)) }, wantErr: "out of range"},
 		{name: "element out of range", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.Blobs[0].Element = 5 }, wantErr: "failed to fetch event"},
 		{name: "blob fetch fails", fetch: errBoom, wantErr: "boom"},
-		{name: "workflow id differs from blob", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.WorkflowID = "other" }, wantErr: "does not match event workflow ID"},
+		{name: "workflow id differs from blob", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.WorkflowID = hexID("other", 0) }, wantErr: "does not match event workflow ID"},
 		{name: "execution id differs from blob", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.ExecutionID = "forged" }, wantErr: "does not match event execution ID"},
 		{name: "blob carries observed at", mutate: func(ce *pb.CoordinatedEvent, _ *pb.ConsensusQueueEvent) { ce.ObservedAt = ts(1) }, wantErr: "observation timestamp is not nil"},
 		{name: "blob carries deadline", mutate: func(ce *pb.CoordinatedEvent, _ *pb.ConsensusQueueEvent) { ce.Deadline = ts(1) }, wantErr: "deadline timestamp is not nil"},
@@ -509,7 +515,7 @@ func TestValidateObservedEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			ce, qe := blobEvent(t, "wf", "evt")
+			ce, qe := blobEvent(t, testWF, "evt")
 			if tt.mutate != nil {
 				tt.mutate(ce, qe)
 			}
@@ -527,10 +533,10 @@ func TestValidateObservedEvent(t *testing.T) {
 	// A peer controls the blob contents, so a malformed event must be rejected, never panic.
 	t.Run("blob event without trigger event does not panic", func(t *testing.T) {
 		t.Parallel()
-		_, qe := blobEvent(t, "wf", "evt")
+		_, qe := blobEvent(t, testWF, "evt")
 		for _, ce := range []*pb.CoordinatedEvent{
-			{WorkflowID: "wf"}, // no Event
-			{WorkflowID: "wf", Event: &pb.TriggerResponse{}}, // no inner Event
+			{WorkflowID: testWF}, // no Event
+			{WorkflowID: testWF, Event: &pb.TriggerResponse{}}, // no inner Event
 		} {
 			f := &countingFetcher{payload: marshalEvents(t, ce)}
 			require.NotPanics(t, func() {
@@ -545,7 +551,7 @@ func observeN(t *testing.T, n int) (*consensusQueuePlugin, *memBlobs, *pb.Consen
 	t.Helper()
 	var events []hashedEvent
 	for i := range n {
-		h, e := newCoordinatedEvent(t, "wf", fmt.Sprintf("evt-%d", i))
+		h, e := newCoordinatedEvent(t, testWF, fmt.Sprintf("evt-%d", i))
 		e.Deadline = ts(int64(2000 + 10*i))
 		events = append(events, hashedEvent{h, e})
 	}
@@ -586,7 +592,7 @@ func TestValidateObservation(t *testing.T) {
 		}, wantErr: "events are limited"},
 		{name: "invalid event reports its index", mutate: func(o *pb.ConsensusQueueObservation) { o.Events[1].WorkflowID = "" }, wantErr: "event 1 failed validation"},
 		{name: "event with nil entry does not panic", mutate: func(o *pb.ConsensusQueueObservation) { o.Events[1] = nil }, wantErr: "event 1 failed validation"},
-		{name: "missing workflow capacity", mutate: func(o *pb.ConsensusQueueObservation) { delete(o.WorkflowCapacities, "wf") }, wantErr: "missing capacity"},
+		{name: "missing workflow capacity", mutate: func(o *pb.ConsensusQueueObservation) { delete(o.WorkflowCapacities, testWF) }, wantErr: "missing capacity"},
 		{name: "duplicate event", mutate: func(o *pb.ConsensusQueueObservation) { o.Events[2] = proto.CloneOf(o.Events[1]) }, wantErr: "duplicate workflow execution ID"},
 		{name: "unsorted", mutate: func(o *pb.ConsensusQueueObservation) { o.Events[0], o.Events[1] = o.Events[1], o.Events[0] }, wantErr: "must be sorted"},
 	}
@@ -676,7 +682,7 @@ type nodeOpts struct {
 	expiration int64 // seconds
 }
 
-var stdNode = nodeOpts{capacity: 10, wfCaps: map[string]uint32{"wf": 10}, expiration: 100}
+var stdNode = nodeOpts{capacity: 10, wfCaps: map[string]uint32{testWF: 10}, expiration: 100}
 
 // nodeObs builds a node's observation of the events, referencing a single (shared) blob.
 func nodeObs(t testing.TB, o nodeOpts, events ...hashedEvent) *pb.ConsensusQueueObservation {
@@ -704,12 +710,12 @@ func ao(t testing.TB, id int, obs *pb.ConsensusQueueObservation) ocrtypes.Attrib
 	return ocrtypes.AttributedObservation{Observer: commontypes.OracleID(id), Observation: b}
 }
 
-// mkEvents makes n events for workflow "wf" with deadlines base, base+1, ...
+// mkEvents makes n events for workflow testWF with deadlines base, base+1, ...
 func mkEvents(t testing.TB, n int, base int64) []hashedEvent {
 	t.Helper()
 	var out []hashedEvent
 	for i := range n {
-		h, e := newCoordinatedEvent(t, "wf", fmt.Sprintf("evt-%02d", i))
+		h, e := newCoordinatedEvent(t, testWF, fmt.Sprintf("evt-%02d", i))
 		e.Deadline = ts(base + int64(i))
 		out = append(out, hashedEvent{h, e})
 	}
@@ -718,7 +724,7 @@ func mkEvents(t testing.TB, n int, base int64) []hashedEvent {
 
 func execIDOf(t testing.TB, id string) string {
 	t.Helper()
-	v, err := workflows.GenerateExecutionIDWithTriggerIndex("wf", id, 0)
+	v, err := workflows.GenerateExecutionIDWithTriggerIndex(testWF, id, 0)
 	require.NoError(t, err)
 	return v
 }
@@ -859,7 +865,7 @@ func TestStateTransition_Capacity(t *testing.T) {
 			e := mkEvents(t, tt.events, 2000)
 			var aos []ocrtypes.AttributedObservation
 			for i, g := range tt.global {
-				aos = append(aos, ao(t, i, nodeObs(t, nodeOpts{capacity: g, wfCaps: map[string]uint32{"wf": tt.wfCap}, expiration: 100}, e...)))
+				aos = append(aos, ao(t, i, nodeObs(t, nodeOpts{capacity: g, wfCaps: map[string]uint32{testWF: tt.wfCap}, expiration: 100}, e...)))
 			}
 			require.NoError(t, stateTransition(t, c, kv, aos...))
 
@@ -877,7 +883,7 @@ func TestStateTransition_Capacity(t *testing.T) {
 		c := newSTPlugin(t)
 		kv := memKV{}
 		e := mkEvents(t, 2, 2000)
-		none := nodeOpts{capacity: 0, wfCaps: map[string]uint32{"wf": 0}, expiration: 100}
+		none := nodeOpts{capacity: 0, wfCaps: map[string]uint32{testWF: 0}, expiration: 100}
 		require.NoError(t, stateTransition(t, c, kv, ao(t, 0, nodeObs(t, none, e...)), ao(t, 1, nodeObs(t, none, e...)), ao(t, 2, nodeObs(t, none, e...))))
 		require.Empty(t, consensusIDs(t, kv))
 		require.Len(t, queuedIDs(t, kv), 2)
@@ -891,7 +897,7 @@ func TestStateTransition_Capacity(t *testing.T) {
 func TestStateTransition_Expiration(t *testing.T) {
 	t.Parallel()
 
-	late := nodeOpts{capacity: 10, wfCaps: map[string]uint32{"wf": 10}, expiration: 3000}
+	late := nodeOpts{capacity: 10, wfCaps: map[string]uint32{testWF: 10}, expiration: 3000}
 
 	t.Run("expired events are dropped instead of executed", func(t *testing.T) {
 		t.Parallel()
@@ -933,10 +939,10 @@ func deterministicScenario(t *testing.T, shuffleSeed int64) memKV {
 		ao(t, 0, nodeObs(t, stdNode, pick(5, 6)...)), ao(t, 1, nodeObs(t, stdNode, pick(5, 6)...)), ao(t, 2, nodeObs(t, stdNode))))
 	// round 2 votes: e0:3 e1:3 e2:2 e3:2 e4:2 (+ e5 gains a vote and is promoted)
 	aos := []ocrtypes.AttributedObservation{
-		ao(t, 0, nodeObs(t, nodeOpts{capacity: 3, wfCaps: map[string]uint32{"wf": 2}, expiration: 90}, pick(0, 1, 2)...)),
-		ao(t, 1, nodeObs(t, nodeOpts{capacity: 5, wfCaps: map[string]uint32{"wf": 3}, expiration: 95}, pick(0, 1, 3)...)),
-		ao(t, 2, nodeObs(t, nodeOpts{capacity: 4, wfCaps: map[string]uint32{"wf": 9}, expiration: 99}, pick(0, 2, 3, 4, 5)...)),
-		ao(t, 3, nodeObs(t, nodeOpts{capacity: 9, wfCaps: map[string]uint32{"wf": 1}, expiration: 80}, pick(1, 4)...)),
+		ao(t, 0, nodeObs(t, nodeOpts{capacity: 3, wfCaps: map[string]uint32{testWF: 2}, expiration: 90}, pick(0, 1, 2)...)),
+		ao(t, 1, nodeObs(t, nodeOpts{capacity: 5, wfCaps: map[string]uint32{testWF: 3}, expiration: 95}, pick(0, 1, 3)...)),
+		ao(t, 2, nodeObs(t, nodeOpts{capacity: 4, wfCaps: map[string]uint32{testWF: 9}, expiration: 99}, pick(0, 2, 3, 4, 5)...)),
+		ao(t, 3, nodeObs(t, nodeOpts{capacity: 9, wfCaps: map[string]uint32{testWF: 1}, expiration: 80}, pick(1, 4)...)),
 	}
 	if shuffleSeed >= 0 {
 		rand.New(rand.NewSource(shuffleSeed)).Shuffle(len(aos), func(i, j int) { aos[i], aos[j] = aos[j], aos[i] })
@@ -1056,7 +1062,7 @@ func TestStateTransition_SizeLimits(t *testing.T) {
 		c.limits.MaxKeyValueModifiedKeysPlusValuesBytes = limit
 		kv := memKV{}
 		e := mkEvents(t, 30, 2000)
-		none := nodeOpts{capacity: 0, wfCaps: map[string]uint32{"wf": 0}, expiration: 100} // nothing executes
+		none := nodeOpts{capacity: 0, wfCaps: map[string]uint32{testWF: 0}, expiration: 100} // nothing executes
 
 		within(t, 10*time.Second, func() {
 			require.NoError(t, stateTransition(t, c, kv,
@@ -1079,7 +1085,7 @@ func TestStateTransition_SizeLimits(t *testing.T) {
 		const n = 20
 		e := mkEvents(t, n, 2000)
 		aos := func() []ocrtypes.AttributedObservation {
-			big := nodeOpts{capacity: 100, wfCaps: map[string]uint32{"wf": 100}, expiration: 100}
+			big := nodeOpts{capacity: 100, wfCaps: map[string]uint32{testWF: 100}, expiration: 100}
 			return []ocrtypes.AttributedObservation{ao(t, 0, nodeObs(t, big, e...)), ao(t, 1, nodeObs(t, big, e...)), ao(t, 2, nodeObs(t, big, e...))}
 		}
 
@@ -1195,7 +1201,7 @@ func seedKV(t testing.TB, kv memKV, blobs *memBlobs, consensus, queued []string)
 	s := newKVState()
 	var ces []*pb.CoordinatedEvent
 	for i, id := range append(append([]string(nil), consensus...), queued...) {
-		ce, qe := blobEvent(t, "wf", id)
+		ce, qe := blobEvent(t, testWF, id)
 		qe.ObservedAt, qe.Deadline = ts(int64(4000+i)), ts(int64(5000+i))
 		qe.Blobs = nil
 		ces = append(ces, ce)
@@ -1233,7 +1239,7 @@ func TestCommitted(t *testing.T) {
 		for i, id := range []string{"a", "b"} {
 			e, ok := byTrigger[id]
 			require.True(t, ok, "event %s not started", id)
-			assert.Equal(t, "wf", e.WorkflowID)
+			assert.Equal(t, testWF, e.WorkflowID)
 			assert.True(t, time.Unix(int64(4000+i), 0).Equal(e.ObservedAt), "agreed observedAt")
 			assert.True(t, time.Unix(int64(5000+i), 0).Equal(e.Deadline), "agreed deadline")
 		}
@@ -1283,7 +1289,7 @@ func TestCommitted(t *testing.T) {
 		t.Parallel()
 		coord, blobs, kv := &recCoordinator{}, &memBlobs{}, memKV{}
 		c := newCommitPlugin(t, coord, &recQueue{}, blobs)
-		_, qe := blobEvent(t, "wf", "a")
+		_, qe := blobEvent(t, testWF, "a")
 		qe.Blobs = []*pb.CoordinatedEventBlobHandle{{Blob: 9, Element: 0}}
 		b, err := proto.Marshal(&pb.ConsensusQueueEventList{Events: []*pb.ConsensusQueueEvent{qe}})
 		require.NoError(t, err)
@@ -1435,8 +1441,8 @@ func TestObservation_Fields(t *testing.T) {
 		c := newCommitPlugin(t, &recCoordinator{}, &recQueue{sliceQueue: sliceQueue{events: append(append([]hashedEvent{}, mine...), theirs...)}}, blobs)
 
 		s := newKVState()
-		s.observedEvents[string(mine[0].hash)] = obsEvent("wf", "m0", 100, 0, 1) // includes OracleID 0 (this node)
-		s.observedEvents[string(mine[1].hash)] = obsEvent("wf", "m1", 100, 2, 3) // does not
+		s.observedEvents[string(mine[0].hash)] = obsEvent(testWF, "m0", 100, 0, 1) // includes OracleID 0 (this node)
+		s.observedEvents[string(mine[1].hash)] = obsEvent(testWF, "m1", 100, 2, 3) // does not
 		s.sizeOf()
 		require.NoError(t, s.writeTo(&stateWriter{kv: kv}))
 
@@ -1503,7 +1509,7 @@ func TestObservation_BlobBatching(t *testing.T) {
 		for i, e := range obs.Events { // earliest first
 			assert.Equal(t, ev[i].hash, e.TimelessHash)
 		}
-		assert.Contains(t, obs.WorkflowCapacities, "wf")
+		assert.Contains(t, obs.WorkflowCapacities, testWF)
 	})
 
 	t.Run("size limited observations keep only the events that fit", func(t *testing.T) {
@@ -1585,7 +1591,7 @@ func TestMaxEventBytes(t *testing.T) {
 	t.Parallel()
 
 	eventOfSize := func(k int) *pb.CoordinatedEvent { // event whose encoded size grows with k
-		e, _ := blobEvent(t, "wf", "evt")
+		e, _ := blobEvent(t, testWF, "evt")
 		e.Event.Event.TriggerType = strings.Repeat("x", k)
 		return e
 	}
@@ -1655,18 +1661,18 @@ func TestObservationsAggregate_Omissions(t *testing.T) {
 	t.Run("a workflow one node omits still gets the capacity the others report", func(t *testing.T) {
 		t.Parallel()
 		var res observations
-		res.aggregate(t.Context(), f, aoOf(t, mk(map[string]uint32{"wf": 9}), mk(map[string]uint32{"wf": 9}), mk(nil)))
+		res.aggregate(t.Context(), f, aoOf(t, mk(map[string]uint32{testWF: 9}), mk(map[string]uint32{testWF: 9}), mk(nil)))
 		require.NoError(t, res.err)
-		assert.Equal(t, uint32(9), res.medianCapPerWF["wf"], "F omissions count as zero, which sorted[F] tolerates")
+		assert.Equal(t, uint32(9), res.medianCapPerWF[testWF], "F omissions count as zero, which sorted[F] tolerates")
 	})
 
 	t.Run("a workflow most nodes omit gets zero", func(t *testing.T) {
 		t.Parallel()
 		var res observations
-		res.aggregate(t.Context(), f, aoOf(t, mk(map[string]uint32{"wf": 9}), mk(nil), mk(nil)))
+		res.aggregate(t.Context(), f, aoOf(t, mk(map[string]uint32{testWF: 9}), mk(nil), mk(nil)))
 		require.NoError(t, res.err)
-		assert.Contains(t, res.medianCapPerWF, "wf")
-		assert.Zero(t, res.medianCapPerWF["wf"])
+		assert.Contains(t, res.medianCapPerWF, testWF)
+		assert.Zero(t, res.medianCapPerWF[testWF])
 	})
 
 	t.Run("too few observations is an error, not a panic", func(t *testing.T) {
@@ -1940,7 +1946,7 @@ func TestObservation_PartialBlobFailure(t *testing.T) {
 				assert.Equal(t, uint32(i%2), e.Blobs[0].Element)
 			}
 			if tt.wantEvents > 0 {
-				assert.Contains(t, obs.WorkflowCapacities, "wf", "capacities cover the events kept")
+				assert.Contains(t, obs.WorkflowCapacities, testWF, "capacities cover the events kept")
 				require.NoError(t, validate(t, c, &blobs.memBlobs, obs), "what remains is a valid observation")
 			}
 		})
@@ -2023,7 +2029,7 @@ func packedEvents(tb testing.TB, n, payload int) []hashedEvent {
 	out := make([]hashedEvent, 0, n)
 	for i := range n {
 		e := eventOfPayload(i, payload)
-		e.WorkflowID = hexID("wf", i%50)
+		e.WorkflowID = hexID(testWF, i%50)
 		b, err := e.MarshalTimeless()
 		require.NoError(tb, err)
 		sum := sha256.Sum256(b)

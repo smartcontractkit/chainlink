@@ -48,8 +48,7 @@ type Queue interface {
 	Sorted(ctx context.Context, limit, maxEventBytes int) iter.Seq2[[]byte, *pb.CoordinatedEvent]
 
 	// Remove removes events from the queue by execution ID.
-	//TODO can't ack with trigger event ID - not unique!
-	Remove(ctx context.Context, triggerEventIDs iter.Seq[string])
+	Remove(ctx context.Context, executionIDs iter.Seq[string])
 }
 
 // Stats is a point-in-time view of a Queue.
@@ -177,7 +176,6 @@ func (q *CentralQueue) Remove(ctx context.Context, executionIDs iter.Seq[string]
 	defer q.mu.Unlock()
 
 	var deleted int
-	//TODO opt: map so we don't have to iterate over them all
 	q.events = slices.DeleteFunc(q.events, func(cqe centralQueueEvent) bool {
 		_, ok := execIDSet[cqe.executionID]
 		if ok {
@@ -221,8 +219,8 @@ func (q *CentralQueue) Sorted(ctx context.Context, limit, maxEventBytes int) ite
 	}
 }
 
-// dropOversize removes the events from the queue, if they are still there.
-// TODO should we fall back to executing instead of just dropping?
+// dropOversize removes the events from the queue, if they are still there. They are dropped, not run locally instead:
+// executions must be coordinated by consensus, and an event that cannot be put in a blob cannot reach it.
 func (q *CentralQueue) dropOversize(ctx context.Context, oversize []centralQueueEvent, maxEventBytes int) {
 	if len(oversize) == 0 {
 		return

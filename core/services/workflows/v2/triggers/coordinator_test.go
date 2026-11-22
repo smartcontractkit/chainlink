@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"strings"
 	"testing"
 	"time"
 
@@ -1168,3 +1169,50 @@ func TestCoordinator_DeliveryLogs(t *testing.T) {
 		})
 	}
 }
+
+func TestCoordinator_StartExecution(t *testing.T) {
+	t.Parallel()
+
+	newEvent := func(f *coordinatorFixture, age time.Duration) CoordinatedEvent {
+		return CoordinatedEvent{
+			WorkflowID: validWorkflowID, TriggerCapID: testTriggerCapID,
+			ObservedAt: f.clock.Now().Add(-age), Deadline: f.clock.Now().Add(time.Minute),
+			Event: capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: "evt-1"}},
+		}
+	}
+
+	t.Run("executes the event and records how long it was queued", func(t *testing.T) {
+		t.Parallel()
+		wfMetrics, reader := newTestMeterMetrics(t)
+		f := newCoordinatorFixture(t, withMetrics(wfMetrics))
+
+		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, 5*time.Second)))
+
+		assert.Equal(t, []string{"evt-1"}, f.engine.executedIDs())
+		count, sum := histogramSum(t, reader, "platform_engine_trigger_event_queue_wait_seconds")
+		assert.Equal(t, uint64(1), count)
+		assert.InDelta(t, 5.0, sum, 0.001, "measured against the coordinator's clock")
+	})
+
+	t.Run("unknown workflow", func(t *testing.T) {
+		t.Parallel()
+		wfMetrics, reader := newTestMeterMetrics(t)
+		f := newCoordinatorFixture(t, withMetrics(wfMetrics))
+		event := newEvent(f, time.Second)
+		event.WorkflowID = hexWorkflowID(7) // no engine
+		require.Error(t, f.c.StartExecution(t.Context(), event))
+		count, _ := histogramSum(t, reader, "platform_engine_trigger_event_queue_wait_seconds")
+		assert.Zero(t, count, "nothing started, so nothing is recorded")
+	})
+
+	t.Run("invalid workflow ID", func(t *testing.T) {
+		t.Parallel()
+		f := newCoordinatorFixture(t)
+		event := newEvent(f, time.Second)
+		event.WorkflowID = "not-hex"
+		require.Error(t, f.c.StartExecution(t.Context(), event))
+		assert.Empty(t, f.engine.executedIDs())
+	})
+}
+
+func hexWorkflowID(i byte) string { return strings.Repeat(fmt.Sprintf("%02x", i), 32) }

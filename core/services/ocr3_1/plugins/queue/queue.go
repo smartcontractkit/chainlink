@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
@@ -464,7 +465,10 @@ func (c *consensusQueuePlugin) ValidateObservation(
 func validateObservedEvent(ctx context.Context, fetcher *blobCache, event *pb.ConsensusQueueEvent, blobHandles [][]byte) error {
 	if event.WorkflowID == "" {
 		return errors.New("event workflow id is missing")
-	} // TODO ensure not too long
+	}
+	if _, err := types.WorkflowIDFromHex(event.WorkflowID); err != nil { // the format an execution requires, which also bounds its length
+		return fmt.Errorf("invalid event workflow id: %w", err)
+	}
 	if event.ExecutionID == "" {
 		return errors.New("event execution id is missing") // (the exact value is checked against the blob below)
 	}
@@ -522,7 +526,6 @@ func validateObservedEvent(ctx context.Context, fetcher *blobCache, event *pb.Co
 		return fmt.Errorf("blob deadline timestamp is not nil: %v", coordEvent.Deadline)
 	}
 
-	//TODO opt: reduce allocations with a pool
 	if shaSum := sha256.Sum256(pbBytes); !bytes.Equal(shaSum[:], event.TimelessHash) {
 		return fmt.Errorf("blob hash %x does not match observation hash %x", shaSum, event.TimelessHash)
 	}

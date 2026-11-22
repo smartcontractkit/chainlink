@@ -529,10 +529,15 @@ func (c *coordinator) StartExecution(ctx context.Context, event CoordinatedEvent
 	//TODO more admission checks?
 	// c.admission.ExecutionConcurrency.Wait(ctx, 1)?
 
-	_ = time.Since(event.ObservedAt) //TODO emit latency metric
+	// the time the event spent queued, as recorded by the admitter for events that do not go through consensus
+	wfMetrics := c.deps.Metrics
+	if cw, ok := c.workflows.get(event.WorkflowID); ok {
+		wfMetrics = cw.metrics
+	}
+	wfMetrics.With(platform.KeyTriggerID, event.TriggerCapID).RecordTriggerEventQueueWaitSeconds(ctx, c.clock.Since(event.ObservedAt).Seconds())
 
+	// The event has already left the queue, and starting it is best effort: a failure is the caller's to log.
 	if err = eng.ExecuteTrigger(ctx, event); err != nil {
-		//TODO handle errors, ack?
 		return fmt.Errorf("workflow %s: failed to execute trigger %s: %w", wfID, event.Event.Event.ID, err)
 	}
 
