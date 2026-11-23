@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 	"slices"
 	"sync"
@@ -1179,4 +1180,66 @@ func TestSync_V2_Pagination(t *testing.T) {
 		assert.Equal(t, fmt.Sprintf("don-%d", id-1), s.IDsToDONs[registry.DonID(id)].Name)
 	}
 	assert.Len(t, s.IDsToNodes[p2ptypes.PeerID(members[0])].CapabilitiesDONIds, numDONs)
+}
+
+type scriptedDONsReader struct {
+	types.UnimplementedContractReader
+	donReads [][]uint32
+	calls    int
+}
+
+func (r *scriptedDONsReader) Bind(context.Context, []types.BoundContract) error { return nil }
+
+func (r *scriptedDONsReader) GetLatestValue(_ context.Context, _ string, _ primitives.ConfidenceLevel, _, out any) error {
+	dons, ok := out.(*[]capabilities_registry_v2.CapabilitiesRegistryDONInfo)
+	if !ok {
+		return nil
+	}
+	if r.calls >= len(r.donReads) {
+		return errors.New("unexpected getDONs read")
+	}
+	*dons = nil
+	for _, id := range r.donReads[r.calls] {
+		*dons = append(*dons, capabilities_registry_v2.CapabilitiesRegistryDONInfo{Id: id})
+	}
+	r.calls++
+	return nil
+}
+
+func TestSync_V2_RereadsOnMissingEntries(t *testing.T) {
+	t.Parallel()
+
+	reader := &scriptedDONsReader{}
+	syncer, err := registrysyncer_v2.New(logger.Test(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, &stubReaderFactory{reader: reader}, "0x0", nil, nil)
+	require.NoError(t, err)
+	l := &launcher{}
+	syncer.AddListener(l)
+
+	doSync := func(donReads ...[]uint32) error {
+		reader.donReads, reader.calls = donReads, 0
+		err := syncer.Sync(t.Context(), false)
+		assert.Equal(t, len(donReads), reader.calls)
+		return err
+	}
+	publishedDONs := func() []registry.DonID {
+		l.mu.RLock()
+		defer l.mu.RUnlock()
+		return slices.Sorted(maps.Keys(l.localRegistry.IDsToDONs))
+	}
+
+	// No previous snapshot: read until two reads agree.
+	require.NoError(t, doSync([]uint32{1, 2, 3}, []uint32{1, 2, 3}))
+	assert.Equal(t, []registry.DonID{1, 2, 3}, publishedDONs())
+
+	// DON 1 removed mid-read and DON 2 dropped by swap-and-pop: re-read until stable.
+	require.NoError(t, doSync([]uint32{3}, []uint32{2, 3}, []uint32{2, 3}))
+	assert.Equal(t, []registry.DonID{2, 3}, publishedDONs())
+
+	// Steady state: single read.
+	require.NoError(t, doSync([]uint32{2, 3, 4}))
+	assert.Equal(t, []registry.DonID{2, 3, 4}, publishedDONs())
+
+	// Never stable: keep the previous snapshot.
+	require.Error(t, doSync([]uint32{2}, []uint32{3}, []uint32{4}))
+	assert.Equal(t, []registry.DonID{2, 3, 4}, publishedDONs())
 }
