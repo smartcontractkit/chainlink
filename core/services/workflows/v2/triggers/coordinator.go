@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -163,9 +164,11 @@ type coordinator struct {
 
 	// Gauge backings for the coordinator's node-level load metrics. Readers and
 	// workflows are tracked separately: a workflow has one registry entry but N
-	// reader goroutines (one per subscribed trigger).
+	// reader goroutines (one per subscribed trigger). The gauges observe them at
+	// collection time through gaugesReg, registered on start.
 	readersGauge   atomic.Int64
 	workflowsGauge atomic.Int64
+	gaugesReg      metric.Registration
 }
 
 // coordinatedWorkflow represents the state of a workflow's triggers within the coordinator.
@@ -224,6 +227,7 @@ func NewCoordinator(
 
 	c.Service, c.eng = services.Config{
 		Name:  "TriggerCoordinator",
+		Start: c.start,
 		Close: c.close,
 		NewSubServices: func(logger.Logger) []services.Service {
 			if c.drainer == nil {
@@ -352,8 +356,8 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 	cw.executions.Add(1) // the admitter
 
 	c.workflows.set(workflowID, cw)
-	c.deps.Metrics.UpdateTriggerCoordinatorWorkflowsGauge(ctx, c.workflowsGauge.Add(1))
-	c.deps.Metrics.UpdateTriggerCoordinatorReadersGauge(ctx, c.readersGauge.Add(int64(len(eventChans))))
+	c.workflowsGauge.Add(1)
+	c.readersGauge.Add(int64(len(eventChans)))
 
 	c.eng.GoCtx(readerCtx, func(ctx context.Context) {
 		defer cw.executions.Done()
@@ -365,7 +369,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		triggerCapID := triggerCapIDs[idx]
 		c.eng.GoCtx(readerCtx, func(ctx context.Context) {
 			defer cw.readers.Done()
-			defer c.deps.Metrics.UpdateTriggerCoordinatorReadersGauge(ctx, c.readersGauge.Add(-1))
+			defer c.readersGauge.Add(-1)
 			ReadLoop(ctx, lggr, wfMetrics, c.clock, workflowID, triggerCapID, idx, eventCh, enqueueFn)
 		})
 	}
@@ -476,6 +480,16 @@ func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistration
 	return Ack(ctx, lggr, wfMetrics, triggerCapID, triggerRegistrationID, eventID, handle)
 }
 
+// start registers the callback that reports the workflows and readers gauges.
+func (c *coordinator) start(context.Context) error {
+	reg, err := c.deps.Metrics.RegisterTriggerCoordinatorGauges(c.workflowsGauge.Load, c.readersGauge.Load)
+	if err != nil {
+		return fmt.Errorf("register trigger coordinator gauges: %w", err)
+	}
+	c.gaugesReg = reg
+	return nil
+}
+
 // close runs after the reader and release goroutines exit.
 // It unregisters any triggers still in a pending state before returning.
 func (c *coordinator) close() error {
@@ -490,6 +504,11 @@ func (c *coordinator) close() error {
 		if failCount := Unregister(contexts.WithCRE(ctx, cw.cre), cw.lggr, workflowID, cw.donID, cw.cre.Org, cw.handles); failCount > 0 {
 			cw.metrics.IncrementTriggerCoordinatorUnregisterFailuresCounter(ctx, int64(failCount))
 			errs = errors.Join(errs, fmt.Errorf("workflow %s: failed to unregister %d of %d triggers", workflowID, failCount, len(cw.handles)))
+		}
+	}
+	if c.gaugesReg != nil {
+		if err := c.gaugesReg.Unregister(); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("unregister trigger coordinator gauges: %w", err))
 		}
 	}
 	return errs
@@ -734,7 +753,7 @@ func (c *coordinator) releaseWhenDrained(ctx context.Context, cw *coordinatedWor
 	}
 
 	c.workflows.deleteIf(cw.wid.Hex(), cw)
-	c.deps.Metrics.UpdateTriggerCoordinatorWorkflowsGauge(ctx, c.workflowsGauge.Add(-1))
+	c.workflowsGauge.Add(-1)
 
 	cw.lggr.Infow("Released trigger handles")
 }
