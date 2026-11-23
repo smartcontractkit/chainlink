@@ -3,6 +3,8 @@
 ```mermaid
 flowchart LR
 
+	capabilities/libs --> chainlink-common/x/config
+	click capabilities/libs href "https://github.com/smartcontractkit/capabilities"
 	ccip-contract-examples/chains/evm
 	click ccip-contract-examples/chains/evm href "https://github.com/smartcontractkit/ccip-contract-examples"
 	ccip-owner-contracts
@@ -152,6 +154,7 @@ flowchart LR
 	click chainlink-ton/cciplib href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-tron/relayer --> chainlink-common
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
+	chainlink/v2 --> capabilities/libs
 	chainlink/v2 --> chainlink-aptos/codec
 	chainlink/v2 --> chainlink-ccip
 	chainlink/v2 --> chainlink-ccv
@@ -283,6 +286,8 @@ flowchart LR
 ```mermaid
 flowchart LR
 
+	capabilities/libs --> chainlink-common/x/config
+	click capabilities/libs href "https://github.com/smartcontractkit/capabilities"
 	ccip-contract-examples/chains/evm --> chainlink-ccip
 	click ccip-contract-examples/chains/evm href "https://github.com/smartcontractkit/ccip-contract-examples"
 	ccip-owner-contracts
@@ -612,6 +617,7 @@ flowchart LR
 	click chainlink/system-tests/tests/smoke/cre/vaultsecret href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/vaultsecretcron --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/vaultsecretcron href "https://github.com/smartcontractkit/chainlink"
+	chainlink/v2 --> capabilities/libs
 	chainlink/v2 --> chainlink-aptos/codec
 	chainlink/v2 --> chainlink-ccv
 	chainlink/v2 --> chainlink-evm/contracts/cre/gobindings
