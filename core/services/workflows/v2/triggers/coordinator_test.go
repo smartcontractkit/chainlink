@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -174,6 +175,41 @@ func TestCoordinator_MetricsIncludeSdkLabel(t *testing.T) {
 	sdk := map[string]string{platform.KeySDK: testSdkName}
 	require.Eventually(t, func() bool {
 		return counterTotal(t, reader, "platform_engine_workflow_unregistered_count", sdk) == 1
+	}, 5*time.Second, 5*time.Millisecond)
+}
+
+// TestCoordinator_ReadersGauge asserts the readers gauge counts one reader per
+// trigger while registered and returns to zero once the readers exit (CRE-7344).
+func TestCoordinator_ReadersGauge(t *testing.T) {
+	t.Parallel()
+	const readersGauge = "platform_trigger_coordinator_readers"
+	triggerCapIDs := []string{"trigger-a@1.0.0", "trigger-b@1.0.0", "trigger-c@1.0.0"}
+
+	wfMetrics, reader := newTestMeterMetrics(t)
+	f := newCoordinatorFixture(t, withMetrics(wfMetrics))
+	sub := newTestSubscriber()
+	sub.subs = nil
+	for _, id := range triggerCapIDs {
+		trigger := capmocks.NewTriggerCapability(t)
+		trigger.EXPECT().RegisterTrigger(mock.Anything, mock.Anything).
+			Return((<-chan capabilities.TriggerResponse)(make(chan capabilities.TriggerResponse)), nil).Once()
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
+		f.capReg.EXPECT().GetTrigger(mock.Anything, id).Return(trigger, nil)
+		sub.subs = append(sub.subs, &sdkpb.TriggerSubscription{Id: id, Method: testMethod})
+	}
+
+	_, err := f.c.RegisterTriggers(t.Context(), sub, testParams(t))
+	require.NoError(t, err)
+	// Hold for a while so the readers are running. The counter is checked too, since a decrement evaluated at reader
+	// start only reaches the exported gauge at the next record.
+	require.Never(t, func() bool {
+		return f.c.readersGauge.Load() != int64(len(triggerCapIDs)) ||
+			int64Gauge(t, reader, readersGauge) != int64(len(triggerCapIDs))
+	}, 100*time.Millisecond, 5*time.Millisecond)
+
+	require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+	require.Eventually(t, func() bool {
+		return int64Gauge(t, reader, readersGauge) == 0
 	}, 5*time.Second, 5*time.Millisecond)
 }
 

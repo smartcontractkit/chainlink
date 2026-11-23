@@ -365,7 +365,10 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		triggerCapID := triggerCapIDs[idx]
 		c.eng.GoCtx(readerCtx, func(ctx context.Context) {
 			defer cw.readers.Done()
-			defer c.deps.Metrics.UpdateTriggerCoordinatorReadersGauge(ctx, c.readersGauge.Add(-1))
+			// A closure, so the decrement runs when the reader exits rather than when the defer is evaluated.
+			defer func() {
+				c.deps.Metrics.UpdateTriggerCoordinatorReadersGauge(ctx, c.readersGauge.Add(-1))
+			}()
 			ReadLoop(ctx, lggr, wfMetrics, c.clock, workflowID, triggerCapID, idx, eventCh, enqueueFn)
 		})
 	}
