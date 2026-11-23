@@ -48,6 +48,10 @@ func (o *ConsensusQueue) PreEnvStartup(
 		return nil, fmt.Errorf("failed to get workers for DON %s: %w", don.Name, err)
 	}
 
+	// The plugin reads its OCR limits only from the plugin config inside the registry's OCR config.
+	ocrConfig := contracts.DefaultOCR3_1Config(len(workers))
+	ocrConfig.ConsensusQueueOffchainConfig = ocr3_1.DefaultConsensusQueueOffchainConfig()
+
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: []keystone_changeset.DONCapabilityWithConfig{{
 			Capability: kcr.CapabilitiesRegistryCapability{
@@ -63,7 +67,7 @@ func (o *ConsensusQueue) PreEnvStartup(
 		}},
 		// The plugin runs on the OCR 3.1 oracle, which rejects OCR3 (version 30) offchain configs.
 		CapabilityToOCR3_1Config: map[string]*ocr3_1.V3_1OracleConfig{
-			consensusQueueLabelledName: contracts.DefaultOCR3_1Config(len(workers)),
+			consensusQueueLabelledName: ocrConfig,
 		},
 	}, nil
 }
