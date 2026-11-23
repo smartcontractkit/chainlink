@@ -193,7 +193,6 @@ func (q *CentralQueue) Remove(ctx context.Context, executionIDs iter.Seq[string]
 	q.metrics.IncrementDrainedEventsCounter(ctx, deleted)
 	q.metrics.RecordDepth(ctx, len(q.events))
 	q.metrics.RecordCapacity(ctx, q.effectiveCapacity(capacity))
-	return
 }
 
 func (q *CentralQueue) Sorted(ctx context.Context, limit, maxEventBytes int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {

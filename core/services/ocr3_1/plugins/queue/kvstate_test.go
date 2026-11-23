@@ -148,7 +148,7 @@ func TestVoterBlobs(t *testing.T) {
 		for range 50 {
 			m := voterBlobs{}
 			for _, voter := range rand.Perm(10) {
-				m.add("h", uint8(voter), "shared", uint32(100+voter))
+				m.add("h", uint8(voter), "shared", uint32(100+voter)) //nolint:gosec // G115: small test values
 			}
 			require.Equal(t, map[string]uint32{"shared": 100}, m.handles("h"))
 		}
@@ -616,6 +616,7 @@ func TestPrepareWriteBlobHandles(t *testing.T) {
 	}
 
 	t.Run("idempotent", func(t *testing.T) {
+		t.Parallel()
 		handles := slices.Clone(s.queuedBlobHandles)
 		s.prepareWriteBlobHandles()
 		assert.Equal(t, handles, s.queuedBlobHandles)
@@ -626,6 +627,7 @@ func TestPrepareWriteBlobHandles(t *testing.T) {
 	})
 
 	t.Run("event without blobs", func(t *testing.T) {
+		t.Parallel()
 		s := newKVState()
 		s.queuedEvents.push(qEvent("wf", "e1", "h1", 10))
 		require.NotPanics(t, s.prepareWriteBlobHandles)
@@ -654,7 +656,7 @@ func TestPrepareWriteObservedEvents_SharedBlobs(t *testing.T) {
 		require.Len(t, entry.Event.Blobs, len(entry.Event.NodeIds), "one blob per vote, aligned with NodeIds")
 		for i, voter := range entry.Event.NodeIds {
 			b := entry.Event.Blobs[i]
-			assert.Equal(t, s.observedBlobs[hash][voter], blobRef{string(s.observedBlobHandles[b.Blob]), b.Element}, "event %s voter %d", hash, voter)
+			assert.Equal(t, blobRef{string(s.observedBlobHandles[b.Blob]), b.Element}, s.observedBlobs[hash][voter], "event %s voter %d", hash, voter)
 		}
 	}
 }
@@ -785,7 +787,7 @@ func randomState(seed int64) (s *kvState, newlyQueued []string) {
 		}
 		s.observedEvents[hash] = obsEvent(hexID("wf", i%7), hexID("exec-o", i), int64(100+rng.Intn(1000)), nodes...)
 		for _, node := range nodes {
-			s.observedBlobs.add(hash, node, pool[rng.Intn(len(pool))], uint32(rng.Intn(1000)))
+			s.observedBlobs.add(hash, node, pool[rng.Intn(len(pool))], uint32(rng.Intn(1000))) //nolint:gosec // G115: small test values
 		}
 	}
 	for i := range 5 + rng.Intn(200) {
@@ -795,7 +797,7 @@ func randomState(seed int64) (s *kvState, newlyQueued []string) {
 			ObservedAt: ts(int64(rng.Intn(100))), Deadline: ts(int64(100 + rng.Intn(1000))),
 		})
 		for range 1 + rng.Intn(3) {
-			s.queuedBlobs.add(hash, pool[rng.Intn(len(pool))], uint32(rng.Intn(1000)))
+			s.queuedBlobs.add(hash, pool[rng.Intn(len(pool))], uint32(rng.Intn(1000))) //nolint:gosec // G115: small test values
 		}
 		if rng.Intn(2) == 0 {
 			newlyQueued = append(newlyQueued, hash)
@@ -872,7 +874,7 @@ func randomQueue(rng *rand.Rand, n int, workflows int) (priorityQueue, map[strin
 	caps := map[string]uint32{}
 	for w := range workflows {
 		if rng.Intn(3) != 0 { // some workflows have no capacity at all
-			caps[hexID("wf", w)] = uint32(rng.Intn(6))
+			caps[hexID("wf", w)] = uint32(rng.Intn(6)) //nolint:gosec // G115: small test values
 		}
 	}
 	for i := range n {
@@ -929,12 +931,12 @@ func TestPopEligible_Edges(t *testing.T) {
 
 	var pq priorityQueue
 	pq.push(qEvent(testWF, "a", "h1", 200))
-	popped, expired := pq.popEligible(0, map[string]uint32{testWF: 5}, time.Unix(0, 0))
+	popped, _ := pq.popEligible(0, map[string]uint32{testWF: 5}, time.Unix(0, 0))
 	assert.Empty(t, popped, "nothing wanted")
 	popped, _ = pq.popEligible(-3, map[string]uint32{testWF: 5}, time.Unix(0, 0))
 	assert.Empty(t, popped, "a negative amount is nothing")
 	assert.Equal(t, 1, pq.Len())
-	popped, expired = (&priorityQueue{}).popEligible(5, nil, time.Unix(0, 0))
+	popped, expired := (&priorityQueue{}).popEligible(5, nil, time.Unix(0, 0))
 	assert.Empty(t, popped, "an empty queue")
 	assert.Zero(t, expired)
 }

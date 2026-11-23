@@ -133,7 +133,7 @@ func observedEventFor(rng *rand.Rand, i int) *pb.ConsensusQueueEvent {
 		ObservedAt:   randTS(rng),
 		Deadline:     randTS(rng),
 		TimelessHash: hash[:],
-		Blobs:        []*pb.CoordinatedEventBlobHandle{{Blob: uint32(rng.Intn(maxObservedBlobHandles)), Element: uint32(rng.Intn(maxObservedEvents))}},
+		Blobs:        []*pb.CoordinatedEventBlobHandle{{Blob: uint32(rng.Intn(maxObservedBlobHandles)), Element: uint32(rng.Intn(maxObservedEvents))}}, //nolint:gosec // G115: bounded by small constants
 	}
 }
 
@@ -181,13 +181,13 @@ func TestCalibration_ObservationFitsLimit(t *testing.T) {
 
 // eventOfPayload is an event as it appears in a blob, with an opaque trigger payload of the given size.
 func eventOfPayload(i, payload int) *pb.CoordinatedEvent {
-	any, err := anypb.New(wrapperspb.Bytes(make([]byte, payload)))
+	payloadAny, err := anypb.New(wrapperspb.Bytes(make([]byte, payload)))
 	if err != nil {
 		panic(err)
 	}
 	return &pb.CoordinatedEvent{
 		WorkflowID: hexID("wf", i), TriggerCapID: "evm@1.0.0", TriggerIndex: int64(i % 3),
-		Event: &pb.TriggerResponse{Event: &pb.TriggerEvent{TriggerType: "evm@1.0.0", Id: hexID("evt", i) + ":" + hexID("blk", i) + ":7", Payload: any}},
+		Event: &pb.TriggerResponse{Event: &pb.TriggerEvent{TriggerType: "evm@1.0.0", Id: hexID("evt", i) + ":" + hexID("blk", i) + ":7", Payload: payloadAny}},
 	}
 }
 
@@ -249,8 +249,8 @@ func TestCalibration_KVState(t *testing.T) {
 	// consensus and queued events carry one blob ref each
 	queuedAvg, queuedMax := summarize(1000, func(i int) int {
 		e := observedEventFor(rng, i)
-		e.Blobs = []*pb.CoordinatedEventBlobHandle{{Blob: uint32(rng.Intn(maxObservedBlobHandles * 31)), Element: uint32(rng.Intn(maxObservedEvents))}}
-		return protowire.SizeBytes(proto.Size(e)) + protowire.SizeTag(1) // as an element of ConsensusQueueEventList
+		e.Blobs = []*pb.CoordinatedEventBlobHandle{{Blob: uint32(rng.Intn(maxObservedBlobHandles * 31)), Element: uint32(rng.Intn(maxObservedEvents))}} //nolint:gosec // G115: bounded by small constants
+		return protowire.SizeBytes(proto.Size(e)) + protowire.SizeTag(1)                                                                                // as an element of ConsensusQueueEventList
 	})
 	t.Logf("queued/consensus event in KV: avg %.0fB, max %dB", queuedAvg, queuedMax)
 	queuedCapacity := maxKeyValueValueBytes / queuedMax
@@ -269,7 +269,7 @@ func TestCalibration_KVState(t *testing.T) {
 				e.Deadlines = append(e.Deadlines, randTS(rng))
 			}
 			for range 2 * f { // the blob of each vote
-				e.Blobs = append(e.Blobs, &pb.CoordinatedEventBlobHandle{Blob: uint32(rng.Intn(maxObservedBlobHandles * n)), Element: uint32(rng.Intn(maxObservedEvents))})
+				e.Blobs = append(e.Blobs, &pb.CoordinatedEventBlobHandle{Blob: uint32(rng.Intn(maxObservedBlobHandles * n)), Element: uint32(rng.Intn(maxObservedEvents))}) //nolint:gosec // G115: bounded by small constants
 			}
 			entry := &pb.ConsensusQueueObservedEventEntry{TimelessHash: make([]byte, sha256.Size), Event: e}
 			return protowire.SizeBytes(proto.Size(entry)) + protowire.SizeTag(1)
@@ -306,8 +306,8 @@ func TestCalibration_BlobLifetime(t *testing.T) {
 		rounds := blobExpirySeqNr(0, timeout+grace, roundDur)
 		perRoundBlobs := maxObservedBlobHandles // a full observation every round: the worst case
 		t.Logf("DeltaRound %-6s: a blob is kept for %5d rounds (%s); sustained full observations would hold %6d blobs = %5.1f GiB per oracle",
-			roundDur, rounds, time.Duration(rounds)*roundDur, perRoundBlobs*int(rounds),
+			roundDur, rounds, time.Duration(rounds)*roundDur, perRoundBlobs*int(rounds), //nolint:gosec // G115: a small number of rounds
 			float64(perRoundBlobs)*float64(rounds)*float64(ocr3_1types.MaxMaxBlobPayloadBytes)/(1<<30))
-		assert.GreaterOrEqual(t, time.Duration(rounds)*roundDur, timeout+grace, "blobs must outlive their events")
+		assert.GreaterOrEqual(t, time.Duration(rounds)*roundDur, timeout+grace, "blobs must outlive their events") //nolint:gosec // G115: a small number of rounds
 	}
 }

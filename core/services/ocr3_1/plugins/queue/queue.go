@@ -39,13 +39,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	"go.opentelemetry.io/otel/metric"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -236,7 +236,7 @@ func (c *consensusQueuePlugin) Observation(
 		// No new events, so nothing to broadcast. The local queue is emptied, or it would only fill up.
 		obs.KvDrainActive = true
 		obs.BlobHandles = nil
-		if err := c.discardQueue(ctx); err != nil {
+		if err = c.discardQueue(ctx); err != nil {
 			return nil, err
 		}
 		c.metrics.recordObservation(ctx, 0)
@@ -379,13 +379,13 @@ func observeEvent(
 		TimelessHash: timelessHash,
 		Blobs: []*pb.CoordinatedEventBlobHandle{{
 			Blob:    0,
-			Element: uint32(idx),
+			Element: uint32(idx), //nolint:gosec // G115: an index into at most maxObservedEvents events
 		}},
 	})
 
 	if _, ok := obs.WorkflowCapacities[event.WorkflowID]; !ok {
 		newWF = true
-		obs.WorkflowCapacities[event.WorkflowID] = uint32(min(wfCapacities[event.WorkflowID], math.MaxUint32))
+		obs.WorkflowCapacities[event.WorkflowID] = clampUint32(wfCapacities[event.WorkflowID])
 	}
 
 	return
@@ -402,7 +402,7 @@ func (c *consensusQueuePlugin) broadcastObservationBlobs(
 		return true, nil
 	}
 	if len(events) != len(obs.Events) {
-		return false, fmt.Errorf("number of events and observedEvents must match")
+		return false, errors.New("number of events and observedEvents must match")
 	}
 
 	// ends[i] is the index after the last event of blob i. We verified space for maxObservedBlobHandles handles.
@@ -503,8 +503,8 @@ func (c *consensusQueuePlugin) ValidateObservation(
 	fetcher := blobCache{fetcher: blobFetcher, cache: make(map[string]func() ([]byte, error))}
 	for i, event := range obs.Events {
 		eg.Go(func() error {
-			if err := validateObservedEvent(ctx, &fetcher, event, obs.BlobHandles); err != nil {
-				return fmt.Errorf("event %d failed validation: %w", i, err)
+			if verr := validateObservedEvent(ctx, &fetcher, event, obs.BlobHandles); verr != nil {
+				return fmt.Errorf("event %d failed validation: %w", i, verr)
 			}
 			return nil
 		})
@@ -563,7 +563,7 @@ func (c *consensusQueuePlugin) ValidateObservation(
 
 	// wait to do this since we depend on every event being valid
 	if !slices.IsSortedFunc(obs.Events, (*pb.ConsensusQueueEvent).CompareDeadline) {
-		return fmt.Errorf("events must be sorted")
+		return errors.New("events must be sorted")
 	}
 
 	return nil
@@ -590,16 +590,16 @@ func validateObservedEvent(ctx context.Context, fetcher *blobCache, event *pb.Co
 		return fmt.Errorf("invalid event deadline: %w", err)
 	}
 	if len(event.TimelessHash) == 0 {
-		return fmt.Errorf("event blob hash is missing")
+		return errors.New("event blob hash is missing")
 	} else if len(event.TimelessHash) != sha256.Size {
 		return fmt.Errorf("event blob hash must be %d bytes but got %d", sha256.Size, len(event.TimelessHash))
 	}
 
 	if len(event.Blobs) == 0 {
-		return fmt.Errorf("event blob is missing")
+		return errors.New("event blob is missing")
 	}
 	if len(event.Blobs) > 1 {
-		return fmt.Errorf("event has more than one blob")
+		return errors.New("event has more than one blob")
 	}
 
 	blobIdx := int(event.Blobs[0].Blob)
@@ -612,7 +612,7 @@ func validateObservedEvent(ctx context.Context, fetcher *blobCache, event *pb.Co
 	if err != nil {
 		return fmt.Errorf("failed to fetch event from blob: %w", err)
 	} else if coordEvent == nil {
-		return fmt.Errorf("failed to fetch event from blob: event is nil")
+		return errors.New("failed to fetch event from blob: event is nil")
 	}
 
 	if coordEvent.WorkflowID != event.WorkflowID {
@@ -792,7 +792,6 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 		caps = append(caps, make([]uint32, len(aos)-len(caps))...)
 		res.medianCapPerWF[wf] = slices.Sorted(slices.Values(caps))[f]
 	}
-	return
 }
 
 // addEvent adds the observed event to the observation set, either merging it into an existing event or creating a new one.
@@ -878,7 +877,6 @@ func (c *consensusQueuePlugin) tryStartExecutions(ctx context.Context, done chan
 	}
 
 	wg.Wait()
-	return
 }
 
 func (c *consensusQueuePlugin) tryStartExecution(ctx context.Context, fetcher *blobCache, consensusEvent *pb.ConsensusQueueEvent, blobHandles [][]byte) error {

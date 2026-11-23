@@ -152,8 +152,8 @@ func (c *consensusQueuePlugin) maxEventBytes() int {
 const maxEventsPerBlob = maxObservedEvents
 
 // splitEvents splits a blob into its marshaled events, without unmarshaling any of them. It rejects a blob with more
-// than max events.
-func splitEvents(b []byte, max int) ([][]byte, error) {
+// than limit events.
+func splitEvents(b []byte, limit int) ([][]byte, error) {
 	var events [][]byte
 	for len(b) > 0 {
 		num, typ, n := protowire.ConsumeTag(b)
@@ -181,8 +181,8 @@ func splitEvents(b []byte, max int) ([][]byte, error) {
 			return nil, protowire.ParseError(m)
 		}
 
-		if len(events) == max {
-			return nil, fmt.Errorf("blob has more than %d events", max)
+		if len(events) == limit {
+			return nil, fmt.Errorf("blob has more than %d events", limit)
 		}
 
 		events = append(events, v)
@@ -212,7 +212,7 @@ func blobExpirySeqNr(seqNr uint64, remaining, roundDur time.Duration) uint64 {
 	rounds := uint64(minBlobLifetimeRounds)
 	if roundDur > 0 {
 		lifetime := max(0, remaining) + minBlobLifetime
-		rounds = max(rounds, uint64((lifetime+roundDur-1)/roundDur))
+		rounds = max(rounds, uint64((lifetime+roundDur-1)/roundDur)) //nolint:gosec // G115: lifetime and roundDur are positive
 	}
 
 	return seqNr + rounds

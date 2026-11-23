@@ -260,7 +260,7 @@ func TestPluginMetrics_ThroughRounds(t *testing.T) {
 func TestPluginMetrics_ObservationsAreCounted(t *testing.T) {
 	t.Parallel()
 
-	events := mkEvents(t, 4, int64(time.Now().Add(time.Hour).Unix()))
+	events := mkEvents(t, 4, time.Now().Add(time.Hour).Unix())
 	blobs := &memBlobs{}
 	c := testPlugin(t, sliceQueue{events: events}, blobs, 1<<19)
 	m, reader := readerMetrics(t)

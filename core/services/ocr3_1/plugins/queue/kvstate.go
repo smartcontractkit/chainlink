@@ -166,9 +166,7 @@ func (m blobHandleMap) addAll(eventHash string, blobHandles map[string]uint32) {
 		m[eventHash] = make(map[string]uint32)
 	}
 
-	for blobHandle, elementIndex := range blobHandles {
-		m[eventHash][blobHandle] = elementIndex
-	}
+	maps.Copy(m[eventHash], blobHandles)
 }
 
 // voterBlobs is the blob each voter observed each event in: eventHash -> voter -> blob. There is one per voter, so a voter
@@ -309,12 +307,11 @@ func readObservedEvents(kv ocr3_1types.KeyValueStateReader) (observedEvents map[
 		observedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
 	}
 
-	return
+	return observedEvents, observedBlobs, nil
 }
 
 // sizeOf returns the size of the state when serialized and written to the KV store via writeAll.
 func (s *kvState) sizeOf() (size int) {
-
 	size += len(observedEventsKey) + len(queuedEventsKey) + len(consensusEventsKey) + len(blobHandlesKey)
 	size += s.sizeOfObservedEvents() + s.sizeOfQueuedEvents() + s.sizeOfConsensusEvents() + s.sizeOfBlobHandles()
 	return
@@ -371,7 +368,7 @@ func (s *kvState) prepareWriteObservedEvents() {
 			}
 
 			event.Blobs = append(event.Blobs, &pb.CoordinatedEventBlobHandle{
-				Blob:    uint32(idx),
+				Blob:    uint32(idx), //nolint:gosec // G115: an index into at most maxObservedBlobHandles blob handles
 				Element: ref.element,
 			})
 		}
@@ -402,7 +399,7 @@ func (s *kvState) prepareWriteBlobHandles() {
 			}
 
 			blobHandles = append(blobHandles, &pb.CoordinatedEventBlobHandle{
-				Blob:    uint32(idx),
+				Blob:    uint32(idx), //nolint:gosec // G115: an index into at most maxObservedBlobHandles blob handles
 				Element: ei,
 			})
 		}
@@ -657,7 +654,7 @@ func readConsensusState(kvReader ocr3_1types.KeyValueStateReader) ([]*pb.Consens
 	var consensusEvents []*pb.ConsensusQueueEvent
 	if v != nil {
 		var pbs pb.ConsensusQueueEventList
-		if err := proto.Unmarshal(v, &pbs); err != nil {
+		if err = proto.Unmarshal(v, &pbs); err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal consensus events: %w", err)
 		}
 
@@ -682,7 +679,7 @@ func readBlobHandles(kvReader ocr3_1types.KeyValueStateReader) ([][]byte, error)
 	var blobHandles [][]byte
 	if v != nil {
 		var bs pb.ConsensusQueueBlobHandleList
-		if err := proto.Unmarshal(v, &bs); err != nil {
+		if err = proto.Unmarshal(v, &bs); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal consensus blob handles: %w", err)
 		}
 

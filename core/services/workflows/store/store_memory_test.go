@@ -237,10 +237,10 @@ func TestInMemoryStore_MinimumCompletedRetention(t *testing.T) {
 	isPruned := func(store *InMemoryStore) func() bool {
 		return func() bool { _, err := store.Get(t.Context(), "test-id"); return err != nil }
 	}
-	newStore := func(t *testing.T, min func() time.Duration) (*InMemoryStore, *clockwork.FakeClock) {
+	newStore := func(t *testing.T, retention func() time.Duration) (*InMemoryStore, *clockwork.FakeClock) {
 		fakeClock := clockwork.NewFakeClock()
 		store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), fakeClock, time.Millisecond, configured, 24*time.Hour)
-		store.SetMinimumCompletedRetention(min)
+		store.SetMinimumCompletedRetention(retention)
 		servicetest.Run(t, store)
 		_, err := store.Add(t.Context(), nil, "test-id", "w1", StatusStarted)
 		require.NoError(t, err)
@@ -270,11 +270,11 @@ func TestInMemoryStore_MinimumCompletedRetention(t *testing.T) {
 
 	t.Run("follows a minimum that grows after the execution completed", func(t *testing.T) {
 		t.Parallel()
-		var min atomic.Int64
-		min.Store(int64(time.Minute))
-		store, fakeClock := newStore(t, func() time.Duration { return time.Duration(min.Load()) })
+		var retention atomic.Int64
+		retention.Store(int64(time.Minute))
+		store, fakeClock := newStore(t, func() time.Duration { return time.Duration(retention.Load()) })
 
-		min.Store(int64(3 * time.Hour)) // a workflow with a long timeout was seen
+		retention.Store(int64(3 * time.Hour)) // a workflow with a long timeout was seen
 		fakeClock.Advance(configured + time.Hour)
 		require.Never(t, isPruned(store), 100*time.Millisecond, 10*time.Millisecond)
 		fakeClock.Advance(2 * time.Hour)

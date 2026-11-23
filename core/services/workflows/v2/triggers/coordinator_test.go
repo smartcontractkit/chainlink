@@ -1387,12 +1387,10 @@ func TestEventLifetime(t *testing.T) {
 		l := NewEventLifetime(graceOf(0, nil))
 		var wg sync.WaitGroup
 		for i := range 50 {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				l.observeTimeout(time.Duration(i) * time.Hour)
 				l.Longest(t.Context())
-			}()
+			})
 		}
 		wg.Wait()
 		assert.Equal(t, 49*time.Hour, l.Longest(t.Context()))

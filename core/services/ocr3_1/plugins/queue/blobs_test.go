@@ -22,6 +22,7 @@ import (
 )
 
 func Test_extractEvent(t *testing.T) {
+	t.Parallel()
 	payload, err := anypb.New(timestamppb.New(time.Now()))
 	require.NoError(t, err)
 	event := &pb.CoordinatedEvent{
@@ -68,6 +69,7 @@ func Test_extractEvent(t *testing.T) {
 		{"bounds", 4, 4},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var events []*pb.CoordinatedEvent
 			for i := range tt.len {
 				if i == tt.idx {
@@ -89,6 +91,7 @@ func Test_extractEvent(t *testing.T) {
 }
 
 func Test_coordinatedEventsFieldNumber(t *testing.T) {
+	t.Parallel()
 	fd := (&pb.CoordinatedEventList{}).ProtoReflect().Descriptor().Fields().ByName("events")
 	require.NotNil(t, fd)
 	require.Equal(t, protowire.Number(coordinatedEventsFieldNumber), fd.Number())
@@ -150,13 +153,11 @@ func TestBlobCache_FetchBlob(t *testing.T) {
 		var wg sync.WaitGroup
 		results := make([][]byte, 20)
 		for i := range results {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				b, err := c.fetchBlob(t.Context(), handleBytes(1))
 				assert.NoError(t, err)
 				results[i] = b
-			}()
+			})
 		}
 		close(f.gate)
 		wg.Wait()
@@ -428,7 +429,7 @@ func (h *hintBlobs) BroadcastBlob(ctx context.Context, payload []byte, hint ocr3
 
 func eventsWithDeadline(t testing.TB, n int, deadline time.Time) []*pb.CoordinatedEvent {
 	t.Helper()
-	var events []*pb.CoordinatedEvent
+	events := make([]*pb.CoordinatedEvent, 0, n)
 	for i := range n {
 		_, e := newCoordinatedEvent(t, "wf", string(rune('a'+i)))
 		e.Deadline = timestamppb.New(deadline)
@@ -507,7 +508,7 @@ func TestBroadcastAsBlob(t *testing.T) {
 		require.NoError(t, err)
 		hint := blobs.hints[0].(ocr3_1types.BlobExpirationHintSequenceNumber)
 		// 60s to the latest deadline + 60s grace + 30s minimum lifetime, at 1s per round
-		assert.InDelta(t, 100+150, int(hint.SeqNr), 1)
+		assert.InDelta(t, 100+150, int(hint.SeqNr), 1) //nolint:gosec // G115: small test values
 	})
 }
 
@@ -581,7 +582,7 @@ func TestBlobExpirySeqNr(t *testing.T) {
 		for _, remaining := range []time.Duration{0, time.Second, 90 * time.Second, 11 * time.Minute, time.Hour} {
 			for _, roundDur := range []time.Duration{100 * time.Millisecond, time.Second, 3 * time.Second} {
 				rounds := blobExpirySeqNr(0, remaining, roundDur)
-				assert.GreaterOrEqual(t, time.Duration(rounds)*roundDur, remaining+minBlobLifetime, "%s remaining at %s per round", remaining, roundDur)
+				assert.GreaterOrEqual(t, time.Duration(rounds)*roundDur, remaining+minBlobLifetime, "%s remaining at %s per round", remaining, roundDur) //nolint:gosec // G115: small test values
 			}
 		}
 	})
@@ -609,7 +610,7 @@ func TestBroadcastAsBlob_GraceIsOptional(t *testing.T) {
 		blobs.hints = nil
 		_, _, err := c.broadcastAsBlob(t.Context(), blobs, events, 0)
 		require.NoError(t, err, tt.name)
-		assert.InDelta(t, tt.want, int(blobs.hints[0].(ocr3_1types.BlobExpirationHintSequenceNumber).SeqNr), 1, tt.name)
+		assert.InDelta(t, tt.want, int(blobs.hints[0].(ocr3_1types.BlobExpirationHintSequenceNumber).SeqNr), 1, tt.name) //nolint:gosec // G115: small test values
 	}
 }
 

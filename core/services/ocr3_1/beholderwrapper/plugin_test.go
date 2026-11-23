@@ -601,6 +601,7 @@ func (f *fakePlugin[RI]) Close() error {
 
 // The sequence number of the latest committed round is the round progress.
 func Test_ReportingPlugin_RecordsCommittedSeqNr(t *testing.T) {
+	t.Parallel()
 	reader := sdkmetric.NewManualReader()
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
@@ -637,7 +638,7 @@ func Test_ReportingPlugin_RecordsCommittedSeqNr(t *testing.T) {
 		require.NoError(t, plugin.Committed(t.Context(), seqNr, nil))
 		got, found := committed()
 		require.True(t, found)
-		require.Equal(t, int64(seqNr), got, "the latest committed round")
+		require.Equal(t, int64(seqNr), got, "the latest committed round") //nolint:gosec // G115: small test values
 	}
 
 	// a plugin that fails to act on a round does not stop the round from having been committed

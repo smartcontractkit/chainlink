@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -171,7 +172,7 @@ func (q sliceQueue) Sorted(_ context.Context, limit, _ int) iter.Seq2[[]byte, *p
 // testBlobHandle returns a valid handle (libocr offers no constructor) built from its wire encoding. i identifies it.
 func testBlobHandle(i int) ocr3_1types.BlobHandle {
 	var h ocr3_1types.BlobHandle
-	if err := h.UnmarshalBinary(handleBytes(byte(i))); err != nil {
+	if err := h.UnmarshalBinary(handleBytes(byte(i))); err != nil { //nolint:gosec // G115: a small test value
 		panic(err)
 	}
 	return h
@@ -371,7 +372,7 @@ func TestBroadcastObservationBlobs(t *testing.T) {
 		blobs := &memBlobs{}
 		c := testPlugin(t, sliceQueue{}, blobs, ocr3_1types.MaxMaxObservationBytes)
 		obs := &pb.ConsensusQueueObservation{WorkflowCapacities: map[string]uint32{}}
-		var events []*pb.CoordinatedEvent
+		events := make([]*pb.CoordinatedEvent, 0, 3)
 		for _, id := range []string{"a", "b", "c"} {
 			h, e := newCoordinatedEvent(t, testWF, id)
 			events = append(events, e)
@@ -400,7 +401,7 @@ func TestBroadcastObservationBlobs(t *testing.T) {
 func TestObservation_PassesValidateObservation(t *testing.T) {
 	t.Parallel()
 
-	var events []hashedEvent
+	events := make([]hashedEvent, 0, 2)
 	for _, id := range []string{"a", "b"} {
 		h, e := newCoordinatedEvent(t, testWF, id)
 		events = append(events, hashedEvent{h, e})
@@ -433,7 +434,7 @@ func TestObservation_NoEvents(t *testing.T) {
 	var obs pb.ConsensusQueueObservation
 	require.NoError(t, proto.Unmarshal(raw, &obs))
 	assert.Empty(t, obs.Events)
-	assert.Zero(t, len(obs.BlobHandles), "size-estimation placeholders must not be sent")
+	assert.Empty(t, obs.BlobHandles, "size-estimation placeholders must not be sent")
 	require.NoError(t, c.ValidateObservation(t.Context(), 1, ocrtypes.AttributedQuery{}, ocrtypes.AttributedObservation{Observation: raw}, memKV{}, &memBlobs{}))
 }
 
@@ -441,7 +442,7 @@ func TestObservation_NoEvents(t *testing.T) {
 func TestObservation_SizeLimited(t *testing.T) {
 	t.Parallel()
 
-	var events []hashedEvent
+	events := make([]hashedEvent, 0, 3)
 	for _, id := range []string{"a", "b", "c"} {
 		h, e := newCoordinatedEvent(t, testWF, id)
 		events = append(events, hashedEvent{h, e})
@@ -515,7 +516,7 @@ func TestValidateObservedEvent(t *testing.T) {
 		{name: "missing hash", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.TimelessHash = nil }, wantErr: "hash is missing"},
 		{name: "no blob ref", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.Blobs = nil }, wantErr: "blob is missing"},
 		{name: "two blob refs", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.Blobs = append(qe.Blobs, qe.Blobs[0]) }, wantErr: "more than one blob"},
-		{name: "blob index out of range", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.Blobs[0].Blob = uint32(len(handles)) }, wantErr: "out of range"},
+		{name: "blob index out of range", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.Blobs[0].Blob = uint32(len(handles)) }, wantErr: "out of range"}, //nolint:gosec // G115: a small test value
 		{name: "element out of range", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.Blobs[0].Element = 5 }, wantErr: "failed to fetch event"},
 		{name: "blob fetch fails", fetch: errBoom, wantErr: "boom"},
 		{name: "workflow id differs from blob", mutate: func(_ *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) { qe.WorkflowID = hexID("other", 0) }, wantErr: "does not match event workflow ID"},
@@ -562,7 +563,7 @@ func TestValidateObservedEvent(t *testing.T) {
 // observeN builds a valid observation from a plugin with n queued events with ascending deadlines.
 func observeN(t *testing.T, n int) (*consensusQueuePlugin, *memBlobs, *pb.ConsensusQueueObservation) {
 	t.Helper()
-	var events []hashedEvent
+	events := make([]hashedEvent, 0, n)
 	for i := range n {
 		h, e := newCoordinatedEvent(t, testWF, fmt.Sprintf("evt-%d", i))
 		e.Deadline = ts(int64(2000 + 10*i))
@@ -721,13 +722,13 @@ func ao(t testing.TB, id int, obs *pb.ConsensusQueueObservation) ocrtypes.Attrib
 	t.Helper()
 	b, err := proto.Marshal(obs)
 	require.NoError(t, err)
-	return ocrtypes.AttributedObservation{Observer: commontypes.OracleID(id), Observation: b}
+	return ocrtypes.AttributedObservation{Observer: commontypes.OracleID(id), Observation: b} //nolint:gosec // G115: a small test value
 }
 
 // mkEvents makes n events for workflow testWF with deadlines base, base+1, ...
 func mkEvents(t testing.TB, n int, base int64) []hashedEvent {
 	t.Helper()
-	var out []hashedEvent
+	out := make([]hashedEvent, 0, n)
 	for i := range n {
 		h, e := newCoordinatedEvent(t, testWF, fmt.Sprintf("evt-%02d", i))
 		e.Deadline = ts(base + int64(i))
@@ -761,7 +762,7 @@ func consensusIDs(t *testing.T, kv memKV) []string {
 	t.Helper()
 	events, handles, err := readConsensusState(kv)
 	require.NoError(t, err)
-	var ids []string
+	ids := make([]string, 0, len(events))
 	for _, e := range events {
 		require.NotEmpty(t, e.Blobs, "consensus event %s must reference a blob", e.ExecutionID)
 		for _, b := range e.Blobs {
@@ -776,7 +777,7 @@ func consensusIDs(t *testing.T, kv memKV) []string {
 func queuedIDs(t *testing.T, kv memKV) []string {
 	t.Helper()
 	s := loadState(t, kv)
-	var ids []string
+	ids := make([]string, 0, len(s.queuedEvents))
 	for _, e := range s.queuedEvents {
 		assert.Contains(t, s.queuedBlobs, string(e.TimelessHash), "queued event %s must keep its blob ref", e.ExecutionID)
 		ids = append(ids, e.ExecutionID)
@@ -1057,12 +1058,12 @@ func TestStateTransition_SizeLimits(t *testing.T) {
 		require.NotEmpty(t, st.observedEvents)
 		require.Less(t, len(st.observedEvents), 30)
 		// equal votes: ties break on hash ascending, so the retained are the k smallest hashes
-		var all []string
+		all := make([]string, 0, len(e))
 		for _, ev := range e {
 			all = append(all, string(ev.hash))
 		}
 		slices.Sort(all)
-		var kept []string
+		kept := make([]string, 0, len(st.observedEvents))
 		for h := range st.observedEvents {
 			kept = append(kept, h)
 		}
@@ -1087,7 +1088,7 @@ func TestStateTransition_SizeLimits(t *testing.T) {
 		got := queuedIDs(t, kv)
 		require.NotEmpty(t, got)
 		require.Less(t, len(got), 30)
-		var want []string
+		want := make([]string, 0, len(got))
 		for i := range got { // the earliest deadlines survive
 			want = append(want, execIDOf(t, fmt.Sprintf("evt-%02d", i)))
 		}
@@ -1209,7 +1210,7 @@ func newCommitPlugin(t testing.TB, coord triggers.Coordinator, q triggers.Queue,
 func seedKV(t testing.TB, kv memKV, blobs *memBlobs, consensus, queued []string) (execIDs []string) {
 	t.Helper()
 	s := newKVState()
-	var ces []*pb.CoordinatedEvent
+	ces := make([]*pb.CoordinatedEvent, 0, len(consensus)+len(queued))
 	for i, id := range append(append([]string(nil), consensus...), queued...) {
 		ce, qe := blobEvent(t, testWF, id)
 		qe.ObservedAt, qe.Deadline = ts(int64(4000+i)), ts(int64(5000+i))
@@ -1437,7 +1438,7 @@ func TestObservation_Fields(t *testing.T) {
 
 		obs, err := observe(t, c, kv, blobs)
 		require.NoError(t, err)
-		var got [][]byte
+		got := make([][]byte, 0, len(obs.Events))
 		for _, e := range obs.Events {
 			got = append(got, e.TimelessHash)
 		}
@@ -1465,7 +1466,7 @@ func TestObservation_BlobBatching(t *testing.T) {
 		}
 	}
 	events := func(t *testing.T, n int) []hashedEvent {
-		return mkEvents(t, n, int64(time.Now().Add(time.Hour).Unix()))
+		return mkEvents(t, n, time.Now().Add(time.Hour).Unix())
 	}
 
 	t.Run("events spread over several blobs keep correct refs", func(t *testing.T) {
@@ -1537,7 +1538,7 @@ func TestObservation_BlobFailuresAreNotFatal(t *testing.T) {
 	t.Run("broadcast error", func(t *testing.T) {
 		t.Parallel()
 		blobs := &hintBlobs{err: errBoom}
-		c := testPlugin(t, sliceQueue{events: mkEvents(t, 2, int64(time.Now().Add(time.Hour).Unix()))}, blobs, ocr3_1types.MaxMaxObservationBytes)
+		c := testPlugin(t, sliceQueue{events: mkEvents(t, 2, time.Now().Add(time.Hour).Unix())}, blobs, ocr3_1types.MaxMaxObservationBytes)
 		obs, err := observe(t, c, memKV{}, blobs)
 		require.NoError(t, err, "a failed broadcast should degrade to an observation without those events")
 		assert.Empty(t, obs.Events)
@@ -1546,7 +1547,7 @@ func TestObservation_BlobFailuresAreNotFatal(t *testing.T) {
 	t.Run("event larger than a blob", func(t *testing.T) {
 		t.Parallel()
 		blobs := &memBlobs{}
-		c := testPlugin(t, sliceQueue{events: mkEvents(t, 2, int64(time.Now().Add(time.Hour).Unix()))}, blobs, ocr3_1types.MaxMaxObservationBytes)
+		c := testPlugin(t, sliceQueue{events: mkEvents(t, 2, time.Now().Add(time.Hour).Unix())}, blobs, ocr3_1types.MaxMaxObservationBytes)
 		c.limits.MaxBlobPayloadBytes = 1
 		obs, err := observe(t, c, memKV{}, blobs)
 		require.NoError(t, err, "an unbroadcastable event should be dropped, not fail every observation")
@@ -1585,7 +1586,7 @@ func TestMaxEventBytes(t *testing.T) {
 		return e
 	}
 	for _, limit := range []int{6, 127, 128, 129, 1 << 14, 1<<21 - 1, 1 << 21, ocr3_1types.MaxMaxBlobPayloadBytes} {
-		t.Run(fmt.Sprint(limit), func(t *testing.T) {
+		t.Run(strconv.Itoa(limit), func(t *testing.T) {
 			t.Parallel()
 			c := testPlugin(t, sliceQueue{}, &memBlobs{}, ocr3_1types.MaxMaxObservationBytes)
 			c.limits.MaxBlobPayloadBytes = limit
@@ -1735,7 +1736,7 @@ func TestBroadcastAsBlob_LargestFit(t *testing.T) {
 // multiBlobObservation builds an observation of 6 events spread over 3 blobs (two per blob).
 func multiBlobObservation(t *testing.T) (*consensusQueuePlugin, *memBlobs, *pb.ConsensusQueueObservation) {
 	t.Helper()
-	ev := mkEvents(t, 6, int64(time.Now().Add(time.Hour).Unix()))
+	ev := mkEvents(t, 6, time.Now().Add(time.Hour).Unix())
 	blobs := &memBlobs{}
 	c := testPlugin(t, sliceQueue{events: ev}, blobs, ocr3_1types.MaxMaxObservationBytes)
 	c.limits.MaxBlobPayloadBytes = proto.Size(&pb.CoordinatedEventList{Events: []*pb.CoordinatedEvent{ev[0].event, ev[1].event}})
@@ -1798,7 +1799,7 @@ func (f *fetchCountingBlobs) FetchBlob(ctx context.Context, h ocr3_1types.BlobHa
 }
 
 // ctxBlobs fails like libocr does when its context is done.
-type ctxBlobs struct{ memBlobs }
+type ctxBlobs struct{}
 
 func (ctxBlobs) BroadcastBlob(ctx context.Context, _ []byte, _ ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
 	return ocr3_1types.BlobHandle{}, ctx.Err()
@@ -1855,7 +1856,7 @@ func TestContextCancellation(t *testing.T) {
 
 	t.Run("Observation fails instead of degrading to an observation without events", func(t *testing.T) {
 		t.Parallel()
-		ev := mkEvents(t, 2, int64(time.Now().Add(time.Hour).Unix()))
+		ev := mkEvents(t, 2, time.Now().Add(time.Hour).Unix())
 		c := testPlugin(t, sliceQueue{events: ev}, ctxBlobs{}, ocr3_1types.MaxMaxObservationBytes)
 		_, err := c.Observation(cancelledCtx(t), 1, ocrtypes.AttributedQuery{}, memKV{}, ctxBlobs{})
 		require.ErrorIs(t, err, context.Canceled)
@@ -1863,7 +1864,7 @@ func TestContextCancellation(t *testing.T) {
 
 	t.Run("Observation fails if one of several blob broadcasts is cancelled", func(t *testing.T) {
 		t.Parallel()
-		ev := mkEvents(t, 4, int64(time.Now().Add(time.Hour).Unix()))
+		ev := mkEvents(t, 4, time.Now().Add(time.Hour).Unix())
 		ctx, cancel := context.WithCancel(t.Context())
 		blobs := &cancelOnSecondBroadcast{cancel: cancel}
 		c := testPlugin(t, sliceQueue{events: ev}, blobs, ocr3_1types.MaxMaxObservationBytes)
@@ -1914,7 +1915,7 @@ func (f *failBlobsWith) BroadcastBlob(ctx context.Context, payload []byte, hint 
 func TestObservation_PartialBlobFailure(t *testing.T) {
 	t.Parallel()
 
-	ev := mkEvents(t, 6, int64(time.Now().Add(time.Hour).Unix())) // two events per blob
+	ev := mkEvents(t, 6, time.Now().Add(time.Hour).Unix()) // two events per blob
 	perBlob := proto.Size(&pb.CoordinatedEventList{Events: []*pb.CoordinatedEvent{ev[0].event, ev[1].event}})
 
 	for _, tt := range []struct {
@@ -2255,7 +2256,7 @@ func TestObservationSize(t *testing.T) {
 		e := observedEventFor(rng, i)
 		obs.Events = append(obs.Events, e)
 		if i%3 == 0 { // some events add a workflow, with capacities of all varint sizes
-			obs.WorkflowCapacities[e.WorkflowID] = uint32(rng.Int63n(1 << (1 + rng.Intn(31))))
+			obs.WorkflowCapacities[e.WorkflowID] = uint32(rng.Int63n(1 << (1 + rng.Intn(31)))) //nolint:gosec // G115: bounded by 2^31
 		}
 		require.Equal(t, proto.MarshalOptions{Deterministic: true}.Size(obs), observationSize(obs), "after %d events", i+1)
 	}
@@ -2284,7 +2285,7 @@ func BenchmarkFullStateTransitionOverLimit(b *testing.B) {
 		none.wfCaps[e.event.WorkflowID] = 1 << 20
 	}
 	round := func(b *testing.B, o nodeOpts, events []hashedEvent, nodes int) []ocrtypes.AttributedObservation {
-		var aos []ocrtypes.AttributedObservation
+		aos := make([]ocrtypes.AttributedObservation, 0, n)
 		for node := range n {
 			var seen []hashedEvent
 			if node < nodes {
@@ -2319,7 +2320,7 @@ func BenchmarkFullStateTransitionOverLimit(b *testing.B) {
 	b.Run("full queue receives 3000 more", func(b *testing.B) {
 		c := newSTPlugin(b)
 		seed := memKV{}
-		for i := 0; i < 9; i++ { // fill the queue to just under its value limit
+		for i := range 9 { // fill the queue to just under its value limit
 			require.NoError(b, stateTransition(b, c, seed, round(b, none, all[i*1000:(i+1)*1000], n)...))
 		}
 		queued := func(kv memKV) float64 { return float64(len(loadState(b, kv).queuedEvents)) }
@@ -2348,7 +2349,7 @@ func TestValidateObservation_RejectsBlobPaddedWithEmptyEvents(t *testing.T) {
 		ce, qe := blobEvent(t, testWF, fmt.Sprintf("evt-%02d", i))
 		qe.Deadline = ts(int64(2000 + i))
 		qe.Blobs = []*pb.CoordinatedEventBlobHandle{{Blob: 0, Element: uint32(padding + i)}}
-		payload = append(payload, marshalEvents(t, ce)[:]...)
+		payload = append(payload, marshalEvents(t, ce)...)
 		obs.Events = append(obs.Events, qe)
 	}
 	blobs.store(handleBytes(1), payload)
@@ -2369,7 +2370,7 @@ func TestStateTransition_RepeatedVotesDoNotGrowState(t *testing.T) {
 	e := mkEvents(t, 1, 2000)
 	vote := func(node int, round int) ocrtypes.AttributedObservation {
 		obs := nodeObs(t, stdNode, e...)
-		obs.BlobHandles[0] = handleBytes(byte(10 + round)) // a new blob each round
+		obs.BlobHandles[0] = handleBytes(byte(10 + round)) //nolint:gosec // G115: a small test value, and a new blob each round
 		return ao(t, node, obs)
 	}
 	none := func(node int) ocrtypes.AttributedObservation { return ao(t, node, nodeObs(t, stdNode)) }
@@ -2532,7 +2533,7 @@ func TestKVDrainActive(t *testing.T) {
 func TestObservation_KVDrain(t *testing.T) {
 	t.Parallel()
 
-	events := mkEvents(t, 3, int64(time.Now().Add(time.Hour).Unix()))
+	events := mkEvents(t, 3, time.Now().Add(time.Hour).Unix())
 	q := &removalQueue{sliceQueue: sliceQueue{events: events}}
 	blobs := &memBlobs{}
 	c := testPlugin(t, q.sliceQueue, blobs, 1<<19)
@@ -2609,7 +2610,7 @@ func TestStateTransition_KVDrainNeedsFPlusOneVotes(t *testing.T) {
 				ao(t, 0, nodeObs(t, noCapacity, events...)), ao(t, 1, nodeObs(t, noCapacity, events...)), ao(t, 2, nodeObs(t, noCapacity, events...))))
 			require.Len(t, loadState(t, kv).queuedEvents, 2)
 
-			var aos []ocrtypes.AttributedObservation
+			aos := make([]ocrtypes.AttributedObservation, 0, 3)
 			for i := range 3 {
 				o := noCapacity
 				o.drain = i < votes
@@ -2656,7 +2657,7 @@ func TestValidateObservation_KVDrain(t *testing.T) {
 	require.NoError(t, validate(empty), "no events and no blob handles")
 
 	withEvents := nodeObs(t, drain, mkEvents(t, 1, 2000)...)
-	assert.ErrorContains(t, validate(withEvents), "KV drain mode reports no new events")
+	require.ErrorContains(t, validate(withEvents), "KV drain mode reports no new events")
 
 	withHandles := nodeObs(t, drain)
 	withHandles.Events = nil

@@ -55,11 +55,11 @@ type InMemoryStore struct {
 	minimumCompletedRetention func() time.Duration
 }
 
-// SetMinimumCompletedRetention makes the store keep a completed execution for at least as long as min returns, if that
+// SetMinimumCompletedRetention makes the store keep a completed execution for at least as long as retention returns, if that
 // is longer than the configured retention. This is for callers that can run an event again until it expires, whose
-// duplicate must be caught for as long as that is possible. min is called on each sweep, and must be set before Start.
-func (s *InMemoryStore) SetMinimumCompletedRetention(min func() time.Duration) {
-	s.minimumCompletedRetention = min
+// duplicate must be caught for as long as that is possible. retention is called on each sweep, and must be set before Start.
+func (s *InMemoryStore) SetMinimumCompletedRetention(retention func() time.Duration) {
+	s.minimumCompletedRetention = retention
 }
 
 func NewInMemoryStore(lggr logger.Logger, clock clockwork.Clock) *InMemoryStore {

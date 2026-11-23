@@ -543,7 +543,7 @@ func TestQueue_SortedDropsOversize(t *testing.T) {
 		t.Parallel()
 		q, maxSmall := newQueue(t)
 		assert.Len(t, ids(q, 10, maxSmall), 2)
-		assert.Len(t, ids(q, 10, maxSmall-1), 0, "one byte less and the small events no longer fit")
+		assert.Empty(t, ids(q, 10, maxSmall-1), "one byte less and the small events no longer fit")
 	})
 
 	t.Run("no maximum disables filtering", func(t *testing.T) {

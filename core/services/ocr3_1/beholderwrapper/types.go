@@ -70,7 +70,7 @@ func newPluginMetrics(meter metric.Meter, plugin, configDigest string) (*pluginM
 }
 
 func (m *pluginMetrics) recordCommittedSeqNr(ctx context.Context, seqNr uint64) {
-	m.committedSeqNr.Record(ctx, int64(seqNr), metric.WithAttributes(
+	m.committedSeqNr.Record(ctx, int64(seqNr), metric.WithAttributes( //nolint:gosec // G115: a sequence number never nears MaxInt64
 		attribute.String("plugin", m.plugin),
 		attribute.String("configDigest", m.configDigest),
 	))
