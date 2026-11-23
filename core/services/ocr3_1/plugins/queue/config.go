@@ -14,6 +14,13 @@ const (
 	// These are calibrated by the TestCalibration tests. The limits they must fit in come from the job's PluginConfig.
 	// TODO connect to cre settings, so that changing them is atomic across the DON
 	maxKeyValueValueBytes = ocr3_1types.MaxMaxKeyValueValueBytes
+
+	// queuedEventOverheadBytes is more than a queued event takes in KV, apart from any inline event (see the calibration test).
+	queuedEventOverheadBytes = 256
+	// maxInlineBytes is the most that an observation carries inline, whatever a blob handle is: the queue's value must
+	// still hold two full rounds of events (2*maxObservedEvents) if every one of them carries that much. A handle grows
+	// with F (385 bytes at F=1, 8KB at F=33), and the queue should not shrink with it.
+	maxInlineBytes = maxKeyValueValueBytes/(2*maxObservedEvents) - queuedEventOverheadBytes
 )
 
 type PluginConfig struct {

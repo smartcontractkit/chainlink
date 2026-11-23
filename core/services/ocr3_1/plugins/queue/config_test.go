@@ -253,6 +253,20 @@ func TestCalibration_KVState(t *testing.T) {
 		return protowire.SizeBytes(proto.Size(e)) + protowire.SizeTag(1)                                                                                // as an element of ConsensusQueueEventList
 	})
 	t.Logf("queued/consensus event in KV: avg %.0fB, max %dB", queuedAvg, queuedMax)
+	assert.LessOrEqual(t, queuedMax, queuedEventOverheadBytes, "what an event takes in KV, apart from its inline bytes")
+
+	// ... or carry the event inline instead, as much as an observation may: the worst case for the queue's depth
+	inlineMax := queuedMax
+	if _, m := summarize(1000, func(i int) int {
+		e := observedEventFor(rng, i)
+		e.TimelessEvent = make([]byte, maxInlineBytes)
+		return protowire.SizeBytes(proto.Size(e)) + protowire.SizeTag(1)
+	}); m > inlineMax {
+		inlineMax = m
+	}
+	inlineCapacity := maxKeyValueValueBytes / inlineMax
+	t.Logf("with %dB inline (the most, whatever a blob handle is): %dB per event, so %d queued events fit", maxInlineBytes, inlineMax, inlineCapacity)
+	assert.GreaterOrEqual(t, inlineCapacity, 2*maxObservedEvents, "the queue must still hold two full rounds of events if all carry the most inline bytes")
 	queuedCapacity := maxKeyValueValueBytes / queuedMax
 	t.Logf("the %dMiB value limit holds %d queued events (maxObservedEvents is %d)", maxKeyValueValueBytes>>20, queuedCapacity, maxObservedEvents)
 	assert.GreaterOrEqual(t, queuedCapacity, 2*maxObservedEvents, "the queue must hold at least two full observation rounds' worth of events")
@@ -268,7 +282,8 @@ func TestCalibration_KVState(t *testing.T) {
 				e.ObservedAts = append(e.ObservedAts, randTS(rng))
 				e.Deadlines = append(e.Deadlines, randTS(rng))
 			}
-			for range 2 * f { // the blob of each vote
+			e.TimelessEvent = make([]byte, maxInlineBytes) // and the event, once, if the votes were inline
+			for range 2 * f {                              // the blob of each vote
 				e.Blobs = append(e.Blobs, &pb.CoordinatedEventBlobHandle{Blob: uint32(rng.Intn(maxObservedBlobHandles * n)), Element: uint32(rng.Intn(maxObservedEvents))}) //nolint:gosec // G115: bounded by small constants
 			}
 			entry := &pb.ConsensusQueueObservedEventEntry{TimelessHash: make([]byte, sha256.Size), Event: e}
@@ -309,5 +324,18 @@ func TestCalibration_BlobLifetime(t *testing.T) {
 			roundDur, rounds, time.Duration(rounds)*roundDur, perRoundBlobs*int(rounds), //nolint:gosec // G115: a small number of rounds
 			float64(perRoundBlobs)*float64(rounds)*float64(ocr3_1types.MaxMaxBlobPayloadBytes)/(1<<30))
 		assert.GreaterOrEqual(t, time.Duration(rounds)*roundDur, timeout+grace, "blobs must outlive their events") //nolint:gosec // G115: a small number of rounds
+	}
+}
+
+// The events of an observation may be carried inline, up to the size of one blob handle. However many nodes there are, that
+// is a small part of an observation, and of the proposal that the leader sends every node, which holds one observation from
+// each of a quorum.
+func TestInlineBudget_IsSmall(t *testing.T) {
+	t.Parallel()
+	for f := 1; f <= 10; f++ {
+		n := 3*f + 1
+		budget := ocr3_1types.BlobHandleMarshalledBytesUpperBound(n, f)
+		assert.Equal(t, 145+240*f, budget, "N=%d F=%d", n, f)
+		assert.Less(t, budget*(2*f+1), ocr3_1types.MaxMaxObservationBytes/4, "the quorum's inline events in one proposal, N=%d F=%d", n, f)
 	}
 }

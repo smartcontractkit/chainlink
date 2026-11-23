@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/metric/noop"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -241,10 +242,12 @@ func testPlugin(t testing.TB, q sliceQueue, blobs ocr3_1types.BlobBroadcastFetch
 		MaxBlobPayloadBytes:                    ocr3_1types.MaxMaxBlobPayloadBytes,
 		MaxKeyValueModifiedKeysPlusValuesBytes: ocr3_1types.MaxMaxKeyValueModifiedKeysPlusValuesBytes,
 	}
-	return newConsensusQueuePlugin(logger.Test(t),
+	c := newConsensusQueuePlugin(logger.Test(t),
 		ocr3types.ReportingPluginConfig{N: 4, F: 1, OracleID: 0, EstimatedRoundInterval: time.Second},
 		limits, noopCoordinator{}, q,
 		func(context.Context) (time.Duration, error) { return time.Minute, nil }, blobs, testMetrics(t))
+	c.inlineBudget = 0 // most tests are of blobs, which small events would not use. Inline events have their own tests.
+	return c
 }
 
 // testMetrics returns metrics that record nowhere.
@@ -694,6 +697,7 @@ type nodeOpts struct {
 	wfCaps     map[string]uint32
 	expiration int64 // seconds
 	drain      bool  // reports KV drain mode
+	inline     bool  // carries the events in the observation, in place of a blob
 }
 
 var stdNode = nodeOpts{capacity: 10, wfCaps: map[string]uint32{testWF: 10}, expiration: 100}
@@ -714,6 +718,14 @@ func nodeObs(t testing.TB, o nodeOpts, events ...hashedEvent) *pb.ConsensusQueue
 	for _, e := range events {
 		_, err := observeEvent(obs, e.hash, proto.CloneOf(e.event), nil)
 		require.NoError(t, err)
+	}
+	if o.inline {
+		obs.BlobHandles = nil
+		for i, e := range events {
+			b, err := e.event.MarshalTimeless()
+			require.NoError(t, err)
+			obs.Events[i].Blobs, obs.Events[i].TimelessEvent = nil, b
+		}
 	}
 	return obs
 }
@@ -1200,6 +1212,7 @@ func newCommitPlugin(t testing.TB, coord triggers.Coordinator, q triggers.Queue,
 	c := newConsensusQueuePlugin(logger.Test(t),
 		ocr3types.ReportingPluginConfig{N: 4, F: 1, OracleID: 0, EstimatedRoundInterval: time.Second},
 		limits, coord, q, func(context.Context) (time.Duration, error) { return time.Minute, nil }, blobs, testMetrics(t))
+	c.inlineBudget = 0 // as for testPlugin
 	require.NoError(t, c.Start(t.Context()))
 	t.Cleanup(func() { require.NoError(t, c.Close()) })
 	return c
@@ -2663,4 +2676,265 @@ func TestValidateObservation_KVDrain(t *testing.T) {
 	withHandles.Events = nil
 	withHandles.BlobHandles = [][]byte{handleBytes(1)}
 	assert.ErrorContains(t, validate(withHandles), "KV drain mode reports no new events")
+}
+
+// timelessSize is the bytes of the events as they are inline, or in a blob: without timestamps.
+func timelessSize(t testing.TB, events []hashedEvent) (total int) {
+	t.Helper()
+	for _, e := range events {
+		b, err := e.event.MarshalTimeless()
+		require.NoError(t, err)
+		total += len(b)
+	}
+	return total
+}
+
+// An observation carries its events in place of a blob if they are no bigger together than the handle of the blob that
+// would hold them. If one does not fit, none do, as the blob is needed anyway.
+func TestObservation_InlinesEventsThatFit(t *testing.T) {
+	t.Parallel()
+
+	events := mkEvents(t, 3, time.Now().Add(time.Hour).Unix())
+	size := timelessSize(t, events)
+
+	observeWith := func(t *testing.T, budget int) (*consensusQueuePlugin, *pb.ConsensusQueueObservation, *memBlobs, *sdkmetric.ManualReader) {
+		t.Helper()
+		blobs := &memBlobs{}
+		c := testPlugin(t, sliceQueue{events: events}, blobs, ocr3_1types.MaxMaxObservationBytes)
+		c.inlineBudget = budget
+		m, reader := readerMetrics(t)
+		c.metrics = m
+		obs, err := observe(t, c, memKV{}, blobs)
+		require.NoError(t, err)
+		require.Len(t, obs.Events, len(events))
+		return c, obs, blobs, reader
+	}
+
+	t.Run("events that fit are inline", func(t *testing.T) {
+		t.Parallel()
+		c, obs, blobs, reader := observeWith(t, size)
+
+		assert.Empty(t, obs.BlobHandles)
+		assert.Empty(t, blobs.payloads, "nothing is broadcast")
+		for i, e := range obs.Events {
+			want, err := events[i].event.MarshalTimeless()
+			require.NoError(t, err)
+			assert.Equal(t, want, e.TimelessEvent)
+			assert.Empty(t, e.Blobs)
+			sum := sha256.Sum256(e.TimelessEvent)
+			assert.Equal(t, sum[:], e.TimelessHash, "the hash is of the bytes that are carried")
+		}
+		assert.Equal(t, int64(len(events)), total(t, reader, "inlined_events_total", nil))
+
+		raw, err := proto.Marshal(obs)
+		require.NoError(t, err)
+		// there is nothing to fetch, so that no blob is needed to validate it
+		require.NoError(t, c.ValidateObservation(t.Context(), 1, ocrtypes.AttributedQuery{}, ocrtypes.AttributedObservation{Observation: raw}, memKV{}, &memBlobs{}))
+	})
+
+	t.Run("one byte too many, and none are", func(t *testing.T) {
+		t.Parallel()
+		_, obs, blobs, reader := observeWith(t, size-1)
+
+		assert.Len(t, obs.BlobHandles, 1)
+		assert.Len(t, blobs.payloads, 1)
+		for _, e := range obs.Events {
+			assert.Nil(t, e.TimelessEvent)
+			assert.Len(t, e.Blobs, 1)
+		}
+		assert.Zero(t, total(t, reader, "inlined_events_total", nil))
+	})
+
+	t.Run("the default budget is the handle that the blob would have, up to what the queue can hold", func(t *testing.T) {
+		t.Parallel()
+		for _, n := range []int{4, 7, 16, 31, 100} {
+			f := (n - 1) / 3
+			c := newConsensusQueuePlugin(logger.Test(t), ocr3types.ReportingPluginConfig{N: n, F: f}, ocr3_1types.ReportingPluginLimits{},
+				noopCoordinator{}, sliceQueue{}, func(context.Context) (time.Duration, error) { return time.Minute, nil }, &memBlobs{}, testMetrics(t))
+			assert.Equal(t, min(ocr3_1types.BlobHandleMarshalledBytesUpperBound(n, f), maxInlineBytes), c.inlineBudget, "N=%d", n)
+			assert.LessOrEqual(t, c.inlineBudget, maxInlineBytes)
+		}
+	})
+}
+
+func TestValidateObservedEvent_Inline(t *testing.T) {
+	t.Parallel()
+
+	// inline turns a blob event into an inline one
+	inline := func(ce *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) {
+		b, err := proto.MarshalOptions{Deterministic: true}.Marshal(ce)
+		require.NoError(t, err)
+		sum := sha256.Sum256(b)
+		qe.TimelessEvent, qe.TimelessHash, qe.Blobs = b, sum[:], nil
+	}
+	tests := []struct {
+		name    string
+		mutate  func(ce *pb.CoordinatedEvent, qe *pb.ConsensusQueueEvent) // runs before the event is inline
+		after   func(qe *pb.ConsensusQueueEvent)                          // and after
+		wantErr string
+	}{
+		{name: "valid"},
+		{name: "with blob refs too", after: func(qe *pb.ConsensusQueueEvent) {
+			qe.Blobs = []*pb.CoordinatedEventBlobHandle{{Blob: 0, Element: 0}}
+		}, wantErr: "inline, but has blobs"},
+		{name: "not an event", after: func(qe *pb.ConsensusQueueEvent) {
+			qe.TimelessEvent = []byte{0xff, 0xff, 0xff}
+			sum := sha256.Sum256(qe.TimelessEvent)
+			qe.TimelessHash = sum[:]
+		}, wantErr: "failed to unmarshal inline event"},
+		{name: "empty", after: func(qe *pb.ConsensusQueueEvent) {
+			qe.TimelessEvent = []byte{}
+			sum := sha256.Sum256(qe.TimelessEvent)
+			qe.TimelessHash = sum[:]
+		}, wantErr: "does not match event workflow ID"},
+		{name: "hash differs", after: func(qe *pb.ConsensusQueueEvent) { qe.TimelessHash = make([]byte, sha256.Size) }, wantErr: "does not match observation hash"},
+		{name: "workflow id differs", after: func(qe *pb.ConsensusQueueEvent) { qe.WorkflowID = hexID("other", 0) }, wantErr: "does not match event workflow ID"},
+		{name: "execution id differs", after: func(qe *pb.ConsensusQueueEvent) { qe.ExecutionID = "forged" }, wantErr: "does not match event execution ID"},
+		{name: "carries observed at", mutate: func(ce *pb.CoordinatedEvent, _ *pb.ConsensusQueueEvent) { ce.ObservedAt = ts(1) }, wantErr: "observation timestamp is not nil"},
+		{name: "carries deadline", mutate: func(ce *pb.CoordinatedEvent, _ *pb.ConsensusQueueEvent) { ce.Deadline = ts(1) }, wantErr: "deadline timestamp is not nil"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ce, qe := blobEvent(t, testWF, "evt")
+			if tt.mutate != nil {
+				tt.mutate(ce, qe)
+			}
+			inline(ce, qe)
+			if tt.after != nil {
+				tt.after(qe)
+			}
+			f := &countingFetcher{err: errBoom} // an inline event is never fetched
+
+			err := validateObservedEvent(t.Context(), newBlobCache(f), qe, nil)
+			assert.Zero(t, f.count())
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
+// Inline bytes are limited, so that a peer cannot make everyone carry its junk.
+func TestValidateObservation_InlineBudget(t *testing.T) {
+	t.Parallel()
+
+	events := mkEvents(t, 2, 2000)
+	size := timelessSize(t, events)
+	validate := func(budget int, obs *pb.ConsensusQueueObservation) error {
+		c := newSTPlugin(t)
+		c.inlineBudget = budget
+		return c.ValidateObservation(t.Context(), 1, ocrtypes.AttributedQuery{}, ao(t, 1, obs), memKV{}, &memBlobs{})
+	}
+	inlineOpts := nodeOpts{capacity: 3, wfCaps: map[string]uint32{testWF: 3}, expiration: 100, inline: true}
+
+	require.NoError(t, validate(size, nodeObs(t, inlineOpts, events...)), "exactly the budget")
+	require.ErrorContains(t, validate(size-1, nodeObs(t, inlineOpts, events...)), "inline events are limited to")
+	require.ErrorContains(t, validate(0, nodeObs(t, inlineOpts, events...)), "inline events are limited to", "none, where the budget is none")
+}
+
+// Votes carry events inline, and an event with them is kept inline, whether it is queued at once or waits for more votes.
+func TestStateTransition_InlineEvents(t *testing.T) {
+	t.Parallel()
+
+	events := mkEvents(t, 2, 2000)
+	hashes := func(ev []hashedEvent) []string {
+		out := make([]string, 0, len(ev))
+		for _, e := range ev {
+			out = append(out, string(e.hash))
+		}
+		return out
+	}
+	noCapacity := nodeOpts{capacity: 0, wfCaps: map[string]uint32{testWF: 0}, expiration: 100, inline: true}
+	someCapacity := nodeOpts{capacity: 5, wfCaps: map[string]uint32{testWF: 5}, expiration: 100, inline: true}
+
+	t.Run("all votes inline", func(t *testing.T) {
+		t.Parallel()
+		c, kv := newSTPlugin(t), memKV{}
+		require.NoError(t, stateTransition(t, c, kv,
+			ao(t, 0, nodeObs(t, noCapacity, events...)), ao(t, 1, nodeObs(t, noCapacity, events...)), ao(t, 2, nodeObs(t, noCapacity, events...))))
+
+		state := loadState(t, kv)
+		require.Len(t, state.queuedEvents, 2)
+		for _, e := range state.queuedEvents {
+			assert.NotNil(t, e.TimelessEvent, "queued with the event")
+			assert.Empty(t, e.Blobs, "and no blob")
+			sum := sha256.Sum256(e.TimelessEvent)
+			assert.Equal(t, sum[:], e.TimelessHash)
+		}
+		assert.Empty(t, state.queuedBlobs)
+		assert.Empty(t, kv[blobHandlesKey], "so there are no blob handles to keep")
+
+		// and when they have capacity, they are taken with it
+		require.NoError(t, stateTransition(t, c, kv,
+			ao(t, 0, nodeObs(t, someCapacity)), ao(t, 1, nodeObs(t, someCapacity)), ao(t, 2, nodeObs(t, someCapacity))))
+		consensus, handles, err := readConsensusState(kv)
+		require.NoError(t, err)
+		require.Len(t, consensus, 2)
+		assert.Empty(t, handles)
+		for _, e := range consensus {
+			assert.NotNil(t, e.TimelessEvent)
+		}
+	})
+
+	t.Run("an event with too few votes waits with its event", func(t *testing.T) {
+		t.Parallel()
+		c, kv := newSTPlugin(t), memKV{}
+		// F+1 = 2 votes are not 2F+1 = 3
+		require.NoError(t, stateTransition(t, c, kv,
+			ao(t, 0, nodeObs(t, noCapacity, events...)), ao(t, 1, nodeObs(t, noCapacity, events...)), ao(t, 2, nodeObs(t, noCapacity))))
+
+		state := loadState(t, kv)
+		assert.Empty(t, state.queuedEvents)
+		require.ElementsMatch(t, hashes(events), slices.Collect(maps.Keys(state.observedEvents)))
+		for _, e := range state.observedEvents {
+			assert.NotNil(t, e.TimelessEvent, "kept for when it has enough votes")
+		}
+
+		// a vote that is not inline completes it, and the event it waited with is kept, with the blob of the late vote
+		blobVote := nodeOpts{capacity: 0, wfCaps: map[string]uint32{testWF: 0}, expiration: 100}
+		require.NoError(t, stateTransition(t, c, kv,
+			ao(t, 0, nodeObs(t, noCapacity)), ao(t, 1, nodeObs(t, noCapacity)), ao(t, 2, nodeObs(t, blobVote, events...))))
+		state = loadState(t, kv)
+		require.Len(t, state.queuedEvents, 2)
+		for _, e := range state.queuedEvents {
+			assert.NotNil(t, e.TimelessEvent)
+			assert.Len(t, e.Blobs, 1, "the blob of the vote that had one")
+		}
+	})
+}
+
+// An inline event is started without any blob, which can be gone, or slow.
+func TestCommitted_StartsInlineEvents(t *testing.T) {
+	t.Parallel()
+
+	coord, q, kv := &recCoordinator{}, &recQueue{}, memKV{}
+	c := newCommitPlugin(t, coord, q, &errFetchBlobs{}) // every fetch fails
+
+	s := newKVState()
+	ids := make([]string, 0, 2)
+	for i, id := range []string{"a", "b"} {
+		ce, qe := blobEvent(t, testWF, id)
+		b, err := proto.MarshalOptions{Deterministic: true}.Marshal(ce)
+		require.NoError(t, err)
+		sum := sha256.Sum256(b)
+		qe.TimelessEvent, qe.TimelessHash, qe.Blobs = b, sum[:], nil
+		qe.ObservedAt, qe.Deadline = ts(int64(4000+i)), ts(int64(5000+i))
+		s.consensusEvents = append(s.consensusEvents, qe)
+		ids = append(ids, qe.ExecutionID)
+	}
+	s.sizeOf()
+	require.NoError(t, s.writeTo(&stateWriter{kv: kv}))
+
+	require.NoError(t, c.Committed(t.Context(), 1, kv))
+
+	started := coord.startedEvents()
+	require.Len(t, started, 2)
+	for _, e := range started {
+		assert.Equal(t, testWF, e.WorkflowID)
+		assert.True(t, e.ObservedAt.After(time.Unix(3999, 0)) && e.Deadline.After(time.Unix(4999, 0)), "with the agreed timestamps")
+	}
+	assert.ElementsMatch(t, ids, q.removedIDs())
 }
