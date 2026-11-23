@@ -98,7 +98,6 @@ const (
 	gaugeVaultDiskUsageBytes     = "platform_vault_disk_usage_bytes"
 	vaultDiskMonitorTickInterval = time.Minute
 
-	consensusQueueCapabilityID            = internal.ConsensusQueueCapabilityID
 	gaugeConsensusQueueBytes              = "platform_consensus_queue_usage_bytes"
 	consensusQueueDiskMonitorTickInterval = time.Minute
 )
@@ -581,9 +580,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.RingPlugin:
 		return d.newServicesRing(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
-	case types.ConsensusQueue:
-		return d.newServicesConsensusQueue(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, consensusQueueCapabilityID, jb.ExternalJobID.String())
-
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
@@ -594,7 +590,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 //
 // capabilityID is the registry capability ID (e.g. "dontime@1.0.0").
 // donID is the on-chain DON ID this plugin process is being spawned for.
-// pluginType identifies which OCR2 plugin to create (currently only DonTimePlugin).
+// pluginType identifies which OCR2 plugin to create (DonTimePlugin or ConsensusQueue).
 // configJSON is the per-capability config from the registry.
 // registryOCRConfig is the on-chain OCR3 config from the registry. It is required:
 // the node's OCR key bundles and transmitter are taken from its signer in this config.
