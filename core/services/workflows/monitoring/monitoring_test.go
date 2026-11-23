@@ -34,8 +34,9 @@ func Test_InitMonitoringResourcesWithMeter(t *testing.T) {
 	labeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em).With("workflow_id", "wf-123")
 
 	// Verify coordinator and execution instruments record to the private meter
-	labeler.UpdateTriggerCoordinatorWorkflowsGauge(t.Context(), 5)
-	labeler.UpdateTriggerCoordinatorReadersGauge(t.Context(), 3)
+	reg, err := labeler.RegisterTriggerCoordinatorGauges(func() int64 { return 5 }, func() int64 { return 3 })
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, reg.Unregister()) })
 	labeler.IncrementTriggerCoordinatorUnregisterFailuresCounter(t.Context(), 2)
 	labeler.UpdateActiveExecutionsGauge(t.Context(), 7)
 

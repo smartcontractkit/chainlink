@@ -281,6 +281,7 @@ SendInterval = '500ms' # Default
 SendTimeout = '10s' # Default
 UseBatchSend = true # Default
 ChipIngressEnabled = false # Default
+BeholderEnabled = false # Default
 ```
 
 
@@ -331,6 +332,19 @@ UseBatchSend toggles sending telemetry to the ingress server using the batch cli
 ChipIngressEnabled = false # Default
 ```
 ChipIngressEnabled enables sending telemetry to CHIP Ingress.
+
+### BeholderEnabled
+```toml
+BeholderEnabled = false # Default
+```
+BeholderEnabled sends telemetry through Beholder, one emitter per product domain, instead of the Endpoints below.
+When set, Endpoints and the settings above (BufferSize, MaxBatchSize, SendInterval, SendTimeout, UseBatchSend, UniConn, Logging)
+are ignored: the Telemetry.ChipIngress* settings size one buffer per domain, shared by all of that domain's jobs.
+Requires Telemetry.Enabled and Telemetry.ChipIngressEndpoint, and chip ingress that serves PublishBatchNoAck for every domain
+(there is no fallback). Cannot be combined with ChipIngressEnabled.
+Telemetry is sent for every chain the node's jobs run on: Endpoints no longer select chains. Supported types are ocr,
+ocr2-median, ocr3-data-feeds, enhanced-ea, ocr3-mercury, ocr3_1-mercury, enhanced-ea-mercury, llo-observation, llo-outcome,
+pipeline-bridge, ocr2-ccip-commit, ocr2-ccip-exec, ocr3-ccip-commit, ocr3-ccip-exec and head-report; other types are dropped.
 
 ## TelemetryIngress.Endpoints
 ```toml
@@ -2324,6 +2338,7 @@ LogExportInterval = '1s' # Default
 LogMaxQueueSize = 2048 # Default
 MetricViewsDenyAttributes = ['event_id'] # Default
 MetricCardinalityLimit = 100000 # Default
+MetricExportBatchSize = 0 # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2533,6 +2548,12 @@ Empty disables default Beholder metric attribute deny views.
 MetricCardinalityLimit = 100000 # Default
 ```
 MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
+
+### MetricExportBatchSize
+```toml
+MetricExportBatchSize = 0 # Default
+```
+MetricExportBatchSize limits metric data points per OTLP export request. 0 disables SDK-side batching.
 
 ## Telemetry.ResourceAttributes
 ```toml

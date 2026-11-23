@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/url"
 	"os/exec"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -194,11 +195,16 @@ func dumpSchema(dbURL url.URL, restrictKey string) (string, error) {
 	return string(schema), nil
 }
 
+var pgAttVerRegExp = regexp.MustCompile(`(?m)[ \t]*\(pg_attver=\d+\);\r?$`)
+
 func checkSchema(dbURL url.URL, prevSchema, restrictKey string) error {
 	newSchema, err := dumpSchema(dbURL, restrictKey)
 	if err != nil {
 		return err
 	}
+	// strip pg_attver metadata to ignore version mismatch
+	newSchema = pgAttVerRegExp.ReplaceAllString(newSchema, ";")
+	prevSchema = pgAttVerRegExp.ReplaceAllString(prevSchema, ";")
 	df := diff.Diff(prevSchema, newSchema)
 	if len(df) > 0 {
 		fmt.Println(df)

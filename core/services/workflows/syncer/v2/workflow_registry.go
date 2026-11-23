@@ -53,8 +53,10 @@ var (
 	defaultTickIntervalForAllowlistedRequests = 5 * time.Second
 
 	// MaxResultsPerQuery defines the maximum number of results that can be queried in a single request.
-	// The default value of 1,000 was chosen based on expected system performance and typical use cases.
-	MaxResultsPerQuery = int64(1_000)
+	// getWorkflowListByDON costs roughly 50k gas per returned workflow, so the page size must keep a
+	// single eth_call well under the RPC node's gas cap (commonly 16,777,216). At 1,000 the call needs
+	// >30M gas once ~600 workflows are indexed and is rejected outright; 250 keeps a page around 12.5M.
+	MaxResultsPerQuery = int64(250)
 )
 
 // WorkflowRegistrySyncer is the public interface of the package.

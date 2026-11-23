@@ -31,6 +31,7 @@ import (
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
 	ks_stellar "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -66,6 +67,7 @@ const (
 	ConfidentialRelayCapability CapabilityFlag = "confidential-relay"
 	// ConfidentialWorkflowsCapability doubles as the enclave application name.
 	ConfidentialWorkflowsCapability CapabilityFlag = "confidential-workflows"
+	ConsensusQueueCapability        CapabilityFlag = "consensus-queue"
 	AptosCapability                 CapabilityFlag = "aptos"
 	StellarCapability               CapabilityFlag = "stellar"
 	// Add more capabilities as needed
@@ -365,6 +367,10 @@ type ConfigureCapabilityRegistryInput struct {
 
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+
+	// keyed by LabelledName. For capabilities that run an OCR 3.1 plugin.
+	// An entry here is used instead of CapabilityToOCR3Config.
+	CapabilityToOCR3_1Config map[string]*ocr3_1.V3_1OracleConfig
 
 	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
 	// included in OCR3 config signers for that capability (e.g. ["solana"]).
@@ -777,7 +783,7 @@ func (m *DonMetadata) StellarChains() []string {
 
 func (m *DonMetadata) RequiresOCR() bool {
 	return slices.Contains(m.Flags, ConsensusCapability) ||
-		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability) || slices.Contains(m.Flags, SolanaCapability)
+		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, ConsensusQueueCapability) || slices.Contains(m.Flags, EVMCapability) || slices.Contains(m.Flags, SolanaCapability)
 }
 
 func (m *DonMetadata) RequiresGateway() bool {
@@ -1744,6 +1750,8 @@ type PreEnvStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+	// keyed by LabelledName. For capabilities that run an OCR 3.1 plugin.
+	CapabilityToOCR3_1Config map[string]*ocr3_1.V3_1OracleConfig
 	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
 	// included in OCR3 config signers for that capability (e.g. ["solana"]).
 	// EVM is always included.

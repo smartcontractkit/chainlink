@@ -9,35 +9,56 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 )
 
-// TODO: we have to support pagination eventually
-var (
-	MaxCapabilities = big.NewInt(128)
-	MaxDONs         = big.NewInt(32)
-	MaxNodes        = big.NewInt(256)
-	MaxNOPs         = big.NewInt(128)
-)
+// PageSize is the number of entries fetched per CapabilitiesRegistry view call.
+const PageSize = 30
+
+// paginate calls fetch with consecutive (start, limit) pages until a page comes back short.
+func paginate[T any](fetch func(start, limit *big.Int) ([]T, error)) ([]T, error) {
+	var all []T
+	limit := big.NewInt(PageSize)
+	for start := int64(0); ; start += PageSize {
+		page, err := fetch(big.NewInt(start), limit)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < PageSize {
+			return all, nil
+		}
+	}
+}
 
 func GetCapabilities(opts *bind.CallOpts, capReg *capabilities_registry_v2.CapabilitiesRegistry) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo, error) {
-	caps, err := capReg.GetCapabilities(opts, big.NewInt(0), MaxCapabilities)
+	caps, err := paginate(func(start, limit *big.Int) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo, error) {
+		return capReg.GetCapabilities(opts, start, limit)
+	})
 	return caps, cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 }
 
 func GetNodeOperators(opts *bind.CallOpts, capReg *capabilities_registry_v2.CapabilitiesRegistry) ([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorInfo, error) {
-	nops, err := capReg.GetNodeOperators(opts, big.NewInt(0), MaxNOPs)
+	nops, err := paginate(func(start, limit *big.Int) ([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorInfo, error) {
+		return capReg.GetNodeOperators(opts, start, limit)
+	})
 	return nops, cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 }
 
 func GetNodes(opts *bind.CallOpts, capReg *capabilities_registry_v2.CapabilitiesRegistry) ([]capabilities_registry_v2.INodeInfoProviderNodeInfo, error) {
-	nodes, err := capReg.GetNodes(opts, big.NewInt(0), MaxNodes)
+	nodes, err := paginate(func(start, limit *big.Int) ([]capabilities_registry_v2.INodeInfoProviderNodeInfo, error) {
+		return capReg.GetNodes(opts, start, limit)
+	})
 	return nodes, cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 }
 
 func GetDONs(opts *bind.CallOpts, capReg *capabilities_registry_v2.CapabilitiesRegistry) ([]capabilities_registry_v2.CapabilitiesRegistryDONInfo, error) {
-	donsInfo, err := capReg.GetDONs(opts, big.NewInt(0), MaxDONs)
-	return donsInfo, cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
+	dons, err := paginate(func(start, limit *big.Int) ([]capabilities_registry_v2.CapabilitiesRegistryDONInfo, error) {
+		return capReg.GetDONs(opts, start, limit)
+	})
+	return dons, cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 }
 
 func GetDONsInFamily(opts *bind.CallOpts, capReg *capabilities_registry_v2.CapabilitiesRegistry, family string) ([]*big.Int, error) {
-	donsInfo, err := capReg.GetDONsInFamily(opts, family, big.NewInt(0), MaxDONs)
-	return donsInfo, cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
+	donIDs, err := paginate(func(start, limit *big.Int) ([]*big.Int, error) {
+		return capReg.GetDONsInFamily(opts, family, start, limit)
+	})
+	return donIDs, cldf.DecodeErr(capabilities_registry_v2.CapabilitiesRegistryABI, err)
 }

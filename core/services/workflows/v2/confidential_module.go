@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -94,6 +95,12 @@ func errorTypeFor(err error) string {
 
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
+var _ computeResourceTyper = (*ConfidentialModule)(nil)
+
+// ComputeResourceType is the resource type the module's executions bill under.
+func (m *ConfidentialModule) ComputeResourceType() string {
+	return resourcemanager.ResourceTypeWorkflowConfidentialCompute
+}
 
 func NewConfidentialModule(capRegistry registry.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, creSettingsGetter settings.Getter, lggr logger.Logger) (*ConfidentialModule, error) {
 	if enabledGate == nil {
