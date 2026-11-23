@@ -309,8 +309,14 @@ func (c *consensusQueuePlugin) assembleEvents(
 	ctx context.Context, obs *pb.ConsensusQueueObservation, observedEvents map[string]*pb.ConsensusQueueObservedEvent,
 	wfCapacities map[string]int,
 ) ([]*pb.CoordinatedEvent, error) {
+	seenHashes := make(map[string]struct{})
 	var events []*pb.CoordinatedEvent
 	for timelessHash, event := range c.triggerQueue.Sorted(ctx, maxObservedEvents, c.maxEventBytes()) {
+		if _, ok := seenHashes[string(timelessHash)]; ok {
+			continue // ensure we don't observe duplicate events
+		}
+		seenHashes[string(timelessHash)] = struct{}{}
+
 		// skip if kv observation exists already
 		if obsEvent, ok := observedEvents[string(timelessHash)]; ok {
 			if slices.Contains(obsEvent.NodeIds, uint8(c.onchainCfg.OracleID)) {
@@ -394,6 +400,8 @@ func observeEvent(
 // broadcastObservationBlobs broadcasts up to maxObservedBlobHandles blobs containing events, and updates the observation.
 // It may not be able to broadcast all events, in which case the observed events will be truncated and false returned.
 // The events are divided between blobs first, so that the blobs can be broadcast concurrently.
+// opt: remember blobs so we don't have to rebroadcast events <f+1
+// opt: broadcast earlier so we don't block the round live
 func (c *consensusQueuePlugin) broadcastObservationBlobs(
 	ctx context.Context, obs *pb.ConsensusQueueObservation, blobBroadcaster ocr3_1types.BlobBroadcaster,
 	events []*pb.CoordinatedEvent, seqNr uint64,
@@ -499,6 +507,31 @@ func (c *consensusQueuePlugin) ValidateObservation(
 	if len(obs.Events) > maxObservedEvents {
 		return fmt.Errorf("events are limited to %d but got %d", maxObservedEvents, len(obs.Events))
 	}
+
+	// ensure no duplicate execution ID, timelessHash, or blob handle
+	execIDs, timelessHashes := make(map[string]struct{}), make(map[string]struct{})
+	type blobHandle struct{ blob, element uint32 }
+	blobHandles := make(map[blobHandle]struct{})
+	for i, event := range obs.Events {
+		if _, ok := execIDs[event.ExecutionID]; ok {
+			return fmt.Errorf("duplicate workflow execution ID: %s", event.ExecutionID)
+		}
+		execIDs[event.ExecutionID] = struct{}{}
+
+		timelessHash := string(event.TimelessHash)
+		if _, ok := timelessHashes[timelessHash]; ok {
+			return fmt.Errorf("duplicate timeless hash: %x", event.TimelessHash)
+		}
+		timelessHashes[timelessHash] = struct{}{}
+		if len(event.Blobs) > 0 {
+			// note: validateObservedEvent will ensure there were no other blobs
+			bh := blobHandle{event.Blobs[0].Blob, event.Blobs[0].Element}
+			if _, ok := blobHandles[bh]; ok {
+				return fmt.Errorf("duplicate blob handle in event %d: %d/%d", i, bh.blob, bh.element)
+			}
+		}
+	}
+
 	var eg errgroup.Group
 	fetcher := blobCache{fetcher: blobFetcher, cache: make(map[string]func() ([]byte, error))}
 	for i, event := range obs.Events {
@@ -544,21 +577,6 @@ func (c *consensusQueuePlugin) ValidateObservation(
 		if _, ok := allowed[wf]; !ok {
 			return fmt.Errorf("unexpected capacity for workflow ID %s", wf)
 		}
-	}
-
-	// ensure no duplicate execution ID or timelessHash
-	execIDs, timelessHashes := make(map[string]struct{}), make(map[string]struct{})
-	for _, event := range obs.Events {
-		if _, ok := execIDs[event.ExecutionID]; ok {
-			return fmt.Errorf("duplicate workflow execution ID: %s", event.ExecutionID)
-		}
-		execIDs[event.ExecutionID] = struct{}{}
-
-		timelessHash := string(event.TimelessHash)
-		if _, ok := timelessHashes[timelessHash]; ok {
-			return fmt.Errorf("duplicate timeless hash: %x", event.TimelessHash)
-		}
-		timelessHashes[timelessHash] = struct{}{}
 	}
 
 	// wait to do this since we depend on every event being valid
