@@ -8,6 +8,8 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -207,6 +209,34 @@ func (b *telemetryConfig) DurableEmitterInsertBatchFlushInterval() time.Duration
 		return defaultDurableEmitterInsertBatchFlushInterval
 	}
 	return b.s.DurableEmitterInsertBatchFlushInterval.Duration()
+}
+
+func (b *telemetryConfig) DurableEmitterBackpressureEnabled() bool {
+	if b.s.DurableEmitterBackpressureEnabled == nil {
+		return false
+	}
+	return *b.s.DurableEmitterBackpressureEnabled
+}
+
+func (b *telemetryConfig) DurableEmitterMaxQueueDepth() int64 {
+	if b.s.DurableEmitterMaxQueueDepth == nil || *b.s.DurableEmitterMaxQueueDepth <= 0 {
+		return durableemitter.DefaultMaxQueueDepth
+	}
+	return *b.s.DurableEmitterMaxQueueDepth
+}
+
+func (b *telemetryConfig) DurableEmitterBacklogPollInterval() time.Duration {
+	if b.s.DurableEmitterBacklogPollInterval == nil || b.s.DurableEmitterBacklogPollInterval.Duration() <= 0 {
+		return durableemitter.DefaultBacklogPollInterval
+	}
+	return b.s.DurableEmitterBacklogPollInterval.Duration()
+}
+
+func (b *telemetryConfig) DurableEmitterDeleteFailureRetransmitBackoff() time.Duration {
+	if b.s.DurableEmitterDeleteFailureRetransmitBackoff == nil || b.s.DurableEmitterDeleteFailureRetransmitBackoff.Duration() <= 0 {
+		return durableemitter.DefaultDeleteFailureRetransmitBackoff
+	}
+	return b.s.DurableEmitterDeleteFailureRetransmitBackoff.Duration()
 }
 
 func (b *telemetryConfig) HeartbeatInterval() time.Duration {

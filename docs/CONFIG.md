@@ -2328,6 +2328,10 @@ DurableEmitterRetransmitBatchSize = 500 # Default
 DurableEmitterEventTTL = '6h0m0s' # Default
 DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
 DurableEmitterInsertBatchFlushInterval = '50ms' # Default
+DurableEmitterBackpressureEnabled = false # Default
+DurableEmitterMaxQueueDepth = 500000 # Default
+DurableEmitterBacklogPollInterval = '5s' # Default
+DurableEmitterDeleteFailureRetransmitBackoff = '30s' # Default
 HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
 LogStreamingEnabled = false # Default
@@ -2487,6 +2491,34 @@ DurableEmitterInsertBatchFlushInterval = '50ms' # Default
 ```
 DurableEmitterInsertBatchFlushInterval is the linger time the durable emitter waits to coalesce concurrent
 emits into a single multi-row INSERT. Lower values reduce per-emit latency at the cost of smaller batches.
+
+### DurableEmitterBackpressureEnabled
+```toml
+DurableEmitterBackpressureEnabled = false # Default
+```
+DurableEmitterBackpressureEnabled makes the durable emitter reject new events, without persisting them, while
+its estimated backlog is at or above DurableEmitterMaxQueueDepth, so a database that cannot keep up stops
+growing instead of degrading further. Rejected events are lost. Applies to the node and its LOOP plugins.
+
+### DurableEmitterMaxQueueDepth
+```toml
+DurableEmitterMaxQueueDepth = 500000 # Default
+```
+DurableEmitterMaxQueueDepth is the backlog (rows in the durable events table, from every process sharing it)
+at which back-pressure rejects new events.
+
+### DurableEmitterBacklogPollInterval
+```toml
+DurableEmitterBacklogPollInterval = '5s' # Default
+```
+DurableEmitterBacklogPollInterval is how often each durable emitter refreshes its backlog estimate from the database.
+
+### DurableEmitterDeleteFailureRetransmitBackoff
+```toml
+DurableEmitterDeleteFailureRetransmitBackoff = '30s' # Default
+```
+DurableEmitterDeleteFailureRetransmitBackoff pauses the durable emitter's retransmit loop for this long after
+deleting a delivered event fails, so rows that cannot be deleted are not re-sent and re-read in a loop.
 
 ### HeartbeatInterval
 ```toml
