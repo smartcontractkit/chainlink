@@ -97,7 +97,8 @@ func (s *kvState) queueObservations(timelessHash string, obs *pb.ConsensusQueueO
 		ExecutionID:  obs.ExecutionID,
 		ObservedAt:   medianTimestamp(obs.ObservedAts),
 		Deadline:     medianTimestamp(obs.Deadlines),
-		TimelessHash: []byte(timelessHash),
+		TimelessHash:  []byte(timelessHash),
+		TimelessEvent: obs.TimelessEvent,
 		// note: observedBlobs tracks blobs while in memory
 	}
 
@@ -615,6 +616,9 @@ func (s *kvState) addObservedEvents(f int, toAdd map[string]*pb.ConsensusQueueOb
 			}
 		} else {
 			// update proposal
+			if obsEvent.TimelessEvent == nil {
+				obsEvent.TimelessEvent = eventToAdd.TimelessEvent
+			}
 			// (quadratic in the number of nodes, which is small)
 			for i, node := range eventToAdd.NodeIds {
 				if prev := slices.Index(obsEvent.NodeIds, node); prev == -1 {

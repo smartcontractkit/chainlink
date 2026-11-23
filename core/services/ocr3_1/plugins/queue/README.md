@@ -56,7 +56,11 @@ sequenceDiagram
             Note over Observation: no events, no blobs, kvDrainActive
         else
             local->>Observation: Sorted(): by deadline, skipping events already voted for
-            Observation->>blobs: BroadcastBlob(): up to 10, concurrently
+            alt together no bigger than a blob handle
+                Note over Observation: events inline, in the observation: no blob
+            else
+                Observation->>blobs: BroadcastBlob(): up to 10, concurrently
+            end
         end
         Note over Observation: events, blob handles, capacities,<br>expiration, kvDrainActive
     end
@@ -93,7 +97,7 @@ sequenceDiagram
         par TryStartExecute (idempotent)
             consensus->>Committed: Read()
         and
-            blobs->>Committed: FetchBlob(): the first voter's blob that works
+            blobs->>Committed: FetchBlob(): the first voter's blob that works, unless the event is inline
         end
         Committed->>coord: StartExecution(), without waiting for the execution
         Committed->>local: Remove(consensus + queued)
@@ -132,11 +136,38 @@ Nothing retries a failed start: once an event is in consensus it leaves the queu
 Everything is bounded by the limits in the job's `PluginConfig`, which `Validate` checks (and the calibration tests in
 `config_test.go` size). A voter has one blob per event, so repeated votes never grow the state.
 
+## Inline events
+
+An event travels in a blob, which every node must broadcast, fetch to validate each observation, and fetch again to start
+the event. A blob also costs a handle for every voter, in the state. But if the events of an observation are no bigger
+together than the one handle of the blob that would hold them (`blobHandleMarshalledBytesUpperBound`, which is
+`145 + 240·F` bytes), the observation carries them itself, in `timelessEvent`, and skips all of that. It is all or nothing:
+an event too big to inline needs a blob anyway, and the handle is paid for (so inlining more of its events would only add
+bytes).
+
+The budget is also capped (`maxInlineBytes`, 792 bytes), because inline bytes are stored in the KV state, where each value
+is rewritten whole every round and limited to 2MiB. The handle grows with F, and the queue's depth should not shrink with
+it: with the cap, the queue still holds two full rounds of events (2000) if every one carries the most inline bytes.
+Nothing larger than the budget is ever stored inline, as validation rejects it.
+
+`timelessEvent` is the bytes that the blob would have held for the event, without timestamps, so its hash is the same as
+the event's: `sha256(timelessEvent) == timelessHash`, which is what validation checks, with no fetch. It is bytes, not an
+`Any` (which adds a type URL of about 55 bytes to each) or a message (which would have to be marshaled again to be hashed,
+and could differ between versions), and it is stored once with the event, where blobs are stored once per voter.
+
+| | N=4, F=1 | N=7, F=2 | N=16, F=5 | N=31, F=10 |
+| --- | --- | --- | --- | --- |
+| blob handle (bytes) | 385 | 625 | 1345 | 2545 |
+| inline budget (bytes) | 385 | 625 | 792 | 792 |
+
+A cron-sized event is 100–250 bytes, so 1–3 of them inline at F=1, and 3–7 at F=5 and above.
+
 ## Fault tolerance (N = 3F+1)
 
 - Capacity is the F+1th lowest of what nodes report, with nodes that don't report a workflow counting as zero, so F
   faulty nodes can neither raise it nor starve a workflow. Expiration is the median.
-- An event needs F+1 votes, so a faulty node can't make one up. Its blob is checked when the observation is validated.
+- An event needs F+1 votes, so a faulty node can't make one up. Its blob, or its inline bytes, are checked against the
+  hash when the observation is validated. Inline bytes are limited per observation to the budget above.
 - Observations are bounded (events, blob handles, sizes) and an oversize blob is rejected when it is read, so a faulty
   node can't make the others spend unbounded CPU or storage.
 
@@ -169,6 +200,7 @@ KV and blob metrics, and `platform_ocr3_1_reporting_plugin_committed_seq_nr`.
 | `consensus_events_total` | events chosen to run |
 | `dropped_events_total{reason}` | events removed without running: `expired`, `expired_observed`, `pruned_observed`, `pruned_queued` |
 | `discarded_events_total` | events removed from the local queue by drain mode |
+| `inlined_events_total` | events carried in this node's observations in place of a blob |
 | `queue_depth{orgID}` | queued events by org (`unknown` for workflows not registered on this node) |
 | `observed_depth` | events waiting for F+1 votes |
 | `state_bytes{key}` | size of each KV value written by the last transition |
