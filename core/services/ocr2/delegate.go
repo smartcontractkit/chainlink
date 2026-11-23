@@ -821,12 +821,7 @@ func (d *Delegate) newServicesConsensusQueue(
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	cfg := &queue.PluginConfig{}
-	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal plugin config: %w", err)
-	}
-
+	// The plugin reads its limits from the registry's OCR offchain config, not from spec.PluginConfig.
 	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
 		return nil, err
@@ -907,7 +902,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
-	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, cfg, d.limitsFactory)
+	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, d.limitsFactory)
 	if err != nil {
 		return nil, err
 	}
