@@ -254,6 +254,7 @@ func TestConfig_Marshal(t *testing.T) {
 		SendTimeout:        commonconfig.MustNewDuration(5 * time.Second),
 		UseBatchSend:       new(true),
 		ChipIngressEnabled: new(false),
+		BeholderEnabled:    new(false),
 		Endpoints: []toml.TelemetryIngressEndpoint{
 			{
 				Network:      new("EVM"),
@@ -558,6 +559,7 @@ func TestConfig_Marshal(t *testing.T) {
 		LogMaxQueueSize:                        new(2048),
 		MetricViewsDenyAttributes:              []string{"event_id"},
 		MetricCardinalityLimit:                 new(100000),
+		MetricExportBatchSize:                  new(0),
 
 		PrometheusBridge: toml.PrometheusBridge{
 			Enabled:  new(true),
@@ -915,6 +917,7 @@ SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 ChipIngressEnabled = false
+BeholderEnabled = false
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'

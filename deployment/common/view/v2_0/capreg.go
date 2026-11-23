@@ -103,13 +103,6 @@ type unpagniatedCapabilityRegistry interface {
 	GetDONsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryDONInfo, error)
 }
 
-var (
-	MaxCapabilities = big.NewInt(128)
-	MaxDONs         = big.NewInt(32)
-	MaxNodes        = big.NewInt(256)
-	MaxNOPs         = big.NewInt(128)
-)
-
 type ExtendedCapabilityRegistry struct {
 	*capabilities_registry.CapabilitiesRegistry
 }
@@ -118,22 +111,22 @@ var _ unpagniatedCapabilityRegistry = (*ExtendedCapabilityRegistry)(nil)
 
 // GetCapabilitiesSimple implements unpagniatedCapabilityRegistry
 func (e *ExtendedCapabilityRegistry) GetCapabilitiesSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryCapabilityInfo, error) {
-	return e.GetCapabilities(opts, big.NewInt(0), MaxCapabilities)
+	return pkg.GetCapabilities(opts, e.CapabilitiesRegistry)
 }
 
 // GetNodesSimple implements unpagniatedCapabilityRegistry
 func (e *ExtendedCapabilityRegistry) GetNodesSimple(opts *bind.CallOpts) ([]capabilities_registry.INodeInfoProviderNodeInfo, error) {
-	return e.GetNodes(opts, big.NewInt(0), MaxNodes)
+	return pkg.GetNodes(opts, e.CapabilitiesRegistry)
 }
 
 // GetNodeOperatorsSimple implements unpagniatedCapabilityRegistry
 func (e *ExtendedCapabilityRegistry) GetNodeOperatorsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryNodeOperatorInfo, error) {
-	return e.GetNodeOperators(opts, big.NewInt(0), MaxNOPs)
+	return pkg.GetNodeOperators(opts, e.CapabilitiesRegistry)
 }
 
 // GetDONsSimple implements unpagniatedCapabilityRegistry
 func (e *ExtendedCapabilityRegistry) GetDONsSimple(opts *bind.CallOpts) ([]capabilities_registry.CapabilitiesRegistryDONInfo, error) {
-	return e.GetDONs(opts, big.NewInt(0), MaxDONs)
+	return pkg.GetDONs(opts, e.CapabilitiesRegistry)
 }
 
 // GenerateCapabilityRegistryView generates a CapRegView from a CapabilitiesRegistry contract.

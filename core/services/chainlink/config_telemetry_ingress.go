@@ -78,3 +78,7 @@ func (t *telemetryIngressEndpointConfig) URL() *url.URL {
 func (t *telemetryIngressEndpointConfig) ServerPubKey() string {
 	return *t.c.ServerPubKey
 }
+
+func (t *telemetryIngressConfig) BeholderEnabled() bool {
+	return *t.c.BeholderEnabled
+}

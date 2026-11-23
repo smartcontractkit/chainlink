@@ -1,5 +1,29 @@
 # Changelog Chainlink Core
 
+## 2.74.0
+
+### Minor Changes
+
+- [#24184](https://github.com/smartcontractkit/chainlink/pull/24184) [`07b9fa4`](https://github.com/smartcontractkit/chainlink/commit/07b9fa4ce8ff31e847e9ade990c10beab4f0187a) - #internal Minor bump to start next version
+
+- [#24193](https://github.com/smartcontractkit/chainlink/pull/24193) [`7de5ced`](https://github.com/smartcontractkit/chainlink/commit/7de5cedaf9840a0daf2010ba7b72c0a0bfe0e735) - #added Expose workflow execution metadata in workflow runtime
+
+### Patch Changes
+
+- [#24197](https://github.com/smartcontractkit/chainlink/pull/24197) [`fbc4ef6`](https://github.com/smartcontractkit/chainlink/commit/fbc4ef6051782f6e9a4051f4c1d80573159482da) - #changed Route LLO v31 (OCR3.1) protocol telemetry as ocr3_1-mercury instead of ocr3-mercury
+
+- [#24192](https://github.com/smartcontractkit/chainlink/pull/24192) [`3deeb0e`](https://github.com/smartcontractkit/chainlink/commit/3deeb0e9daa7977efc7194a0a5afd3e047d9bb61) - #internal Decode multichain OCR onchain public keys with chainlink-common keystore's ocr2key.MultichainPublicKey
+
+- [#24205](https://github.com/smartcontractkit/chainlink/pull/24205) [`59ce4c8`](https://github.com/smartcontractkit/chainlink/commit/59ce4c83a133fbc1552ba8be266ab2d8a73fc9b3) - #updated Bump chainlink-evm and chainlink-framework/multinode: multi_node_states now reports unhealthy RPCs kept alive as last-node fallback (PLEX-3543)
+
+- [#24196](https://github.com/smartcontractkit/chainlink/pull/24196) [`bce160d`](https://github.com/smartcontractkit/chainlink/commit/bce160d8a29aac7760ffc4577d7d8d4cc21eacbd) - #internal Stop setting deprecated orgresolver workflow registry fields in tests
+
+- [#24217](https://github.com/smartcontractkit/chainlink/pull/24217) [`42834f9`](https://github.com/smartcontractkit/chainlink/commit/42834f92b8f89fe35456b60071c70656437a27f5) - #changed Offchain capabilities registry: a capability that is not local-only and has no method_configs keeps its on-chain remote config, so an entry can carry only spec_config
+
+- [#24137](https://github.com/smartcontractkit/chainlink/pull/24137) [`df32359`](https://github.com/smartcontractkit/chainlink/commit/df32359647c28365788e09f3ec9b4753038ac902) - Unregister a trigger publisher's registrations from the underlying capability when the launcher removes the publisher, so the same triggers can register again when a capability moves to another DON on the same node. The unregister runs in the background, and new registrations for that capability wait until it finishes. #bugfix
+
+- [#24187](https://github.com/smartcontractkit/chainlink/pull/24187) [`404bbf0`](https://github.com/smartcontractkit/chainlink/commit/404bbf0f48514ba9babd40ee33c604840bde9a23) - #internal Remote capabilities cleanup: remove dead code and redundant checks; the trigger subscriber now ignores trigger events that carry no trigger ID.
+
 ## 2.73.0
 
 ### Minor Changes

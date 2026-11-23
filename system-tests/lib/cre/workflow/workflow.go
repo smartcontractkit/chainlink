@@ -88,23 +88,12 @@ func RegisterWithContract(
 	attributes []byte,
 	artifactsDirInContainer *string,
 ) (string, error) {
-	// Download and decode workflow binary
-	workflowData, err := libnet.DownloadAndDecodeBase64(ctx, binaryURL)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to download and decode workflow binary")
-	}
-
 	// Construct binary URL for container if needed
 	binaryURLToUse := constructArtifactURL(binaryURL, artifactsDirInContainer)
 
 	// Handle config URL if provided
-	var configData []byte
 	configURLToUse := ""
 	if configURL != nil && *configURL != "" {
-		configData, err = libnet.Download(ctx, *configURL)
-		if err != nil {
-			return "", errors.Wrap(err, "failed to download workflow config")
-		}
 		configURLToUse = constructArtifactURL(*configURL, artifactsDirInContainer)
 	}
 
@@ -115,9 +104,9 @@ func RegisterWithContract(
 	}
 
 	// Generate workflow ID
-	workflowID, err := generateWorkflowIDFromStrings(sc.MustGetRootKeyAddress().Hex(), workflowName, workflowData, configData, secretsURLToUse)
+	workflowID, err := ComputeWorkflowID(ctx, sc.MustGetRootKeyAddress().Hex(), workflowName, binaryURL, configURL, secretsURLToUse)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to generate workflow ID")
+		return "", err
 	}
 
 	if version == nil || version.Major() != 2 {
@@ -128,6 +117,30 @@ func RegisterWithContract(
 		return "", err
 	}
 
+	return workflowID, nil
+}
+
+// ComputeWorkflowID returns the ID a workflow gets when registered with the given artifacts.
+func ComputeWorkflowID(ctx context.Context, owner, workflowName, binaryURL string, configURL *string, secretsURL string) (string, error) {
+	// Download and decode workflow binary
+	workflowData, err := libnet.DownloadAndDecodeBase64(ctx, binaryURL)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to download and decode workflow binary")
+	}
+
+	// Download config if provided
+	var configData []byte
+	if configURL != nil && *configURL != "" {
+		configData, err = libnet.Download(ctx, *configURL)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to download workflow config")
+		}
+	}
+
+	workflowID, err := generateWorkflowIDFromStrings(owner, workflowName, workflowData, configData, secretsURL)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to generate workflow ID")
+	}
 	return workflowID, nil
 }
 
