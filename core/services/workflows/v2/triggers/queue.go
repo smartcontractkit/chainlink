@@ -12,6 +12,7 @@ import (
 	"maps"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -80,6 +81,8 @@ type CentralQueue struct {
 	depthByWorkflow    map[string]uint64
 	depthByTriggerType map[string]uint64
 	droppedByReason    map[string]uint64
+
+	lastConsumed atomic.Int64 // unix nanoseconds of the last Sorted call, zero if never
 }
 
 type centralQueueEvent struct {
@@ -194,6 +197,7 @@ func (q *CentralQueue) Remove(ctx context.Context, executionIDs iter.Seq[string]
 }
 
 func (q *CentralQueue) Sorted(ctx context.Context, limit, maxEventBytes int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {
+	q.lastConsumed.Store(time.Now().UnixNano())
 	q.mu.Lock()
 	events := priorityQueue(slices.Clone(q.events))
 	q.mu.Unlock()
@@ -249,6 +253,41 @@ func (q *CentralQueue) dropOversize(ctx context.Context, oversize []centralQueue
 	if dropped > 0 {
 		q.metrics.RecordDepth(ctx, len(q.events))
 	}
+}
+
+// LastConsumed is when Sorted was last called, which is how the consensus queue plugin reads the queue, or the zero
+// time if it never was. The drainer uses it to leave the events to the plugin while it is reading them.
+func (q *CentralQueue) LastConsumed() time.Time {
+	n := q.lastConsumed.Load()
+	if n == 0 {
+		return time.Time{}
+	}
+	return time.Unix(0, n)
+}
+
+// DropExpired removes the events whose deadline is before cutoff, and returns how many. Nothing else expires events,
+// and an event that never reaches consensus would otherwise stay for good.
+func (q *CentralQueue) DropExpired(ctx context.Context, cutoff time.Time) int {
+	capacity := q.capacity(ctx)
+
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	var dropped int
+	q.events = slices.DeleteFunc(q.events, func(cqe centralQueueEvent) bool {
+		if !cqe.Deadline.Before(cutoff) {
+			return false
+		}
+		dropped++
+		q.depthByWorkflow[cqe.WorkflowID]--
+		q.depthByTriggerType[cqe.TriggerCapID]--
+		q.drop(ctx, monitoring.CentralTriggerQueueDropReasonExpired)
+		return true
+	})
+	if dropped > 0 {
+		q.metrics.RecordDepth(ctx, len(q.events))
+		q.metrics.RecordCapacity(ctx, q.effectiveCapacity(capacity))
+	}
+	return dropped
 }
 
 // Stats returns copies of the queue's maps, so callers may keep or change them.

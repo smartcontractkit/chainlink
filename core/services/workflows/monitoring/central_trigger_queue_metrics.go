@@ -16,6 +16,9 @@ const (
 	CentralTriggerQueueDropReasonQueueFull = "queue_full"
 	// CentralTriggerQueueDropReasonOversize is an event too large to ever be observed (it cannot fit in a consensus blob).
 	CentralTriggerQueueDropReasonOversize = "oversize"
+	// CentralTriggerQueueDropReasonExpired is an event past its deadline and the grace period that nothing took from the
+	// queue, swept by the drainer while the consensus queue plugin was consuming.
+	CentralTriggerQueueDropReasonExpired = "expired"
 )
 
 // CentralTriggerQueueMetrics are the central trigger queue's instruments. They are separate from

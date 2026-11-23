@@ -617,3 +617,41 @@ func TestQueue_RecordsHowLongRemovedEventsWereQueued(t *testing.T) {
 	hist = m.Data.(metricdata.Histogram[float64])
 	assert.Equal(t, uint64(2), hist.DataPoints[0].Count, "removing what is not there records nothing")
 }
+
+// Sorted is how the consensus queue plugin reads the queue, so it is what makes the queue count as consumed.
+func TestQueue_LastConsumed(t *testing.T) {
+	t.Parallel()
+	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
+	putAll(t, q, centralEvent("wf-a", 0, "evt-1"))
+
+	assert.True(t, q.LastConsumed().IsZero(), "never read")
+	_, err := q.Drain(t.Context())
+	require.NoError(t, err)
+	assert.True(t, q.LastConsumed().IsZero(), "draining is not consuming")
+
+	before := time.Now()
+	for range q.Sorted(t.Context(), 10, 0) {
+	}
+	assert.WithinDuration(t, before, q.LastConsumed(), time.Second)
+}
+
+func TestQueue_DropExpired(t *testing.T) {
+	t.Parallel()
+	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
+	now := time.Now()
+	at := func(id string, deadline time.Time) CoordinatedEvent {
+		e := centralEvent("wf-a", 0, id)
+		e.Deadline = deadline
+		return e
+	}
+	putAll(t, q, at("old-1", now.Add(-2*time.Minute)), at("live", now.Add(time.Minute)), at("old-2", now.Add(-time.Minute)), at("edge", now))
+
+	assert.Equal(t, 2, q.DropExpired(t.Context(), now), "those with a deadline before the cutoff, not at it")
+	assert.Zero(t, q.DropExpired(t.Context(), now), "nothing more to drop")
+
+	stats, err := q.Stats(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, uint64(2), stats.DepthByWorkflow["wf-a"])
+	assert.Equal(t, uint64(2), stats.DroppedByReason[monitoring.CentralTriggerQueueDropReasonExpired])
+	assert.Equal(t, []string{"live", "edge"}, drainIDs(t, q), "the rest are untouched, in order")
+}

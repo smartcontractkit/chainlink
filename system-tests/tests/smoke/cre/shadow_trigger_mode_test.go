@@ -15,16 +15,18 @@ import (
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
-// shadowDrainedLogMessage is the debug line the central queue drainer writes per workflow per drained batch.
-const shadowDrainedLogMessage = "Drained shadow trigger events"
+// shadowSkippedLogMessage is the line the coordinator logs when the consensus queue plugin chose a shadowed event and the
+// coordinator did not start it. Every node logs it for the same event, and more than once, as events are started again.
+const shadowSkippedLogMessage = "Shadow mode: not starting the coordinated event"
 
 // shadowWindowLayout matches the time range format of FeatureShadowTriggerModeActivePeriod in cresettings.
 const shadowWindowLayout = "2006-01-02 15:04:05 -0700 MST"
 
 // Test_CRE_V2_ShadowTriggerMode asserts shadow trigger mode end to end on a real DON. A shadow window delivered
-// through CRE settings for one workflow sends that workflow's events through the central queue and drainer,
-// while both workflows keep executing. A workflow outside the window is never shadowed. Moving the window into
-// the future stops shadowing with no restart.
+// through CRE settings for one workflow sends that workflow's events through the central queue to the consensus
+// queue plugin. When consensus chooses an event, the coordinator logs it instead of starting it. Both workflows keep
+// executing, from their own queues. A workflow outside the window is never shadowed. Moving the window into the
+// future stops shadowing with no restart.
 //
 // Shadow mode only affects coordinated engines, so CoordinatedEngineEnabled is on for the whole test. It is a
 // global override on the shared environment, hence serial.
@@ -58,9 +60,11 @@ func Test_CRE_V2_ShadowTriggerMode(t *testing.T) {
 		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog,
 			"Amazing workflow user log", 2*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
 	}
-	drained := func(workflowID string) int {
+	// skipped counts the events of workflowID that reached consensus in shadow mode. The central queue's drainer leaves
+	// the events to the plugin while it reads the queue, so what the plugin did with them is what is counted.
+	skipped := func(workflowID string) int {
 		t.Helper()
-		return len(logLinesForWorkflow(t, testEnv, coordinatedEngineDON, shadowDrainedLogMessage, workflowID))
+		return len(logLinesForWorkflow(t, testEnv, coordinatedEngineDON, shadowSkippedLogMessage, workflowID))
 	}
 
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
@@ -72,7 +76,7 @@ func Test_CRE_V2_ShadowTriggerMode(t *testing.T) {
 		t_helpers.UniqueWorkflowName(testEnv, "controlcron"), &workflowConfig, workflowFileLocation)
 	executes(shadowedID)
 	executes(controlID)
-	require.Zero(t, drained(shadowedID), "shadow mode must be off by default")
+	require.Zero(t, skipped(shadowedID), "shadow mode must be off by default")
 
 	// Each phase is one ApplyCRESettings call, because overlapping overrides fail fast. The coordinated engine
 	// flag is read only when an engine is created, so the short reset does not change the running engines.
@@ -81,23 +85,27 @@ func Test_CRE_V2_ShadowTriggerMode(t *testing.T) {
 	settings = t_helpers.ApplyCRESettings(t, testEnv, coordinated,
 		t_helpers.Workflow(shadowedID, shadowWindow(now.Add(-time.Hour), now.Add(time.Hour))))
 
-	requireLogForWorkflow(t, testEnv, coordinatedEngineDON, shadowDrainedLogMessage, shadowedID)
+	// A freshly started environment can take a few minutes before the plugin's OCR rounds begin (the nodes must find each
+	// other first). Until then the central queue's drainer takes the events, so the first one the plugin sees may be
+	// several ticks away.
+	require.Eventually(t, func() bool { return skipped(shadowedID) > 0 }, 4*time.Minute, 5*time.Second,
+		"expected a %q line for workflow %s on nodeset %s", shadowSkippedLogMessage, shadowedID, coordinatedEngineDON)
 	executes(shadowedID)
 	executes(controlID)
-	require.Zero(t, drained(controlID), "a workflow outside the window must not be shadowed")
+	require.Zero(t, skipped(controlID), "a workflow outside the window must not be shadowed")
 
-	// Kill switch. Once the new window has reached the nodes, the drained count stops growing while the
+	// Kill switch. Once the new window has reached the nodes, the skipped count stops growing while the
 	// workflow keeps executing.
 	settings.Reset(t)
 	t_helpers.ApplyCRESettings(t, testEnv, coordinated,
 		t_helpers.Workflow(shadowedID, shadowWindow(now.Add(time.Hour), now.Add(2*time.Hour))))
 
 	// Samples are further apart than the 30s cron period, so an equal pair means a tick passed unshadowed.
-	settled := waitForStableCount(t, func() int { return drained(shadowedID) }, 40*time.Second, 4*time.Minute)
+	settled := waitForStableCount(t, func() int { return skipped(shadowedID) }, 40*time.Second, 4*time.Minute)
 	executes(shadowedID)
 	executes(shadowedID)
-	require.Equal(t, settled, drained(shadowedID), "shadowing must stop once the window is in the future")
-	require.Zero(t, drained(controlID), "a workflow outside the window must not be shadowed")
+	require.Equal(t, settled, skipped(shadowedID), "shadowing must stop once the window is in the future")
+	require.Zero(t, skipped(controlID), "a workflow outside the window must not be shadowed")
 }
 
 // shadowWindow returns the PerWorkflow TOML that sets the shadow trigger mode window to [from, to].

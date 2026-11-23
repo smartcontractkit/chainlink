@@ -81,6 +81,11 @@ func (q *fakeQueue) Sorted(_ context.Context, limit, _ int) iter.Seq2[[]byte, *p
 	}
 }
 
+// never consumed by anything else
+func (q *fakeQueue) LastConsumed() time.Time { return time.Time{} }
+
+func (q *fakeQueue) DropExpired(context.Context, time.Time) int { return 0 }
+
 func (q *fakeQueue) Remove(ctx context.Context, execIDs iter.Seq[string]) {
 	execIDSet := map[string]struct{}{}
 	for execID := range execIDs {
@@ -459,7 +464,8 @@ func TestNewCentralQueueDrainer_LogsDrainedEvents(t *testing.T) {
 	q := &fakeQueue{results: []*observeResult{{events: centralQueueEvents(t, batch)}}}
 	dm, _ := testDrainerMetrics(t)
 	lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
-	d := NewCentralQueueDrainer(q, limits.NewUpperBoundLimiter(minDrainInterval), dm, clock, lggr)
+	grace := func(context.Context) (time.Duration, error) { return time.Minute, nil }
+	d := NewCentralQueueDrainer(q, grace, limits.NewUpperBoundLimiter(minDrainInterval), dm, clock, lggr)
 	require.NoError(t, d.Start(t.Context()))
 	t.Cleanup(func() { assert.NoError(t, d.Close()) })
 
@@ -482,4 +488,68 @@ func TestNewCentralQueueDrainer_LogsDrainedEvents(t *testing.T) {
 		got[workflowID] = count
 	}
 	assert.Equal(t, map[string]int64{"wf-a": 2, "wf-b": 1}, got)
+}
+
+// While something else is consuming the central queue, the drainer leaves live events to it and only drops those
+// that have expired. Once the consumer is quiet it drains everything again.
+func TestCentralQueueDrainer_YieldsToAConsumer(t *testing.T) {
+	t.Parallel()
+
+	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
+	clock := clockwork.NewFakeClockAt(time.Now())
+	grace := func(context.Context) (time.Duration, error) { return time.Minute, nil }
+	dm, _ := testDrainerMetrics(t)
+	var mu sync.Mutex
+	var drained []string
+	d := NewCentralQueueDrainer(q, grace, limits.NewUpperBoundLimiter(time.Second), dm, clock, logger.Test(t))
+	d.hooks.OnObservedEvents = func(_ context.Context, events []CoordinatedEvent) {
+		mu.Lock()
+		defer mu.Unlock()
+		drained = append(drained, eventIDs(events)...)
+	}
+	require.NoError(t, d.Start(t.Context()))
+	t.Cleanup(func() { require.NoError(t, d.Close()) })
+
+	put := func(id string, deadline time.Time) {
+		e := centralEvent("wf-a", 0, id)
+		e.Deadline = deadline
+		require.NoError(t, q.Put(t.Context(), e))
+	}
+	depth := func() uint64 {
+		stats, err := q.Stats(t.Context())
+		require.NoError(t, err)
+		return stats.DepthByWorkflow["wf-a"]
+	}
+	now := clock.Now()
+	put("live", now.Add(time.Hour))
+	put("expired", now.Add(-2*time.Minute)) // past its deadline by more than the grace period
+	put("in-grace", now.Add(-30*time.Second))
+
+	// no consumer yet: everything is drained
+	d.drain(t.Context())
+	assert.Zero(t, depth())
+	handed := func() int { mu.Lock(); defer mu.Unlock(); return len(drained) }
+	require.Eventually(t, func() bool { return handed() == 3 }, 5*time.Second, 5*time.Millisecond, "the hook is called on its own goroutine")
+
+	// a consumer reads the queue
+	put("live", now.Add(time.Hour))
+	put("expired", now.Add(-2*time.Minute))
+	put("in-grace", now.Add(-30*time.Second))
+	for range q.Sorted(t.Context(), 10, 0) {
+	}
+	clock.Advance(0) // the consumer read at the real time of the test, which is the clock's start
+	d.drain(t.Context())
+	assert.Equal(t, uint64(2), depth(), "only the event past its deadline and the grace period was dropped, and the rest was not drained")
+
+	// the consumer goes quiet for longer than the window
+	clock.Advance(consumerWindow(time.Second) + time.Second)
+	d.drain(t.Context())
+	assert.Zero(t, depth(), "so the rest is drained")
+	require.Eventually(t, func() bool { return handed() == 5 }, 5*time.Second, 5*time.Millisecond)
+}
+
+func TestConsumerWindow(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, minConsumerWindow, consumerWindow(time.Second), "at least the minimum")
+	assert.Equal(t, 3*time.Minute, consumerWindow(time.Minute), "and otherwise three intervals")
 }

@@ -927,11 +927,12 @@ func newWorkflowRegistrySyncerV2(
 	// Shadow mode copies coordinated trigger events to the central queue while
 	// FeatureShadowTriggerModeActivePeriod is open. The copies are for observation only.
 	// The drainer logs and discards them, and each event still executes on its workflow's own queue. The coordinator
-	// also logs instead of starting an event in that window when consensus on the queue chooses it.
+	// also logs instead of starting an event in that window when consensus on the queue chooses it. While the consensus
+	// queue plugin is reading the queue, the drainer leaves the events to it and only drops those that have expired.
 	eventLifetime := triggers.NewEventLifetime(triggers.ConsensusQueueExpirationGrace(lf))
 	centralQueue := triggers.NewQueue(engineLimiters.CentralTriggerEventQueue,
 		wfmonitoring.NewCentralTriggerQueueMetricLabeler(commonmetrics.NewLabeler(), centralQueueMetrics), lggr)
-	centralQueueDrainer := triggers.NewCentralQueueDrainer(centralQueue, engineLimiters.CentralTriggerQueueDrainInterval,
+	centralQueueDrainer := triggers.NewCentralQueueDrainer(centralQueue, triggers.ConsensusQueueExpirationGrace(lf), engineLimiters.CentralTriggerQueueDrainInterval,
 		wfmonitoring.NewTriggerDrainerMetricLabeler(commonmetrics.NewLabeler(), drainerMetrics), coordinatorClock, lggr)
 	triggerCoordinator := triggers.NewCoordinator(
 		triggers.RegisterDeps{
