@@ -442,19 +442,18 @@ func (s *Services) newRegistrySyncer(
 	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
 		// Both delegates are wired into a single LocalCapabilityManager.
-		// The newServicesFn routes to the correct delegate based on the capability ID:
-		// - "dontime@1.0.0" → OCR2 delegate (DonTimePlugin)
-		// - everything else → standard capabilities delegate
+		// The newServicesFn routes OCR plugins (see registryOCR2PluginType) to the OCR2 delegate,
+		// and everything else to the standard capabilities delegate.
 		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) (commonsrv.Service, error) {
 			// ocr2Delegate will be set by SetOCR2DelegatesDeps later.
 			var ocr2Delegate *ocr.Delegate
 
 			newServicesFn := func(ctx context.Context, capID string, donID uint32, command string, configJSON string, ocr3Config *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
-				if strings.HasPrefix(capID, "dontime") {
+				if pluginType, ok := registryOCR2PluginType(capID); ok {
 					if ocr2Delegate == nil {
 						return nil, fmt.Errorf("OCR2 delegate not yet initialized for capability %q", capID)
 					}
-					return ocr2Delegate.NewServices(ctx, capID, donID, commontypes.DonTimePlugin, configJSON, ocr3Config)
+					return ocr2Delegate.NewServices(ctx, capID, donID, pluginType, configJSON, ocr3Config)
 				}
 				// Enable the oracle factory only when there's an on-chain OCR3 config.
 				// ResolveOracleFactoryConfig then fills in all details from node config and keystore.
@@ -1160,4 +1159,17 @@ func NewServices(
 	}
 
 	return s, nil
+}
+
+// registryOCR2PluginType returns the OCR2 plugin type for a registry-launched capability that runs on the OCR2 delegate.
+// Returns false for capabilities the standard capabilities delegate runs.
+func registryOCR2PluginType(capID string) (commontypes.OCR2PluginType, bool) {
+	switch {
+	case strings.HasPrefix(capID, "dontime"):
+		return commontypes.DonTimePlugin, true
+	case strings.HasPrefix(capID, "consensus-queue@"):
+		return commontypes.ConsensusQueue, true
+	default:
+		return "", false
+	}
 }
