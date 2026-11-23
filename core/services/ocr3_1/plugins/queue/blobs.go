@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -24,7 +25,39 @@ type blobCache struct {
 	elements map[string]func() ([][]byte, error) // blob handle -> its events, split up
 }
 
+// isCancellation reports whether an error is a context ending.
+func isCancellation(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
+// uncancelled returns what get returns, except that a result which is a context ending is not kept for others. The
+// result of a fetch is shared by every caller, but it was made with the context of the first one, so if that context
+// ended, its cancellation is not the answer for a caller whose context did not. evict removes the result from the cache,
+// and the caller then tries again, once, with its own context. A caller whose own context ended gets the error.
+func uncancelled[T any](ctx context.Context, get func() (T, error), evict func()) (T, error) {
+	for attempt := 0; ; attempt++ {
+		v, err := get()
+		if err == nil || !isCancellation(err) {
+			return v, err
+		}
+		evict()
+		if ctx.Err() != nil || attempt > 0 {
+			return v, err
+		}
+	}
+}
+
+// fetchBlob fetches the blob once however many callers want it, and shares the result, whether a blob or an error. Not
+// an error that is a context ending: see uncancelled.
 func (c *blobCache) fetchBlob(ctx context.Context, handle []byte) ([]byte, error) {
+	return uncancelled(ctx, func() ([]byte, error) { return c.fetchBlobCached(ctx, handle) }, func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		delete(c.cache, string(handle))
+	})
+}
+
+func (c *blobCache) fetchBlobCached(ctx context.Context, handle []byte) ([]byte, error) {
 	c.mu.RLock()
 	if fn, ok := c.cache[string(handle)]; ok {
 		c.mu.RUnlock()
@@ -57,6 +90,14 @@ func (c *blobCache) fetchBlob(ctx context.Context, handle []byte) ([]byte, error
 // event by scanning from the start of a blob each time is quadratic in its events, which a peer could exploit by padding
 // a blob with empty events.
 func (c *blobCache) fetchElements(ctx context.Context, handle []byte) ([][]byte, error) {
+	return uncancelled(ctx, func() ([][]byte, error) { return c.fetchElementsCached(ctx, handle) }, func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		delete(c.elements, string(handle))
+	})
+}
+
+func (c *blobCache) fetchElementsCached(ctx context.Context, handle []byte) ([][]byte, error) {
 	c.mu.Lock()
 	fn, ok := c.elements[string(handle)]
 	if !ok {

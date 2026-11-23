@@ -905,8 +905,9 @@ func (c *consensusQueuePlugin) tryStartExecution(ctx context.Context, fetcher *b
 // once, which means that a bad one cannot hold up a good one, however it sorts.
 //
 // The attempts that are not needed are left to finish, not cancelled, because the cache shares one fetch of a blob
-// between every event that uses it, and cancelling would cache the cancellation as the result for all of them. So ctx
-// must outlive this event: it is the commit's, which they end with.
+// between every event that uses it. A cancellation is not kept as the result (see blobCache.fetchBlob), but cancelling
+// would still make the others sharing the fetch start it again. So ctx must outlive this event: it is the commit's,
+// which they end with.
 func (c *consensusQueuePlugin) fetchEvent(ctx context.Context, fetcher *blobCache, consensusEvent *pb.ConsensusQueueEvent, blobHandles [][]byte) (*pb.CoordinatedEvent, error) {
 	type result struct {
 		event *pb.CoordinatedEvent

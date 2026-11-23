@@ -198,6 +198,117 @@ func TestBlobCache_FetchBlob(t *testing.T) {
 	})
 }
 
+// ctxFetcher is a fetcher that ends with the context it is given, or with the payload once gate is closed (or at once,
+// with no gate).
+type ctxFetcher struct {
+	mu      sync.Mutex
+	calls   int
+	payload []byte
+	gate    chan struct{}
+}
+
+func (f *ctxFetcher) FetchBlob(ctx context.Context, _ ocr3_1types.BlobHandle) ([]byte, error) {
+	f.mu.Lock()
+	f.calls++
+	f.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if f.gate != nil {
+		select {
+		case <-f.gate:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return f.payload, nil
+}
+
+func (f *ctxFetcher) count() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.calls
+}
+
+// A fetch that ended because a context ended says nothing about the blob, so it is not kept for the callers after it.
+func TestBlobCache_CancellationIsNotCached(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a later fetch with a live context fetches again", func(t *testing.T) {
+		t.Parallel()
+		f := &ctxFetcher{payload: []byte("data")}
+		c := newBlobCache(f)
+
+		_, err := c.fetchBlob(cancelledCtx(t), handleBytes(1))
+		require.ErrorIs(t, err, context.Canceled, "the caller whose context ended gets the error")
+
+		b, err := c.fetchBlob(t.Context(), handleBytes(1))
+		require.NoError(t, err)
+		assert.Equal(t, []byte("data"), b)
+		assert.Equal(t, 2, f.count())
+
+		_, err = c.fetchBlob(t.Context(), handleBytes(1))
+		require.NoError(t, err)
+		assert.Equal(t, 2, f.count(), "and a result that is a blob is kept, as before")
+	})
+
+	t.Run("a caller sharing the fetch of one whose context ends fetches again with its own", func(t *testing.T) {
+		t.Parallel()
+		f := &ctxFetcher{payload: []byte("data"), gate: make(chan struct{})}
+		c := newBlobCache(f)
+
+		first, cancelFirst := context.WithCancel(t.Context())
+		firstDone := make(chan error, 1)
+		go func() {
+			_, err := c.fetchBlob(first, handleBytes(1))
+			firstDone <- err
+		}()
+		require.Eventually(t, func() bool { return f.count() == 1 }, 5*time.Second, time.Millisecond)
+
+		type result struct {
+			b   []byte
+			err error
+		}
+		secondDone := make(chan result, 1)
+		go func() {
+			b, err := c.fetchBlob(t.Context(), handleBytes(1)) // joins the first one's fetch, or starts its own
+			secondDone <- result{b, err}
+		}()
+
+		cancelFirst()
+		require.ErrorIs(t, <-firstDone, context.Canceled)
+		close(f.gate)
+		res := <-secondDone
+		require.NoError(t, res.err, "the second caller's context did not end")
+		assert.Equal(t, []byte("data"), res.b)
+	})
+
+	t.Run("a rejected or failed fetch that is not a cancellation is still kept", func(t *testing.T) {
+		t.Parallel()
+		f := &countingFetcher{err: errBoom}
+		c := newBlobCache(f)
+		for range 3 {
+			_, err := c.fetchBlob(t.Context(), handleBytes(1))
+			require.ErrorIs(t, err, errBoom)
+		}
+		assert.Equal(t, 1, f.count())
+	})
+
+	t.Run("the split of a blob is not kept either", func(t *testing.T) {
+		t.Parallel()
+		_, e0 := newCoordinatedEvent(t, testWF, "e0")
+		f := &ctxFetcher{payload: marshalEvents(t, e0)}
+		c := newBlobCache(f)
+
+		_, err := c.fetchElements(cancelledCtx(t), handleBytes(1))
+		require.ErrorIs(t, err, context.Canceled)
+
+		elements, err := c.fetchElements(t.Context(), handleBytes(1))
+		require.NoError(t, err)
+		assert.Len(t, elements, 1)
+	})
+}
+
 func TestFetchCoordinatedEventFromBlob(t *testing.T) {
 	t.Parallel()
 
