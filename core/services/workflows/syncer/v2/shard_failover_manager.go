@@ -130,6 +130,9 @@ type FailoverConfig struct {
 	// A nil limiter (or closed gate) disables timeout-based failover.
 	TimeoutBasedFailoverWindow limits.TimeLimiter
 	Communicator               *sharding.ShardFailoverCommunicator
+	// ExecutionConcurrency bounds in-flight timeout-based failover executions; due events
+	// over the limit stay cached for a later tick. A nil limiter leaves them unbounded.
+	ExecutionConcurrency limits.ResourcePoolLimiter[int]
 }
 
 // NewShardFailoverManager creates a manager that is not yet wired to an engine.
@@ -138,6 +141,9 @@ func NewShardFailoverManager(cfg ShardFailoverManagerConfig) *ShardFailoverManag
 	m := &ShardFailoverManager{
 		cfg:   cfg,
 		cache: make(map[string]cachedEvent),
+	}
+	if m.cfg.Failover.ExecutionConcurrency == nil {
+		m.cfg.Failover.ExecutionConcurrency = limits.UnlimitedResourcePoolLimiter[int]()
 	}
 	autoExecCounter, err := beholder.GetMeter().Int64Counter(failoverAutoExecutionTotalMetric)
 	if err != nil {
@@ -499,8 +505,13 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 
 		switch m.checkShardOwnership(ctx) {
 		case shardownership.DenyNotOwner:
+			execCtx := m.replayExecCtx(ctx)
+			if err := m.cfg.Failover.ExecutionConcurrency.Use(execCtx, 1); err != nil {
+				return
+			}
 			event, ok := m.popCachedEvent(c.eventID, monitoring.ShardFailoverCacheExitReplayed)
 			if !ok {
+				m.freeExecutionConcurrency(execCtx)
 				continue
 			}
 			m.cfg.Logger.Infow("secondary shard: auto failover executed cached trigger event",
@@ -519,6 +530,7 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 			// serializing due events would prevent concurrent executions of
 			// this workflow.
 			m.eng.GoCtx(ctx, func(ctx context.Context) {
+				defer m.freeExecutionConcurrency(execCtx)
 				if err := m.engine.ExecuteTrigger(m.replayExecCtx(ctx), event); err != nil {
 					m.cfg.Logger.Errorw("secondary shard: auto failover failed to execute cached trigger event",
 						"eventID", c.eventID,
@@ -535,6 +547,13 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 			}
 		case shardownership.DenyOrchestratorError:
 		}
+	}
+}
+
+// freeExecutionConcurrency expects ctx to carry the workflow's CRE: the limit is keyed on it.
+func (m *ShardFailoverManager) freeExecutionConcurrency(ctx context.Context) {
+	if err := m.cfg.Failover.ExecutionConcurrency.Free(ctx, 1); err != nil {
+		m.cfg.Logger.Errorw("secondary shard: failed to free execution concurrency", "workflowID", m.cfg.WorkflowID, "err", err)
 	}
 }
 

@@ -1061,6 +1061,51 @@ func TestShardFailoverManager_TimeoutBasedFailover_CompletionDrainsCache(t *test
 	assert.Empty(t, eng.executedIDs(), "cached event was auto-executed although the primary reported success")
 }
 
+// releasableEngine holds each execution until release receives a value.
+type releasableEngine struct {
+	recordingEngine
+	release chan struct{}
+}
+
+func (e *releasableEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	err := e.recordingEngine.ExecuteTrigger(ctx, event)
+	select {
+	case <-e.release:
+	case <-ctx.Done():
+	}
+	return err
+}
+
+func TestShardFailoverManager_TimeoutBasedFailover_ExecutionConcurrencyBound(t *testing.T) {
+	t.Parallel()
+
+	eng := &releasableEngine{release: make(chan struct{})}
+	t.Cleanup(func() { close(eng.release) })
+	gate := &fakeGateLimiter{open: true}
+	window := &fakeWindowLimiter{window: 10 * time.Millisecond}
+	m := newTimeoutBasedFailoverManager(t, &eng.recordingEngine, gate, window, &switchableShardResolver{ownerDON: 1, found: true})
+	m.SetEngine(eng)
+	m.cfg.Failover.ExecutionConcurrency = limits.GlobalResourcePoolLimiter(3)
+
+	for i := range 10 {
+		err := m.admissionCheck(t.Context(), timeoutBasedFailoverTestEvent(fmt.Sprintf("evt-%d", i)))
+		require.ErrorIs(t, err, v2.ErrAdmissionCache)
+	}
+
+	time.Sleep(15 * time.Millisecond)
+	m.executeDueTimeoutBasedFailovers(t.Context())
+	require.Eventually(t, func() bool { return len(eng.executedIDs()) == 3 }, 10*time.Second, 10*time.Millisecond,
+		"auto failover did not start executions up to the concurrency limit")
+	assert.Len(t, m.cacheIDs(), 7, "events over the concurrency limit were not kept in the cache")
+
+	eng.release <- struct{}{}
+	require.Eventually(t, func() bool {
+		m.executeDueTimeoutBasedFailovers(t.Context())
+		return len(eng.executedIDs()) == 4
+	}, 10*time.Second, 10*time.Millisecond, "a later tick did not execute a cached event after a slot was freed")
+	assert.Len(t, m.cacheIDs(), 6, "a later tick executed more cached events than the freed slots")
+}
+
 func TestShardFailoverManager_TimeoutBasedFailover_DisabledByDefault(t *testing.T) {
 	t.Parallel()
 
