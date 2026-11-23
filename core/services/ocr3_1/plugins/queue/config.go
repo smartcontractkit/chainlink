@@ -22,6 +22,9 @@ type PluginConfig struct {
 
 // Validate checks the limits are within libocr's bounds, and that this plugin can operate within them.
 func (c *PluginConfig) Validate() error {
+	if c == nil {
+		return errors.New("plugin config is missing")
+	}
 	if err := c.Limits.Validate(); err != nil {
 		return fmt.Errorf("invalid limits: %w", err)
 	}

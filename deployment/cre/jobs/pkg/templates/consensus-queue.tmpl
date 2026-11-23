@@ -12,3 +12,11 @@ transmitterID = "{{ .TransmitterID }}"
 relay = "evm"
 [relayConfig]
 chainID = "{{ .ChainID }}"
+
+[pluginConfig.limits]
+MaxObservationBytes = 524288
+MaxKeyValueModifiedKeys = 4
+MaxKeyValueModifiedKeysPlusValuesBytes = 10485760
+MaxBlobPayloadBytes = 5242880
+MaxPerOracleUnexpiredBlobCumulativePayloadBytes = 104857600
+MaxPerOracleUnexpiredBlobCount = 100

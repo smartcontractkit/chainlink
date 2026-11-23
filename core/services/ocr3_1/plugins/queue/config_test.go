@@ -37,6 +37,12 @@ func validLimits() ocr3_1types.ReportingPluginLimits {
 func TestPluginConfig_Validate(t *testing.T) {
 	t.Parallel()
 
+	t.Run("a missing config is an error, not a panic", func(t *testing.T) {
+		t.Parallel()
+		var c *PluginConfig
+		assert.ErrorContains(t, c.Validate(), "missing")
+	})
+
 	tests := []struct {
 		name    string
 		mutate  func(l *ocr3_1types.ReportingPluginLimits)

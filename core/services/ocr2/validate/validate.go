@@ -329,7 +329,7 @@ func validateOCR2LLOSpec(jsonConfig job.JSONConfig) error {
 
 func validateConsensusQueuePluginSpec(jsonConfig job.JSONConfig) error {
 	cfg := &queue.PluginConfig{}
-	if err := json.Unmarshal(jsonConfig.Bytes(), &cfg); err != nil {
+	if err := json.Unmarshal(jsonConfig.Bytes(), cfg); err != nil {
 		return fmt.Errorf("failed to unmarshal consensus queue plugin config: %w", err)
 	}
 	return cfg.Validate()
