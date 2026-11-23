@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -177,6 +178,70 @@ func TestCoordinator_MetricsIncludeSdkLabel(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return counterTotal(t, reader, "platform_engine_workflow_unregistered_count", sdk) == 1
 	}, 5*time.Second, 5*time.Millisecond)
+}
+
+// TestCoordinator_Gauges asserts the workflows and readers gauges read zero on an idle coordinator, count one
+// workflow and one reader per trigger while registered, and return to zero once the readers exit (CRE-7344).
+func TestCoordinator_Gauges(t *testing.T) {
+	t.Parallel()
+	const (
+		workflowsGauge = "platform_trigger_coordinator_workflows"
+		readersGauge   = "platform_trigger_coordinator_readers"
+	)
+	triggerCapIDs := []string{"trigger-a@1.0.0", "trigger-b@1.0.0", "trigger-c@1.0.0"}
+
+	wfMetrics, reader := newTestMeterMetrics(t)
+	f := newCoordinatorFixture(t, withMetrics(wfMetrics))
+	assert.Equal(t, int64(0), int64Gauge(t, reader, workflowsGauge), "workflows gauge before registration")
+	assert.Equal(t, int64(0), int64Gauge(t, reader, readersGauge), "readers gauge before registration")
+
+	sub := newTestSubscriber()
+	sub.subs = nil
+	eventChs := make([]chan capabilities.TriggerResponse, 0, len(triggerCapIDs))
+	for _, id := range triggerCapIDs {
+		eventCh := make(chan capabilities.TriggerResponse)
+		eventChs = append(eventChs, eventCh)
+		trigger := capmocks.NewTriggerCapability(t)
+		trigger.EXPECT().RegisterTrigger(mock.Anything, mock.Anything).
+			Return((<-chan capabilities.TriggerResponse)(eventCh), nil).Once()
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
+		f.capReg.EXPECT().GetTrigger(mock.Anything, id).Return(trigger, nil)
+		sub.subs = append(sub.subs, &sdkpb.TriggerSubscription{Id: id, Method: testMethod})
+	}
+
+	_, err := f.c.RegisterTriggers(t.Context(), sub, testParams(t))
+	require.NoError(t, err)
+	// Each send is unbuffered, so it completes only once that trigger's reader is running its read loop.
+	for i, eventCh := range eventChs {
+		select {
+		case eventCh <- triggerEvent(fmt.Sprintf("event-%d", i)):
+		case <-time.After(5 * time.Second):
+			t.Fatalf("reader %d never received its event", i)
+		}
+	}
+	assert.Equal(t, int64(1), int64Gauge(t, reader, workflowsGauge), "workflows gauge while running")
+	assert.Equal(t, int64(len(triggerCapIDs)), int64Gauge(t, reader, readersGauge), "readers gauge while running")
+
+	require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+	require.Eventually(t, func() bool {
+		return int64Gauge(t, reader, workflowsGauge) == 0 && int64Gauge(t, reader, readersGauge) == 0
+	}, 5*time.Second, 5*time.Millisecond)
+}
+
+// TestCoordinator_GaugesStopOnClose asserts a closed coordinator stops reporting its gauges, so a replaced
+// coordinator never leaves a second series behind.
+func TestCoordinator_GaugesStopOnClose(t *testing.T) {
+	t.Parallel()
+	wfMetrics, reader := newTestMeterMetrics(t)
+	deps := newRegisterDeps(t, regmocks.NewCapabilitiesRegistry(t), limits.NewGateLimiter(true))
+	deps.Metrics = wfMetrics
+	c := NewCoordinator(deps, newTestAdmission(), newFakeEngineRegistry(), &fakeWorkflowLimits{}, clockwork.NewFakeClock())
+
+	require.NoError(t, c.Start(t.Context()))
+	require.NotNil(t, findMetric(t, reader, "platform_trigger_coordinator_readers"), "reported while running")
+
+	require.NoError(t, c.Close())
+	assert.Nil(t, findMetric(t, reader, "platform_trigger_coordinator_readers"), "reported after close")
 }
 
 // TestCoordinator_NoDeliver covers dropped delivery: events must not reach an

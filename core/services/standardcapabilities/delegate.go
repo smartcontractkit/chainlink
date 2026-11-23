@@ -12,6 +12,7 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
+	capkeystore "github.com/smartcontractkit/capabilities/libs/capability/keystore"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -427,11 +428,20 @@ func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command
 		PluginRegistrar:  d.cfg,
 		Registry:         d.registry,
 		CRESettings:      d.creSettings,
+		Keystores:        d.keystoresForV2(),
 	})
 	if err != nil {
 		return nil, err
 	}
 	return []job.ServiceCtx{s}, nil
+}
+
+func (d *Delegate) keystoresForV2() capkeystore.Keystores {
+	if d.ks == nil {
+		return capkeystore.Keystores{}
+	}
+
+	return capkeystore.Keystores{OCR: ocrKeystore{ks: d.ks.OCR2()}}
 }
 
 // newCapDonIDResolver picks how the capability DON ID is obtained. On the job-spec

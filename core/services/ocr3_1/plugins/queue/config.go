@@ -10,10 +10,7 @@ import (
 const (
 	maxObservedBlobHandles = 10   // sanity check on blobs in an observation
 	maxObservedEvents      = 1000 // sanity check events in an observation
-
-	// These are calibrated by the TestCalibration tests. The limits they must fit in come from the job's PluginConfig.
-	// TODO connect to cre settings, so that changing them is atomic across the DON
-	maxKeyValueValueBytes = ocr3_1types.MaxMaxKeyValueValueBytes
+	maxKeyValueValueBytes  = ocr3_1types.MaxMaxKeyValueValueBytes
 )
 
 type PluginConfig struct {
