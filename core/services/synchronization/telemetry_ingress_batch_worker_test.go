@@ -12,6 +12,7 @@ import (
 )
 
 func TestTelemetryIngressWorker_BuildTelemBatchReq(t *testing.T) {
+	t.Parallel()
 	telemPayload := synchronization.TelemPayload{
 		Telemetry:  []byte("Mock telemetry"),
 		ContractID: "0xa",

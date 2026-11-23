@@ -7,6 +7,7 @@ import (
 )
 
 func Test_GetCapabilityIDFromCommand(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		command  string
@@ -131,6 +132,7 @@ func Test_GetCapabilityIDFromCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := GetCapabilityIDFromCommand(tt.command, tt.config)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -138,6 +140,7 @@ func Test_GetCapabilityIDFromCommand(t *testing.T) {
 }
 
 func Test_GetCommandFromCapabilityID(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		capabilityID string
@@ -242,6 +245,7 @@ func Test_GetCommandFromCapabilityID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := GetCommandFromCapabilityID(tt.capabilityID)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -249,9 +253,11 @@ func Test_GetCommandFromCapabilityID(t *testing.T) {
 }
 
 func Test_roundTrip(t *testing.T) {
+	t.Parallel()
 	commands := []string{"consensus", "cron", "http_trigger", "http_action"}
 	for _, cmd := range commands {
 		t.Run(cmd, func(t *testing.T) {
+			t.Parallel()
 			capID := GetCapabilityIDFromCommand(cmd, "")
 			assert.NotEmpty(t, capID)
 			got := GetCommandFromCapabilityID(capID)

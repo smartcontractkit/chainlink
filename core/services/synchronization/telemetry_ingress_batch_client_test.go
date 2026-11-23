@@ -20,6 +20,7 @@ import (
 )
 
 func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	// Create mocks

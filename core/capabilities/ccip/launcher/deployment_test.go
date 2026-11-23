@@ -13,6 +13,7 @@ import (
 )
 
 func Test_ccipDeployment_Transitions(t *testing.T) {
+	t.Parallel()
 	// we use a pointer to the oracle here for mock assertions
 	type args struct {
 		prevDeployment map[ocrtypes.ConfigDigest]*mocktypes.CCIPOracle
@@ -271,6 +272,7 @@ func Test_ccipDeployment_Transitions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			args := tt.makeArgs(t)
 			prev := make(pluginRegistry)
 			for digest, oracle := range args.prevDeployment {

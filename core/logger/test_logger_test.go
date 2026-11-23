@@ -2,6 +2,7 @@ package logger
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,14 +15,24 @@ func init() {
 	InitColor(false)
 }
 
+// callerLine returns the line number of the statement that called it, so tests can
+// assert on caller reporting without hard-coding a line that edits above them shift.
+func callerLine(t *testing.T) int {
+	t.Helper()
+	_, _, line, ok := runtime.Caller(1)
+	require.True(t, ok)
+	return line
+}
+
 func TestTestLogger(t *testing.T) {
+	t.Parallel()
 	lgr, observed := TestLoggerObserved(t, zapcore.DebugLevel)
 
 	const (
 		testMessage = "Test message"
 	)
 	lgr.Warn(testMessage)
-	// [WARN]  Test message		logger/test_logger_test.go:23	version=unset@unset
+	// [WARN]  Test message		logger/test_logger_test.go:<line>	version=unset@unset
 	logs := observed.TakeAll()
 	require.Len(t, logs, 1)
 	log := logs[0]
@@ -38,8 +49,9 @@ func TestTestLogger(t *testing.T) {
 	)
 	srvLgr := lgr.Named(serviceName)
 	srvLgr.SetLogLevel(zapcore.DebugLevel)
+	expectedLine := callerLine(t)
 	srvLgr.Debugw(serviceMessage, key, value)
-	// [DEBUG]  Service message		logger/test_logger_test.go:35 version=unset@unset key=value logger=ServiceName
+	// [DEBUG]  Service message		logger/test_logger_test.go:<line> version=unset@unset key=value logger=ServiceName
 	logs = observed.TakeAll()
 	require.Len(t, logs, 1)
 	log = logs[0]
@@ -48,7 +60,7 @@ func TestTestLogger(t *testing.T) {
 	assert.Equal(t, serviceName, log.LoggerName)
 	assert.Equal(t, value, log.ContextMap()[key])
 	assert.Contains(t, log.Caller.String(), "core/logger/test_logger_test.go")
-	assert.Equal(t, 41, log.Caller.Line)
+	assert.Equal(t, expectedLine+1, log.Caller.Line)
 
 	const (
 		workerName           = "WorkerName"
@@ -58,7 +70,7 @@ func TestTestLogger(t *testing.T) {
 	)
 	workLgr := srvLgr.Named(workerName).With(idKey, workerID)
 	workLgr.Infow(workerMessage, resultKey, resultVal)
-	// [INFO]	Did some work		logger/test_logger_test.go:49 version=unset@unset logger=ServiceName.WorkerName result=success workerId=42
+	// [INFO]	Did some work		logger/test_logger_test.go:<line> version=unset@unset logger=ServiceName.WorkerName result=success workerId=42
 	logs = observed.TakeAll()
 	require.Len(t, logs, 1)
 	log = logs[0]

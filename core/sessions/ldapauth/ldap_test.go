@@ -214,6 +214,7 @@ func TestORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_Success(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	// Initialize LDAP Authentication Provider with mock client
 	mockLdapClient := mocks.NewLDAPClient(t)
@@ -233,6 +234,7 @@ func TestORM_FindUserByAPIToken_Success(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	cfg := ldapauth.TestConfig{}
 
@@ -253,6 +255,7 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 }
 
 func TestORM_DeleteAuthToken(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	// Initialize LDAP Authentication Provider with mock client
@@ -659,6 +662,7 @@ func TestORM_MapSearchGroups(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			role, err := ldapauth.GroupSearchResultsToUserRole(
 				test.groupsQuerySearchResult,
 				cfg.AdminUserGroupCN(),

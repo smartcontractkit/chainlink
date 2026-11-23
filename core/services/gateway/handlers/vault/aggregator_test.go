@@ -38,6 +38,7 @@ func makeNodes(t *testing.T, signers []string) []capabilities.Node {
 }
 
 func TestAggregator_Valid_Signatures(t *testing.T) {
+	t.Parallel()
 	currResp, nodes := makeSignedCreateSecretsResponse(t, "1", 2)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	agg := testAggregator(t, mcr)
@@ -132,6 +133,7 @@ func newMessage(t *testing.T) *jsonrpc.Response[json.RawMessage] {
 }
 
 func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
+	t.Parallel()
 	// No valid signers
 	signers := []string{
 		hex.EncodeToString(mustRandom(64)),
@@ -164,6 +166,7 @@ func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 }
 
 func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T) {
+	t.Parallel()
 	// No valid signers
 	signers := []string{
 		hex.EncodeToString(mustRandom(64)),
@@ -253,6 +256,7 @@ func TestValidateUsingQuorum_tiedMajoritiesPickDigestDeterministically(t *testin
 }
 
 func TestAggregator_InsufficientResponses(t *testing.T) {
+	t.Parallel()
 	mcr := &mockCapabilitiesRegistry{F: 1}
 	agg := testAggregator(t, mcr)
 
@@ -271,6 +275,7 @@ func TestAggregator_InsufficientResponses(t *testing.T) {
 }
 
 func TestAggregator_QuorumUnobtainable(t *testing.T) {
+	t.Parallel()
 	// No valid signers
 	signers := []string{
 		hex.EncodeToString(mustRandom(64)),
@@ -335,6 +340,7 @@ func makeDONWithNodesForTest(t *testing.T, name string, id uint32, f uint8, memb
 }
 
 func TestAggregator_MultipleRegistryDONs_SelectsByVaultHandlerDonName(t *testing.T) {
+	t.Parallel()
 	donOther := makeDONWithNodesForTest(t, "staging-vault", 1, 2, 0x10, 7)
 	donMine := makeDONWithNodesForTest(t, "cre-reliability-vault", 2, 1, 0x20, 4)
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donOther, donMine}}
@@ -361,6 +367,7 @@ func TestAggregator_MultipleRegistryDONs_SelectsByVaultHandlerDonName(t *testing
 }
 
 func TestAggregator_MultipleRegistryDONs_SelectsByIDWhenNameEmpty(t *testing.T) {
+	t.Parallel()
 	donOther := makeDONWithNodesForTest(t, "", 1, 2, 0x10, 7)
 	donMine := makeDONWithNodesForTest(t, "", 99, 1, 0x20, 4)
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donOther, donMine}}
@@ -387,6 +394,7 @@ func TestAggregator_MultipleRegistryDONs_SelectsByIDWhenNameEmpty(t *testing.T) 
 }
 
 func TestAggregator_MultipleRegistryDONs_NoMatchingVaultHandlerDonId(t *testing.T) {
+	t.Parallel()
 	donA := makeDONWithNodesForTest(t, "don-a", 1, 1, 0x10, 4)
 	donB := makeDONWithNodesForTest(t, "don-b", 2, 1, 0x20, 4)
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donA, donB}}
@@ -408,6 +416,7 @@ func TestAggregator_MultipleRegistryDONs_NoMatchingVaultHandlerDonId(t *testing.
 }
 
 func TestAggregator_MultipleRegistryDONs_AmbiguousMatchingVaultHandlerDonId(t *testing.T) {
+	t.Parallel()
 	donA := makeDONWithNodesForTest(t, "same-name", 1, 1, 0x10, 4)
 	donB := makeDONWithNodesForTest(t, "same-name", 2, 1, 0x20, 4)
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donA, donB}}

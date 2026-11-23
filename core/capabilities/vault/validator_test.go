@@ -34,7 +34,9 @@ func encryptWithEthAddressLabel(t *testing.T, pk *tdh2easy.PublicKey, owner stri
 }
 
 func TestWorkflowOwnerToLabel(t *testing.T) {
+	t.Parallel()
 	t.Run("ethereum address with 0x prefix", func(t *testing.T) {
+		t.Parallel()
 		addr := "0x0001020304050607080900010203040506070809"
 		label := vaultutils.WorkflowOwnerToLabel(addr)
 
@@ -44,6 +46,7 @@ func TestWorkflowOwnerToLabel(t *testing.T) {
 	})
 
 	t.Run("ethereum address without 0x prefix", func(t *testing.T) {
+		t.Parallel()
 		addr := "0001020304050607080900010203040506070809"
 		label := vaultutils.WorkflowOwnerToLabel(addr)
 
@@ -53,6 +56,7 @@ func TestWorkflowOwnerToLabel(t *testing.T) {
 	})
 
 	t.Run("checksummed ethereum address", func(t *testing.T) {
+		t.Parallel()
 		addr := "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
 		label := vaultutils.WorkflowOwnerToLabel(addr)
 
@@ -63,6 +67,7 @@ func TestWorkflowOwnerToLabel(t *testing.T) {
 }
 
 func TestEnsureRightLabelOnSecret_WorkflowOwnerOnly(t *testing.T) {
+	t.Parallel()
 	pk, _ := generateTestKeys(t)
 	owner := "0x0001020304050607080900010203040506070809"
 	secret := encryptWithEthAddressLabel(t, pk, owner)
@@ -72,6 +77,7 @@ func TestEnsureRightLabelOnSecret_WorkflowOwnerOnly(t *testing.T) {
 }
 
 func TestEnsureRightLabelOnSecret_WrongOwner(t *testing.T) {
+	t.Parallel()
 	pk, _ := generateTestKeys(t)
 	ethAddr := "0x0001020304050607080900010203040506070809"
 	wrongAddr := "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -83,6 +89,7 @@ func TestEnsureRightLabelOnSecret_WrongOwner(t *testing.T) {
 }
 
 func TestEnsureRightLabelOnSecret_EmptyOwnerRejected(t *testing.T) {
+	t.Parallel()
 	pk, _ := generateTestKeys(t)
 	ethAddr := "0x0001020304050607080900010203040506070809"
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
@@ -93,6 +100,7 @@ func TestEnsureRightLabelOnSecret_EmptyOwnerRejected(t *testing.T) {
 }
 
 func TestEnsureRightLabelOnSecret_NilPublicKey(t *testing.T) {
+	t.Parallel()
 	pk, _ := generateTestKeys(t)
 	ethAddr := "0x0001020304050607080900010203040506070809"
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
@@ -102,6 +110,7 @@ func TestEnsureRightLabelOnSecret_NilPublicKey(t *testing.T) {
 }
 
 func TestEnsureRightLabelOnSecret_InvalidHexSecret(t *testing.T) {
+	t.Parallel()
 	pk, _ := generateTestKeys(t)
 
 	err := EnsureRightLabelOnSecret(pk, "not-valid-hex!", "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
@@ -110,6 +119,7 @@ func TestEnsureRightLabelOnSecret_InvalidHexSecret(t *testing.T) {
 }
 
 func TestEnsureRightLabelOnSecret_InvalidCiphertext(t *testing.T) {
+	t.Parallel()
 	pk, _ := generateTestKeys(t)
 
 	err := EnsureRightLabelOnSecret(pk, hex.EncodeToString([]byte("garbage")), "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
@@ -118,6 +128,7 @@ func TestEnsureRightLabelOnSecret_InvalidCiphertext(t *testing.T) {
 }
 
 func TestEnsureRightLabelOnSecret_WrongPublicKey(t *testing.T) {
+	t.Parallel()
 	pk, _ := generateTestKeys(t)
 	wrongPK, _ := generateTestKeys(t)
 	ethAddr := "0x0001020304050607080900010203040506070809"
@@ -129,6 +140,7 @@ func TestEnsureRightLabelOnSecret_WrongPublicKey(t *testing.T) {
 }
 
 func TestEnsureRightLabelOnSecret_BackwardCompatSingleOwner(t *testing.T) {
+	t.Parallel()
 	pk, _ := generateTestKeys(t)
 	owner := "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
 	secret := encryptWithEthAddressLabel(t, pk, owner)
@@ -138,6 +150,7 @@ func TestEnsureRightLabelOnSecret_BackwardCompatSingleOwner(t *testing.T) {
 }
 
 func TestRequestValidator_BatchSizeLimit(t *testing.T) {
+	t.Parallel()
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(2),
 		limits.NewUpperBoundLimiter[commonconfig.Size](1024*commonconfig.Byte),
@@ -251,6 +264,7 @@ func TestRequestValidator_BatchSizeLimit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.call(t, validator)
 			if tt.errSubstr == "" {
 				require.NoError(t, err)
@@ -263,6 +277,7 @@ func TestRequestValidator_BatchSizeLimit(t *testing.T) {
 }
 
 func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
+	t.Parallel()
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
 		limits.NewUpperBoundLimiter[commonconfig.Size](10*commonconfig.Byte),
@@ -337,6 +352,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.call(t, validator, tt.value)
 			if tt.errSubstr == "" {
 				require.NoError(t, err)
@@ -350,6 +366,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 }
 
 func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerForLegacyRequests(t *testing.T) {
+	t.Parallel()
 	pk, _ := generateTestKeys(t)
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
@@ -380,6 +397,7 @@ func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerFor
 }
 
 func TestValidateSecretIdentifier(t *testing.T) {
+	t.Parallel()
 	const (
 		keyLimit   = 10 * commonconfig.Byte
 		ownerLimit = 10 * commonconfig.Byte
@@ -490,6 +508,7 @@ func TestValidateSecretIdentifier(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := validator.ValidateSecretIdentifier(t.Context(), tt.key, tt.owner, tt.namespace)
 			if tt.errSubstr == "" {
 				require.NoError(t, err)
@@ -502,6 +521,7 @@ func TestValidateSecretIdentifier(t *testing.T) {
 }
 
 func TestValidateSecretIdentifier_OwnerSpecificKeyLimit(t *testing.T) {
+	t.Parallel()
 	const (
 		defaultKeyLimit = 5 * commonconfig.Byte
 		privilegedOwner = "privilegedowner"
@@ -532,6 +552,7 @@ func TestValidateSecretIdentifier_OwnerSpecificKeyLimit(t *testing.T) {
 }
 
 func TestRequestValidator_IdentifierLengths(t *testing.T) {
+	t.Parallel()
 	const (
 		keyLimit   = 5 * commonconfig.Byte
 		ownerLimit = 6 * commonconfig.Byte
@@ -608,6 +629,7 @@ func TestRequestValidator_IdentifierLengths(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := validator.ValidateCreateSecretsRequest(t.Context(), nil, makeRequest(tt.key, tt.owner, tt.namespace), false)
 			if tt.errSubstr == "" {
 				require.NoError(t, err)
@@ -620,6 +642,7 @@ func TestRequestValidator_IdentifierLengths(t *testing.T) {
 }
 
 func TestValidateGetSecretsRequest(t *testing.T) {
+	t.Parallel()
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
 		limits.NewUpperBoundLimiter(1024*commonconfig.Byte),
@@ -768,6 +791,7 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := validator.ValidateGetSecretsRequest(t.Context(), &vaultcommon.GetSecretsRequest{Requests: tt.requests})
 			if tt.errSubstr == "" {
 				require.NoError(t, err)
@@ -816,6 +840,7 @@ func TestRequestValidator_CheckRequestBatchSize_UserErrorClassification(t *testi
 }
 
 func TestValidateGetSecretsRequest_OwnerLengthPerBatchItem(t *testing.T) {
+	t.Parallel()
 	const ownerLimit = 6 * commonconfig.Byte
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
@@ -838,6 +863,7 @@ func TestValidateGetSecretsRequest_OwnerLengthPerBatchItem(t *testing.T) {
 }
 
 func TestValidateGetSecretsRequest_KeyLengthPerBatchItem(t *testing.T) {
+	t.Parallel()
 	const keyLimit = 5 * commonconfig.Byte
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
@@ -860,6 +886,7 @@ func TestValidateGetSecretsRequest_KeyLengthPerBatchItem(t *testing.T) {
 }
 
 func TestValidateGetSecretsRequest_OwnerSpecificKeyLimit(t *testing.T) {
+	t.Parallel()
 	const (
 		defaultKeyLimit = 5 * commonconfig.Byte
 		privilegedOwner = "privilegedowner"
@@ -898,6 +925,7 @@ func TestValidateGetSecretsRequest_OwnerSpecificKeyLimit(t *testing.T) {
 }
 
 func TestValidateGetSecretsRequest_OwnerSpecificNamespaceLimit(t *testing.T) {
+	t.Parallel()
 	const (
 		defaultNsLimit  = 5 * commonconfig.Byte
 		privilegedOwner = "privilegedowner"
@@ -936,6 +964,7 @@ func TestValidateGetSecretsRequest_OwnerSpecificNamespaceLimit(t *testing.T) {
 }
 
 func TestRequestValidator_OwnerSpecificCiphertextLimit(t *testing.T) {
+	t.Parallel()
 	const (
 		defaultLimit    = 10 * commonconfig.Byte
 		privilegedOwner = "privilegedowner"
@@ -983,6 +1012,7 @@ func TestRequestValidator_OwnerSpecificCiphertextLimit(t *testing.T) {
 }
 
 func TestRequestValidator_ValidateCreateSecretsRequest_SkipsLabelValidationWithBool(t *testing.T) {
+	t.Parallel()
 	pk, _ := generateTestKeys(t)
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
@@ -1018,6 +1048,7 @@ func TestRequestValidator_ValidateCreateSecretsRequest_SkipsLabelValidationWithB
 }
 
 func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
+	t.Parallel()
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
 		limits.NewUpperBoundLimiter(1024*commonconfig.Byte),
@@ -1027,6 +1058,7 @@ func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 	)
 
 	t.Run("GetSecretsRequest", func(t *testing.T) {
+		t.Parallel()
 		id := &vaultcommon.SecretIdentifier{Key: "k", Owner: "owner1", Namespace: ""}
 		req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id}}}
 		require.NoError(t, validator.ValidateGetSecretsRequest(t.Context(), req))
@@ -1034,6 +1066,7 @@ func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 	})
 
 	t.Run("CreateSecretsRequest", func(t *testing.T) {
+		t.Parallel()
 		validValue := hex.EncodeToString(make([]byte, 10))
 		id := &vaultcommon.SecretIdentifier{Key: "k", Owner: "0x1111111111111111111111111111111111111111", Namespace: ""}
 		req := &vaultcommon.CreateSecretsRequest{
@@ -1047,6 +1080,7 @@ func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 	})
 
 	t.Run("DeleteSecretsRequest", func(t *testing.T) {
+		t.Parallel()
 		id := &vaultcommon.SecretIdentifier{Key: "k", Owner: "owner1", Namespace: ""}
 		req := &vaultcommon.DeleteSecretsRequest{RequestId: "rid", Ids: []*vaultcommon.SecretIdentifier{id}}
 		require.NoError(t, validator.ValidateDeleteSecretsRequest(t.Context(), req))
@@ -1054,6 +1088,7 @@ func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 	})
 
 	t.Run("ListSecretIdentifiersRequest", func(t *testing.T) {
+		t.Parallel()
 		req := &vaultcommon.ListSecretIdentifiersRequest{RequestId: "rid", Owner: "owner1", Namespace: ""}
 		require.NoError(t, validator.ValidateListSecretIdentifiersRequest(t.Context(), req))
 		assert.Empty(t, req.Namespace)

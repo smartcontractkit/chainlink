@@ -21,6 +21,7 @@ func newLeaseLock(t *testing.T, db *sqlx.DB, cfg pg.LeaseLockConfig) pg.LeaseLoc
 	return pg.NewLeaseLock(db, uuid.New(), logger.TestLogger(t), cfg)
 }
 
+//nolint:paralleltest // subtests share one lease_lock row and the parent closes the DB before the last case
 func Test_LeaseLock(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		t := true

@@ -10,6 +10,7 @@ import (
 )
 
 func TestValidateBootstrapSpec(t *testing.T) {
+	t.Parallel()
 	var tt = []struct {
 		name      string
 		toml      string
@@ -68,6 +69,7 @@ chainID			= 1337
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			s, err := ValidatedBootstrapSpecToml(tc.toml)
 			tc.assertion(t, s, err)
 		})

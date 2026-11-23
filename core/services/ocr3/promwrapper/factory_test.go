@@ -13,6 +13,7 @@ import (
 )
 
 func Test_WrapperFactory(t *testing.T) {
+	t.Parallel()
 	initOutcomeTrue := counterFromHistogramByLabels(t, promOCR3Durations, "solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "plugin", "outcome", "true")
 	initOutcomeFalse := counterFromHistogramByLabels(t, promOCR3Durations, "solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "plugin", "outcome", "false")
 

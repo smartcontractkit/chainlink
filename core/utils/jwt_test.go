@@ -14,7 +14,9 @@ import (
 )
 
 func TestSigningMethodEth_Sign(t *testing.T) {
+	t.Parallel()
 	t.Run("valid ECDSA key", func(t *testing.T) {
+		t.Parallel()
 		privateKey, err := crypto.GenerateKey()
 		require.NoError(t, err)
 
@@ -27,6 +29,7 @@ func TestSigningMethodEth_Sign(t *testing.T) {
 	})
 
 	t.Run("invalid key type", func(t *testing.T) {
+		t.Parallel()
 		sm := &SigningMethodEth{}
 		signingString := "test.signing.string"
 
@@ -37,11 +40,13 @@ func TestSigningMethodEth_Sign(t *testing.T) {
 }
 
 func TestSigningMethodEth_Verify(t *testing.T) {
+	t.Parallel()
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	address := crypto.PubkeyToAddress(privateKey.PublicKey)
 
 	t.Run("valid signature and address", func(t *testing.T) {
+		t.Parallel()
 		sm := &SigningMethodEth{}
 		signingString := "test.signing.string"
 
@@ -53,6 +58,7 @@ func TestSigningMethodEth_Verify(t *testing.T) {
 	})
 
 	t.Run("wrong address", func(t *testing.T) {
+		t.Parallel()
 		sm := &SigningMethodEth{}
 		signingString := "test.signing.string"
 
@@ -65,6 +71,7 @@ func TestSigningMethodEth_Verify(t *testing.T) {
 	})
 
 	t.Run("invalid key type", func(t *testing.T) {
+		t.Parallel()
 		sm := &SigningMethodEth{}
 		signingString := "test.signing.string"
 		signature := make([]byte, 65)
@@ -74,6 +81,7 @@ func TestSigningMethodEth_Verify(t *testing.T) {
 	})
 
 	t.Run("invalid signature", func(t *testing.T) {
+		t.Parallel()
 		sm := &SigningMethodEth{}
 		signingString := "test.signing.string"
 		invalidSignature := make([]byte, 64) // Wrong length
@@ -84,6 +92,7 @@ func TestSigningMethodEth_Verify(t *testing.T) {
 }
 
 func TestWithExpiry(t *testing.T) {
+	t.Parallel()
 	duration := 30 * time.Minute
 	opts := &jwtOptions{}
 
@@ -94,6 +103,7 @@ func TestWithExpiry(t *testing.T) {
 }
 
 func TestWithIssuer(t *testing.T) {
+	t.Parallel()
 	issuer := "test-issuer"
 	opts := &jwtOptions{}
 
@@ -104,6 +114,7 @@ func TestWithIssuer(t *testing.T) {
 }
 
 func TestWithAudience(t *testing.T) {
+	t.Parallel()
 	audience := []string{"aud1", "aud2"}
 	opts := &jwtOptions{}
 
@@ -113,6 +124,7 @@ func TestWithAudience(t *testing.T) {
 }
 
 func TestWithSubject(t *testing.T) {
+	t.Parallel()
 	subject := "test-subject"
 	opts := &jwtOptions{}
 
@@ -123,6 +135,7 @@ func TestWithSubject(t *testing.T) {
 }
 
 func TestWithMaxExpiryDuration(t *testing.T) {
+	t.Parallel()
 	duration := 10 * time.Minute
 	opts := &verifyOptions{}
 
@@ -133,6 +146,7 @@ func TestWithMaxExpiryDuration(t *testing.T) {
 }
 
 func TestWithIssuedAtTolerance(t *testing.T) {
+	t.Parallel()
 	duration := 10 * time.Minute
 	opts := &verifyOptions{}
 
@@ -153,9 +167,11 @@ func testRequest(t *testing.T) jsonrpc.Request[json.RawMessage] {
 }
 
 func TestCreateRequestJWT(t *testing.T) {
+	t.Parallel()
 	req := testRequest(t)
 
 	t.Run("default options", func(t *testing.T) {
+		t.Parallel()
 		token, err := CreateRequestJWT(req)
 		require.NoError(t, err)
 		require.NotNil(t, token)
@@ -173,6 +189,7 @@ func TestCreateRequestJWT(t *testing.T) {
 	})
 
 	t.Run("with custom options", func(t *testing.T) {
+		t.Parallel()
 		customExpiry := 3 * time.Minute // Use valid duration within 5-minute limit
 		issuer := "test-issuer"
 		audience := []string{"aud1", "aud2"}
@@ -199,7 +216,9 @@ func TestCreateRequestJWT(t *testing.T) {
 }
 
 func TestSplitToken(t *testing.T) {
+	t.Parallel()
 	t.Run("valid token format", func(t *testing.T) {
+		t.Parallel()
 		tokenString := "header.payload.signature"
 
 		signedString, signature, err := splitToken(tokenString)
@@ -209,6 +228,7 @@ func TestSplitToken(t *testing.T) {
 	})
 
 	t.Run("invalid token format - too few parts", func(t *testing.T) {
+		t.Parallel()
 		tokenString := "header.payload"
 
 		_, _, err := splitToken(tokenString)
@@ -216,6 +236,7 @@ func TestSplitToken(t *testing.T) {
 	})
 
 	t.Run("invalid token format - too many parts", func(t *testing.T) {
+		t.Parallel()
 		tokenString := "header.payload.signature.extra"
 
 		_, _, err := splitToken(tokenString)
@@ -224,12 +245,14 @@ func TestSplitToken(t *testing.T) {
 }
 
 func TestVerifyRequestJWT_Integration(t *testing.T) {
+	t.Parallel()
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 
 	req := testRequest(t)
 
 	t.Run("valid JWT verification", func(t *testing.T) {
+		t.Parallel()
 		token, err := CreateRequestJWT(req)
 		require.NoError(t, err)
 
@@ -247,6 +270,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 	})
 
 	t.Run("invalid token format", func(t *testing.T) {
+		t.Parallel()
 		invalidToken := "invalid.token"
 
 		_, _, err := VerifyRequestJWT(invalidToken, req)
@@ -255,6 +279,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 	})
 
 	t.Run("digest mismatch", func(t *testing.T) {
+		t.Parallel()
 		now := time.Now()
 		claims := JWTClaims{
 			Digest: "0x123", // different digest
@@ -276,6 +301,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 	})
 
 	t.Run("expired token", func(t *testing.T) {
+		t.Parallel()
 		// Create token with past expiry
 		token, err := CreateRequestJWT(req, WithExpiry(-time.Hour))
 		require.NoError(t, err)
@@ -289,6 +315,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 	})
 
 	t.Run("wrong signing method", func(t *testing.T) {
+		t.Parallel()
 		digest, err := req.Digest()
 		require.NoError(t, err)
 		claims := JWTClaims{
@@ -308,6 +335,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 	})
 
 	t.Run("should validate that expiredAt is after time.Now()", func(t *testing.T) {
+		t.Parallel()
 		digest, err := req.Digest()
 		require.NoError(t, err)
 
@@ -333,6 +361,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 	})
 
 	t.Run("should reject JWT with issuedAt in the future", func(t *testing.T) {
+		t.Parallel()
 		digest, err := req.Digest()
 		require.NoError(t, err)
 
@@ -365,6 +394,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 	})
 
 	t.Run("should accept JWT with issuedAt slightly in the future (within default tolerance)", func(t *testing.T) {
+		t.Parallel()
 		digest, err := req.Digest()
 		require.NoError(t, err)
 
@@ -391,6 +421,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 	})
 
 	t.Run("should validate that expiredAt exceeds max expiry", func(t *testing.T) {
+		t.Parallel()
 		digest, err := req.Digest()
 		require.NoError(t, err)
 
@@ -418,10 +449,12 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 	})
 
 	t.Run("should validate that required fields expiredAt and issuedAt are present", func(t *testing.T) {
+		t.Parallel()
 		digest, err := req.Digest()
 		require.NoError(t, err)
 
 		t.Run("missing expiredAt", func(t *testing.T) {
+			t.Parallel()
 			claims := JWTClaims{
 				Digest: "0x" + digest,
 				RegisteredClaims: jwt.RegisteredClaims{
@@ -441,6 +474,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 		})
 
 		t.Run("missing issuedAt", func(t *testing.T) {
+			t.Parallel()
 			claims := JWTClaims{
 				Digest: "0x" + digest,
 				RegisteredClaims: jwt.RegisteredClaims{
@@ -461,6 +495,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 	})
 
 	t.Run("should respect custom max expiry duration option", func(t *testing.T) {
+		t.Parallel()
 		digest, err := req.Digest()
 		require.NoError(t, err)
 
@@ -489,6 +524,7 @@ func TestVerifyRequestJWT_Integration(t *testing.T) {
 }
 
 func TestSigningMethodRegistration(t *testing.T) {
+	t.Parallel()
 	method := jwt.GetSigningMethod("ETH")
 	require.NotNil(t, method)
 

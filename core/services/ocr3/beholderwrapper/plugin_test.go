@@ -14,6 +14,7 @@ import (
 )
 
 func Test_ReportingPlugin_WrapsAllMethods(t *testing.T) {
+	t.Parallel()
 	m, err := metrics.NewPluginMetrics(MetricPrefix, "test", "abc")
 	require.NoError(t, err)
 
@@ -66,6 +67,7 @@ func Test_ReportingPlugin_WrapsAllMethods(t *testing.T) {
 }
 
 func Test_ReportingPlugin_PropagatesErrors(t *testing.T) {
+	t.Parallel()
 	m, err := metrics.NewPluginMetrics(MetricPrefix, "test", "abc")
 	require.NoError(t, err)
 
@@ -104,6 +106,7 @@ func Test_ReportingPlugin_PropagatesErrors(t *testing.T) {
 }
 
 func Test_BoolToInt(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, 1, boolToInt(true))
 	require.Equal(t, 0, boolToInt(false))
 }

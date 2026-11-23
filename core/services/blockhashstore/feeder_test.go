@@ -221,8 +221,10 @@ var (
 )
 
 func TestStartHeartbeats(t *testing.T) {
+	t.Parallel()
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	t.Run("bhs_heartbeat_happy_path", func(t *testing.T) {
+		t.Parallel()
 		expectedDuration := 600 * time.Second
 		mockBHS := bhsmocks.NewBHS(t)
 		mockLogger := logger.NewMockLogger(t)
@@ -268,6 +270,7 @@ func TestStartHeartbeats(t *testing.T) {
 	})
 
 	t.Run("bhs_heartbeat_sad_path_store_earliest_err", func(t *testing.T) {
+		t.Parallel()
 		expectedDuration := 600 * time.Second
 		expectedError := errors.New("insufficient gas")
 		mockBHS := bhsmocks.NewBHS(t)
@@ -317,6 +320,7 @@ func TestStartHeartbeats(t *testing.T) {
 	})
 
 	t.Run("bhs_heartbeat_sad_path_heartbeat_0", func(t *testing.T) {
+		t.Parallel()
 		expectedDuration := 0 * time.Second
 		mockBHS := bhsmocks.NewBHS(t)
 		mockLogger := logger.NewMockLogger(t)
@@ -361,8 +365,12 @@ type testCase struct {
 }
 
 func TestFeeder(t *testing.T) {
+	t.Parallel()
 	for _, test := range tests {
-		t.Run(test.name, test.testFeeder)
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			test.testFeeder(t)
+		})
 	}
 }
 
@@ -399,8 +407,12 @@ func (test testCase) testFeeder(t *testing.T) {
 }
 
 func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
+	t.Parallel()
 	for _, test := range tests {
-		t.Run(test.name, test.testFeederWithLogPollerVRFv2Plus)
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			test.testFeederWithLogPollerVRFv2Plus(t)
+		})
 	}
 }
 
@@ -498,6 +510,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {
+	t.Parallel()
 	coordinator := &TestCoordinator{
 		RequestEvents: []Event{{Block: 100, ID: "1000"}},
 	}

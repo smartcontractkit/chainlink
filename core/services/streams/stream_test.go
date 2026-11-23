@@ -57,13 +57,14 @@ func (m *MockTask) TaskMinBackoff() time.Duration      { return 0 }
 func (m *MockTask) TaskMaxBackoff() time.Duration      { return 0 }
 
 func Test_Stream(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
-	runner := &mockRunner{}
 	ctx := t.Context()
 
 	t.Run("errors with empty pipeline", func(t *testing.T) {
+		t.Parallel()
 		jbInvalid := job.Job{StreamID: new(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: ``}}
-		_, err := newMultiStreamPipeline(lggr, jbInvalid, runner, nil)
+		_, err := newMultiStreamPipeline(lggr, jbInvalid, &mockRunner{}, nil)
 		require.EqualError(t, err, "unparseable pipeline: empty pipeline")
 	})
 
@@ -73,13 +74,16 @@ succeed;
 	`}}
 
 	t.Run("Run", func(t *testing.T) {
-		strm, err := newMultiStreamPipeline(lggr, jb, runner, nil)
-		require.NoError(t, err)
+		t.Parallel()
 
 		t.Run("executes the pipeline (success)", func(t *testing.T) {
-			runner.run = &pipeline.Run{ID: 42}
-			runner.trrs = []pipeline.TaskRunResult{{ID: UUID}}
-			runner.err = nil
+			t.Parallel()
+			runner := &mockRunner{
+				run:  &pipeline.Run{ID: 42},
+				trrs: []pipeline.TaskRunResult{{ID: UUID}},
+			}
+			strm, err := newMultiStreamPipeline(lggr, jb, runner, nil)
+			require.NoError(t, err)
 
 			run, trrs, err := strm.Run(ctx)
 			require.NoError(t, err)
@@ -89,9 +93,13 @@ succeed;
 			assert.Equal(t, UUID, trrs[0].ID)
 		})
 		t.Run("executes the pipeline (failure)", func(t *testing.T) {
+			t.Parallel()
+			runner := &mockRunner{}
+			strm, err := newMultiStreamPipeline(lggr, jb, runner, nil)
+			require.NoError(t, err)
 			runner.err = errors.New("something exploded")
 
-			_, _, err := strm.Run(ctx)
+			_, _, err = strm.Run(ctx)
 			require.Error(t, err)
 
 			assert.EqualError(t, err, "Run failed: error executing run for spec ID 0: something exploded")

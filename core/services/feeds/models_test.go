@@ -48,6 +48,7 @@ func Test_NewChainType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			ct, err := NewChainType(tt.give)
 
 			assert.Equal(t, tt.want, ct)
@@ -149,6 +150,7 @@ func Test_OCR1Config_Value(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			val, err := tt.give.Value()
 			require.NoError(t, err)
 
@@ -211,6 +213,7 @@ func Test_OCR1Config_Scan(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var actual OCR1Config
 			err := actual.Scan([]byte(tt.give))
 			require.NoError(t, err)

@@ -35,6 +35,7 @@ import (
 )
 
 func TestValidateOracleSpec(t *testing.T) {
+	t.Parallel()
 	tt := []struct {
 		name      string
 		toml      string
@@ -432,6 +433,7 @@ answer1      [type=median index=0];
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			c := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Insecure.OCRDevelopmentMode = null.BoolFrom(false).Ptr()
 				if tc.overrides != nil {
@@ -448,6 +450,7 @@ answer1      [type=median index=0];
 }
 
 func TestOnChainContractAvailability(t *testing.T) {
+	t.Parallel()
 	// Because some RPCs prune logs we have scenarios in which a job spec update will lead to outages because of the inability to get the logs. We need to safeguard against these outages by checking if the node can access the OCR configuration
 	// There are 4 possible scenarios:
 	// 1. Contract is not deployed

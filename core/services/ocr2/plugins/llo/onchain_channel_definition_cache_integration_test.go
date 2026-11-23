@@ -196,7 +196,13 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	backend.Commit() // ensure starting block number at least 1
 
-	ethClient := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
+	// The DB is shared by every test in this package (pgtest wraps each test in
+	// a transaction over the same schema), and evm.log_poller_blocks is unique
+	// on (evm_chain_id, block_number). A chain ID shared with a parallel test
+	// makes the two log pollers block on each other's uncommitted block rows
+	// until pgtest's lock timeout aborts one of the transactions.
+	chainID := testutils.NewRandomEVMChainID()
+	ethClient := client.NewSimulatedBackendClient(t, backend, chainID)
 
 	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend.Client())
 	require.NoError(t, err)
@@ -212,7 +218,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	}
 	ht := headstest.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(
-		logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts,
+		logpoller.NewORM(chainID, db, lggr), ethClient, lggr, ht, lpOpts,
 	)
 	servicetest.Run(t, lp)
 
@@ -710,7 +716,11 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	backend.Commit() // ensure starting block number at least 1
 
-	ethClient := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
+	// See Test_ChannelDefinitionCache_Integration: a chain ID shared with a
+	// parallel test makes the two log pollers block on the same
+	// evm.log_poller_blocks rows in the shared test database.
+	chainID := testutils.NewRandomEVMChainID()
+	ethClient := client.NewSimulatedBackendClient(t, backend, chainID)
 
 	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend.Client())
 	require.NoError(t, err)
@@ -726,7 +736,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 	}
 	ht := headstest.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(
-		logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts,
+		logpoller.NewORM(chainID, db, lggr), ethClient, lggr, ht, lpOpts,
 	)
 	servicetest.Run(t, lp)
 

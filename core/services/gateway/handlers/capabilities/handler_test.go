@@ -61,6 +61,7 @@ func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON,
 }
 
 func TestHandler_SendHTTPMessageToClient(t *testing.T) {
+	t.Parallel()
 	handler, httpClient, don, nodes := setupHandler(t)
 	ctx := t.Context()
 	nodeAddr := nodes[0].Address
@@ -85,7 +86,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	require.NoError(t, err)
 	err = msg.Validate()
 	require.NoError(t, err)
-	t.Run("happy case", func(t *testing.T) {
+	t.Run("happy case", func(t *testing.T) { //nolint:paralleltest // subtests share one handler, its mocks and WaitGroup
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
 			StatusCode: 200,
 			Body:       []byte("response body"),
@@ -120,7 +121,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		require.True(t, don.AssertExpectations(t))
 	})
 
-	t.Run("http client non-HTTP error", func(t *testing.T) {
+	t.Run("http client non-HTTP error", func(t *testing.T) { //nolint:paralleltest // subtests share one handler, its mocks and WaitGroup
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
 			StatusCode: 404,
 			Body:       []byte("access denied"),
@@ -156,7 +157,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		require.True(t, don.AssertExpectations(t))
 	})
 
-	t.Run("http client non-HTTP error", func(t *testing.T) {
+	t.Run("http client non-HTTP error", func(t *testing.T) { //nolint:paralleltest // subtests share one handler, its mocks and WaitGroup
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
 
 		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
@@ -189,6 +190,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 }
 
 func TestHandlerStartClose(t *testing.T) {
+	t.Parallel()
 	handler, _, _, _ := setupHandler(t)
 	ctx := t.Context()
 

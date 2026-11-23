@@ -35,11 +35,12 @@ func (m *mockPipeline) TerminalDotIDs() []string {
 }
 
 func Test_Registry(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
-	runner := &mockRunner{}
 
 	t.Run("Get", func(t *testing.T) {
-		sr := newRegistry(lggr, runner)
+		t.Parallel()
+		sr := newRegistry(lggr, &mockRunner{})
 
 		sr.pipelines[1] = &mockPipeline{run: &pipeline.Run{ID: 1}}
 		sr.pipelines[2] = &mockPipeline{run: &pipeline.Run{ID: 2}}
@@ -62,7 +63,8 @@ func Test_Registry(t *testing.T) {
 		assert.False(t, exists)
 	})
 	t.Run("Register", func(t *testing.T) {
-		sr := newRegistry(lggr, runner)
+		t.Parallel()
+		sr := newRegistry(lggr, &mockRunner{})
 
 		// registers new pipeline with multiple stream IDs
 		assert.Empty(t, sr.pipelines)
@@ -184,22 +186,30 @@ result3 -> result3_parse -> multiply3;
 		assert.Equal(t, int32(33), msp.spec.ID)
 	})
 	t.Run("Unregister", func(t *testing.T) {
-		sr := newRegistry(lggr, runner)
+		t.Parallel()
 
-		err := sr.Register(job.Job{ID: 100, StreamID: new(StreamID(1)), Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: `
+		newUnregisterFixture := func(t *testing.T) *streamRegistry {
+			t.Helper()
+			sr := newRegistry(lggr, &mockRunner{})
+
+			err := sr.Register(job.Job{ID: 100, StreamID: new(StreamID(1)), Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: `
 result1          [type=memo value="900.0022" streamID=2];
 		`}}, nil)
-		require.NoError(t, err)
-		err = sr.Register(job.Job{ID: 101, Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: `
+			require.NoError(t, err)
+			err = sr.Register(job.Job{ID: 101, Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: `
 result1          [type=memo value="900.0022" streamID=3];
 		`}}, nil)
-		require.NoError(t, err)
-		err = sr.Register(job.Job{ID: 102, Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: `
+			require.NoError(t, err)
+			err = sr.Register(job.Job{ID: 102, Type: job.Stream, PipelineSpec: &pipeline.Spec{ID: 33, DotDagSource: `
 result1          [type=memo value="900.0022" streamID=4];
 		`}}, nil)
-		require.NoError(t, err)
+			require.NoError(t, err)
+			return sr
+		}
 
 		t.Run("unregisters a stream", func(t *testing.T) {
+			t.Parallel()
+			sr := newUnregisterFixture(t)
 			assert.Len(t, sr.pipelines, 4)
 
 			sr.Unregister(100)
@@ -211,13 +221,15 @@ result1          [type=memo value="900.0022" streamID=4];
 			assert.False(t, exists)
 		})
 		t.Run("no effect when unregistering a non-existent stream", func(t *testing.T) {
-			assert.Len(t, sr.pipelines, 2)
+			t.Parallel()
+			sr := newUnregisterFixture(t)
+			assert.Len(t, sr.pipelines, 4)
 
 			sr.Unregister(1)
 
-			assert.Len(t, sr.pipelines, 2)
+			assert.Len(t, sr.pipelines, 4)
 			_, exists := sr.pipelines[1]
-			assert.False(t, exists)
+			assert.True(t, exists)
 		})
 	})
 }

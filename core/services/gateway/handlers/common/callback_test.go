@@ -10,6 +10,7 @@ import (
 )
 
 func Test_Callback(t *testing.T) {
+	t.Parallel()
 	cb := NewCallback()
 	payload := handlers.UserCallbackPayload{RawResponse: []byte("test")}
 
