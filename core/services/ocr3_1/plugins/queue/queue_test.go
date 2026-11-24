@@ -37,28 +37,64 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuepb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
-// libocr calls NewReportingPlugin with no recover, so a panic here takes down
-// the whole node. This guards the constructor and the plugin lifecycle.
+// TestConsensusQueuePluginFactory_NewReportingPlugin asserts the plugin takes its limits from the OCR offchain config
+// and refuses to start without a valid one. libocr calls NewReportingPlugin with no recover, so a panic here would
+// take down the whole node.
 func TestConsensusQueuePluginFactory_NewReportingPlugin(t *testing.T) {
 	t.Parallel()
 
-	cfg := &PluginConfig{Limits: ocr3_1types.ReportingPluginLimits{MaxKeyValueModifiedKeys: 1}}
-	factory, err := NewConsensusQueuePluginFactory(logger.Test(t), cfg, limits.Factory{}, noopCoordinator{}, noopQueue{}, noop.NewMeterProvider().Meter("test"))
+	validCfg, err := proto.Marshal(&queuepb.ReportingPluginConfig{
+		Limits: &queuepb.ReportingPluginLimits{
+			MaxObservationBytes:                    1024,
+			MaxKeyValueModifiedKeys:                10,
+			MaxKeyValueModifiedKeysPlusValuesBytes: 2048,
+		},
+	})
 	require.NoError(t, err)
 
-	plugin, info, err := factory.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{N: 4, F: 1}, nil)
-	require.NoError(t, err)
-	require.NotNil(t, plugin)
+	t.Run("limits come from the OCR config", func(t *testing.T) {
+		t.Parallel()
+		factory, err := NewConsensusQueuePluginFactory(logger.Test(t), limits.Factory{}, noopCoordinator{}, noopQueue{}, noop.NewMeterProvider().Meter("test"))
+		require.NoError(t, err)
 
-	info1, ok := info.(ocr3_1types.ReportingPluginInfo1)
-	require.True(t, ok, "unexpected ReportingPluginInfo type %T", info)
-	require.Equal(t, "ConsensusQueueReportingPlugin", info1.Name)
-	require.Equal(t, cfg.Limits, info1.Limits)
+		plugin, info, err := factory.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{N: 4, F: 1, OffchainConfig: validCfg}, nil)
+		require.NoError(t, err)
+		require.NotNil(t, plugin)
+		t.Cleanup(func() { require.NoError(t, plugin.Close()) })
 
-	require.NoError(t, plugin.Close())
+		info1, ok := info.(ocr3_1types.ReportingPluginInfo1)
+		require.True(t, ok, "unexpected ReportingPluginInfo type %T", info)
+		require.Equal(t, "ConsensusQueueReportingPlugin", info1.Name)
+		want := ocr3_1types.ReportingPluginLimits{
+			MaxObservationBytes:                    1024,
+			MaxKeyValueModifiedKeys:                10,
+			MaxKeyValueModifiedKeysPlusValuesBytes: 2048,
+		}
+		require.Equal(t, want, info1.Limits)
+	})
+
+	tests := []struct {
+		name string
+		got  []byte
+	}{
+		{name: "empty config", got: nil},
+		{name: "malformed config", got: []byte{0xff}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			factory, err := NewConsensusQueuePluginFactory(logger.Test(t), limits.Factory{}, noopCoordinator{}, noopQueue{}, noop.NewMeterProvider().Meter("test"))
+			require.NoError(t, err)
+
+			plugin, _, err := factory.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{N: 4, F: 1, OffchainConfig: tt.got}, nil)
+			require.Error(t, err)
+			require.Nil(t, plugin)
+		})
+	}
 }
 
 type noopCoordinator struct{}
@@ -1682,21 +1718,18 @@ func TestObservationsAggregate_Omissions(t *testing.T) {
 func TestNewConsensusQueuePluginFactory_Validation(t *testing.T) {
 	t.Parallel()
 
-	cfg := &PluginConfig{}
 	tests := []struct {
 		name  string
-		cfg   *PluginConfig
 		coord triggers.Coordinator
 		queue triggers.Queue
 	}{
-		{"nil cfg", nil, noopCoordinator{}, noopQueue{}},
-		{"nil coordinator", cfg, nil, noopQueue{}},
-		{"nil queue", cfg, noopCoordinator{}, nil},
+		{"nil coordinator", nil, noopQueue{}},
+		{"nil queue", noopCoordinator{}, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			f, err := NewConsensusQueuePluginFactory(logger.Test(t), tt.cfg, limits.Factory{}, tt.coord, tt.queue, noop.NewMeterProvider().Meter("test"))
+			f, err := NewConsensusQueuePluginFactory(logger.Test(t), limits.Factory{}, tt.coord, tt.queue, noop.NewMeterProvider().Meter("test"))
 			require.Error(t, err)
 			assert.Nil(t, f)
 		})
@@ -1705,7 +1738,7 @@ func TestNewConsensusQueuePluginFactory_Validation(t *testing.T) {
 
 func TestNewConsensusQueuePluginFactory_NilMeter(t *testing.T) {
 	t.Parallel()
-	f, err := NewConsensusQueuePluginFactory(logger.Test(t), &PluginConfig{}, limits.Factory{}, noopCoordinator{}, noopQueue{}, nil)
+	f, err := NewConsensusQueuePluginFactory(logger.Test(t), limits.Factory{}, noopCoordinator{}, noopQueue{}, nil)
 	require.ErrorContains(t, err, "meter")
 	assert.Nil(t, f)
 }

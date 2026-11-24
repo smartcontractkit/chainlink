@@ -58,15 +58,21 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuepb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
+)
+
+const (
+	maxObservedBlobHandles = 10   // sanity check on blobs in an observation
+	maxObservedEvents      = 1000 // sanity check events in an observation
+	maxKeyValueValueBytes  = ocr3_1types.MaxMaxKeyValueValueBytes
 )
 
 var _ ocr3_1types.ReportingPluginFactory[[]byte] = &consensusQueuePluginFactory{}
 
 type consensusQueuePluginFactory struct {
 	lggr               logger.Logger
-	cfg                *PluginConfig
 	triggerCoordinator triggers.Coordinator
 	triggerQueue       triggers.Queue
 	expirationDur      func(context.Context) (time.Duration, error)
@@ -89,15 +95,11 @@ func KVDrainActive(lf limits.Factory) func(ctx context.Context, at time.Time) (b
 
 func NewConsensusQueuePluginFactory(
 	lggr logger.Logger,
-	cfg *PluginConfig,
 	limitsFactory limits.Factory,
 	triggerCoordinator triggers.Coordinator,
 	triggerQueue triggers.Queue,
 	meter metric.Meter,
 ) (ocr3_1types.ReportingPluginFactory[[]byte], error) {
-	if cfg == nil {
-		return nil, errors.New("cfg cannot be nil")
-	}
 	if triggerCoordinator == nil {
 		return nil, errors.New("triggerCoordinator cannot be nil")
 	}
@@ -109,7 +111,6 @@ func NewConsensusQueuePluginFactory(
 	}
 	return &consensusQueuePluginFactory{
 		lggr:               lggr,
-		cfg:                cfg,
 		triggerCoordinator: triggerCoordinator,
 		triggerQueue:       triggerQueue,
 		expirationDur:      triggers.ConsensusQueueExpirationGrace(limitsFactory),
@@ -118,16 +119,29 @@ func NewConsensusQueuePluginFactory(
 	}, nil
 }
 
-func (c *consensusQueuePluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, blobs ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
+// NewReportingPlugin reads the plugin's OCR limits from config.OffchainConfig, which the config digest covers.
+// Returns an error, without starting the plugin, if the offchain config is empty or invalid.
+func (c *consensusQueuePluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
+	pluginCfg, err := queuepb.Decode(config.OffchainConfig)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("decode reporting plugin config: %w", err)
+	}
+	pluginLimits, err := pluginCfg.OCRLimits()
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, err
+	}
+	c.lggr.Infow("Creating consensus-queue reporting plugin", "configDigest", config.ConfigDigest.String(), "limits", pluginLimits)
+
 	metrics, err := newPluginMetrics(c.meter, config.ConfigDigest.String())
 	if err != nil {
 		return nil, nil, err
 	}
-	plugin := newConsensusQueuePlugin(c.lggr, config, c.cfg.Limits, c.triggerCoordinator, c.triggerQueue, c.expirationDur, blobs, metrics)
+
+	plugin := newConsensusQueuePlugin(c.lggr, config, pluginLimits, c.triggerCoordinator, c.triggerQueue, c.expirationDur, fetcher, metrics)
 	plugin.kvDrain = c.kvDrain
 	pluginInfo := ocr3_1types.ReportingPluginInfo1{
 		Name:   "ConsensusQueueReportingPlugin",
-		Limits: c.cfg.Limits,
+		Limits: pluginLimits,
 	}
 	return plugin, pluginInfo, plugin.Start(ctx)
 }

@@ -9,6 +9,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuepb"
 )
 
 type pluginConfig interface {
@@ -107,16 +109,89 @@ func (c *VaultOffchainConfig) Marshal() ([]byte, error) {
 	return proto.Marshal(pb)
 }
 
+// ConsensusQueueOffchainConfig is the consensus-queue plugin config written into the OCR offchain config.
+// The node reads its OCR limits only from here, so the config digest covers them.
+type ConsensusQueueOffchainConfig struct {
+	Limits ConsensusQueueLimits `yaml:"limits" json:"limits"`
+}
+
+// ConsensusQueueLimits mirrors libocr's ocr3_1types.ReportingPluginLimits.
+type ConsensusQueueLimits struct {
+	MaxQueryBytes                                   uint32 `yaml:"maxQueryBytes" json:"maxQueryBytes"`
+	MaxObservationBytes                             uint32 `yaml:"maxObservationBytes" json:"maxObservationBytes"`
+	MaxReportsPlusPrecursorBytes                    uint32 `yaml:"maxReportsPlusPrecursorBytes" json:"maxReportsPlusPrecursorBytes"`
+	MaxReportBytes                                  uint32 `yaml:"maxReportBytes" json:"maxReportBytes"`
+	MaxReportCount                                  uint32 `yaml:"maxReportCount" json:"maxReportCount"`
+	MaxKeyValueModifiedKeys                         uint32 `yaml:"maxKeyValueModifiedKeys" json:"maxKeyValueModifiedKeys"`
+	MaxKeyValueModifiedKeysPlusValuesBytes          uint32 `yaml:"maxKeyValueModifiedKeysPlusValuesBytes" json:"maxKeyValueModifiedKeysPlusValuesBytes"`
+	MaxBlobPayloadBytes                             uint32 `yaml:"maxBlobPayloadBytes" json:"maxBlobPayloadBytes"`
+	MaxPerOracleUnexpiredBlobCumulativePayloadBytes uint32 `yaml:"maxPerOracleUnexpiredBlobCumulativePayloadBytes" json:"maxPerOracleUnexpiredBlobCumulativePayloadBytes"`
+	MaxPerOracleUnexpiredBlobCount                  uint32 `yaml:"maxPerOracleUnexpiredBlobCount" json:"maxPerOracleUnexpiredBlobCount"`
+}
+
+// DefaultConsensusQueueOffchainConfig returns starting limits for a consensus-queue DON.
+// The plugin broadcasts trigger events as blobs, so the blob quotas hold every blob in a full observation,
+// and it writes a fixed handful of KV keys per round.
+// The plugin has no queries or reports, so those limits are zero.
+// The node never applies defaults itself. Different node versions would otherwise disagree under the same digest.
+func DefaultConsensusQueueOffchainConfig() *ConsensusQueueOffchainConfig {
+	return &ConsensusQueueOffchainConfig{
+		Limits: ConsensusQueueLimits{
+			MaxObservationBytes:                             512 * 1024,
+			MaxKeyValueModifiedKeys:                         4,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          10 * 1024 * 1024,
+			MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCount:                  100,
+		},
+	}
+}
+
+// Marshal encodes the config as a queuepb.ReportingPluginConfig.
+// Returns an error if the limits would be rejected by the node (see queuepb.Decode).
+func (c *ConsensusQueueOffchainConfig) Marshal() ([]byte, error) {
+	l := c.Limits
+	b, err := proto.Marshal(&queuepb.ReportingPluginConfig{
+		Limits: &queuepb.ReportingPluginLimits{
+			MaxQueryBytes:                                   l.MaxQueryBytes,
+			MaxObservationBytes:                             l.MaxObservationBytes,
+			MaxReportsPlusPrecursorBytes:                    l.MaxReportsPlusPrecursorBytes,
+			MaxReportBytes:                                  l.MaxReportBytes,
+			MaxReportCount:                                  l.MaxReportCount,
+			MaxKeyValueModifiedKeys:                         l.MaxKeyValueModifiedKeys,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          l.MaxKeyValueModifiedKeysPlusValuesBytes,
+			MaxBlobPayloadBytes:                             l.MaxBlobPayloadBytes,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: l.MaxPerOracleUnexpiredBlobCumulativePayloadBytes,
+			MaxPerOracleUnexpiredBlobCount:                  l.MaxPerOracleUnexpiredBlobCount,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal consensus-queue offchain config: %w", err)
+	}
+	if _, err := queuepb.Decode(b); err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
 func getPluginConfig(cfg V3_1OracleConfig) (pluginConfig, error) {
-	var result pluginConfig
+	var set []pluginConfig
 	if cfg.DKGOffchainConfig != nil {
-		result = cfg.DKGOffchainConfig
+		set = append(set, cfg.DKGOffchainConfig)
 	}
 	if cfg.VaultOffchainConfig != nil {
-		if result != nil {
-			return nil, errors.New("multiple offchain configs specified in V3_1OracleConfig: only one of DKGOffchainConfig or VaultOffchainConfig may be set")
-		}
-		result = cfg.VaultOffchainConfig
+		set = append(set, cfg.VaultOffchainConfig)
 	}
-	return result, nil
+	if cfg.ConsensusQueueOffchainConfig != nil {
+		set = append(set, cfg.ConsensusQueueOffchainConfig)
+	}
+
+	switch len(set) {
+	case 0:
+		return nil, nil
+	case 1:
+		return set[0], nil
+	default:
+		return nil, errors.New("multiple offchain configs specified in V3_1OracleConfig: only one of DKGOffchainConfig, VaultOffchainConfig or ConsensusQueueOffchainConfig may be set")
+	}
 }

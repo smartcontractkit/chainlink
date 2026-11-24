@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -124,7 +123,8 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 	case types.RingPlugin:
 		return validateRingPluginSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.ConsensusQueue:
-		return validateConsensusQueuePluginSpec(spec.OCR2OracleSpec.PluginConfig)
+		return errors.New("consensus-queue is launched from the Capabilities Registry, not a job spec: " +
+			"add it to [Capabilities.Local] RegistryBasedLaunchAllowlist instead")
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -325,12 +325,4 @@ func validateOCR2LLOSpec(jsonConfig job.JSONConfig) error {
 		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
 	}
 	return pkgerrors.Wrap(pluginConfig.Validate(), "LLO PluginConfig is invalid")
-}
-
-func validateConsensusQueuePluginSpec(jsonConfig job.JSONConfig) error {
-	cfg := &queue.PluginConfig{}
-	if err := json.Unmarshal(jsonConfig.Bytes(), cfg); err != nil {
-		return fmt.Errorf("failed to unmarshal consensus queue plugin config: %w", err)
-	}
-	return cfg.Validate()
 }

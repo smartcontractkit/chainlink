@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -23,82 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 )
 
-func validLimits() ocr3_1types.ReportingPluginLimits {
-	return ocr3_1types.ReportingPluginLimits{
-		MaxObservationBytes:                             ocr3_1types.MaxMaxObservationBytes,
-		MaxKeyValueModifiedKeys:                         numKVKeys,
-		MaxKeyValueModifiedKeysPlusValuesBytes:          ocr3_1types.MaxMaxKeyValueModifiedKeysPlusValuesBytes,
-		MaxBlobPayloadBytes:                             ocr3_1types.MaxMaxBlobPayloadBytes,
-		MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 2 * maxObservedBlobHandles * ocr3_1types.MaxMaxBlobPayloadBytes,
-		MaxPerOracleUnexpiredBlobCount:                  100,
-	}
-}
-
-func TestPluginConfig_Validate(t *testing.T) {
-	t.Parallel()
-
-	t.Run("a missing config is an error, not a panic", func(t *testing.T) {
-		t.Parallel()
-		var c *PluginConfig
-		assert.ErrorContains(t, c.Validate(), "missing")
-	})
-
-	tests := []struct {
-		name    string
-		mutate  func(l *ocr3_1types.ReportingPluginLimits)
-		wantErr string // empty means valid
-	}{
-		{name: "valid"},
-		{"observation bytes unset", func(l *ocr3_1types.ReportingPluginLimits) { l.MaxObservationBytes = 0 }, "MaxObservationBytes"},
-		{"observation bytes above libocr max", func(l *ocr3_1types.ReportingPluginLimits) {
-			l.MaxObservationBytes = ocr3_1types.MaxMaxObservationBytes + 1
-		}, "out of range"},
-		{"blob payload unset", func(l *ocr3_1types.ReportingPluginLimits) { l.MaxBlobPayloadBytes = 0 }, "MaxBlobPayloadBytes"},
-		{"blob payload above libocr max", func(l *ocr3_1types.ReportingPluginLimits) {
-			l.MaxBlobPayloadBytes = ocr3_1types.MaxMaxBlobPayloadBytes + 1
-		}, "out of range"},
-		{"kv bytes unset", func(l *ocr3_1types.ReportingPluginLimits) { l.MaxKeyValueModifiedKeysPlusValuesBytes = 0 }, "MaxKeyValueModifiedKeysPlusValuesBytes"},
-		{"too few modified keys", func(l *ocr3_1types.ReportingPluginLimits) { l.MaxKeyValueModifiedKeys = numKVKeys - 1 }, "MaxKeyValueModifiedKeys"},
-		{"blob count unset", func(l *ocr3_1types.ReportingPluginLimits) { l.MaxPerOracleUnexpiredBlobCount = 0 }, "MaxPerOracleUnexpiredBlobCount"},
-		{"blob count below one full observation", func(l *ocr3_1types.ReportingPluginLimits) {
-			l.MaxPerOracleUnexpiredBlobCount = maxObservedBlobHandles - 1
-		}, "MaxPerOracleUnexpiredBlobCount"},
-		{"cumulative blob bytes cannot hold a full observation", func(l *ocr3_1types.ReportingPluginLimits) {
-			l.MaxPerOracleUnexpiredBlobCumulativePayloadBytes = maxObservedBlobHandles*l.MaxBlobPayloadBytes - 1
-		}, "MaxPerOracleUnexpiredBlobCumulativePayloadBytes"},
-		{"exactly one full observation of blobs is enough", func(l *ocr3_1types.ReportingPluginLimits) {
-			l.MaxPerOracleUnexpiredBlobCumulativePayloadBytes = maxObservedBlobHandles * l.MaxBlobPayloadBytes
-			l.MaxPerOracleUnexpiredBlobCount = maxObservedBlobHandles
-		}, ""},
-		{"negative", func(l *ocr3_1types.ReportingPluginLimits) { l.MaxObservationBytes = -1 }, "MaxObservationBytes"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			cfg := &PluginConfig{Limits: validLimits()}
-			if tt.mutate != nil {
-				tt.mutate(&cfg.Limits)
-			}
-			err := cfg.Validate()
-			if tt.wantErr == "" {
-				require.NoError(t, err)
-				return
-			}
-			require.ErrorContains(t, err, tt.wantErr)
-		})
-	}
-
-	t.Run("reports every problem", func(t *testing.T) {
-		t.Parallel()
-		err := (&PluginConfig{}).Validate()
-		require.Error(t, err)
-		for _, field := range []string{"MaxObservationBytes", "MaxBlobPayloadBytes", "MaxKeyValueModifiedKeysPlusValuesBytes", "MaxPerOracleUnexpiredBlobCount", "MaxKeyValueModifiedKeys"} {
-			assert.ErrorContains(t, err, field)
-		}
-	})
-}
-
-// The tests below calibrate the constants in config.go (and the libocr limits they must fit within) by measuring real
+// The tests below calibrate the constants in queue.go (and the libocr limits they must fit within) by measuring real
 // protobuf sizes. They log a table (run with -v) and assert the invariants that keep the plugin inside libocr's hard limits.
 // Inputs that are assumptions, rather than measurements, are marked as such.
 

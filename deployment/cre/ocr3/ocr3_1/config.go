@@ -43,6 +43,8 @@ type V3_1OracleConfig struct {
 
 	DKGOffchainConfig   *DKGOffchainConfig   `yaml:"dkgOffchainConfig,omitempty" json:"dkgOffchainConfig,omitempty"`
 	VaultOffchainConfig *VaultOffchainConfig `yaml:"vaultOffchainConfig,omitempty" json:"vaultOffchainConfig,omitempty"`
+
+	ConsensusQueueOffchainConfig *ConsensusQueueOffchainConfig `yaml:"consensusQueueOffchainConfig,omitempty" json:"consensusQueueOffchainConfig,omitempty"`
 }
 
 func GenerateOCR3_1ConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte, extraSignerFamilies []string) (ocr3.OCR2OracleConfig, error) {
@@ -82,7 +84,7 @@ func genOCR3_1Config(cfg V3_1OracleConfig, identities []confighelper.OracleIdent
 		}
 	}
 	if cfgBytes == nil {
-		return ocr3.OCR2OracleConfig{}, errors.New("failed to get offchain config: one of reportingPluginConfigOverride, DKGOffchainConfig, or VaultOffchainConfig is required")
+		return ocr3.OCR2OracleConfig{}, errors.New("failed to get offchain config: one of reportingPluginConfigOverride, DKGOffchainConfig, VaultOffchainConfig or ConsensusQueueOffchainConfig is required")
 	}
 
 	prevConfigDigest, prevHistoryDigest, err := VerifyAndExtractOCR3_1Fields(cfg.PrevConfigDigest, cfg.PrevSeqNr, cfg.PrevHistoryDigest)

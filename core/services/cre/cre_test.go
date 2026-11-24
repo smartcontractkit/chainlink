@@ -105,3 +105,31 @@ func TestNewFetcherServiceV2_FetchMode(t *testing.T) {
 		require.Empty(t, srvs)
 	})
 }
+
+// TestRegistryOCR2PluginType asserts which registry-launched capability IDs route to the OCR2 delegate and with which
+// plugin type. Everything else goes to the standard capabilities delegate.
+func TestRegistryOCR2PluginType(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		capID  string
+		want   commontypes.OCR2PluginType
+		wantOK bool
+	}{
+		{capID: "dontime@1.0.0", want: commontypes.DonTimePlugin, wantOK: true},
+		{capID: "dontime@2.0.0", want: commontypes.DonTimePlugin, wantOK: true},
+		{capID: "consensus-queue@1.0.0", want: commontypes.ConsensusQueue, wantOK: true},
+		{capID: "consensus-queue@2.0.0", want: commontypes.ConsensusQueue, wantOK: true},
+		{capID: "cron-trigger@1.0.0"},
+		{capID: "consensus@1.0.0-alpha"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.capID, func(t *testing.T) {
+			t.Parallel()
+			got, ok := registryOCR2PluginType(tt.capID)
+			if got != tt.want || ok != tt.wantOK {
+				t.Errorf("registryOCR2PluginType(%q) = %q, %v, want %q, %v", tt.capID, got, ok, tt.want, tt.wantOK)
+			}
+		})
+	}
+}
