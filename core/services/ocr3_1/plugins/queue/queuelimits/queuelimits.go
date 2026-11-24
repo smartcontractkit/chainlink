@@ -68,7 +68,8 @@ func BlobQuota(roundDur, eventTimeout, grace time.Duration, payloadBytesPerRound
 	rounds := (lifetime + roundDur - 1) / roundDur // round up: every partial round is a full one
 	rounds = max(rounds, 3)                        // blobs are kept for at least three rounds
 	reapingRounds := (BlobReapingSlack + roundDur - 1) / roundDur
-	totalRounds := uint64(rounds + reapingRounds)
+	// Both are non-negative: roundDur is positive (defaulted above), and each is a positive duration divided by it.
+	totalRounds := uint64(rounds + reapingRounds) //nolint:gosec // G115: non-negative rounds, see above
 
 	count = saturatingMul(uint64(MaxBlobHandlesPerObservation), totalRounds)
 	payloadBytes = saturatingMul(uint64(max(0, payloadBytesPerRound)), totalRounds)
@@ -83,5 +84,5 @@ func saturatingMul(a, b uint64) uint32 {
 	if a > math.MaxUint32/b {
 		return math.MaxUint32
 	}
-	return uint32(a * b) // the guard above bounds the product by math.MaxUint32
+	return uint32(a * b) //nolint:gosec // G115 the guard above bounds the product by math.MaxUint32
 }
