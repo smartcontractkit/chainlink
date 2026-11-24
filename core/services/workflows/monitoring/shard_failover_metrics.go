@@ -26,7 +26,7 @@ const (
 	ShardFailoverReplayMiss      = "miss"
 )
 
-// Outcome values for platform_shard_failover_auto_deferred (low cardinality).
+// Outcome values for platform_shard_failover_deferred_events (low cardinality).
 const (
 	ShardFailoverAutoDeferredConcurrencyLimit = "concurrency_limit"
 	ShardFailoverAutoDeferredLimiterError     = "limiter_error"
@@ -46,7 +46,7 @@ type ShardFailoverMetrics struct {
 	cachedEvents          metric.Int64UpDownCounter
 	cacheExitCounter      metric.Int64Counter
 	replayCounter         metric.Int64Counter
-	autoDeferredCounter   metric.Int64Counter
+	deferredEvents        metric.Int64UpDownCounter
 	replayDurationSeconds metric.Float64Histogram
 }
 
@@ -113,8 +113,8 @@ func newShardFailoverMetricsWithMeter(meter metric.Meter) (*ShardFailoverMetrics
 	if err != nil {
 		return nil, err
 	}
-	m.autoDeferredCounter, err = meter.Int64Counter("platform_shard_failover_auto_deferred",
-		metric.WithDescription("Timeout-based failover passes cut short before executing the remaining due events, by outcome: concurrency_limit (execution concurrency limit reached), limiter_error (limiter failed for another reason)"))
+	m.deferredEvents, err = meter.Int64UpDownCounter("platform_shard_failover_deferred_events",
+		metric.WithDescription("Due trigger events currently left cached because the last timeout-based failover pass stopped early, node-wide across all failover managers on this node, by outcome: concurrency_limit (execution concurrency limit reached), limiter_error (limiter failed for another reason)"))
 	if err != nil {
 		return nil, err
 	}
@@ -170,13 +170,13 @@ func (m *ShardFailoverMetrics) RecordReplay(ctx context.Context, outcome string)
 	m.replayCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", outcome)))
 }
 
-// RecordAutoDeferred counts one timeout-based failover pass that stopped before
-// executing all due events. outcome must be a ShardFailoverAutoDeferred* constant.
-func (m *ShardFailoverMetrics) RecordAutoDeferred(ctx context.Context, outcome string) {
+// AddDeferredEvents moves the node-wide deferred-events total for outcome by
+// delta. outcome must be a ShardFailoverAutoDeferred* constant.
+func (m *ShardFailoverMetrics) AddDeferredEvents(ctx context.Context, outcome string, delta int64) {
 	if m == nil {
 		return
 	}
-	m.autoDeferredCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", outcome)))
+	m.deferredEvents.Add(ctx, delta, metric.WithAttributes(attribute.String("outcome", outcome)))
 }
 
 // RecordReplayDuration records the duration of one failover replay, in

@@ -74,6 +74,11 @@ type ShardFailoverManager struct {
 
 	autoExecCounter metric.Int64Counter
 
+	// deferred is this manager's share of the node-wide deferred-events total, under
+	// deferredOutcome. Only the timeout-based failover loop and close touch it.
+	deferred        int64
+	deferredOutcome string
+
 	mu    sync.RWMutex
 	cache map[string]cachedEvent
 
@@ -223,6 +228,7 @@ func (m *ShardFailoverManager) close() error {
 		fm := shardFailoverMetrics()
 		fm.RecordCacheExit(context.Background(), monitoring.ShardFailoverCacheExitClosed, cached)
 	}
+	m.setDeferredEvents(context.Background(), m.deferredOutcome, 0)
 	return err
 }
 
@@ -498,7 +504,10 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 	}
 	m.mu.RUnlock()
 
-	for _, c := range due {
+	deferred, deferredOutcome := int64(0), m.deferredOutcome
+	defer func() { m.setDeferredEvents(ctx, deferredOutcome, deferred) }()
+
+	for i, c := range due {
 		if m.cfg.Failover.TimeoutBasedFailoverGate.AllowErr(ctx) != nil {
 			return
 		}
@@ -513,7 +522,7 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 					m.cfg.Logger.Errorw("secondary shard: failed to acquire execution concurrency, due events stay cached",
 						"workflowID", m.cfg.WorkflowID, "err", err)
 				}
-				shardFailoverMetrics().RecordAutoDeferred(ctx, outcome)
+				deferred, deferredOutcome = int64(len(due)-i), outcome
 				return
 			}
 			event, ok := m.popCachedEvent(c.eventID, monitoring.ShardFailoverCacheExitReplayed)
@@ -554,6 +563,22 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 			}
 		case shardownership.DenyOrchestratorError:
 		}
+	}
+}
+
+// setDeferredEvents sets this manager's share of the node-wide deferred-events total to n
+// under outcome, moving any previous share off its old outcome.
+func (m *ShardFailoverManager) setDeferredEvents(ctx context.Context, outcome string, n int64) {
+	fm := shardFailoverMetrics()
+	if outcome != m.deferredOutcome {
+		if m.deferred != 0 {
+			fm.AddDeferredEvents(ctx, m.deferredOutcome, -m.deferred)
+		}
+		m.deferred, m.deferredOutcome = 0, outcome
+	}
+	if n != m.deferred {
+		fm.AddDeferredEvents(ctx, outcome, n-m.deferred)
+		m.deferred = n
 	}
 }
 

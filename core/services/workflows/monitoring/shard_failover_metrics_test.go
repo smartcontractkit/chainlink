@@ -77,9 +77,9 @@ func TestShardFailoverMetrics_Emissions(t *testing.T) {
 	fm.RecordTriggerCached(ctx)
 	fm.RecordCacheExit(ctx, ShardFailoverCacheExitClosed, 1)
 	fm.RecordReplay(ctx, ShardFailoverReplaySucceeded)
-	fm.RecordAutoDeferred(ctx, ShardFailoverAutoDeferredConcurrencyLimit)
-	fm.RecordAutoDeferred(ctx, ShardFailoverAutoDeferredConcurrencyLimit)
-	fm.RecordAutoDeferred(ctx, ShardFailoverAutoDeferredLimiterError)
+	fm.AddDeferredEvents(ctx, ShardFailoverAutoDeferredConcurrencyLimit, 7)
+	fm.AddDeferredEvents(ctx, ShardFailoverAutoDeferredConcurrencyLimit, -4)
+	fm.AddDeferredEvents(ctx, ShardFailoverAutoDeferredLimiterError, 2)
 	fm.RecordReplayDuration(ctx, ShardFailoverReplaySucceeded, 1500*time.Millisecond)
 	fm.RecordReplayDuration(ctx, ShardFailoverReplaySucceeded, 400*time.Millisecond)
 
@@ -88,7 +88,7 @@ func TestShardFailoverMetrics_Emissions(t *testing.T) {
 	nilFM.RecordTriggerCached(ctx)
 	nilFM.RecordCacheExit(ctx, ShardFailoverCacheExitDrained, 1)
 	nilFM.RecordReplay(ctx, ShardFailoverReplayFailed)
-	nilFM.RecordAutoDeferred(ctx, ShardFailoverAutoDeferredLimiterError)
+	nilFM.AddDeferredEvents(ctx, ShardFailoverAutoDeferredLimiterError, 1)
 	nilFM.RecordReplayDuration(ctx, ShardFailoverReplayFailed, time.Second)
 
 	var rm metricdata.ResourceMetrics
@@ -130,8 +130,8 @@ func TestShardFailoverMetrics_Emissions(t *testing.T) {
 	assert.Equal(t, int64(2), sums["platform_shard_failover_cache_exit"][ShardFailoverCacheExitExpired])
 	assert.Equal(t, int64(1), sums["platform_shard_failover_cache_exit"][ShardFailoverCacheExitClosed])
 	assert.Equal(t, int64(1), sums["platform_shard_failover_replay"][ShardFailoverReplaySucceeded])
-	assert.Equal(t, int64(2), sums["platform_shard_failover_auto_deferred"][ShardFailoverAutoDeferredConcurrencyLimit])
-	assert.Equal(t, int64(1), sums["platform_shard_failover_auto_deferred"][ShardFailoverAutoDeferredLimiterError])
+	assert.Equal(t, int64(3), sums["platform_shard_failover_deferred_events"][ShardFailoverAutoDeferredConcurrencyLimit])
+	assert.Equal(t, int64(2), sums["platform_shard_failover_deferred_events"][ShardFailoverAutoDeferredLimiterError])
 	assert.Equal(t, "s", units["platform_shard_failover_replay_duration_seconds"])
 
 	require.NotNil(t, replayHist, "replay duration histogram recorded")
