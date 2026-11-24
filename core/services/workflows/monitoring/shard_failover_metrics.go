@@ -26,6 +26,12 @@ const (
 	ShardFailoverReplayMiss      = "miss"
 )
 
+// Outcome values for platform_shard_failover_deferred_events (low cardinality).
+const (
+	ShardFailoverAutoDeferredConcurrencyLimit = "concurrency_limit"
+	ShardFailoverAutoDeferredLimiterError     = "limiter_error"
+)
+
 // ShardFailoverMetrics are the process-global failover instruments, emitted by
 // the per-workflow ShardFailoverManager instances and the syncer through the
 // shared unlabeled meter. The instruments are per-node aggregates with no
@@ -40,6 +46,7 @@ type ShardFailoverMetrics struct {
 	cachedEvents          metric.Int64UpDownCounter
 	cacheExitCounter      metric.Int64Counter
 	replayCounter         metric.Int64Counter
+	deferredEvents        metric.Int64UpDownCounter
 	replayDurationSeconds metric.Float64Histogram
 }
 
@@ -106,6 +113,11 @@ func newShardFailoverMetricsWithMeter(meter metric.Meter) (*ShardFailoverMetrics
 	if err != nil {
 		return nil, err
 	}
+	m.deferredEvents, err = meter.Int64UpDownCounter("platform_shard_failover_deferred_events",
+		metric.WithDescription("Due trigger events currently left cached because the last timeout-based failover pass stopped early, node-wide across all failover managers on this node, by outcome: concurrency_limit (execution concurrency limit reached), limiter_error (limiter failed for another reason)"))
+	if err != nil {
+		return nil, err
+	}
 	m.replayDurationSeconds, err = meter.Float64Histogram("platform_shard_failover_replay_duration_seconds",
 		metric.WithDescription("Duration of failover replays of cached trigger events"),
 		metric.WithUnit("s"),
@@ -156,6 +168,15 @@ func (m *ShardFailoverMetrics) RecordReplay(ctx context.Context, outcome string)
 		return
 	}
 	m.replayCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", outcome)))
+}
+
+// AddDeferredEvents moves the node-wide deferred-events total for outcome by
+// delta. outcome must be a ShardFailoverAutoDeferred* constant.
+func (m *ShardFailoverMetrics) AddDeferredEvents(ctx context.Context, outcome string, delta int64) {
+	if m == nil {
+		return
+	}
+	m.deferredEvents.Add(ctx, delta, metric.WithAttributes(attribute.String("outcome", outcome)))
 }
 
 // RecordReplayDuration records the duration of one failover replay, in

@@ -1092,6 +1092,7 @@ func (h *eventHandler) newEngine(ctx context.Context, workflowID, owner string, 
 				TimeoutBasedFailoverGate:   h.engineLimiters.TimeoutBasedFailover,
 				TimeoutBasedFailoverWindow: h.engineLimiters.TimeoutBasedFailoverWindow,
 				Communicator:               h.getShardFailoverComm(),
+				ExecutionConcurrency:       h.engineLimiters.ExecutionConcurrency,
 			},
 			Logger: h.lggr,
 		})
