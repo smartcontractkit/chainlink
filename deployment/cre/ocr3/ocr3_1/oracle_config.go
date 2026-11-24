@@ -130,14 +130,19 @@ type ConsensusQueueLimits struct {
 }
 
 // DefaultConsensusQueueOffchainConfig returns starting limits for a consensus-queue DON.
-// The plugin has no queries, reports or blobs yet, so those limits are zero.
+// The plugin broadcasts trigger events as blobs, so the blob quotas hold every blob in a full observation,
+// and it writes a fixed handful of KV keys per round.
+// The plugin has no queries or reports, so those limits are zero.
 // The node never applies defaults itself. Different node versions would otherwise disagree under the same digest.
 func DefaultConsensusQueueOffchainConfig() *ConsensusQueueOffchainConfig {
 	return &ConsensusQueueOffchainConfig{
 		Limits: ConsensusQueueLimits{
-			MaxObservationBytes:                    256 * 1024,
-			MaxKeyValueModifiedKeys:                1_000,
-			MaxKeyValueModifiedKeysPlusValuesBytes: 4 * 1024 * 1024,
+			MaxObservationBytes:                             512 * 1024,
+			MaxKeyValueModifiedKeys:                         4,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          10 * 1024 * 1024,
+			MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCount:                  100,
 		},
 	}
 }

@@ -488,11 +488,26 @@ func Test_GenerateOCR3_1Config_ConsensusQueueOffchainConfig(t *testing.T) {
 		t.Errorf("encoded limits mismatch (-want +got):\n%s", diff)
 	}
 
+	// Asserts the defaults decode on the node and keep the blob quotas the plugin needs.
 	t.Run("defaults are valid", func(t *testing.T) {
 		b, err := DefaultConsensusQueueOffchainConfig().Marshal()
 		require.NoError(t, err)
-		_, err = queuepb.Decode(b)
+		decoded, err := queuepb.Decode(b)
 		require.NoError(t, err)
+		got, err := decoded.OCRLimits()
+		require.NoError(t, err)
+
+		want := ocr3_1types.ReportingPluginLimits{
+			MaxObservationBytes:                             512 * 1024,
+			MaxKeyValueModifiedKeys:                         4,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          10 * 1024 * 1024,
+			MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCount:                  100,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("default limits mismatch (-want +got):\n%s", diff)
+		}
 	})
 
 	t.Run("invalid limits fail to marshal", func(t *testing.T) {
