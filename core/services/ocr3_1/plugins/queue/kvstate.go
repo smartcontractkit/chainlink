@@ -557,6 +557,7 @@ func (s *kvState) writeTo(w *stateWriter) error {
 	return nil
 }
 
+// pruneExpiredObservations deletes expired observations, but does not evict on <f+1 since we need to add observations first.
 func (s *kvState) pruneExpiredObservations(expiration time.Time) {
 	maps.DeleteFunc(s.observedEvents, func(k string, v *pb.ConsensusQueueObservedEvent) bool {
 		// a deadline equal to the expiration is not expired, consistent with popLimited
@@ -581,6 +582,14 @@ func (s *kvState) pruneExpiredObservations(expiration time.Time) {
 		}
 
 		return false
+	})
+}
+
+// pruneObservations removes all observed events that have fewer than f+1 observations.
+// This is necessary to prevent long expirations from outliving pruned honest ones.
+func (s *kvState) pruneObservations(f int) {
+	maps.DeleteFunc(s.observedEvents, func(k string, v *pb.ConsensusQueueObservedEvent) bool {
+		return len(v.NodeIds) < f+1
 	})
 }
 

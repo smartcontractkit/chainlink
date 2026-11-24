@@ -698,6 +698,7 @@ func (c *consensusQueuePlugin) StateTransition(
 	var queuedTimelessHashes []string // eligible for pruning later if necessary
 	var admitted int
 	if obs.kvDrain {
+		state.pruneObservations(c.onchainCfg.F)
 		// Recovery: nothing new is added, and everything queued is taken, whatever the capacity.
 		state.popConsensusEvents(math.MaxInt32, state.queuedWorkflowCapacities(math.MaxUint32), obs.medianExpiration, c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
 	} else {
@@ -705,7 +706,8 @@ func (c *consensusQueuePlugin) StateTransition(
 			queuedTimelessHashes = append(queuedTimelessHashes, string(event.TimelessHash))
 			admitted++
 		})
-		state.popConsensusEvents(int(obs.medianCap), obs.medianCapPerWF, obs.medianExpiration, c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+		state.pruneObservations(c.onchainCfg.F)
+		state.popConsensusEvents(int(obs.fPlus1thCap), obs.fPlus1thCapPerWF, obs.medianExpiration, c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
 	}
 	state.pruneObservedToFit(c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
 	state.pruneQueuedToFit(queuedTimelessHashes, c.limits.MaxKeyValueModifiedKeysPlusValuesBytes)
@@ -744,8 +746,8 @@ func (c *consensusQueuePlugin) recordTransition(ctx context.Context, state *kvSt
 
 type observations struct {
 	medianExpiration time.Time
-	medianCap        uint32
-	medianCapPerWF   map[string]uint32 // wf ID -> capacity
+	fPlus1thCap      uint32
+	fPlus1thCapPerWF map[string]uint32 // wf ID -> capacity
 	// kvDrain is whether the KV drain recovery mode is on: F+1 nodes say so, so at least one of them is honest. A faulty
 	// node alone can neither start it nor stop it. Near either end of the window nodes may disagree, and this decides.
 	kvDrain           bool
@@ -756,7 +758,7 @@ type observations struct {
 }
 
 func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.AttributedObservation) {
-	res.medianCapPerWF = make(map[string]uint32)
+	res.fPlus1thCapPerWF = make(map[string]uint32)
 	res.newObservedEvents = make(map[string]*pb.ConsensusQueueObservedEvent)
 	res.observedBlobs = make(voterBlobs)
 
@@ -803,12 +805,12 @@ func (res *observations) aggregate(ctx context.Context, f int, aos []ocrtypes.At
 
 	// If we used median, then honest nodes reporting reduced capacity would not be able to keep up.
 	// Instead, we use the F+1th lowest value - the least honest value.
-	res.medianCap = slices.Sorted(slices.Values(capacities))[f]
+	res.fPlus1thCap = slices.Sorted(slices.Values(capacities))[f]
 	for wf, caps := range wfCapacities {
 		// A node that did not report a workflow counts as zero capacity. Otherwise up to F nodes (faulty, or just
 		// without the workflow) could omit it and leave too few reports to ever run it.
 		caps = append(caps, make([]uint32, len(aos)-len(caps))...)
-		res.medianCapPerWF[wf] = slices.Sorted(slices.Values(caps))[f]
+		res.fPlus1thCapPerWF[wf] = slices.Sorted(slices.Values(caps))[f]
 	}
 }
 

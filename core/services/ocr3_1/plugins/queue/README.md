@@ -77,10 +77,10 @@ sequenceDiagram
             Note over StateTransition: nothing new is added
             StateTransition->>consensus: Write(): every queued event, whatever the capacity
         else
-            alt fewer than F+1 votes for an event
-                StateTransition->>observed: Write(): the vote and its blob
-            else F+1 votes
+            alt >=2F+1 votes for an event
                 StateTransition->>queued: Write(): by deadline, then hash
+            else >=F+1 votes
+                StateTransition->>observed: Write(): the vote and its blob
             end
             StateTransition->>consensus: Write(): capacity limited batch (overall and per workflow)
         end
@@ -112,7 +112,7 @@ stateDiagram-v2
     Local --> Observed: a node votes for it (observation + blob)
     Observed --> Queued: F+1 votes, so at least one honest
     Observed --> [*]: votes expire, or pruned to fit
-    Queued --> Consensus: capacity (overall and for its workflow)
+    Queued --> Consensus: 2F+1, up to capacity (overall and for its workflow)
     Queued --> [*]: deadline + grace passes, or pruned to fit
     Consensus --> Started: Committed() / next Observation()
     Started --> [*]: removed from every local queue
@@ -125,7 +125,7 @@ Nothing retries a failed start: once an event is in consensus it leaves the queu
 | Key | Holds |
 | --- | --- |
 | `observed_events::index` | events with fewer than F+1 votes: who voted, and each voter's blob |
-| `queued_events::index` | events with consensus, waiting for capacity, in priority order |
+| `queued_events::index` | events with 2F+1 consensus, waiting for capacity, in priority order |
 | `consensus_events::index` | events chosen to run this round |
 | `blob_handles::index` | the blob handles that queued and consensus events refer to |
 

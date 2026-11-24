@@ -308,8 +308,8 @@ func TestObservationsAggregate(t *testing.T) {
 			mkAO(2, base(7, map[string]uint32{testWF: 9})),
 		})
 		require.NoError(t, res.err)
-		assert.Equal(t, uint32(7), res.medianCap, "F+1th lowest of 1,7,10")
-		assert.Equal(t, uint32(5), res.medianCapPerWF[testWF], "F+1th lowest of 1,5,9")
+		assert.Equal(t, uint32(7), res.fPlus1thCap, "F+1th lowest of 1,7,10")
+		assert.Equal(t, uint32(5), res.fPlus1thCapPerWF[testWF], "F+1th lowest of 1,5,9")
 		assert.Equal(t, time.Unix(100, 0).UTC(), res.medianExpiration.UTC())
 	})
 
@@ -322,7 +322,7 @@ func TestObservationsAggregate(t *testing.T) {
 			mkAO(2, base(6, nil)),     // honest
 			mkAO(3, base(1<<31, nil)), // byzantine high
 		})
-		assert.Equal(t, uint32(5), res.medianCap)
+		assert.Equal(t, uint32(5), res.fPlus1thCap)
 	})
 
 	t.Run("garbage observation errors", func(t *testing.T) {
@@ -1653,7 +1653,7 @@ func TestObservationsAggregate_Omissions(t *testing.T) {
 		var res observations
 		res.aggregate(t.Context(), f, aoOf(t, mk(map[string]uint32{testWF: 9}), mk(map[string]uint32{testWF: 9}), mk(nil)))
 		require.NoError(t, res.err)
-		assert.Equal(t, uint32(9), res.medianCapPerWF[testWF], "F omissions count as zero, which sorted[F] tolerates")
+		assert.Equal(t, uint32(9), res.fPlus1thCapPerWF[testWF], "F omissions count as zero, which sorted[F] tolerates")
 	})
 
 	t.Run("a workflow most nodes omit gets zero", func(t *testing.T) {
@@ -1661,8 +1661,8 @@ func TestObservationsAggregate_Omissions(t *testing.T) {
 		var res observations
 		res.aggregate(t.Context(), f, aoOf(t, mk(map[string]uint32{testWF: 9}), mk(nil), mk(nil)))
 		require.NoError(t, res.err)
-		assert.Contains(t, res.medianCapPerWF, testWF)
-		assert.Zero(t, res.medianCapPerWF[testWF])
+		assert.Contains(t, res.fPlus1thCapPerWF, testWF)
+		assert.Zero(t, res.fPlus1thCapPerWF[testWF])
 	})
 
 	t.Run("too few observations is an error, not a panic", func(t *testing.T) {
