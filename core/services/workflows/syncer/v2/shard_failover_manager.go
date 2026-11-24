@@ -507,6 +507,13 @@ func (m *ShardFailoverManager) executeDueTimeoutBasedFailovers(ctx context.Conte
 		case shardownership.DenyNotOwner:
 			execCtx := m.replayExecCtx(ctx)
 			if err := m.cfg.Failover.ExecutionConcurrency.Use(execCtx, 1); err != nil {
+				outcome := monitoring.ShardFailoverAutoDeferredConcurrencyLimit
+				if !errors.Is(err, limits.ErrorResourceLimited[int]{}) {
+					outcome = monitoring.ShardFailoverAutoDeferredLimiterError
+					m.cfg.Logger.Errorw("secondary shard: failed to acquire execution concurrency, due events stay cached",
+						"workflowID", m.cfg.WorkflowID, "err", err)
+				}
+				shardFailoverMetrics().RecordAutoDeferred(ctx, outcome)
 				return
 			}
 			event, ok := m.popCachedEvent(c.eventID, monitoring.ShardFailoverCacheExitReplayed)
