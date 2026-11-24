@@ -17,22 +17,23 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuelimits"
 )
 
 // numKVKeys is the number of KV keys written each round.
-const numKVKeys = 4
+const numKVKeys = queuelimits.NumKVKeys
 
 // KV store keys
 const (
 	// observed events waiting for consensus (F+1 <= observers <2F+1). Each event's Blobs are aligned with its NodeIds: the
 	// blob of each vote.
-	observedEventsKey = "observed_events::index" // pb.ConsensusQueueObservedEvents { map[string]*pb.ConsensusQueueObservedEvent; [][]byte }
+	observedEventsKey = queuelimits.ObservedEventsKey // pb.ConsensusQueueObservedEvents { map[string]*pb.ConsensusQueueObservedEvent; [][]byte }
 	// priority queue of events waiting for capacity
-	queuedEventsKey = "queued_events::index" // pb.ConsensusQueueEventList { []*pb.ConsensusQueueEvent }
+	queuedEventsKey = queuelimits.QueuedEventsKey // pb.ConsensusQueueEventList { []*pb.ConsensusQueueEvent }
 	// events the plugin committed to sending to nodes
-	consensusEventsKey = "consensus_events::index" // pb.ConsensusQueueEventList { []*pb.ConsensusQueueEvent }
+	consensusEventsKey = queuelimits.ConsensusEventsKey // pb.ConsensusQueueEventList { []*pb.ConsensusQueueEvent }
 	// blob handles referenced from events in the PQ and consensus set
-	blobHandlesKey = "blob_handles::index" // pb.ConsensusQueueBlobHandleList{ [][]byte }
+	blobHandlesKey = queuelimits.BlobHandlesKey // pb.ConsensusQueueBlobHandleList{ [][]byte }
 )
 
 type stateWriter struct {

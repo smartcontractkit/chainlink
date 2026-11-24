@@ -58,14 +58,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuelimits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuepb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 const (
-	maxObservedBlobHandles = 10   // sanity check on blobs in an observation
-	maxObservedEvents      = 1000 // sanity check events in an observation
+	maxObservedBlobHandles = queuelimits.MaxBlobHandlesPerObservation // sanity check on blobs in an observation
+	maxObservedEvents      = queuelimits.MaxObservedEvents            // sanity check events in an observation
 	maxKeyValueValueBytes  = ocr3_1types.MaxMaxKeyValueValueBytes
 )
 
@@ -130,6 +131,9 @@ func (c *consensusQueuePluginFactory) NewReportingPlugin(ctx context.Context, co
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, err
 	}
+	if err = queuepb.ValidateForDon(pluginLimits, config.N, config.F); err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("invalid consensus-queue limits: %w", err)
+	}
 	c.lggr.Infow("Creating consensus-queue reporting plugin", "configDigest", config.ConfigDigest.String(), "limits", pluginLimits)
 
 	metrics, err := newPluginMetrics(c.meter, config.ConfigDigest.String())
@@ -158,10 +162,19 @@ type consensusQueuePlugin struct {
 	triggerCoordinator                  triggers.Coordinator
 	triggerQueue                        triggers.Queue
 	blobBroadcastFetcher                ocr3_1types.BlobBroadcastFetcher
-	expirationDur                       func(context.Context) (time.Duration, error)
+	// blobTimeout bounds each blob fetch or broadcast. Zero means defaultBlobOpTimeout.
+	blobTimeout   time.Duration
+	expirationDur func(context.Context) (time.Duration, error)
 	// kvDrain reports whether the KV drain recovery mode is on at a time. Nil means it never is.
 	kvDrain func(ctx context.Context, at time.Time) (bool, error)
 	metrics *pluginMetrics
+}
+
+func (c *consensusQueuePlugin) blobOpTimeout() time.Duration {
+	if c.blobTimeout > 0 {
+		return c.blobTimeout
+	}
+	return defaultBlobOpTimeout
 }
 
 // draining reports whether the KV drain recovery mode is on at a time. A failure to read the setting counts as off, and
@@ -199,6 +212,7 @@ func newConsensusQueuePlugin(
 		triggerCoordinator:                  triggerCoordinator,
 		triggerQueue:                        triggerQueue,
 		blobBroadcastFetcher:                blobs,
+		blobTimeout:                         defaultBlobOpTimeout,
 		expirationDur:                       expirationGraceDur,
 		metrics:                             metrics,
 	}
@@ -451,9 +465,16 @@ func (c *consensusQueuePlugin) broadcastObservationBlobs(
 	var eg errgroup.Group
 	for i, start := 0, 0; i < len(ends); i++ {
 		batch := events[start:ends[i]]
+		// The events have no timestamps (they are stripped before hashing and broadcasting), so take the blob's
+		// deadline from the observation, which retains it, for the expiration hint.
+		maxDeadline := latestDeadline(obs.Events[start:ends[i]])
 		start = ends[i]
 		eg.Go(func() error {
-			handles[i], errs[i] = c.broadcastBlob(ctx, blobBroadcaster, batch, seqNr)
+			// Bound each broadcast, so a stalled blob store or peer cannot hold this Observation. A timeout is a failed
+			// broadcast: its events are omitted below, which must not fail Observation.
+			bcastCtx, cancel := context.WithTimeout(ctx, c.blobOpTimeout())
+			defer cancel()
+			handles[i], errs[i] = c.broadcastBlob(bcastCtx, blobBroadcaster, batch, maxDeadline, seqNr)
 			return nil
 		})
 	}
@@ -545,7 +566,7 @@ func (c *consensusQueuePlugin) ValidateObservation(
 	}
 
 	var eg errgroup.Group
-	fetcher := blobCache{fetcher: blobFetcher, cache: make(map[string]func() ([]byte, error))}
+	fetcher := blobCache{fetcher: blobFetcher, timeout: c.blobOpTimeout(), cache: make(map[string]func() ([]byte, error))}
 	for i, event := range obs.Events {
 		eg.Go(func() error {
 			if verr := validateObservedEvent(ctx, &fetcher, event, obs.BlobHandles); verr != nil {
@@ -892,7 +913,7 @@ func (c *consensusQueuePlugin) commitState(ctx context.Context, kvReader ocr3_1t
 // It is idempotent, thus safe to call from Observation and Committed.
 func (c *consensusQueuePlugin) tryStartExecutions(ctx context.Context, done chan struct{}, consensusEvents []*pb.ConsensusQueueEvent, blobHandles [][]byte) {
 	defer close(done)
-	fetcher := blobCache{fetcher: c.blobBroadcastFetcher, cache: make(map[string]func() ([]byte, error))}
+	fetcher := blobCache{fetcher: c.blobBroadcastFetcher, timeout: c.blobOpTimeout(), cache: make(map[string]func() ([]byte, error))}
 	var wg sync.WaitGroup
 	for _, consensusEvent := range consensusEvents {
 		wg.Add(1)

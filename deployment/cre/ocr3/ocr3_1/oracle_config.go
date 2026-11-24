@@ -4,12 +4,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuelimits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuepb"
 )
 
@@ -129,22 +132,48 @@ type ConsensusQueueLimits struct {
 	MaxPerOracleUnexpiredBlobCount                  uint32 `yaml:"maxPerOracleUnexpiredBlobCount" json:"maxPerOracleUnexpiredBlobCount"`
 }
 
-// DefaultConsensusQueueOffchainConfig returns starting limits for a consensus-queue DON.
-// The plugin broadcasts trigger events as blobs, so the blob quotas hold every blob in a full observation,
-// and it writes a fixed handful of KV keys per round.
-// The plugin has no queries or reports, so those limits are zero.
+// consensusQueueReferenceBlobPayloadPerRound is the sustained blob payload the default per-oracle quota is sized
+// for: a full observation of the calibration's ~1 KiB (EVM log) events each round. The config field is a uint32, so
+// the plugin's worst case (MaxBlobHandlesPerObservation full blobs every round for the whole event lifetime) cannot
+// be expressed. DONs that sustain larger trigger payloads must raise MaxPerOracleUnexpiredBlobCumulativePayloadBytes.
+const consensusQueueReferenceBlobPayloadPerRound = 1 << 20
+
+// DefaultConsensusQueueOffchainConfigForRoundInterval returns starting limits for a consensus-queue DON whose OCR
+// DeltaRound is roundDur.
+//
+// The plugin broadcasts trigger events as blobs and keeps them until their events expire, which is the workflow's
+// TriggerEventQueueTimeout plus the consensus-queue expiration grace. The blob quotas must therefore cover every blob
+// a node can broadcast over that lifetime: a fixed default is wrong for a DON whose rounds are faster or slower than
+// the one it was sized for. The plugin has no queries or reports, so those limits are zero, and it writes a fixed
+// handful of KV keys per round.
+//
+// The sizes use the default TriggerEventQueueTimeout and ConsensusQueueExpirationGraceInterval. A node or workflow
+// that raises either keeps blobs longer, so a DON using larger values needs a proportionally larger quota.
+//
 // The node never applies defaults itself. Different node versions would otherwise disagree under the same digest.
-func DefaultConsensusQueueOffchainConfig() *ConsensusQueueOffchainConfig {
+func DefaultConsensusQueueOffchainConfigForRoundInterval(roundDur time.Duration) *ConsensusQueueOffchainConfig {
+	blobCount, blobPayloadBytes := queuelimits.BlobQuota(
+		roundDur,
+		cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.DefaultValue,
+		cresettings.Default.ConsensusQueueExpirationGraceInterval.DefaultValue,
+		consensusQueueReferenceBlobPayloadPerRound,
+	)
 	return &ConsensusQueueOffchainConfig{
 		Limits: ConsensusQueueLimits{
 			MaxObservationBytes:                             512 * 1024,
 			MaxKeyValueModifiedKeys:                         4,
 			MaxKeyValueModifiedKeysPlusValuesBytes:          10 * 1024 * 1024,
 			MaxBlobPayloadBytes:                             5 * 1024 * 1024,
-			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
-			MaxPerOracleUnexpiredBlobCount:                  100,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: blobPayloadBytes,
+			MaxPerOracleUnexpiredBlobCount:                  blobCount,
 		},
 	}
+}
+
+// DefaultConsensusQueueOffchainConfig returns the starting limits for a one second DeltaRound, a common default.
+// Use DefaultConsensusQueueOffchainConfigForRoundInterval when the DON's DeltaRound is known to be different.
+func DefaultConsensusQueueOffchainConfig() *ConsensusQueueOffchainConfig {
+	return DefaultConsensusQueueOffchainConfigForRoundInterval(time.Second)
 }
 
 // Marshal encodes the config as a queuepb.ReportingPluginConfig.

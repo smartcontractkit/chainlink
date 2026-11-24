@@ -49,9 +49,12 @@ func TestConsensusQueuePluginFactory_NewReportingPlugin(t *testing.T) {
 
 	validCfg, err := proto.Marshal(&queuepb.ReportingPluginConfig{
 		Limits: &queuepb.ReportingPluginLimits{
-			MaxObservationBytes:                    1024,
-			MaxKeyValueModifiedKeys:                10,
-			MaxKeyValueModifiedKeysPlusValuesBytes: 2048,
+			MaxObservationBytes:                             512 * 1024,
+			MaxKeyValueModifiedKeys:                         10,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          2048,
+			MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCount:                  1000,
 		},
 	})
 	require.NoError(t, err)
@@ -70,11 +73,35 @@ func TestConsensusQueuePluginFactory_NewReportingPlugin(t *testing.T) {
 		require.True(t, ok, "unexpected ReportingPluginInfo type %T", info)
 		require.Equal(t, "ConsensusQueueReportingPlugin", info1.Name)
 		want := ocr3_1types.ReportingPluginLimits{
-			MaxObservationBytes:                    1024,
-			MaxKeyValueModifiedKeys:                10,
-			MaxKeyValueModifiedKeysPlusValuesBytes: 2048,
+			MaxObservationBytes:                             512 * 1024,
+			MaxKeyValueModifiedKeys:                         10,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          2048,
+			MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCount:                  1000,
 		}
 		require.Equal(t, want, info1.Limits)
+	})
+
+	t.Run("observation too small for the DON is rejected", func(t *testing.T) {
+		t.Parallel()
+		small, err := proto.Marshal(&queuepb.ReportingPluginConfig{
+			Limits: &queuepb.ReportingPluginLimits{
+				MaxObservationBytes:                             1024,
+				MaxKeyValueModifiedKeys:                         4,
+				MaxKeyValueModifiedKeysPlusValuesBytes:          10 * 1024 * 1024,
+				MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+				MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+				MaxPerOracleUnexpiredBlobCount:                  1000,
+			},
+		})
+		require.NoError(t, err)
+
+		factory, err := NewConsensusQueuePluginFactory(logger.Test(t), limits.Factory{}, noopCoordinator{}, noopQueue{}, noop.NewMeterProvider().Meter("test"))
+		require.NoError(t, err)
+		plugin, _, err := factory.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{N: 4, F: 1, OffchainConfig: small}, nil)
+		require.ErrorContains(t, err, "MaxObservationBytes")
+		require.Nil(t, plugin)
 	})
 
 	tests := []struct {
@@ -683,6 +710,75 @@ func TestValidateObservation(t *testing.T) {
 			obs.WorkflowCapacities[fmt.Sprintf("junk-%d", i)] = 1
 		}
 		assert.Error(t, validate(t, c, blobs, obs), "unbounded junk workflow IDs must be rejected")
+	})
+}
+
+// blockingBlobs waits for its context to end, so tests can prove blob fetches and broadcasts are bounded.
+type blockingBlobs struct{}
+
+func (blockingBlobs) FetchBlob(ctx context.Context, _ ocr3_1types.BlobHandle) ([]byte, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func (blockingBlobs) BroadcastBlob(ctx context.Context, _ []byte, _ ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
+	<-ctx.Done()
+	return ocr3_1types.BlobHandle{}, ctx.Err()
+}
+
+// A stalled blob store or peer must not hold a plugin method open. Each blob operation is bounded, and a timeout is
+// treated as a failed blob: Observation still returns, ValidateObservation rejects the observation, and Committed
+// gives up on the event.
+func TestBlobOperations_AreBounded(t *testing.T) {
+	t.Parallel()
+
+	const blobTimeout = 20 * time.Millisecond
+	newEvents := func(t *testing.T) []hashedEvent {
+		return mkEvents(t, 1, time.Now().Add(time.Hour).Unix())
+	}
+
+	t.Run("Observation bounds a stalled broadcast", func(t *testing.T) {
+		t.Parallel()
+		c := testPlugin(t, sliceQueue{events: newEvents(t)}, &memBlobs{}, ocr3_1types.MaxMaxObservationBytes)
+		c.blobTimeout = blobTimeout
+
+		start := time.Now()
+		raw, err := c.Observation(t.Context(), 1, ocrtypes.AttributedQuery{}, memKV{}, blockingBlobs{})
+		elapsed := time.Since(start)
+		require.NoError(t, err, "a failed broadcast must not fail Observation")
+		assert.Less(t, elapsed, 2*time.Second)
+
+		var obs pb.ConsensusQueueObservation
+		require.NoError(t, proto.Unmarshal(raw, &obs))
+		assert.Empty(t, obs.Events, "the events of a timed-out blob are omitted")
+		assert.Empty(t, obs.BlobHandles)
+	})
+
+	t.Run("ValidateObservation bounds a stalled fetch", func(t *testing.T) {
+		t.Parallel()
+		blobs := &memBlobs{}
+		c := testPlugin(t, sliceQueue{events: newEvents(t)}, blobs, ocr3_1types.MaxMaxObservationBytes)
+		raw, err := c.Observation(t.Context(), 1, ocrtypes.AttributedQuery{}, memKV{}, blobs)
+		require.NoError(t, err)
+		c.blobTimeout = blobTimeout
+
+		start := time.Now()
+		err = c.ValidateObservation(t.Context(), 1, ocrtypes.AttributedQuery{},
+			ocrtypes.AttributedObservation{Observer: 1, Observation: raw}, memKV{}, blockingBlobs{})
+		assert.Less(t, time.Since(start), 2*time.Second)
+		require.ErrorContains(t, err, "failed to fetch")
+	})
+
+	t.Run("Committed bounds a stalled fetch", func(t *testing.T) {
+		t.Parallel()
+		blobs, kv := &memBlobs{}, memKV{}
+		seedKV(t, kv, blobs, []string{"a"}, nil)
+		c := newCommitPlugin(t, &recCoordinator{}, &recQueue{}, blockingBlobs{})
+		c.blobTimeout = blobTimeout
+
+		start := time.Now()
+		require.NoError(t, c.Committed(t.Context(), 1, kv))
+		assert.Less(t, time.Since(start), 2*time.Second)
 	})
 }
 
@@ -1564,6 +1660,28 @@ func TestObservation_BlobBatching(t *testing.T) {
 			assert.Equal(t, ev[i].hash, e.TimelessHash, "the earliest events are kept")
 		}
 	})
+}
+
+func TestObservation_BlobExpiryHintCoversEventDeadline(t *testing.T) {
+	t.Parallel()
+
+	// testPlugin uses a one minute grace and a one second estimated round interval.
+	const grace = time.Minute
+	blobs := &hintBlobs{}
+	c := testPlugin(t, sliceQueue{events: mkEvents(t, 1, time.Now().Add(time.Hour).Unix())}, blobs, ocr3_1types.MaxMaxObservationBytes)
+
+	obs, err := observe(t, c, memKV{}, blobs)
+	require.NoError(t, err)
+	require.Len(t, obs.Events, 1)
+	require.Len(t, blobs.hints, 1, "one event is one blob")
+
+	hint, ok := blobs.hints[0].(ocr3_1types.BlobExpirationHintSequenceNumber)
+	require.True(t, ok, "unexpected hint type %T", blobs.hints[0])
+
+	// The blob must live until its event's deadline plus the grace period, plus the minimum lifetime. The hint is
+	// computed from the deadline retained in the observation, not from the event, whose timestamps are stripped.
+	want := blobExpirySeqNr(1, time.Until(obs.Events[0].Deadline.AsTime().Add(grace)), c.onchainCfg.EstimatedRoundInterval)
+	assert.InDelta(t, int(want), int(hint.SeqNr), 2) //nolint:gosec // G115: small test values
 }
 
 // Known issues (SHOULD FIX): libocr says a BlobBroadcast failure should not make Observation fail, and one event that

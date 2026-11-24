@@ -622,7 +622,14 @@ func (c *consensusQueuePlugin) broadcastAsBlob(ctx context.Context, broadcaster 
 		return nil, 0, errors.New("failed to package any events in blob")
 	}
 
-	blobHandle, err = c.broadcastBlob(ctx, broadcaster, events[:n], seqNr)
+	var maxDeadline time.Time
+	for _, event := range events[:n] {
+		if t := event.GetDeadline().AsTime(); t.After(maxDeadline) {
+			maxDeadline = t
+		}
+	}
+
+	blobHandle, err = c.broadcastBlob(ctx, broadcaster, events[:n], maxDeadline, seqNr)
 	if err != nil {
 		return nil, -1, err
 	}
