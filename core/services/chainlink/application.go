@@ -829,6 +829,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				Lggr:                           globalLogger,
 				Ks:                             keyStore.OCR2(),
 				EthKs:                          keyStore.Eth(),
+				CSAPublicKey:                   csaPubKeyHex,
 				WorkflowKs:                     keyStore.Workflow(),
 				DKGRecipientKs:                 keyStore.DKGRecipient(),
 				Relayers:                       relayChainInterops,

@@ -181,11 +181,13 @@ var _ llodatasource.DataSource = &dataSource{}
 // NewDataSource returns the shared LLO data source. llo/v30 and llo/v31 both
 // consume llodatasource.DataSource, so a single implementation serves both OCR
 // protocol versions; lifecycle gating is driven by opts.LifeCycleStage().
-func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llodatasource.DataSource {
-	return newDataSource(lggr, registry, t)
+// donID and csaPublicKey label the observed value gauge: the DON this job
+// belongs to, and this node's CSA public key in hex.
+func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter, donID uint32, csaPublicKey string) llodatasource.DataSource {
+	return newDataSource(lggr, registry, t, donID, csaPublicKey)
 }
 
-func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSource {
+func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, donID uint32, csaPublicKey string) *dataSource {
 	return &dataSource{
 		lggr:                   logger.Named(lggr, "DataSource"),
 		registry:               registry,
@@ -193,7 +195,7 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSour
 		cache:                  NewCache(time.Minute),
 		observationLoopCloseCh: make(chan struct{}),
 		loopWakeCh:             make(chan struct{}, 1),
-		observedValues:         newObservedValueGauges(promStreamObservedValue),
+		observedValues:         newObservedValueGauges(promStreamObservedValue, donID, csaPublicKey),
 	}
 }
 
