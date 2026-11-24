@@ -170,6 +170,10 @@ type dataSource struct {
 
 	// loopWakeCh coalesces plugin Observe hints (buffer 1): the loop may skip pacing when the plugin is active.
 	loopWakeCh chan struct{}
+
+	// observedValues exports the values that the production instance reads from the cache (see observe).
+	observedValues           *observedValueGauges
+	observedValuesExpiryOnce sync.Once
 }
 
 var _ llodatasource.DataSource = &dataSource{}
@@ -177,11 +181,13 @@ var _ llodatasource.DataSource = &dataSource{}
 // NewDataSource returns the shared LLO data source. llo/v30 and llo/v31 both
 // consume llodatasource.DataSource, so a single implementation serves both OCR
 // protocol versions; lifecycle gating is driven by opts.LifeCycleStage().
-func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llodatasource.DataSource {
-	return newDataSource(lggr, registry, t)
+// donID and csaPublicKey label the observed value gauge: the DON this job
+// belongs to, and this node's CSA public key in hex.
+func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter, donID uint32, csaPublicKey string) llodatasource.DataSource {
+	return newDataSource(lggr, registry, t, donID, csaPublicKey)
 }
 
-func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSource {
+func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, donID uint32, csaPublicKey string) *dataSource {
 	return &dataSource{
 		lggr:                   logger.Named(lggr, "DataSource"),
 		registry:               registry,
@@ -189,6 +195,7 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSour
 		cache:                  NewCache(time.Minute),
 		observationLoopCloseCh: make(chan struct{}),
 		loopWakeCh:             make(chan struct{}, 1),
+		observedValues:         newObservedValueGauges(promStreamObservedValue, donID, csaPublicKey),
 	}
 }
 
@@ -249,7 +256,34 @@ func (d *dataSource) observe(ctx context.Context, streamValues lloprotocol.Strea
 	// Update stream values with the cached observations for all streams.
 	d.cache.UpdateStreamValues(streamValues)
 
+	// Only the production instance records: a staging or retired instance reads the same cache and would
+	// duplicate every series under a second config digest. inProduction is false for nil opts.
+	if inProduction {
+		d.observedValues.record(opts.ConfigDigest(), streamValues, time.Now())
+		d.startObservedValuesExpiry()
+	}
+
 	return nil
+}
+
+// startObservedValuesExpiry starts (once) a goroutine that deletes observed value series of config digests that
+// stopped calling Observe. record() alone cannot do this when no digest calls Observe at all (DON stall), and the
+// observation loop exits when the stream set is empty, so expiry needs its own ticker. It stops on Close.
+func (d *dataSource) startObservedValuesExpiry() {
+	d.observedValuesExpiryOnce.Do(func() {
+		d.wg.Go(func() {
+			ticker := time.NewTicker(observedValueDigestTTL / 2)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-d.observationLoopCloseCh:
+					return
+				case now := <-ticker.C:
+					d.observedValues.expire(now)
+				}
+			}
+		})
+	})
 }
 
 // startObservationLoop continuously runs pipeline observations for this data source and caches results in memory,
@@ -526,6 +560,7 @@ func (d *dataSource) Close() error {
 	close(d.observationLoopCloseCh)
 	d.wg.Wait()
 	d.cache.Close()
+	d.observedValues.deleteAll()
 
 	return nil
 }

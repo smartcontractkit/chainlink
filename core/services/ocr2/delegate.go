@@ -143,6 +143,7 @@ type Delegate struct {
 	lggr                  logger.SugaredLogger
 	ks                    keystore.OCR2
 	ethKs                 keystore.Eth
+	csaPublicKey          string
 	workflowKs            keystore.Workflow
 	dkgRecipientKs        keystore.DKGRecipient
 	RelayGetter
@@ -302,6 +303,9 @@ type DelegateOpts struct {
 	Lggr                           logger.SugaredLogger
 	Ks                             keystore.OCR2
 	EthKs                          keystore.Eth
+	// CSAPublicKey is this node's CSA public key in hex (from keystore.BuildBeholderAuth). LLO uses it to label the
+	// observed value gauge.
+	CSAPublicKey                   string
 	Relayers                       RelayGetter
 	MailMon                        *mailbox.Monitor
 	CapabilitiesRegistry           registry.CapabilitiesRegistry
@@ -354,6 +358,7 @@ func NewDelegate(
 		lggr:                           logger.Sugared(opts.Lggr.Named("OCR2")),
 		ks:                             opts.Ks,
 		ethKs:                          opts.EthKs,
+		csaPublicKey:                   opts.CSAPublicKey,
 		workflowKs:                     opts.WorkflowKs,
 		dkgRecipientKs:                 opts.DKGRecipientKs,
 		RelayGetter:                    opts.Relayers,
@@ -1864,6 +1869,7 @@ func (d *Delegate) newServicesLLO(
 		PluginMonitoringEndpoint: d.monitoringEndpointGen.GenMultitypeMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID),
 		DonID:                    pluginCfg.DonID,
 		ChainID:                  rid.ChainID,
+		CSAPublicKey:             d.csaPublicKey,
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
 		SampleTelemetry:              d.cfg.OCR2().SampleTelemetry(),
