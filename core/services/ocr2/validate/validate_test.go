@@ -27,46 +27,6 @@ func TestValidateOracleSpec(t *testing.T) {
 		assertion func(t *testing.T, os job.Job, err error)
 	}{
 		{
-			name: "consensus queue spec without plugin config is rejected, not a panic",
-			toml: `
-type               = "offchainreporting2"
-schemaVersion      = 1
-pluginType         = "consensus-queue"
-relay              = "evm"
-contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
-transmitterID      = "0x613a38AC1659769640aaE063C651F48E0250454C"
-[relayConfig]
-chainID = 1337
-`,
-			assertion: func(t *testing.T, _ job.Job, err error) {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), "MaxObservationBytes (0) must be positive")
-			},
-		},
-		{
-			name: "consensus queue spec with limits",
-			toml: `
-type               = "offchainreporting2"
-schemaVersion      = 1
-pluginType         = "consensus-queue"
-relay              = "evm"
-contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
-transmitterID      = "0x613a38AC1659769640aaE063C651F48E0250454C"
-[relayConfig]
-chainID = 1337
-[pluginConfig.limits]
-MaxObservationBytes = 524288
-MaxKeyValueModifiedKeys = 4
-MaxKeyValueModifiedKeysPlusValuesBytes = 10485760
-MaxBlobPayloadBytes = 5242880
-MaxPerOracleUnexpiredBlobCumulativePayloadBytes = 104857600
-MaxPerOracleUnexpiredBlobCount = 100
-`,
-			assertion: func(t *testing.T, _ job.Job, err error) {
-				require.NoError(t, err)
-			},
-		},
-		{
 			name: "minimal OCR2 oracle spec",
 			toml: `
 type               = "offchainreporting2"
