@@ -20,8 +20,17 @@ import (
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 )
 
+const (
+	testDonID        = 6
+	testCSAPublicKey = "8b73bb3c783b11bef142d2116a66223773ce189282069e2b0d5bad60322a18cc"
+)
+
 func newTestObservedValueVec() *prometheus.GaugeVec {
-	return prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "test_observed_value"}, []string{"stream_id", "value_type", "config_digest"})
+	return prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "test_observed_value"}, []string{"stream_id", "value_type", "config_digest", "don_id", "csa_public_key"})
+}
+
+func newTestObservedValueGauges(vec *prometheus.GaugeVec) *observedValueGauges {
+	return newObservedValueGauges(vec, testDonID, testCSAPublicKey)
 }
 
 // observedSeries returns every series in vec keyed by {stream_id, value_type, config_digest}. t can be an
@@ -66,17 +75,45 @@ func Test_observedValueGauges(t *testing.T) {
 	t.Run("decimal records benchmark", func(t *testing.T) {
 		t.Parallel()
 		vec := newTestObservedValueVec()
-		g := newObservedValueGauges(vec)
+		g := newTestObservedValueGauges(vec)
 		g.record(dA, lloprotocol.StreamValues{1: dec(63421.07)}, t0)
 		assert.Equal(t, map[[3]string]float64{
 			{"1", "benchmark", dA.String()}: 63421.07,
 		}, observedSeries(t, vec))
 	})
 
+	t.Run("series carry don_id and csa_public_key", func(t *testing.T) {
+		t.Parallel()
+		vec := newTestObservedValueVec()
+		g := newObservedValueGauges(vec, 4, "abcdef")
+		g.record(dA, lloprotocol.StreamValues{1: dec(1), 2: quote(1, 2, 3)}, t0)
+		ch := make(chan prometheus.Metric)
+		go func() {
+			vec.Collect(ch)
+			close(ch)
+		}()
+		n := 0
+		for m := range ch {
+			var pb io_prometheus_client.Metric
+			require.NoError(t, m.Write(&pb))
+			labels := map[string]string{}
+			for _, lp := range pb.GetLabel() {
+				labels[lp.GetName()] = lp.GetValue()
+			}
+			assert.Equal(t, "4", labels["don_id"])
+			assert.Equal(t, "abcdef", labels["csa_public_key"])
+			n++
+		}
+		assert.Equal(t, 4, n)
+		// deleteAll must use the same label values, or the series would leak.
+		g.deleteAll()
+		assert.Empty(t, observedSeries(t, vec))
+	})
+
 	t.Run("legacy quote records bid, benchmark and ask", func(t *testing.T) {
 		t.Parallel()
 		vec := newTestObservedValueVec()
-		g := newObservedValueGauges(vec)
+		g := newTestObservedValueGauges(vec)
 		g.record(dA, lloprotocol.StreamValues{2: quote(99, 100, 101)}, t0)
 		series := observedSeries(t, vec)
 		assert.Equal(t, map[[3]string]float64{
@@ -92,7 +129,7 @@ func Test_observedValueGauges(t *testing.T) {
 	t.Run("timestamped values are unwrapped", func(t *testing.T) {
 		t.Parallel()
 		vec := newTestObservedValueVec()
-		g := newObservedValueGauges(vec)
+		g := newTestObservedValueGauges(vec)
 		g.record(dA, lloprotocol.StreamValues{
 			1: &lloprotocol.TimestampedStreamValue{ObservedAtNanoseconds: 1, StreamValue: dec(63421.07)},
 			2: &lloprotocol.TimestampedStreamValue{ObservedAtNanoseconds: 1, StreamValue: quote(99, 100, 101)},
@@ -108,7 +145,7 @@ func Test_observedValueGauges(t *testing.T) {
 	t.Run("nil value deletes the stream's series", func(t *testing.T) {
 		t.Parallel()
 		vec := newTestObservedValueVec()
-		g := newObservedValueGauges(vec)
+		g := newTestObservedValueGauges(vec)
 		g.record(dA, lloprotocol.StreamValues{1: dec(1), 2: dec(2)}, t0)
 		g.record(dA, lloprotocol.StreamValues{1: nil, 2: dec(2)}, t0.Add(time.Second))
 		assert.Equal(t, map[[3]string]float64{
@@ -119,7 +156,7 @@ func Test_observedValueGauges(t *testing.T) {
 	t.Run("stream removed from the set deletes its series", func(t *testing.T) {
 		t.Parallel()
 		vec := newTestObservedValueVec()
-		g := newObservedValueGauges(vec)
+		g := newTestObservedValueGauges(vec)
 		g.record(dA, lloprotocol.StreamValues{1: dec(1), 2: dec(2)}, t0)
 		g.record(dA, lloprotocol.StreamValues{2: dec(2)}, t0.Add(time.Second))
 		assert.Equal(t, map[[3]string]float64{
@@ -130,7 +167,7 @@ func Test_observedValueGauges(t *testing.T) {
 	t.Run("new value updates the gauge", func(t *testing.T) {
 		t.Parallel()
 		vec := newTestObservedValueVec()
-		g := newObservedValueGauges(vec)
+		g := newTestObservedValueGauges(vec)
 		g.record(dA, lloprotocol.StreamValues{1: dec(10)}, t0)
 		g.record(dA, lloprotocol.StreamValues{1: dec(11)}, t0.Add(time.Second))
 		assert.Equal(t, map[[3]string]float64{
@@ -141,7 +178,7 @@ func Test_observedValueGauges(t *testing.T) {
 	t.Run("kind change replaces the series", func(t *testing.T) {
 		t.Parallel()
 		vec := newTestObservedValueVec()
-		g := newObservedValueGauges(vec)
+		g := newTestObservedValueGauges(vec)
 		g.record(dA, lloprotocol.StreamValues{3: dec(5)}, t0)
 		g.record(dA, lloprotocol.StreamValues{3: quote(4, 5, 6)}, t0.Add(time.Second))
 		assert.Equal(t, map[[3]string]float64{
@@ -158,7 +195,7 @@ func Test_observedValueGauges(t *testing.T) {
 	t.Run("config digest series expire after the TTL", func(t *testing.T) {
 		t.Parallel()
 		vec := newTestObservedValueVec()
-		g := newObservedValueGauges(vec)
+		g := newTestObservedValueGauges(vec)
 		g.record(dA, lloprotocol.StreamValues{1: dec(1)}, t0)
 		g.record(dB, lloprotocol.StreamValues{1: dec(2)}, t0.Add(5*time.Second))
 		assert.Equal(t, map[[3]string]float64{
@@ -174,7 +211,7 @@ func Test_observedValueGauges(t *testing.T) {
 	t.Run("deleteAll removes every series", func(t *testing.T) {
 		t.Parallel()
 		vec := newTestObservedValueVec()
-		g := newObservedValueGauges(vec)
+		g := newTestObservedValueGauges(vec)
 		g.record(dA, lloprotocol.StreamValues{1: dec(1), 2: quote(1, 2, 3)}, t0)
 		g.record(dB, lloprotocol.StreamValues{1: dec(1)}, t0)
 		g.deleteAll()
@@ -184,7 +221,7 @@ func Test_observedValueGauges(t *testing.T) {
 	t.Run("expire deletes the only digest after Observe stops", func(t *testing.T) {
 		t.Parallel()
 		vec := newTestObservedValueVec()
-		g := newObservedValueGauges(vec)
+		g := newTestObservedValueGauges(vec)
 		g.record(dA, lloprotocol.StreamValues{1: dec(1), 2: quote(1, 2, 3)}, t0)
 		g.expire(t0.Add(observedValueDigestTTL))
 		assert.Len(t, observedSeries(t, vec), 4, "series must survive up to the TTL")
@@ -195,7 +232,7 @@ func Test_observedValueGauges(t *testing.T) {
 	t.Run("concurrent Blue/Green records keep one series per stream and digest", func(t *testing.T) {
 		t.Parallel()
 		vec := newTestObservedValueVec()
-		g := newObservedValueGauges(vec)
+		g := newTestObservedValueGauges(vec)
 		var wg sync.WaitGroup
 		for _, d := range []ocr2types.ConfigDigest{dA, dB} {
 			wg.Go(func() {
@@ -304,7 +341,7 @@ func BenchmarkObservedValueGaugesRecord(b *testing.B) {
 	now := time.Unix(1_700_000_000, 0)
 
 	b.Run("unchanged", func(b *testing.B) {
-		g := newObservedValueGauges(newTestObservedValueVec())
+		g := newTestObservedValueGauges(newTestObservedValueVec())
 		sv := newValues(1)
 		g.record(digest, sv, now)
 		b.ReportAllocs()
@@ -315,7 +352,7 @@ func BenchmarkObservedValueGaugesRecord(b *testing.B) {
 	})
 
 	b.Run("all_changed", func(b *testing.B) {
-		g := newObservedValueGauges(newTestObservedValueVec())
+		g := newTestObservedValueGauges(newTestObservedValueVec())
 		svs := [2]lloprotocol.StreamValues{newValues(1), newValues(2)}
 		g.record(digest, svs[1], now)
 		b.ReportAllocs()

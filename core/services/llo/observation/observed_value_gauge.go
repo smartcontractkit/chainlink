@@ -29,7 +29,7 @@ var promStreamObservedValue = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		"whatever it measures) and bid, benchmark or ask for quote streams. Values are float64, so digits beyond " +
 		"about 15 significant figures are lost. A series is deleted when its stream has no fresh cached value, " +
 		"leaves the plugin's stream set, or its config digest stops observing.",
-}, []string{"stream_id", "value_type", "config_digest"})
+}, []string{"stream_id", "value_type", "config_digest", "don_id", "csa_public_key"})
 
 const (
 	observedValueTypeBenchmark = "benchmark"
@@ -47,6 +47,12 @@ type observedValueGauges struct {
 	vec     *prometheus.GaugeVec
 	mu      sync.Mutex
 	digests map[ocr2types.ConfigDigest]*digestObservedValues
+
+	// Constant per dataSource: the DON this job belongs to, and this node's CSA public key in hex (the same value as
+	// the Beholder resource attribute csa_public_key). They let dashboards disambiguate stream_id across DONs and
+	// join with RDD metadata.
+	donIDLabel        string
+	csaPublicKeyLabel string
 }
 
 type digestObservedValues struct {
@@ -64,10 +70,12 @@ type streamObservedValue struct {
 	bid, ask      prometheus.Gauge // nil for decimal streams
 }
 
-func newObservedValueGauges(vec *prometheus.GaugeVec) *observedValueGauges {
+func newObservedValueGauges(vec *prometheus.GaugeVec, donID uint32, csaPublicKey string) *observedValueGauges {
 	return &observedValueGauges{
-		vec:     vec,
-		digests: make(map[ocr2types.ConfigDigest]*digestObservedValues),
+		vec:               vec,
+		digests:           make(map[ocr2types.ConfigDigest]*digestObservedValues),
+		donIDLabel:        strconv.FormatUint(uint64(donID), 10),
+		csaPublicKeyLabel: csaPublicKey,
 	}
 }
 
@@ -169,10 +177,10 @@ func (g *observedValueGauges) getOrCreateStream(dg *digestObservedValues, id llo
 		g.deleteStream(dg.digestLabel, entry)
 	}
 	entry = &streamObservedValue{streamIDLabel: strconv.FormatUint(uint64(id), 10)}
-	entry.benchmark = g.vec.WithLabelValues(entry.streamIDLabel, observedValueTypeBenchmark, dg.digestLabel)
+	entry.benchmark = g.vec.WithLabelValues(entry.streamIDLabel, observedValueTypeBenchmark, dg.digestLabel, g.donIDLabel, g.csaPublicKeyLabel)
 	if isQuote {
-		entry.bid = g.vec.WithLabelValues(entry.streamIDLabel, observedValueTypeBid, dg.digestLabel)
-		entry.ask = g.vec.WithLabelValues(entry.streamIDLabel, observedValueTypeAsk, dg.digestLabel)
+		entry.bid = g.vec.WithLabelValues(entry.streamIDLabel, observedValueTypeBid, dg.digestLabel, g.donIDLabel, g.csaPublicKeyLabel)
+		entry.ask = g.vec.WithLabelValues(entry.streamIDLabel, observedValueTypeAsk, dg.digestLabel, g.donIDLabel, g.csaPublicKeyLabel)
 	}
 	dg.streams[id] = entry
 	return entry
@@ -185,10 +193,10 @@ func (g *observedValueGauges) deleteDigest(dg *digestObservedValues) {
 }
 
 func (g *observedValueGauges) deleteStream(digestLabel string, entry *streamObservedValue) {
-	g.vec.DeleteLabelValues(entry.streamIDLabel, observedValueTypeBenchmark, digestLabel)
+	g.vec.DeleteLabelValues(entry.streamIDLabel, observedValueTypeBenchmark, digestLabel, g.donIDLabel, g.csaPublicKeyLabel)
 	if entry.bid != nil {
-		g.vec.DeleteLabelValues(entry.streamIDLabel, observedValueTypeBid, digestLabel)
-		g.vec.DeleteLabelValues(entry.streamIDLabel, observedValueTypeAsk, digestLabel)
+		g.vec.DeleteLabelValues(entry.streamIDLabel, observedValueTypeBid, digestLabel, g.donIDLabel, g.csaPublicKeyLabel)
+		g.vec.DeleteLabelValues(entry.streamIDLabel, observedValueTypeAsk, digestLabel, g.donIDLabel, g.csaPublicKeyLabel)
 	}
 }
 
