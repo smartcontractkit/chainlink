@@ -3,6 +3,7 @@ package stellar
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -10,6 +11,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 )
 
@@ -114,6 +117,38 @@ func buildJobConfigJSON(
 		return "", fmt.Errorf("failed to marshal Stellar standard capability job config: %w", err)
 	}
 	return string(raw), nil
+}
+
+// buildSpecConfig returns the Stellar capability config as registry spec_config. It carries
+// the same keys the worker job spec used to supply, so the node can launch the capability
+// from the registry alone.
+func buildSpecConfig(
+	chainID string,
+	forwarderAddress string,
+	settings methodConfigSettings,
+	isLocal bool,
+) (*valuespb.Map, error) {
+	raw, err := buildJobConfigJSON(chainID, forwarderAddress, settings, isLocal)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg map[string]any
+	if err = json.Unmarshal([]byte(raw), &cfg); err != nil {
+		return nil, fmt.Errorf("failed to decode Stellar config: %w", err)
+	}
+	for key, v := range cfg {
+		// encoding/json decodes every number as float64; keep integral ones integral.
+		if f, ok := v.(float64); ok && f == math.Trunc(f) {
+			cfg[key] = int64(f)
+		}
+	}
+
+	wrapped, err := values.NewMap(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wrap Stellar spec config: %w", err)
+	}
+	return values.ProtoMap(wrapped), nil
 }
 
 func durationValue(values map[string]any, key string) (time.Duration, bool, error) {

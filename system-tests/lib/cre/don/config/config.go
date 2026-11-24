@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	aptoschain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/aptos"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -474,6 +476,13 @@ func addWorkerNodeConfig(
 		}
 	}
 
+	// EVM, Aptos and Stellar chain capabilities are launched from their registry spec_config, not job specs.
+	for _, id := range chainCapabilityAllowlistEntries(donMetadata, commonInputs) {
+		if !slices.Contains(existingConfig.Capabilities.Local.RegistryBasedLaunchAllowlist, id) {
+			existingConfig.Capabilities.Local.RegistryBasedLaunchAllowlist = append(existingConfig.Capabilities.Local.RegistryBasedLaunchAllowlist, id)
+		}
+	}
+
 	for _, evmChain := range commonInputs.evmChains {
 		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
@@ -665,8 +674,9 @@ type versionedAddress struct {
 }
 
 type aptosChain struct {
-	ChainID string
-	NodeURL string
+	ChainID       string
+	ChainSelector uint64
+	NodeURL       string
 }
 
 type commonInputs struct {
@@ -799,9 +809,10 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 const stellarMaxResourceFeeStroops = int64(10_000_000)
 
 type stellarChain struct {
-	Name    string
-	ChainID string
-	NodeURL string
+	Name          string
+	ChainID       string
+	ChainSelector uint64
+	NodeURL       string
 }
 
 func findOneStellarChain(input cre.GenerateConfigsInput) (*stellarChain, error) {
@@ -829,13 +840,47 @@ func findOneStellarChain(input cre.GenerateConfigsInput) (*stellarChain, error) 
 		}
 
 		stChain = &stellarChain{
-			Name:    fmt.Sprintf("node-%d", stBc.ChainSelector()),
-			ChainID: stBc.StellarChainID(), // string network id with a corresponding chain selector
-			NodeURL: nodeURL,
+			Name:          fmt.Sprintf("node-%d", stBc.ChainSelector()),
+			ChainID:       stBc.StellarChainID(), // string network id with a corresponding chain selector
+			ChainSelector: stBc.ChainSelector(),
+			NodeURL:       nodeURL,
 		}
 	}
 
 	return stChain, nil
+}
+
+// chainCapabilityAllowlistEntries returns the RegistryBasedLaunchAllowlist patterns for the chain
+// capabilities enabled on the DON. EVM is allowlisted by family; Aptos and Stellar per chain.
+// Solana stays on job specs.
+func chainCapabilityAllowlistEntries(donMetadata *cre.DonMetadata, inputs *commonInputs) []string {
+	entries := make([]string, 0)
+
+	for _, evmChain := range inputs.evmChains {
+		if flags.HasFlagForChain(donMetadata.Flags, cre.EVMCapability, evmChain.ChainID) {
+			entries = append(entries, "^evm:ChainSelector:")
+			break
+		}
+	}
+
+	for _, ac := range inputs.aptosChains {
+		chainID, err := strconv.ParseUint(ac.ChainID, 10, 64)
+		if err != nil || !flags.HasFlagForChain(donMetadata.Flags, cre.AptosCapability, chainID) {
+			continue
+		}
+		entries = append(entries, exactCapabilityIDPattern("aptos:ChainSelector:"+strconv.FormatUint(ac.ChainSelector, 10)+"@1.0.0"))
+	}
+
+	if donMetadata.HasFlag(cre.StellarCapability) && inputs.stellarChain != nil {
+		entries = append(entries, exactCapabilityIDPattern("stellar:ChainSelector:"+strconv.FormatUint(inputs.stellarChain.ChainSelector, 10)+"@1.0.0"))
+	}
+
+	return entries
+}
+
+// exactCapabilityIDPattern anchors a capability ID so the allowlist (a regex) matches only it.
+func exactCapabilityIDPattern(id string) string {
+	return "^" + regexp.QuoteMeta(id) + "$"
 }
 
 func findAptosChains(input cre.GenerateConfigsInput) ([]*aptosChain, error) {
@@ -859,8 +904,9 @@ func findAptosChains(input cre.GenerateConfigsInput) ([]*aptosChain, error) {
 		}
 
 		out = append(out, &aptosChain{
-			ChainID: strconv.FormatUint(bcOut.ChainID(), 10),
-			NodeURL: nodeURL,
+			ChainID:       strconv.FormatUint(bcOut.ChainID(), 10),
+			ChainSelector: aptosBC.ChainSelector(),
+			NodeURL:       nodeURL,
 		})
 	}
 	return out, nil

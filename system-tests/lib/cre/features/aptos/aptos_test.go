@@ -3,12 +3,10 @@ package aptos
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
@@ -20,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -138,23 +135,27 @@ func TestBuildCapabilityConfig_WithoutP2PMap_StillSetsRuntimeSpecConfig(t *testi
 	require.Contains(t, specConfig.Underlying, specConfigDeltaStageKey)
 }
 
-func TestBuildWorkerConfigJSON_IncludesLocalRuntimeValues(t *testing.T) {
-	configStr, err := buildWorkerConfigJSON(
-		4,
-		"0x000000000000000000000000000000000000000000000000000000000000000a",
-		methodConfigSettings{DeltaStage: 2500 * time.Millisecond},
-		map[string]string{"peer-a": "0x1"},
-		true,
-	)
+const testForwarder = "0x000000000000000000000000000000000000000000000000000000000000000a"
+
+func TestSetChainSpecConfig_AddsChainKeysAndKeepsExisting(t *testing.T) {
+	capConfig, err := BuildCapabilityConfig(nil, map[string]string{"peer-a": "0x1"}, true)
 	require.NoError(t, err)
 
-	var got map[string]any
-	require.NoError(t, json.Unmarshal([]byte(configStr), &got))
+	require.NoError(t, setChainSpecConfig(capConfig, 4, testForwarder, true))
+
+	specConfig, err := values.FromMapValueProto(capConfig.SpecConfig)
+	require.NoError(t, err)
+	unwrapped, err := specConfig.Unwrap()
+	require.NoError(t, err)
+	got, ok := unwrapped.(map[string]any)
+	require.True(t, ok)
 	require.Equal(t, "4", got["chainId"])
 	require.Equal(t, "aptos", got["network"])
+	require.Equal(t, testForwarder, got["creForwarderAddress"])
 	require.Equal(t, true, got["isLocal"])
-	require.EqualValues(t, (2500 * time.Millisecond).Nanoseconds(), got["deltaStage"])
 	require.Equal(t, map[string]any{"peer-a": "0x1"}, got[specConfigP2PMapKey])
+	require.Contains(t, got, specConfigDeltaStageKey)
+	require.Contains(t, got, specConfigScheduleKey)
 }
 
 func TestNormalizeTransmitter(t *testing.T) {
@@ -347,6 +348,7 @@ func TestBuildCapabilityRegistrations_UsesCapRegOCRConfig(t *testing.T) {
 		[]creblockchains.Blockchain{testAptosBlockchain(4, 4457093679053095497)},
 		[]uint64{4},
 		map[string]string{"peer-a": "0x1"},
+		map[uint64]string{4: testForwarder},
 	)
 	require.NoError(t, err)
 	require.Len(t, caps, 1)
@@ -355,47 +357,34 @@ func TestBuildCapabilityRegistrations_UsesCapRegOCRConfig(t *testing.T) {
 	require.Equal(t, CapabilityLabel(4457093679053095497), caps[0].Capability.LabelledName)
 	require.Contains(t, capabilityToOCR3Config, capabilityLabels[0])
 	require.NotNil(t, capabilityToOCR3Config[capabilityLabels[0]])
-}
 
-func TestNewAptosWorkerJobInput_UsesCapRegVersion(t *testing.T) {
-	creEnv := &cre.Environment{
-		RegistryChainSelector: 111,
-		ContractVersions: map[cre.ContractType]*semver.Version{
-			keystone_changeset.CapabilitiesRegistry.String(): semver.MustParse("2.0.0"),
-		},
-	}
-
-	input, err := newAptosWorkerJobInput(
-		creEnv,
-		"workflow-don",
-		"/usr/local/bin/aptos",
-		`{"chainId":"4"}`,
-		[]string{"peer@127.0.0.1:6690"},
-		222,
-		4,
-	)
+	// The capability must be launchable from its registry spec_config alone.
+	specConfig, err := values.FromMapValueProto(caps[0].Config.SpecConfig)
 	require.NoError(t, err)
-	require.Equal(t, "aptos-worker-4", input.JobName)
-	require.Equal(t, true, input.Inputs["useCapRegOCRConfig"])
-	require.Equal(t, "2.0.0", input.Inputs["capRegVersion"])
-	require.Equal(t, uint64(111), input.Inputs["chainSelectorEVM"])
-	require.Equal(t, uint64(222), input.Inputs["chainSelectorAptos"])
-	_, hasQualifier := input.Inputs["contractQualifier"]
-	require.False(t, hasQualifier)
+	unwrapped, err := specConfig.Unwrap()
+	require.NoError(t, err)
+	got, ok := unwrapped.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "4", got["chainId"])
+	require.Equal(t, "aptos", got["network"])
+	require.Equal(t, testForwarder, got["creForwarderAddress"])
+	require.Equal(t, true, got["isLocal"])
+	require.Contains(t, got, specConfigP2PMapKey)
 }
 
-func TestNewAptosWorkerJobInput_ErrorsWithoutCapRegVersion(t *testing.T) {
-	_, err := newAptosWorkerJobInput(
-		&cre.Environment{},
-		"workflow-don",
-		"/usr/local/bin/aptos",
-		`{"chainId":"4"}`,
-		nil,
-		222,
-		4,
+func TestBuildCapabilityRegistrations_ErrorsWithoutForwarder(t *testing.T) {
+	don := testDonMetadataWithCapabilities(t, []string{"[Aptos]\n"}, []string{cre.AptosCapability + "-4"}, cre.CapabilityConfigs{
+		cre.AptosCapability: {BinaryName: "aptos"},
+	})
+
+	_, _, _, err := buildCapabilityRegistrations(
+		don,
+		[]creblockchains.Blockchain{testAptosBlockchain(4, 4457093679053095497)},
+		[]uint64{4},
+		map[string]string{"peer-a": "0x1"},
+		map[uint64]string{},
 	)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "CapabilitiesRegistry version not found")
+	require.ErrorContains(t, err, "missing Aptos forwarder address")
 }
 
 func testDonMetadata(t *testing.T, nodeConfigs ...string) *cre.DonMetadata {

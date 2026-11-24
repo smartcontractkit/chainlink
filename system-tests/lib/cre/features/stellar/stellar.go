@@ -15,7 +15,6 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	crejobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 )
 
@@ -56,6 +55,21 @@ func (s *Stellar) PreEnvStartup(
 		return nil, fmt.Errorf("failed to resolve Stellar method config settings: %w", err)
 	}
 
+	// The forwarder address is part of the capability's spec_config, so deploy it first.
+	if deployErr := deployStellarForwarders(ctx, testLogger, creEnv, stellarChain); deployErr != nil {
+		return nil, fmt.Errorf("failed to deploy stellar CRE forwarder: %w", deployErr)
+	}
+
+	specConfig, err := buildSpecConfig(
+		stellarChain.StellarChainID(),
+		mustForwarderAddress(creEnv.CldfEnvironment.DataStore, stellarChain.ChainSelector()),
+		methodSettings,
+		don.HasFlag(cre.WorkflowDON),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build Stellar spec config: %w", err)
+	}
+
 	labelledName := CapabilityLabel(stellarChain.ChainSelector())
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
 		Capability: kcr.CapabilitiesRegistryCapability{
@@ -66,13 +80,10 @@ func (s *Stellar) PreEnvStartup(
 		Config: &capabilitiespb.CapabilityConfig{
 			MethodConfigs: methodConfigs(methodSettings),
 			LocalOnly:     don.HasOnlyLocalCapabilities(),
+			SpecConfig:    specConfig,
 		},
 		UseCapRegOCRConfig: true,
 	}}
-
-	if deployErr := deployStellarForwarders(ctx, testLogger, creEnv, stellarChain); deployErr != nil {
-		return nil, fmt.Errorf("failed to deploy stellar CRE forwarder: %w", deployErr)
-	}
 
 	capabilityToExtraSignerFamilies := make(map[string][]string, len(capabilities))
 	ocrConfigs := map[string]*ocr3.OracleConfig{}
@@ -100,11 +111,6 @@ func (s *Stellar) PostEnvStartup(
 		return errors.New("no stellar blockchain found in environment")
 	}
 
-	nodeSet, err := nodeSetForDON(dons, don.Name)
-	if err != nil {
-		return err
-	}
-
 	consensusDons := dons.DonsWithFlag(cre.ConsensusCapability)
 	if len(consensusDons) == 0 {
 		return errors.New("no consensus DON found in environment")
@@ -118,18 +124,8 @@ func (s *Stellar) PostEnvStartup(
 		return errors.Wrap(authErr, "failed to authorize stellar forwarder transmitters")
 	}
 
-	specs, err := proposeStellarStandardCapabilityJobs(ctx, don, dons, creEnv, nodeSet)
-	if err != nil {
-		return errors.Wrap(err, "failed to propose Stellar standard capability job specs")
-	}
-	if len(specs) == 0 {
-		return nil
-	}
-
-	if approveErr := crejobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs); approveErr != nil {
-		return fmt.Errorf("failed to approve Stellar jobs: %w", approveErr)
-	}
-
+	// The Stellar capability is launched by the node from its registry spec_config
+	// (see PreEnvStartup), so no job spec is proposed here.
 	return nil
 }
 

@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -19,7 +17,6 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	crejobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 )
 
@@ -92,7 +89,7 @@ func (a *Aptos) PreEnvStartup(
 		return nil, fmt.Errorf("failed to collect Aptos worker transmitters for DON %q from metadata: %w", don.Name, err)
 	}
 
-	caps, capabilityToOCR3Config, capabilityLabels, err := buildCapabilityRegistrations(don, creEnv.Blockchains, enabledChainIDs, p2pToTransmitterMap)
+	caps, capabilityToOCR3Config, capabilityLabels, err := buildCapabilityRegistrations(don, creEnv.Blockchains, enabledChainIDs, p2pToTransmitterMap, forwardersByChainID)
 	if err != nil {
 		return nil, err
 	}
@@ -127,23 +124,9 @@ func (a *Aptos) PostEnvStartup(
 		return nil
 	}
 
-	err = configureForwarders(ctx, testLogger, don, creEnv, enabledChainIDs)
-	if err != nil {
-		return err
-	}
-
-	specs, err := proposeAptosWorkerSpecs(ctx, don, dons, creEnv, nodeSet, enabledChainIDs)
-	if err != nil {
-		return err
-	}
-	if len(specs) == 0 {
-		return nil
-	}
-	err = crejobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
-	if err != nil {
-		return fmt.Errorf("failed to approve Aptos jobs: %w", err)
-	}
-	return nil
+	// The Aptos capability is launched by the node from its registry spec_config
+	// (see buildCapabilityRegistrations), so no worker job spec is proposed here.
+	return configureForwarders(ctx, testLogger, don, creEnv, enabledChainIDs)
 }
 
 func buildCapabilityRegistrations(
@@ -151,6 +134,7 @@ func buildCapabilityRegistrations(
 	blockchains []creblockchains.Blockchain,
 	enabledChainIDs []uint64,
 	p2pToTransmitterMap map[string]string,
+	forwardersByChainID map[uint64]string,
 ) ([]keystone_changeset.DONCapabilityWithConfig, map[string]*ocr3.OracleConfig, []string, error) {
 	caps := make([]keystone_changeset.DONCapabilityWithConfig, 0, len(enabledChainIDs))
 	capabilityToOCR3Config := make(map[string]*ocr3.OracleConfig, len(enabledChainIDs))
@@ -170,6 +154,13 @@ func buildCapabilityRegistrations(
 		capConfig, err := BuildCapabilityConfig(capabilityConfig.Values, p2pToTransmitterMap, don.HasOnlyLocalCapabilities())
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to build Aptos capability config for capability %s: %w", labelledName, err)
+		}
+		forwarderAddress, ok := forwardersByChainID[chainID]
+		if !ok || forwarderAddress == "" {
+			return nil, nil, nil, fmt.Errorf("missing Aptos forwarder address for chain %d", chainID)
+		}
+		if err := setChainSpecConfig(capConfig, chainID, forwarderAddress, true); err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to set Aptos chain spec config for capability %s: %w", labelledName, err)
 		}
 
 		caps = append(caps, keystone_changeset.DONCapabilityWithConfig{
@@ -195,17 +186,6 @@ func nodeSetForDON(dons *cre.Dons, donName string) (cre.NodeSetWithCapabilityCon
 		}
 	}
 	return nil, fmt.Errorf("could not find node set for Don named '%s'", donName)
-}
-
-func bootstrapPeersForDons(dons *cre.Dons) ([]string, error) {
-	bootstrapNode, ok := dons.Bootstrap()
-	if !ok {
-		return nil, pkgerrors.New("bootstrap node not found; required for Aptos OCR bootstrap peers")
-	}
-
-	return []string{
-		fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_"), bootstrapNode.Host, cre.PeeringPort),
-	}, nil
 }
 
 var (

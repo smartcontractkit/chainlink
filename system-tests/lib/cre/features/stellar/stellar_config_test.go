@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
 
 func TestResolveMethodConfigSettings(t *testing.T) {
@@ -110,4 +111,30 @@ func TestBuildWorkerConfigJSON(t *testing.T) {
 	var localCfg map[string]any
 	require.NoError(t, json.Unmarshal([]byte(rawLocal), &localCfg))
 	assert.Equal(t, true, localCfg["isLocal"])
+}
+
+func TestBuildSpecConfig(t *testing.T) {
+	t.Parallel()
+
+	settings := methodConfigSettings{RequestTimeout: 30 * time.Second, DeltaStage: 15 * time.Second}
+	const (
+		chainID   = "baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"
+		forwarder = "CBQY7TRRXPAZBLCON2PJ6EEZ4OXUY2HYDRERFVIE4MSBDSB2NVNZG42V"
+	)
+
+	specConfig, err := buildSpecConfig(chainID, forwarder, settings, true)
+	require.NoError(t, err)
+
+	decoded, err := values.FromMapValueProto(specConfig)
+	require.NoError(t, err)
+	unwrapped, err := decoded.Unwrap()
+	require.NoError(t, err)
+	got, ok := unwrapped.(map[string]any)
+	require.True(t, ok)
+
+	assert.Equal(t, network, got["network"])
+	assert.Equal(t, chainID, got["chainId"])
+	assert.Equal(t, forwarder, got["creForwarderAddress"])
+	assert.Equal(t, true, got["isLocal"])
+	assert.Equal(t, settings.DeltaStage.Nanoseconds(), got["deltaStage"])
 }
