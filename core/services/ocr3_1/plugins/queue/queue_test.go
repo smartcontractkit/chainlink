@@ -1923,9 +1923,9 @@ func TestObservation_PartialBlobFailure(t *testing.T) {
 		failBlobAt int // index of the first event of the blob that fails
 		wantEvents int
 	}{
-		{"first blob fails: nothing observed", 0, 0},
-		{"middle blob fails: only the events before it are kept", 2, 2},
-		{"last blob fails", 4, 4},
+		{"first", 0, 4},
+		{"middle", 2, 4},
+		{"last", 4, 4},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -1937,10 +1937,16 @@ func TestObservation_PartialBlobFailure(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, obs.Events, tt.wantEvents)
 			assert.Len(t, obs.BlobHandles, tt.wantEvents/2)
-			for i, e := range obs.Events {
-				assert.Equal(t, ev[i].hash, e.TimelessHash, "events stay in order")
+			var i, oi int
+			for _, e := range obs.Events {
+				for tt.failBlobAt == oi {
+					oi += 2
+				}
+				assert.Equal(t, ev[oi].hash, e.TimelessHash, "events stay in order")
 				assert.Equal(t, uint32(i/2), e.Blobs[0].Blob)
 				assert.Equal(t, uint32(i%2), e.Blobs[0].Element)
+				i++
+				oi++
 			}
 			if tt.wantEvents > 0 {
 				assert.Contains(t, obs.WorkflowCapacities, testWF, "capacities cover the events kept")

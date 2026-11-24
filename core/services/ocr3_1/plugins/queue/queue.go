@@ -398,7 +398,9 @@ func observeEvent(
 }
 
 // broadcastObservationBlobs broadcasts up to maxObservedBlobHandles blobs containing events, and updates the observation.
-// It may not be able to broadcast all events, in which case the observed events will be truncated and false returned.
+// It may not be able to broadcast all events, in which case the observed events will be truncated and false returned:
+// the events that did not fit in the blobs are dropped, and so are those of a blob that failed to broadcast. The blobs
+// that did broadcast are all kept, wherever they are among the failed ones.
 // The events are divided between blobs first, so that the blobs can be broadcast concurrently.
 // opt: remember blobs so we don't have to rebroadcast events <f+1
 // opt: broadcast earlier so we don't block the round live
@@ -446,33 +448,29 @@ func (c *consensusQueuePlugin) broadcastObservationBlobs(
 		return false, err // cancelled, so there is no point in observing at all
 	}
 
-	// Keep the blobs before the first failure. A failed broadcast must not fail Observation (see libocr
-	// BlobBroadcaster), so observe without the events that did not make it.
-	keep := len(ends)
-	for i, err := range errs {
-		if err != nil {
-			c.lggr.Warnw("Failed to broadcast events blob - omitting it and the remaining events from observation", "blob", i, "err", err)
-			keep = i
-			break
+	// Tolerate failed broadcasts since that must not fail Observation (see libocr BlobBroadcaster). The events of a blob
+	// that failed are left out, and every blob that made it is kept, with its events, which stay in order.
+	kept := make([]*pb.ConsensusQueueEvent, 0, len(obs.Events))
+	for i, start := 0, 0; i < len(ends); start, i = ends[i], i+1 {
+		if errs[i] != nil {
+			c.lggr.Warnw("Failed to broadcast events blob - omitting its events from observation", "blob", i, "events", ends[i]-start, "err", errs[i])
+			continue
+		}
+
+		blob := len(obs.BlobHandles) // the blob's index: after those kept so far
+		obs.BlobHandles = append(obs.BlobHandles, handles[i])
+		for j, e := range obs.Events[start:ends[i]] { // point every event at its blob and element
+			e.Blobs[0].Blob, e.Blobs[0].Element = uint32(blob), uint32(j) //nolint:gosec // G115: at most maxObservedBlobHandles blobs, and maxObservedEvents events
+			kept = append(kept, e)
 		}
 	}
-	if keep == 0 {
+	if len(kept) == 0 {
 		obs.Events = obs.Events[:0]
 		return false, nil
 	}
 
-	obs.BlobHandles = append(obs.BlobHandles, handles[:keep]...)
-	for i, start := 0, 0; i < keep; i++ { // point every event at its blob and element
-		for j, e := range obs.Events[start:ends[i]] {
-			e.Blobs[0].Blob, e.Blobs[0].Element = uint32(i), uint32(j)
-		}
-		start = ends[i]
-	}
-	limited := ends[keep-1] < len(obs.Events)
-	if limited {
-		obs.Events = obs.Events[:ends[keep-1]] // drop the events that did not fit in the blobs, or whose blob failed
-		// note: caller will fix wfCapacity
-	}
+	limited := len(kept) < len(obs.Events)
+	obs.Events = kept // note: if limited, the caller will fix wfCapacity
 	return !limited, nil
 }
 
