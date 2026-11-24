@@ -12,15 +12,15 @@ import (
 func validLimits() *ReportingPluginLimits {
 	return &ReportingPluginLimits{
 		MaxQueryBytes:                                   1,
-		MaxObservationBytes:                             2,
+		MaxObservationBytes:                             512 * 1024,
 		MaxReportsPlusPrecursorBytes:                    3,
 		MaxReportBytes:                                  4,
 		MaxReportCount:                                  5,
-		MaxKeyValueModifiedKeys:                         6,
-		MaxKeyValueModifiedKeysPlusValuesBytes:          7,
-		MaxBlobPayloadBytes:                             8,
-		MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 9,
-		MaxPerOracleUnexpiredBlobCount:                  10,
+		MaxKeyValueModifiedKeys:                         4,
+		MaxKeyValueModifiedKeysPlusValuesBytes:          10 * 1024 * 1024,
+		MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+		MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+		MaxPerOracleUnexpiredBlobCount:                  1000,
 	}
 }
 
@@ -71,6 +71,31 @@ func TestDecode(t *testing.T) {
 			got:     withLimits(func(l *ReportingPluginLimits) { l.MaxObservationBytes = ocr3_1types.MaxMaxObservationBytes + 1 }),
 			wantErr: "MaxObservationBytes",
 		},
+		{
+			name:    "too few modified keys for the four writes",
+			got:     withLimits(func(l *ReportingPluginLimits) { l.MaxKeyValueModifiedKeys = 3 }),
+			wantErr: "MaxKeyValueModifiedKeys",
+		},
+		{
+			name:    "too few key bytes for the four writes",
+			got:     withLimits(func(l *ReportingPluginLimits) { l.MaxKeyValueModifiedKeysPlusValuesBytes = 1 }),
+			wantErr: "MaxKeyValueModifiedKeysPlusValuesBytes",
+		},
+		{
+			name:    "blob payload too small for one event",
+			got:     withLimits(func(l *ReportingPluginLimits) { l.MaxBlobPayloadBytes = 1 }),
+			wantErr: "MaxBlobPayloadBytes",
+		},
+		{
+			name:    "no unexpired blobs allowed",
+			got:     withLimits(func(l *ReportingPluginLimits) { l.MaxPerOracleUnexpiredBlobCount = 0 }),
+			wantErr: "MaxPerOracleUnexpiredBlobCount",
+		},
+		{
+			name:    "no unexpired blob payload allowed",
+			got:     withLimits(func(l *ReportingPluginLimits) { l.MaxPerOracleUnexpiredBlobCumulativePayloadBytes = 0 }),
+			wantErr: "MaxPerOracleUnexpiredBlobCumulativePayloadBytes",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -90,15 +115,15 @@ func TestDecode(t *testing.T) {
 		require.NoError(t, err)
 		want := ocr3_1types.ReportingPluginLimits{
 			MaxQueryBytes:                                   1,
-			MaxObservationBytes:                             2,
+			MaxObservationBytes:                             512 * 1024,
 			MaxReportsPlusPrecursorBytes:                    3,
 			MaxReportBytes:                                  4,
 			MaxReportCount:                                  5,
-			MaxKeyValueModifiedKeys:                         6,
-			MaxKeyValueModifiedKeysPlusValuesBytes:          7,
-			MaxBlobPayloadBytes:                             8,
-			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 9,
-			MaxPerOracleUnexpiredBlobCount:                  10,
+			MaxKeyValueModifiedKeys:                         4,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          10 * 1024 * 1024,
+			MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCount:                  1000,
 		}
 		require.Equal(t, want, got)
 	})

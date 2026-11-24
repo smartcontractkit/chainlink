@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuelimits"
 )
 
 // blobCache is a short-lived cache for coordinating concurrent fetches of event blobs, and of splitting them up.
@@ -135,11 +136,10 @@ func fetchCoordinatedEventFromBlob(ctx context.Context, fetcher *blobCache, hand
 	return &event, elements[idx], nil
 }
 
-const coordinatedEventsFieldNumber = 1 // pb.CoordinatedEventList.Events
+const coordinatedEventsFieldNumber = queuelimits.CoordinatedEventsFieldNumber // pb.CoordinatedEventList.Events
 
 // maxEventFramingOverhead is the most framing (field tag + length prefix) an event adds as an element of a blob.
-// The length prefix is at most as long as the varint of the blob payload limit, which is capped by MaxMaxBlobPayloadBytes.
-var maxEventFramingOverhead = protowire.SizeTag(coordinatedEventsFieldNumber) + protowire.SizeVarint(uint64(ocr3_1types.MaxMaxBlobPayloadBytes))
+var maxEventFramingOverhead = queuelimits.MaxEventFramingOverhead(coordinatedEventsFieldNumber)
 
 // maxEventBytes returns the largest encoded event (without timestamps) guaranteed to fit alone in a blob.
 // It is conservative by at most a few bytes.
@@ -194,7 +194,7 @@ func splitEvents(b []byte, limit int) ([][]byte, error) {
 const (
 	// minBlobLifetime is the least time a blob is kept past the events in it expiring. Peers reap expired blobs
 	// asynchronously, and nodes that are behind, or that never received the blob, need time to fetch it.
-	minBlobLifetime = 30 * time.Second
+	minBlobLifetime = queuelimits.MinBlobLifetime
 	// minBlobLifetimeRounds is the fewest rounds a blob is kept, however the round interval compares to minBlobLifetime.
 	// The events in it are executed in Committed for its round and in the Observation of the next, which both fetch it.
 	minBlobLifetimeRounds = 3
@@ -226,15 +226,21 @@ func (c *consensusQueuePlugin) blobPrefix(events []*pb.CoordinatedEvent) int {
 	})
 }
 
-// broadcastBlob broadcasts a blob with all of the events, which must fit, and returns its marshaled handle.
-func (c *consensusQueuePlugin) broadcastBlob(ctx context.Context, broadcaster ocr3_1types.BlobBroadcaster, events []*pb.CoordinatedEvent, seqNr uint64) ([]byte, error) {
-	var maxDeadline time.Time
+// latestDeadline returns the latest deadline among the events, or the zero time if none has one.
+func latestDeadline(events []*pb.ConsensusQueueEvent) time.Time {
+	var latest time.Time
 	for _, event := range events {
-		if t := event.Deadline.AsTime(); t.After(maxDeadline) {
-			maxDeadline = t
+		if t := event.GetDeadline().AsTime(); t.After(latest) {
+			latest = t
 		}
 	}
+	return latest
+}
 
+// broadcastBlob broadcasts a blob with all of the events, which must fit, and returns its marshaled handle.
+// maxDeadline is the latest deadline of the events, which the caller must take from the observation: the events
+// themselves carry no timestamps, as they are stripped for consistent hashing and left out of the blob.
+func (c *consensusQueuePlugin) broadcastBlob(ctx context.Context, broadcaster ocr3_1types.BlobBroadcaster, events []*pb.CoordinatedEvent, maxDeadline time.Time, seqNr uint64) ([]byte, error) {
 	// An event is kept until its deadline plus the grace period, so its blob must be too.
 	grace, err := c.expirationDur(ctx)
 	if err != nil {

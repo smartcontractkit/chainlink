@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuelimits"
 )
 
 // The tests below calibrate the constants in queue.go (and the libocr limits they must fit within) by measuring real
@@ -233,5 +234,16 @@ func TestCalibration_BlobLifetime(t *testing.T) {
 			roundDur, rounds, time.Duration(rounds)*roundDur, perRoundBlobs*int(rounds), //nolint:gosec // G115: a small number of rounds
 			float64(perRoundBlobs)*float64(rounds)*float64(ocr3_1types.MaxMaxBlobPayloadBytes)/(1<<30))
 		assert.GreaterOrEqual(t, time.Duration(rounds)*roundDur, timeout+grace, "blobs must outlive their events") //nolint:gosec // G115: a small number of rounds
+
+		// The per-oracle quota a deployment must allow for a node's broadcasts to survive the event lifetime. Size it
+		// for a reference 1 MiB of payload per round: the config field is a uint32, so the worst case (10 full blobs
+		// every round) cannot be expressed at fast round intervals.
+		const referencePayloadPerRound = 1 << 20
+		quotaCount, quotaPayload := queuelimits.BlobQuota(roundDur, timeout, grace, referencePayloadPerRound)
+		t.Logf("DeltaRound %-6s: quota %6d blobs, %5.1f GiB for 1 MiB per round", roundDur, quotaCount, float64(quotaPayload)/(1<<30))
+		assert.GreaterOrEqual(t, int(quotaCount), perRoundBlobs*int(rounds), //nolint:gosec // G115: a small number of rounds
+			"the quota must hold a full observation's blobs for the event lifetime")
+		assert.GreaterOrEqual(t, int64(quotaPayload), int64(referencePayloadPerRound)*int64(rounds), //nolint:gosec // G115: a small number of rounds
+			"the quota must hold the reference payload for the event lifetime")
 	}
 }

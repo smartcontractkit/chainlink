@@ -58,14 +58,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuelimits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuepb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 )
 
 const (
-	maxObservedBlobHandles = 10   // sanity check on blobs in an observation
-	maxObservedEvents      = 1000 // sanity check events in an observation
+	maxObservedBlobHandles = queuelimits.MaxBlobHandlesPerObservation // sanity check on blobs in an observation
+	maxObservedEvents      = queuelimits.MaxObservedEvents            // sanity check events in an observation
 	maxKeyValueValueBytes  = ocr3_1types.MaxMaxKeyValueValueBytes
 )
 
@@ -129,6 +130,9 @@ func (c *consensusQueuePluginFactory) NewReportingPlugin(ctx context.Context, co
 	pluginLimits, err := pluginCfg.OCRLimits()
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, err
+	}
+	if err = queuepb.ValidateForDon(pluginLimits, config.N, config.F); err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("invalid consensus-queue limits: %w", err)
 	}
 	c.lggr.Infow("Creating consensus-queue reporting plugin", "configDigest", config.ConfigDigest.String(), "limits", pluginLimits)
 
@@ -451,9 +455,12 @@ func (c *consensusQueuePlugin) broadcastObservationBlobs(
 	var eg errgroup.Group
 	for i, start := 0, 0; i < len(ends); i++ {
 		batch := events[start:ends[i]]
+		// The events have no timestamps (they are stripped before hashing and broadcasting), so take the blob's
+		// deadline from the observation, which retains it, for the expiration hint.
+		maxDeadline := latestDeadline(obs.Events[start:ends[i]])
 		start = ends[i]
 		eg.Go(func() error {
-			handles[i], errs[i] = c.broadcastBlob(ctx, blobBroadcaster, batch, seqNr)
+			handles[i], errs[i] = c.broadcastBlob(ctx, blobBroadcaster, batch, maxDeadline, seqNr)
 			return nil
 		})
 	}

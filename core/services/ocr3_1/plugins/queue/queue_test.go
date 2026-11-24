@@ -49,9 +49,12 @@ func TestConsensusQueuePluginFactory_NewReportingPlugin(t *testing.T) {
 
 	validCfg, err := proto.Marshal(&queuepb.ReportingPluginConfig{
 		Limits: &queuepb.ReportingPluginLimits{
-			MaxObservationBytes:                    1024,
-			MaxKeyValueModifiedKeys:                10,
-			MaxKeyValueModifiedKeysPlusValuesBytes: 2048,
+			MaxObservationBytes:                             512 * 1024,
+			MaxKeyValueModifiedKeys:                         10,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          2048,
+			MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCount:                  1000,
 		},
 	})
 	require.NoError(t, err)
@@ -70,11 +73,35 @@ func TestConsensusQueuePluginFactory_NewReportingPlugin(t *testing.T) {
 		require.True(t, ok, "unexpected ReportingPluginInfo type %T", info)
 		require.Equal(t, "ConsensusQueueReportingPlugin", info1.Name)
 		want := ocr3_1types.ReportingPluginLimits{
-			MaxObservationBytes:                    1024,
-			MaxKeyValueModifiedKeys:                10,
-			MaxKeyValueModifiedKeysPlusValuesBytes: 2048,
+			MaxObservationBytes:                             512 * 1024,
+			MaxKeyValueModifiedKeys:                         10,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          2048,
+			MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCount:                  1000,
 		}
 		require.Equal(t, want, info1.Limits)
+	})
+
+	t.Run("observation too small for the DON is rejected", func(t *testing.T) {
+		t.Parallel()
+		small, err := proto.Marshal(&queuepb.ReportingPluginConfig{
+			Limits: &queuepb.ReportingPluginLimits{
+				MaxObservationBytes:                             1024,
+				MaxKeyValueModifiedKeys:                         4,
+				MaxKeyValueModifiedKeysPlusValuesBytes:          10 * 1024 * 1024,
+				MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+				MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+				MaxPerOracleUnexpiredBlobCount:                  1000,
+			},
+		})
+		require.NoError(t, err)
+
+		factory, err := NewConsensusQueuePluginFactory(logger.Test(t), limits.Factory{}, noopCoordinator{}, noopQueue{}, noop.NewMeterProvider().Meter("test"))
+		require.NoError(t, err)
+		plugin, _, err := factory.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{N: 4, F: 1, OffchainConfig: small}, nil)
+		require.ErrorContains(t, err, "MaxObservationBytes")
+		require.Nil(t, plugin)
 	})
 
 	tests := []struct {
@@ -1564,6 +1591,28 @@ func TestObservation_BlobBatching(t *testing.T) {
 			assert.Equal(t, ev[i].hash, e.TimelessHash, "the earliest events are kept")
 		}
 	})
+}
+
+func TestObservation_BlobExpiryHintCoversEventDeadline(t *testing.T) {
+	t.Parallel()
+
+	// testPlugin uses a one minute grace and a one second estimated round interval.
+	const grace = time.Minute
+	blobs := &hintBlobs{}
+	c := testPlugin(t, sliceQueue{events: mkEvents(t, 1, time.Now().Add(time.Hour).Unix())}, blobs, ocr3_1types.MaxMaxObservationBytes)
+
+	obs, err := observe(t, c, memKV{}, blobs)
+	require.NoError(t, err)
+	require.Len(t, obs.Events, 1)
+	require.Len(t, blobs.hints, 1, "one event is one blob")
+
+	hint, ok := blobs.hints[0].(ocr3_1types.BlobExpirationHintSequenceNumber)
+	require.True(t, ok, "unexpected hint type %T", blobs.hints[0])
+
+	// The blob must live until its event's deadline plus the grace period, plus the minimum lifetime. The hint is
+	// computed from the deadline retained in the observation, not from the event, whose timestamps are stripped.
+	want := blobExpirySeqNr(1, time.Until(obs.Events[0].Deadline.AsTime().Add(grace)), c.onchainCfg.EstimatedRoundInterval)
+	assert.InDelta(t, int(want), int(hint.SeqNr), 2) //nolint:gosec // G115: small test values
 }
 
 // Known issues (SHOULD FIX): libocr says a BlobBroadcast failure should not make Observation fail, and one event that

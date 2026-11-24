@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -39,7 +40,8 @@ func (o *ConsensusQueue) PreEnvStartup(
 
 	// The plugin reads its OCR limits only from the plugin config inside the registry's OCR config.
 	ocrConfig := contracts.DefaultOCR3_1Config(len(workers))
-	ocrConfig.ConsensusQueueOffchainConfig = ocr3_1.DefaultConsensusQueueOffchainConfig()
+	ocrConfig.ConsensusQueueOffchainConfig = ocr3_1.DefaultConsensusQueueOffchainConfigForRoundInterval(
+		time.Duration(ocrConfig.DeltaRoundMillis) * time.Millisecond)
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: []keystone_changeset.DONCapabilityWithConfig{{

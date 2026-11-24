@@ -11,6 +11,7 @@ import (
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuepb"
 
 	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -71,12 +72,14 @@ func genOCR3_1Config(cfg V3_1OracleConfig, identities []confighelper.OracleIdent
 		return ocr3.OCR2OracleConfig{}, errors.New("OCRSecrets is required")
 	}
 
+	var consensusQueue bool
 	if cfgBytes == nil {
 		pc, err := getPluginConfig(cfg)
 		if err != nil {
 			return ocr3.OCR2OracleConfig{}, err
 		}
 		if pc != nil {
+			_, consensusQueue = pc.(*ConsensusQueueOffchainConfig)
 			cfgBytes, err = pc.Marshal()
 			if err != nil {
 				return ocr3.OCR2OracleConfig{}, fmt.Errorf("failed to marshal plugin config: %w", err)
@@ -85,6 +88,21 @@ func genOCR3_1Config(cfg V3_1OracleConfig, identities []confighelper.OracleIdent
 	}
 	if cfgBytes == nil {
 		return ocr3.OCR2OracleConfig{}, errors.New("failed to get offchain config: one of reportingPluginConfigOverride, DKGOffchainConfig, VaultOffchainConfig or ConsensusQueueOffchainConfig is required")
+	}
+	if consensusQueue {
+		// The node also checks this when it creates the plugin. Check it here so tooling cannot write a config the
+		// node will reject: the observation must hold the blob handles its DON needs.
+		decoded, err := queuepb.Decode(cfgBytes)
+		if err != nil {
+			return ocr3.OCR2OracleConfig{}, err
+		}
+		limits, err := decoded.OCRLimits()
+		if err != nil {
+			return ocr3.OCR2OracleConfig{}, err
+		}
+		if err := queuepb.ValidateForDon(limits, len(identities), cfg.MaxFaultyOracles); err != nil {
+			return ocr3.OCR2OracleConfig{}, fmt.Errorf("invalid consensus-queue limits: %w", err)
+		}
 	}
 
 	prevConfigDigest, prevHistoryDigest, err := VerifyAndExtractOCR3_1Fields(cfg.PrevConfigDigest, cfg.PrevSeqNr, cfg.PrevHistoryDigest)
