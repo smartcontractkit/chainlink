@@ -17,6 +17,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/grpc"
 	"gopkg.in/guregu/null.v4"
 
@@ -83,6 +84,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -156,6 +158,9 @@ type Delegate struct {
 	OrgResolver                    orgresolver.OrgResolver
 	limitsFactory                  limits.Factory
 	ocrConfigService               capregconfig.OCRConfigService
+	triggerCoordinator             triggers.Coordinator
+	triggerQueue                   triggers.Queue
+	meter                          metric.Meter
 
 	// Registry-driven launch support: when the delegate is used via
 	// LocalCapabilityManager (no job spec), these fields provide the
@@ -309,6 +314,10 @@ type DelegateOpts struct {
 	OrgResolver                    orgresolver.OrgResolver
 	LimitsFactory                  limits.Factory
 	OCRConfigService               capregconfig.OCRConfigService
+	TriggerCoordinator             triggers.Coordinator
+	TriggerQueue                   triggers.Queue
+	// Meter creates the plugins' metrics.
+	Meter metric.Meter
 
 	// Registry-driven launch support: defaults for capabilities launched
 	// via LocalCapabilityManager (no job spec).
@@ -358,6 +367,9 @@ func NewDelegate(
 		OrgResolver:                    opts.OrgResolver,
 		limitsFactory:                  opts.LimitsFactory,
 		ocrConfigService:               opts.OCRConfigService,
+		triggerCoordinator:             opts.TriggerCoordinator,
+		triggerQueue:                   opts.TriggerQueue,
+		meter:                          opts.Meter,
 		defaultBootstrappers:           opts.DefaultBootstrappers,
 		capRegistryAddress:             opts.CapRegistryAddress,
 		capRegistryChainID:             opts.CapRegistryChainID,
@@ -904,7 +916,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
-		ContractTransmitter:          queue.NewTransmitter(lggr, ocrtypes.Account(spec.TransmitterID.String)),
+		ContractTransmitter:          queue.NewTransmitter(ocrtypes.Account(spec.TransmitterID.String)),
 		Database:                     ocrDB,
 		KeyValueDatabaseFactory:      kvFactory,
 		LocalConfig:                  lc,
@@ -916,12 +928,12 @@ func (d *Delegate) newServicesConsensusQueue(
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
-	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, d.limitsFactory)
+	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, d.limitsFactory, d.triggerCoordinator, d.triggerQueue, d.meter)
 	if err != nil {
 		return nil, err
 	}
 
-	wrappedRpf := beholderwrapper.NewReportingPluginFactory(rpf, lggr, string(types.ConsensusQueue))
+	wrappedRpf := beholderwrapper.NewReportingPluginFactory(rpf, lggr, string(types.ConsensusQueue), d.meter)
 	oracleArgs.ReportingPluginFactory = wrappedRpf
 
 	oracle, err := libocr2.NewOracle(oracleArgs)
@@ -1124,6 +1136,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		rpf,
 		lggr,
 		"vault",
+		d.meter,
 	)
 	oracleArgs.ReportingPluginFactory = wrappedRpf
 

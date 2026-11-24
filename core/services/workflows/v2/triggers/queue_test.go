@@ -3,6 +3,8 @@ package triggers
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -69,15 +72,14 @@ func testQueueMetrics(t *testing.T) (*monitoring.CentralTriggerQueueMetricLabele
 // centralEvent returns an event for the given registration. Deadline and SequenceNumber are set so a test
 // can tell if the queue changes them.
 func centralEvent(workflowID string, triggerIndex int, id string) CoordinatedEvent {
-	observed := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	observed := time.Now()
 	return CoordinatedEvent{
-		WorkflowID:     workflowID,
-		TriggerCapID:   fmt.Sprintf("trigger-%d@1.0.0", triggerIndex),
-		TriggerIndex:   triggerIndex,
-		ObservedAt:     observed,
-		Deadline:       observed.Add(time.Minute),
-		SequenceNumber: 42,
-		Event:          capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: id}},
+		WorkflowID:   workflowID,
+		TriggerCapID: fmt.Sprintf("trigger-%d@1.0.0", triggerIndex),
+		TriggerIndex: triggerIndex,
+		ObservedAt:   observed,
+		Deadline:     observed.Add(time.Minute),
+		Event:        capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: id}},
 	}
 }
 
@@ -269,9 +271,8 @@ func TestQueue_ConcurrentPutDrain(t *testing.T) {
 			var wg sync.WaitGroup
 			for p := range producers {
 				wg.Go(func() {
-					for seq := range perProducer {
+					for range perProducer {
 						e := centralEvent(fmt.Sprintf("wf-%d", p), 0, "evt")
-						e.SequenceNumber = uint64(seq)
 						err := q.Put(t.Context(), e)
 						if err == nil {
 							accepted[p]++
@@ -334,13 +335,13 @@ func TestQueue_ConcurrentPutDrain(t *testing.T) {
 				assert.Positive(t, totalDropped, "the drop path never ran")
 			}
 
-			last := map[string]uint64{}
+			last := map[string]time.Time{}
 			for _, e := range drained {
 				prev, seen := last[e.WorkflowID]
 				if seen {
-					assert.Greater(t, e.SequenceNumber, prev, "order for %s", e.WorkflowID)
+					assert.True(t, e.ObservedAt.After(prev), "expected observedAt %s to be after previous %s", e.ObservedAt.UnixNano(), prev.UnixNano())
 				}
-				last[e.WorkflowID] = e.SequenceNumber
+				last[e.WorkflowID] = e.ObservedAt
 			}
 
 			stats, err := q.Stats(t.Context())
@@ -478,4 +479,179 @@ func dataPointAttributes(t *testing.T, m metricdata.Metrics) []attribute.Set {
 		t.Fatalf("unexpected data type %T for %s", m.Data, m.Name)
 	}
 	return sets
+}
+
+func TestQueue_BlobSize(t *testing.T) {
+	t.Parallel()
+
+	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
+	require.NoError(t, q.Put(t.Context(), centralEvent("wf", 0, "a")))
+
+	// the size recorded at Put is that of the event as it appears in a blob: timestamps stripped
+	stripped := proto.CloneOf(q.events[0].pb)
+	stripped.ObservedAt, stripped.Deadline = nil, nil
+	want, err := proto.MarshalOptions{Deterministic: true}.Marshal(stripped)
+	require.NoError(t, err)
+	assert.Equal(t, len(want), q.events[0].blobSize)
+	assert.NotNil(t, q.events[0].pb.ObservedAt, "stored event keeps its timestamps")
+	assert.NotNil(t, q.events[0].pb.Deadline)
+}
+
+func TestQueue_SortedDropsOversize(t *testing.T) {
+	t.Parallel()
+
+	newQueue := func(t *testing.T) (q *CentralQueue, maxSmall int) {
+		q = newTestCentralQueue(t, &fakeLimit{limit: 10})
+		big := centralEvent("big-wf", 1, "big")
+		big.Event.Event.TriggerType = strings.Repeat("x", 5000)
+		a, b := centralEvent("wf", 0, "a"), centralEvent("wf", 0, "b")
+		a.Deadline = a.Deadline.Add(-time.Second) // explicit order: a, big, b
+		b.Deadline = b.Deadline.Add(time.Second)
+		require.NoError(t, q.Put(t.Context(), a))
+		require.NoError(t, q.Put(t.Context(), big))
+		require.NoError(t, q.Put(t.Context(), b))
+		return q, max(q.events[0].blobSize, q.events[2].blobSize)
+	}
+	ids := func(q *CentralQueue, limit, maxSize int) (got []string) {
+		for _, e := range q.Sorted(t.Context(), limit, maxSize) {
+			got = append(got, e.Event.Event.Id)
+		}
+		return
+	}
+
+	t.Run("oversize events are dropped, counted and no longer queued", func(t *testing.T) {
+		t.Parallel()
+		q, maxSmall := newQueue(t)
+
+		assert.ElementsMatch(t, []string{"a", "b"}, ids(q, 10, maxSmall))
+
+		stats, err := q.Stats(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, uint64(2), stats.Len)
+		assert.Equal(t, uint64(1), stats.DroppedByReason[monitoring.CentralTriggerQueueDropReasonOversize])
+		assert.Zero(t, stats.DepthByWorkflow["big-wf"])
+		assert.Equal(t, uint64(2), stats.DepthByWorkflow["wf"])
+
+		// dropping happens once
+		assert.ElementsMatch(t, []string{"a", "b"}, ids(q, 10, maxSmall))
+		stats, err = q.Stats(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), stats.DroppedByReason[monitoring.CentralTriggerQueueDropReasonOversize])
+	})
+
+	t.Run("an event exactly at the limit is kept", func(t *testing.T) {
+		t.Parallel()
+		q, maxSmall := newQueue(t)
+		assert.Len(t, ids(q, 10, maxSmall), 2)
+		assert.Empty(t, ids(q, 10, maxSmall-1), "one byte less and the small events no longer fit")
+	})
+
+	t.Run("no maximum disables filtering", func(t *testing.T) {
+		t.Parallel()
+		q, _ := newQueue(t)
+		assert.Len(t, ids(q, 10, 0), 3)
+		assert.Len(t, ids(q, 10, -1), 3)
+		stats, err := q.Stats(t.Context())
+		require.NoError(t, err)
+		assert.Zero(t, stats.DroppedByReason[monitoring.CentralTriggerQueueDropReasonOversize])
+	})
+
+	t.Run("only events that are pulled are examined", func(t *testing.T) {
+		t.Parallel()
+		q, maxSmall := newQueue(t) // sorted: a, big, b
+		assert.Equal(t, []string{"a"}, ids(q, 1, maxSmall), "stops after the first, never reaching big")
+		stats, err := q.Stats(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, uint64(3), stats.Len, "nothing was dropped")
+		assert.Zero(t, stats.DroppedByReason[monitoring.CentralTriggerQueueDropReasonOversize])
+	})
+
+	t.Run("breaking out still drops the oversize events already skipped", func(t *testing.T) {
+		t.Parallel()
+		q, maxSmall := newQueue(t)
+		for _, e := range q.Sorted(t.Context(), 10, maxSmall) { // sorted: a, big (skipped), b
+			if e.Event.Event.Id == "b" {
+				break
+			}
+		}
+		stats, err := q.Stats(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, uint64(2), stats.Len)
+		assert.Equal(t, uint64(1), stats.DroppedByReason[monitoring.CentralTriggerQueueDropReasonOversize])
+	})
+
+	t.Run("the limit applies after filtering", func(t *testing.T) {
+		t.Parallel()
+		q, maxSmall := newQueue(t)
+		assert.Len(t, ids(q, 1, maxSmall), 1)
+	})
+}
+
+// How long an event was queued is recorded when consensus takes it from the queue, and not for those left in it.
+func TestQueue_RecordsHowLongRemovedEventsWereQueued(t *testing.T) {
+	t.Parallel()
+	qm, reader := testQueueMetrics(t)
+	q := NewQueue(&fakeLimit{limit: 10}, qm, logger.Test(t))
+
+	observedAgo := func(id string, ago time.Duration) CoordinatedEvent {
+		e := centralEvent("wf", 0, id)
+		e.ObservedAt = time.Now().Add(-ago)
+		return e
+	}
+	putAll(t, q, observedAgo("a", 5*time.Second), observedAgo("b", 9*time.Second), observedAgo("stays", time.Hour))
+	require.Len(t, q.events, 3)
+	removed := []string{q.events[0].executionID, q.events[1].executionID}
+
+	q.Remove(t.Context(), slices.Values(removed))
+
+	m := findMetric(t, reader, "platform_engine_central_trigger_queue_event_age_seconds")
+	require.NotNil(t, m)
+	hist, ok := m.Data.(metricdata.Histogram[float64])
+	require.True(t, ok)
+	require.Len(t, hist.DataPoints, 1)
+	assert.Equal(t, uint64(2), hist.DataPoints[0].Count, "one for each event removed, none for the one left")
+	assert.InDelta(t, 14.0, hist.DataPoints[0].Sum, 0.5, "5s and 9s")
+
+	q.Remove(t.Context(), slices.Values([]string{"not-queued"}))
+	m = findMetric(t, reader, "platform_engine_central_trigger_queue_event_age_seconds")
+	hist = m.Data.(metricdata.Histogram[float64])
+	assert.Equal(t, uint64(2), hist.DataPoints[0].Count, "removing what is not there records nothing")
+}
+
+// Sorted is how the consensus queue plugin reads the queue, so it is what makes the queue count as consumed.
+func TestQueue_LastConsumed(t *testing.T) {
+	t.Parallel()
+	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
+	putAll(t, q, centralEvent("wf-a", 0, "evt-1"))
+
+	assert.True(t, q.LastConsumed().IsZero(), "never read")
+	_, err := q.Drain(t.Context())
+	require.NoError(t, err)
+	assert.True(t, q.LastConsumed().IsZero(), "draining is not consuming")
+
+	before := time.Now()
+	for range q.Sorted(t.Context(), 10, 0) {
+	}
+	assert.WithinDuration(t, before, q.LastConsumed(), time.Second)
+}
+
+func TestQueue_DropExpired(t *testing.T) {
+	t.Parallel()
+	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
+	now := time.Now()
+	at := func(id string, deadline time.Time) CoordinatedEvent {
+		e := centralEvent("wf-a", 0, id)
+		e.Deadline = deadline
+		return e
+	}
+	putAll(t, q, at("old-1", now.Add(-2*time.Minute)), at("live", now.Add(time.Minute)), at("old-2", now.Add(-time.Minute)), at("edge", now))
+
+	assert.Equal(t, 2, q.DropExpired(t.Context(), now), "those with a deadline before the cutoff, not at it")
+	assert.Zero(t, q.DropExpired(t.Context(), now), "nothing more to drop")
+
+	stats, err := q.Stats(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, uint64(2), stats.DepthByWorkflow["wf-a"])
+	assert.Equal(t, uint64(2), stats.DroppedByReason[monitoring.CentralTriggerQueueDropReasonExpired])
+	assert.Equal(t, []string{"live", "edge"}, drainIDs(t, q), "the rest are untouched, in order")
 }

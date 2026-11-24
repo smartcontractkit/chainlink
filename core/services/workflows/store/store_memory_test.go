@@ -2,6 +2,7 @@ package store
 
 import (
 	"reflect"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -225,4 +226,67 @@ func TestInMemoryStore_PruneRebuildsMapOnlyWhenPruning(t *testing.T) {
 	store.pruneCompletedAndExpiredExecutions()
 	assert.Equal(t, mapAfterPrune, reflect.ValueOf(store.idToExecution).Pointer(),
 		"map should not be rebuilt when nothing is pruned")
+}
+
+// A caller that can run an event again until it expires needs completed executions remembered for that long, which the
+// configured retention may not cover. The minimum is read on each sweep, so it follows a lifetime that grows.
+func TestInMemoryStore_MinimumCompletedRetention(t *testing.T) {
+	t.Parallel()
+
+	const configured = 20 * time.Minute
+	isPruned := func(store *InMemoryStore) func() bool {
+		return func() bool { _, err := store.Get(t.Context(), "test-id"); return err != nil }
+	}
+	newStore := func(t *testing.T, retention func() time.Duration) (*InMemoryStore, *clockwork.FakeClock) {
+		fakeClock := clockwork.NewFakeClock()
+		store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), fakeClock, time.Millisecond, configured, 24*time.Hour)
+		store.SetMinimumCompletedRetention(retention)
+		servicetest.Run(t, store)
+		_, err := store.Add(t.Context(), nil, "test-id", "w1", StatusStarted)
+		require.NoError(t, err)
+		_, err = store.FinishExecution(t.Context(), "test-id", StatusCompleted)
+		require.NoError(t, err)
+		return store, fakeClock
+	}
+
+	for _, tt := range []struct {
+		name      string
+		min       time.Duration
+		retention time.Duration
+	}{
+		{"a longer minimum extends the retention", time.Hour, time.Hour},
+		{"a shorter minimum has no effect", time.Minute, configured},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			store, fakeClock := newStore(t, func() time.Duration { return tt.min })
+
+			fakeClock.Advance(tt.retention - time.Second)
+			require.Never(t, isPruned(store), 100*time.Millisecond, 10*time.Millisecond)
+			fakeClock.Advance(2 * time.Second)
+			require.Eventually(t, isPruned(store), 10*time.Second, 10*time.Millisecond)
+		})
+	}
+
+	t.Run("follows a minimum that grows after the execution completed", func(t *testing.T) {
+		t.Parallel()
+		var retention atomic.Int64
+		retention.Store(int64(time.Minute))
+		store, fakeClock := newStore(t, func() time.Duration { return time.Duration(retention.Load()) })
+
+		retention.Store(int64(3 * time.Hour)) // a workflow with a long timeout was seen
+		fakeClock.Advance(configured + time.Hour)
+		require.Never(t, isPruned(store), 100*time.Millisecond, 10*time.Millisecond)
+		fakeClock.Advance(2 * time.Hour)
+		require.Eventually(t, isPruned(store), 10*time.Second, 10*time.Millisecond)
+	})
+
+	t.Run("without a minimum the configured retention applies", func(t *testing.T) {
+		t.Parallel()
+		store, fakeClock := newStore(t, nil)
+		fakeClock.Advance(configured - time.Second)
+		require.Never(t, isPruned(store), 100*time.Millisecond, 10*time.Millisecond)
+		fakeClock.Advance(2 * time.Second)
+		require.Eventually(t, isPruned(store), 10*time.Second, 10*time.Millisecond)
+	})
 }

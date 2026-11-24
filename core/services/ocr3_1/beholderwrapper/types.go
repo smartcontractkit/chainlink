@@ -11,7 +11,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/beholderwrapper/metrics"
 )
 
@@ -28,9 +27,15 @@ type pluginMetrics struct {
 	// OCR3.1 specific metrics for blob and KV operations
 	blobDurations metric.Int64Histogram
 	kvDurations   metric.Int64Histogram
+
+	// committedSeqNr is the sequence number of the latest round that was committed, which is the round progress
+	// of the protocol: it only goes up, and its rate is the rounds per second.
+	committedSeqNr metric.Int64Gauge
 }
 
-func newPluginMetrics(plugin, configDigest string) (*pluginMetrics, error) {
+// newPluginMetrics creates the OCR3.1 instruments on meter. (The base metrics shared with OCR3 are still created
+// by that package, on the global beholder meter.)
+func newPluginMetrics(meter metric.Meter, plugin, configDigest string) (*pluginMetrics, error) {
 	// Create base metrics using shared package
 	base, err := metrics.NewPluginMetrics(MetricPrefix, plugin, configDigest)
 	if err != nil {
@@ -38,23 +43,37 @@ func newPluginMetrics(plugin, configDigest string) (*pluginMetrics, error) {
 	}
 
 	// Create OCR3.1-specific metrics
-	blobDurations, err := beholder.GetMeter().Int64Histogram(MetricPrefix+"_blob_duration_ms", metric.WithUnit("ms"))
+	blobDurations, err := meter.Int64Histogram(MetricPrefix+"_blob_duration_ms", metric.WithUnit("ms"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create blob duration histogram: %w", err)
 	}
 
-	kvDurations, err := beholder.GetMeter().Int64Histogram(MetricPrefix+"_kv_duration_ms", metric.WithUnit("ms"))
+	kvDurations, err := meter.Int64Histogram(MetricPrefix+"_kv_duration_ms", metric.WithUnit("ms"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kv duration histogram: %w", err)
 	}
 
+	committedSeqNr, err := meter.Int64Gauge(MetricPrefix+"_committed_seq_nr",
+		metric.WithDescription("Sequence number of the latest committed round"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create committed sequence number gauge: %w", err)
+	}
+
 	return &pluginMetrics{
-		PluginMetrics: base,
-		plugin:        plugin,
-		configDigest:  configDigest,
-		blobDurations: blobDurations,
-		kvDurations:   kvDurations,
+		PluginMetrics:  base,
+		plugin:         plugin,
+		configDigest:   configDigest,
+		blobDurations:  blobDurations,
+		kvDurations:    kvDurations,
+		committedSeqNr: committedSeqNr,
 	}, nil
+}
+
+func (m *pluginMetrics) recordCommittedSeqNr(ctx context.Context, seqNr uint64) {
+	m.committedSeqNr.Record(ctx, int64(seqNr), metric.WithAttributes( //nolint:gosec // G115: a sequence number never nears MaxInt64
+		attribute.String("plugin", m.plugin),
+		attribute.String("configDigest", m.configDigest),
+	))
 }
 
 func (m *pluginMetrics) recordKVDuration(ctx context.Context, method string, d time.Duration, success bool) {

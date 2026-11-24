@@ -53,6 +53,10 @@ type drainer struct {
 	clock    clockwork.Clock
 	hooks    drainerHooks
 
+	// consumed and grace are set only for the central queue's drainer. See NewCentralQueueDrainer.
+	consumed ConsumedQueue
+	grace    func(context.Context) (time.Duration, error)
+
 	// observed batches awaiting OnObservedEvents
 	batches chan []CoordinatedEvent
 	metrics *monitoring.TriggerDrainerMetricLabeler
@@ -80,14 +84,40 @@ func NewDrainer(queue Queue, interval limits.BoundLimiter[time.Duration], hooks 
 	return d
 }
 
+// ConsumedQueue is a Queue that reports when it was last read by a consumer other than the drainer, and can drop
+// the events that are past their deadline.
+type ConsumedQueue interface {
+	Queue
+	// LastConsumed is when the queue was last read for consensus, or the zero time if never.
+	LastConsumed() time.Time
+	// DropExpired removes the events with a deadline before cutoff, and returns how many.
+	DropExpired(ctx context.Context, cutoff time.Time) int
+}
+
+// minConsumerWindow is the least time since the queue was last consumed for a consumer to count as active.
+const minConsumerWindow = 30 * time.Second
+
+// consumerWindow is how recently the queue must have been read for a consumer to count as active: three drain
+// intervals, so that a missed round does not hand the events to the drainer, and at least minConsumerWindow.
+func consumerWindow(interval time.Duration) time.Duration {
+	return max(minConsumerWindow, 3*interval)
+}
+
 // NewCentralQueueDrainer returns the temporary drainer of the central queue. Drained events are discarded after
 // one debug line per workflow per batch, which lets smoke tests see that shadow mode reached the queue.
-func NewCentralQueueDrainer(queue Queue, interval limits.BoundLimiter[time.Duration], metrics *monitoring.TriggerDrainerMetricLabeler, clock clockwork.Clock, lggr logger.Logger) *drainer {
+//
+// While something else is consuming the queue (the consensus queue plugin reads it every round), the drainer leaves
+// the events alone, as draining them would race the consumer for each event. It then only drops those past their
+// deadline plus the grace period, which the consumer would never take. When the consumer goes quiet, it drains
+// everything again.
+func NewCentralQueueDrainer(queue ConsumedQueue, grace func(context.Context) (time.Duration, error), interval limits.BoundLimiter[time.Duration], metrics *monitoring.TriggerDrainerMetricLabeler, clock clockwork.Clock, lggr logger.Logger) *drainer {
 	hookLggr := logger.Named(lggr, "TriggerQueueDrainer")
 	hooks := drainerHooks{OnObservedEvents: func(_ context.Context, events []CoordinatedEvent) {
 		logDrainedEvents(hookLggr, events)
 	}}
-	return NewDrainer(queue, interval, hooks, metrics, clock, lggr)
+	d := NewDrainer(queue, interval, hooks, metrics, clock, lggr)
+	d.consumed, d.grace = queue, grace
+	return d
 }
 
 // start launches the hook worker and the drain loop. Both run until the
@@ -143,6 +173,10 @@ func (d *drainer) runHooks(ctx context.Context) {
 // worker without blocking. A Drain error is logged and does not stop the
 // loop. The hook is not called for an empty batch.
 func (d *drainer) drain(ctx context.Context) {
+	if d.consumerActive(ctx) {
+		d.dropExpired(ctx)
+		return
+	}
 	events, err := d.queue.Drain(ctx)
 	if err != nil {
 		d.lggr.Errorw("Failed to observe trigger queue", "err", err)
@@ -158,6 +192,26 @@ func (d *drainer) drain(ctx context.Context) {
 		// drop this batch rather than block the drain loop
 		d.metrics.IncrementDroppedEventsCounter(ctx, monitoring.TriggerDrainerDropReasonHookBusy, len(events))
 		d.lggr.Debugw("Events handler is blocked, dropping the batch", "count", len(events))
+	}
+}
+
+// consumerActive reports whether something else has read the queue recently enough to be taking its events.
+func (d *drainer) consumerActive(ctx context.Context) bool {
+	if d.consumed == nil {
+		return false
+	}
+	last := d.consumed.LastConsumed()
+	return !last.IsZero() && d.clock.Since(last) <= consumerWindow(d.nextInterval(ctx))
+}
+
+// dropExpired drops the events that are past their deadline and the grace period.
+func (d *drainer) dropExpired(ctx context.Context) {
+	grace, err := d.grace(ctx)
+	if err != nil {
+		d.lggr.Warnw("Failed to read the expiration grace period, using the default", "grace", grace, "err", err)
+	}
+	if n := d.consumed.DropExpired(ctx, d.clock.Now().Add(-max(0, grace))); n > 0 {
+		d.lggr.Debugw("Dropped expired trigger events nothing took", "count", n)
 	}
 }
 

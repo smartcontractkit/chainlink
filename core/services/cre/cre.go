@@ -76,6 +76,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
+// completedExecutionRetentionMargin is added to the longest event lifetime to decide how long to remember completed
+// executions. It allows for clock skew between nodes, as an event's agreed deadline is a median of theirs.
+const completedExecutionRetentionMargin = time.Minute
+
 // Keystore is the minimal interface needed from keystore for CRE
 type Keystore interface {
 	CSA() keystore.CSA
@@ -134,6 +138,10 @@ type Services struct {
 	GetPeerID func() (p2ptypes.PeerID, error)
 
 	WorkflowRegistrySyncer syncerV2.WorkflowRegistrySyncer
+
+	TriggerCoordinator triggers.Coordinator
+
+	TriggerQueue triggers.Queue
 
 	OrgResolver orgresolver.OrgResolver
 
@@ -297,7 +305,7 @@ func (s *Services) newSubservices(
 		wfSyncerLggr.Infof("failed to create billing client: %s", err)
 	}
 
-	wfSyncer, wfSyncerSrvcs, err := newWorkflowRegistrySyncerV2(
+	wfSyncer, triggerCoordinator, triggerQueue, wfSyncerSrvcs, err := newWorkflowRegistrySyncerV2(
 		cfg,
 		relayerChainInterops,
 		billingClient,
@@ -320,6 +328,8 @@ func (s *Services) newSubservices(
 	}
 	s.BillingClient = billingClient
 	s.WorkflowRegistrySyncer = wfSyncer
+	s.TriggerCoordinator = triggerCoordinator
+	s.TriggerQueue = triggerQueue
 	srvs = append(srvs, wfSyncerSrvcs...)
 
 	return srvs, nil
@@ -800,14 +810,14 @@ func newWorkflowRegistrySyncerV2(
 	meterIdentity resourcemanager.ResourceIdentity,
 	dispatcher remotetypes.Dispatcher,
 	shardIndexMapper *shardownership.ShardIndexMapper,
-) (syncerV2.WorkflowRegistrySyncer, []commonsrv.Service, error) {
+) (syncerV2.WorkflowRegistrySyncer, triggers.Coordinator, triggers.Queue, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 	wfReg := capCfg.WorkflowRegistry()
 	key := opts.WorkflowKey
 
 	fetcherFunc, retrieverFunc, srvcs, err := newFetcherServiceV2(opts, capCfg, lggr, gatewayConnectorWrapper)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	artifactsStore, err := artifactsV2.NewStore(
@@ -824,29 +834,29 @@ func newWorkflowRegistrySyncerV2(
 		}),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create artifact store: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to create artifact store: %w", err)
 	}
 
 	engineRegistry := syncerV2.NewEngineRegistry()
 
 	engineLimiters, err := v2.NewLimiters(lf, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
 	}
 
 	featureFlags, err := v2.NewFeatureFlags(lf, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not instantiate engine feature flags: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("could not instantiate engine feature flags: %w", err)
 	}
 
 	selector, err := chainSelector(wfReg.ChainID(), wfReg.NetworkID())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to instantiate contract reader factory: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to instantiate contract reader factory: %w", err)
 	}
 
 	var shardOrchestratorClient shardorchestrator.ClientInterface
@@ -855,7 +865,7 @@ func newWorkflowRegistrySyncerV2(
 	} else {
 		c, clientErr := newShardOrchestratorClient(cfg, lggr)
 		if clientErr != nil {
-			return nil, nil, clientErr
+			return nil, nil, nil, nil, clientErr
 		}
 		if c != nil {
 			shardOrchestratorClient = c
@@ -902,24 +912,27 @@ func newWorkflowRegistrySyncerV2(
 
 	coordinatorMetrics, err := wfmonitoring.InitMonitoringResources()
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to init trigger coordinator metrics: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to init trigger coordinator metrics: %w", err)
 	}
 	centralQueueMetrics, err := wfmonitoring.InitCentralTriggerQueueMetrics()
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to init central trigger queue metrics: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to init central trigger queue metrics: %w", err)
 	}
 	drainerMetrics, err := wfmonitoring.InitTriggerDrainerMetrics()
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to init central trigger queue drainer metrics: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to init central trigger queue drainer metrics: %w", err)
 	}
 	coordinatorClock := clockwork.NewRealClock()
 
 	// Shadow mode copies coordinated trigger events to the central queue while
 	// FeatureShadowTriggerModeActivePeriod is open. The copies are for observation only.
-	// The drainer logs and discards them, and each event still executes on its workflow's own queue.
+	// The drainer logs and discards them, and each event still executes on its workflow's own queue. The coordinator
+	// also logs instead of starting an event in that window when consensus on the queue chooses it. While the consensus
+	// queue plugin is reading the queue, the drainer leaves the events to it and only drops those that have expired.
+	eventLifetime := triggers.NewEventLifetime(triggers.ConsensusQueueExpirationGrace(lf))
 	centralQueue := triggers.NewQueue(engineLimiters.CentralTriggerEventQueue,
 		wfmonitoring.NewCentralTriggerQueueMetricLabeler(commonmetrics.NewLabeler(), centralQueueMetrics), lggr)
-	centralQueueDrainer := triggers.NewCentralQueueDrainer(centralQueue, engineLimiters.CentralTriggerQueueDrainInterval,
+	centralQueueDrainer := triggers.NewCentralQueueDrainer(centralQueue, triggers.ConsensusQueueExpirationGrace(lf), engineLimiters.CentralTriggerQueueDrainInterval,
 		wfmonitoring.NewTriggerDrainerMetricLabeler(commonmetrics.NewLabeler(), drainerMetrics), coordinatorClock, lggr)
 	triggerCoordinator := triggers.NewCoordinator(
 		triggers.RegisterDeps{
@@ -935,6 +948,8 @@ func newWorkflowRegistrySyncerV2(
 		coordinatorClock,
 		triggers.WithShadowMode(centralQueue, engineLimiters.ShadowTriggerMode),
 		triggers.WithDrainer(centralQueueDrainer),
+		triggers.WithExpirationGrace(triggers.ConsensusQueueExpirationGrace(lf)),
+		triggers.WithEventLifetime(eventLifetime),
 	)
 
 	handlerOpts := []syncerV2.EventHandlerOption{
@@ -971,7 +986,7 @@ func newWorkflowRegistrySyncerV2(
 		})
 		specMeter, smErr := syncerV2.NewSpecMeter(lggr, rm, meterIdentity, artifactsStore, orgResolver)
 		if smErr != nil {
-			return nil, nil, fmt.Errorf("unable to create workflow spec meter: %w", smErr)
+			return nil, nil, nil, nil, fmt.Errorf("unable to create workflow spec meter: %w", smErr)
 		}
 		handlerOpts = append(handlerOpts, syncerV2.WithSpecMeter(specMeter))
 	}
@@ -992,7 +1007,7 @@ func newWorkflowRegistrySyncerV2(
 	if diskMonitorEnabled {
 		fileStore, fsErr := artifactsV2.NewFileModuleStore(mc.CacheDir(), cacheEnabled)
 		if fsErr != nil {
-			return nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
+			return nil, nil, nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
 		}
 
 		dm, dmErr := syncerV2.NewWorkflowModuleCacheDiskMonitor(
@@ -1001,7 +1016,7 @@ func newWorkflowRegistrySyncerV2(
 			syncerV2.WorkflowModuleCacheDiskMonitorTickInterval,
 		)
 		if dmErr != nil {
-			return nil, nil, fmt.Errorf("unable to create module cache disk monitor: %w", dmErr)
+			return nil, nil, nil, nil, fmt.Errorf("unable to create module cache disk monitor: %w", dmErr)
 		}
 		srvcs = append(srvcs, dm)
 
@@ -1010,7 +1025,7 @@ func newWorkflowRegistrySyncerV2(
 		if cacheEnabled {
 			cm, cmErr := syncerV2.NewCacheMetrics()
 			if cmErr != nil {
-				return nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
+				return nil, nil, nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
 			}
 
 			var idleTimeout time.Duration
@@ -1041,9 +1056,15 @@ func newWorkflowRegistrySyncerV2(
 		}
 	}
 
+	// An event can be queued again (by nodes that were late to see it) until it expires, and the store is what tells the
+	// engine that such an event already ran. So it must remember executions for at least that long.
+	workflowStore := workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock())
+	workflowStore.SetMinimumCompletedRetention(func() time.Duration {
+		return eventLifetime.Longest(context.Background()) + completedExecutionRetentionMargin
+	})
 	eventHandler, err := syncerV2.NewEventHandler(
 		lggr,
-		workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		workflowStore,
 		dontimeStore,
 		opts.UseLocalTimeProvider,
 		opts.CapabilitiesRegistry,
@@ -1060,7 +1081,7 @@ func newWorkflowRegistrySyncerV2(
 		handlerOpts...,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
 	}
 
 	addSources := wfReg.AdditionalSources()
@@ -1113,12 +1134,12 @@ func newWorkflowRegistrySyncerV2(
 		registryOpts...,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
 	}
 
 	srvcs = append(srvcs, workflowRegistrySyncerV2)
 	lggr.Debugw("Created WorkflowRegistrySyncer V2")
-	return workflowRegistrySyncerV2, srvcs, nil
+	return workflowRegistrySyncerV2, triggerCoordinator, centralQueue, srvcs, nil
 }
 
 // NewServices creates and initializes all CRE services

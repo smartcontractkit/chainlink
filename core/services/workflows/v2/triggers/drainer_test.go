@@ -2,7 +2,10 @@ package triggers
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
+	"iter"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -17,9 +20,11 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
@@ -53,13 +58,52 @@ func findMetric(t *testing.T, reader *sdkmetric.ManualReader, name string) *metr
 // fakeQueue is a minimal Queue whose Observe pops a scripted sequence of
 // results and counts calls. Once the script is exhausted it returns empty.
 type fakeQueue struct {
-	mu      sync.Mutex
-	results []observeResult
-	calls   int
+	mu         sync.Mutex
+	results    []*observeResult
+	drainCalls int
+}
+
+func (q *fakeQueue) Sorted(_ context.Context, limit, _ int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {
+	q.mu.Lock()
+	events := slices.Clone(q.results[0].events)
+	q.mu.Unlock()
+	slices.SortFunc(events, func(a, b centralQueueEvent) int { return a.Compare(b) })
+	return func(yield func([]byte, *pb.CoordinatedEvent) bool) {
+		var count int
+		for _, cqe := range events[:min(limit, len(events))] {
+			if count++; count > limit {
+				return
+			}
+			if !yield(cqe.timelessHash, cqe.pb) {
+				return
+			}
+		}
+	}
+}
+
+// never consumed by anything else
+func (q *fakeQueue) LastConsumed() time.Time { return time.Time{} }
+
+func (q *fakeQueue) DropExpired(context.Context, time.Time) int { return 0 }
+
+func (q *fakeQueue) Remove(ctx context.Context, execIDs iter.Seq[string]) {
+	execIDSet := map[string]struct{}{}
+	for execID := range execIDs {
+		execIDSet[execID] = struct{}{}
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, r := range q.results {
+		r.events = slices.DeleteFunc(r.events, func(e centralQueueEvent) bool {
+			_, ok := execIDSet[e.executionID]
+			return ok
+		})
+		// note: empty results remain
+	}
 }
 
 type observeResult struct {
-	events []CoordinatedEvent
+	events []centralQueueEvent
 	err    error
 }
 
@@ -70,19 +114,23 @@ func (q *fakeQueue) Stats(context.Context) (Stats, error) { return Stats{}, nil 
 func (q *fakeQueue) Drain(context.Context) ([]CoordinatedEvent, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.calls++
+	q.drainCalls++
 	if len(q.results) == 0 {
 		return nil, nil
 	}
 	r := q.results[0]
 	q.results = q.results[1:]
-	return r.events, r.err
+	events := make([]CoordinatedEvent, len(r.events))
+	for i, e := range r.events {
+		events[i] = e.CoordinatedEvent
+	}
+	return events, r.err
 }
 
-func (q *fakeQueue) observeCalls() int {
+func (q *fakeQueue) getDrainCalls() int {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	return q.calls
+	return q.drainCalls
 }
 
 func (q *fakeQueue) remaining() int {
@@ -93,6 +141,29 @@ func (q *fakeQueue) remaining() int {
 
 // batchOf returns a one-event batch tagged with id.
 func batchOf(id string) []CoordinatedEvent { return []CoordinatedEvent{{WorkflowID: id}} }
+
+func centralQueueEvents(t *testing.T, events []CoordinatedEvent) []centralQueueEvent {
+	cqes := make([]centralQueueEvent, len(events))
+	for i, e := range events {
+		pbe := e.ToProto()
+		cqes[i] = centralQueueEvent{
+			CoordinatedEvent: e,
+			pb:               pbe,
+			timelessHash: func() []byte {
+				b, err := pbe.MarshalTimeless()
+				require.NoError(t, err)
+				hash := sha256.Sum256(b)
+				return hash[:]
+			}(),
+			executionID: func() string {
+				execID, err := workflows.GenerateExecutionIDWithTriggerIndex(e.WorkflowID, e.Event.Event.ID, e.TriggerIndex)
+				require.NoError(t, err)
+				return execID
+			}(),
+		}
+	}
+	return cqes
+}
 
 // TestDrainer_Drain calls drain directly (no worker running), so the batches
 // it hands off stay in the channel for inspection.
@@ -115,25 +186,25 @@ func TestDrainer_Drain(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		results []observeResult // one per drain call
+		results []*observeResult // one per drain call
 		want    [][]CoordinatedEvent
 	}{
 		{
 			name:    "queues an observed batch",
-			results: []observeResult{{events: batchOf("a")}},
+			results: []*observeResult{{events: centralQueueEvents(t, batchOf("a"))}},
 			want:    [][]CoordinatedEvent{batchOf("a")},
 		},
 		{
 			name:    "empty observe queues nothing",
-			results: []observeResult{{}},
+			results: []*observeResult{{}},
 		},
 		{
 			name:    "observe error queues nothing, even with events",
-			results: []observeResult{{events: batchOf("ignored"), err: errors.New("boom")}},
+			results: []*observeResult{{events: centralQueueEvents(t, batchOf("ignored")), err: errors.New("boom")}},
 		},
 		{
 			name:    "full buffer drops the overflow and keeps the oldest",
-			results: []observeResult{{events: batchOf("a")}, {events: batchOf("b")}},
+			results: []*observeResult{{events: centralQueueEvents(t, batchOf("a"))}, {events: centralQueueEvents(t, batchOf("b"))}},
 			want:    [][]CoordinatedEvent{batchOf("a")},
 		},
 	}
@@ -151,7 +222,7 @@ func TestDrainer_Drain(t *testing.T) {
 				d.drain(t.Context()) // must return even when the buffer is full
 			}
 
-			assert.Equal(t, len(tt.results), q.observeCalls(), "one Observe per drain")
+			assert.Equal(t, len(tt.results), q.getDrainCalls(), "one Observe per drain")
 			assert.Equal(t, tt.want, queued(d))
 			assert.False(t, hookCalled.Load(), "drain never calls the hook itself; only the worker does")
 		})
@@ -164,9 +235,9 @@ func TestDrainer_DroppedEventsMetric(t *testing.T) {
 	t.Parallel()
 
 	dm, reader := testDrainerMetrics(t)
-	q := &fakeQueue{results: []observeResult{
-		{events: batchOf("a")},
-		{events: append(batchOf("b"), batchOf("c")...)}, // dropped: the buffer holds "a"
+	q := &fakeQueue{results: []*observeResult{
+		{events: centralQueueEvents(t, batchOf("a"))},
+		{events: append(centralQueueEvents(t, batchOf("b")), centralQueueEvents(t, batchOf("c"))...)}, // dropped: the buffer holds "a"
 	}}
 	d := NewDrainer(q, limits.NewUpperBoundLimiter(time.Hour), drainerHooks{}, dm, clockwork.NewRealClock(), logger.Test(t))
 	d.drain(t.Context())
@@ -188,7 +259,7 @@ func TestDrainer_HookDurationMetric(t *testing.T) {
 	t.Parallel()
 
 	dm, reader := testDrainerMetrics(t)
-	q := &fakeQueue{results: []observeResult{{events: batchOf("a")}}}
+	q := &fakeQueue{results: []*observeResult{{events: centralQueueEvents(t, batchOf("a"))}}}
 	d := NewDrainer(q, limits.NewUpperBoundLimiter(minDrainInterval), drainerHooks{}, dm, clockwork.NewRealClock(), logger.Test(t))
 	require.NoError(t, d.Start(t.Context()))
 	t.Cleanup(func() { assert.NoError(t, d.Close()) })
@@ -209,17 +280,17 @@ func TestDrainer_Running(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		results []observeResult
+		results []*observeResult
 		want    []string // workflow IDs the hook should see
 	}{
 		{
 			name:    "hook receives an observed batch",
-			results: []observeResult{{events: batchOf("a")}},
+			results: []*observeResult{{events: centralQueueEvents(t, batchOf("a"))}},
 			want:    []string{"a"},
 		},
 		{
 			name:    "loop survives an observe error",
-			results: []observeResult{{err: errors.New("boom")}, {events: batchOf("a")}},
+			results: []*observeResult{{err: errors.New("boom")}, {events: centralQueueEvents(t, batchOf("a"))}},
 			want:    []string{"a"},
 		},
 	}
@@ -269,9 +340,9 @@ func TestDrainer_BlockedHook(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			results := make([]observeResult, tt.batches)
+			results := make([]*observeResult, tt.batches)
 			for i := range results {
-				results[i] = observeResult{events: batchOf("x")}
+				results[i] = &observeResult{events: centralQueueEvents(t, batchOf("x"))}
 			}
 			q := &fakeQueue{results: results}
 
@@ -349,12 +420,12 @@ func TestDrainer_IntervalReRead(t *testing.T) {
 	drainsAfter := func(wait time.Duration) {
 		t.Helper()
 		waiting()
-		before := q.observeCalls()
+		before := q.getDrainCalls()
 		clock.Advance(wait - time.Millisecond)
-		assert.Never(t, func() bool { return q.observeCalls() > before }, 50*time.Millisecond, 5*time.Millisecond,
+		assert.Never(t, func() bool { return q.getDrainCalls() > before }, 50*time.Millisecond, 5*time.Millisecond,
 			"drained before %s", wait)
 		clock.Advance(time.Millisecond)
-		require.Eventually(t, func() bool { return q.observeCalls() == before+1 }, 5*time.Second, 5*time.Millisecond,
+		require.Eventually(t, func() bool { return q.getDrainCalls() == before+1 }, 5*time.Second, 5*time.Millisecond,
 			"no drain at %s", wait)
 	}
 
@@ -390,10 +461,11 @@ func TestNewCentralQueueDrainer_LogsDrainedEvents(t *testing.T) {
 	t.Parallel()
 	clock := clockwork.NewFakeClock()
 	batch := append(append(batchOf("wf-a"), batchOf("wf-b")...), batchOf("wf-a")...)
-	q := &fakeQueue{results: []observeResult{{events: batch}}}
+	q := &fakeQueue{results: []*observeResult{{events: centralQueueEvents(t, batch)}}}
 	dm, _ := testDrainerMetrics(t)
 	lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
-	d := NewCentralQueueDrainer(q, limits.NewUpperBoundLimiter(minDrainInterval), dm, clock, lggr)
+	grace := func(context.Context) (time.Duration, error) { return time.Minute, nil }
+	d := NewCentralQueueDrainer(q, grace, limits.NewUpperBoundLimiter(minDrainInterval), dm, clock, lggr)
 	require.NoError(t, d.Start(t.Context()))
 	t.Cleanup(func() { assert.NoError(t, d.Close()) })
 
@@ -416,4 +488,68 @@ func TestNewCentralQueueDrainer_LogsDrainedEvents(t *testing.T) {
 		got[workflowID] = count
 	}
 	assert.Equal(t, map[string]int64{"wf-a": 2, "wf-b": 1}, got)
+}
+
+// While something else is consuming the central queue, the drainer leaves live events to it and only drops those
+// that have expired. Once the consumer is quiet it drains everything again.
+func TestCentralQueueDrainer_YieldsToAConsumer(t *testing.T) {
+	t.Parallel()
+
+	q := newTestCentralQueue(t, &fakeLimit{limit: 10})
+	clock := clockwork.NewFakeClockAt(time.Now())
+	grace := func(context.Context) (time.Duration, error) { return time.Minute, nil }
+	dm, _ := testDrainerMetrics(t)
+	var mu sync.Mutex
+	var drained []string
+	d := NewCentralQueueDrainer(q, grace, limits.NewUpperBoundLimiter(time.Second), dm, clock, logger.Test(t))
+	d.hooks.OnObservedEvents = func(_ context.Context, events []CoordinatedEvent) {
+		mu.Lock()
+		defer mu.Unlock()
+		drained = append(drained, eventIDs(events)...)
+	}
+	require.NoError(t, d.Start(t.Context()))
+	t.Cleanup(func() { require.NoError(t, d.Close()) })
+
+	put := func(id string, deadline time.Time) {
+		e := centralEvent("wf-a", 0, id)
+		e.Deadline = deadline
+		require.NoError(t, q.Put(t.Context(), e))
+	}
+	depth := func() uint64 {
+		stats, err := q.Stats(t.Context())
+		require.NoError(t, err)
+		return stats.DepthByWorkflow["wf-a"]
+	}
+	now := clock.Now()
+	put("live", now.Add(time.Hour))
+	put("expired", now.Add(-2*time.Minute)) // past its deadline by more than the grace period
+	put("in-grace", now.Add(-30*time.Second))
+
+	// no consumer yet: everything is drained
+	d.drain(t.Context())
+	assert.Zero(t, depth())
+	handed := func() int { mu.Lock(); defer mu.Unlock(); return len(drained) }
+	require.Eventually(t, func() bool { return handed() == 3 }, 5*time.Second, 5*time.Millisecond, "the hook is called on its own goroutine")
+
+	// a consumer reads the queue
+	put("live", now.Add(time.Hour))
+	put("expired", now.Add(-2*time.Minute))
+	put("in-grace", now.Add(-30*time.Second))
+	for range q.Sorted(t.Context(), 10, 0) {
+	}
+	clock.Advance(0) // the consumer read at the real time of the test, which is the clock's start
+	d.drain(t.Context())
+	assert.Equal(t, uint64(2), depth(), "only the event past its deadline and the grace period was dropped, and the rest was not drained")
+
+	// the consumer goes quiet for longer than the window
+	clock.Advance(consumerWindow(time.Second) + time.Second)
+	d.drain(t.Context())
+	assert.Zero(t, depth(), "so the rest is drained")
+	require.Eventually(t, func() bool { return handed() == 5 }, 5*time.Second, 5*time.Millisecond)
+}
+
+func TestConsumerWindow(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, minConsumerWindow, consumerWindow(time.Second), "at least the minimum")
+	assert.Equal(t, 3*time.Minute, consumerWindow(time.Minute), "and otherwise three intervals")
 }

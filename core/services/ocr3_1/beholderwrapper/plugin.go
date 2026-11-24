@@ -112,6 +112,8 @@ func (p *reportingPlugin[RI]) Committed(ctx context.Context, seqNr uint64, keyVa
 		err := p.ReportingPlugin.Committed(ctx, seqNr, p.wrapReader(ctx, keyValueReader))
 		return nil, err
 	})
+	// The round is committed whether or not the plugin was able to act on it.
+	p.metrics.recordCommittedSeqNr(ctx, seqNr)
 	return err
 }
 
