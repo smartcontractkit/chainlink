@@ -360,16 +360,17 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 
 	att := params.Attestation
 	params.Attestation = ""
-	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
-		l.Warnw("rejecting secrets request: attestation validation failed", "err", err)
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
-	}
-	// Fetch the local node once: it provides the WorkflowDON snapshot for both the
-	// enclave-config check and the Workflow-DON authorization check below, plus the DON
-	// metadata on the vault request. A registry read failure is node-side, so ErrInternal.
+	// Fetch the local node once: it provides the WorkflowDON snapshot for the
+	// enclave-config lookup, the enclave-config check and the Workflow-DON
+	// authorization check below, plus the DON metadata on the vault request. A
+	// registry read failure is node-side, so ErrInternal.
 	localNode, err := h.capRegistry.LocalNode(ctx)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
+	}
+	if err = h.verifyAttestationHash(ctx, localNode, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
+		l.Warnw("rejecting secrets request: attestation validation failed", "err", err)
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 	// Verify the enclave's reported config matches the onchain DON state
 	// before treating the attested request as trusted: the Nitro attestation
@@ -630,7 +631,14 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 
 	att := params.Attestation
 	params.Attestation = ""
-	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
+	// The local node provides the WorkflowDON whose capability config holds the
+	// trusted enclave measurements. Fetched here so the attestation check reads
+	// it once, same as handleSecretsGet.
+	localNode, err := h.capRegistry.LocalNode(ctx)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
+	}
+	if err = h.verifyAttestationHash(ctx, localNode, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
 		l.Warnw("rejecting capability request: attestation validation failed", "err", err)
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
@@ -639,10 +647,6 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	// handleSecretsGet (PRIV-458): the Nitro attestation binds the request hash but
 	// not the config value, so a malicious host could otherwise produce a
 	// genuinely-attested request over a forged enclave config.
-	localNode, err := h.capRegistry.LocalNode(ctx)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
-	}
 	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
 		l.Warnw("rejecting capability request: enclave config does not match DON", "err", err)
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
@@ -821,26 +825,29 @@ func (h *Handler) verifyEnclaveConfigMatchesDON(localNode capabilities.Node, cfg
 	return nil
 }
 
-// getEnclaveAttestationConfig reads the enclave pool configuration from the
-// capabilities registry and returns trusted measurement sets and CA roots
+// getEnclaveAttestationConfig reads the enclave pool configuration for the
+// local node's workflow DON and returns trusted measurement sets and CA roots
 // for attestation validation. Called per-request so the config stays fresh
 // (same pattern as CC's EnsureFreshEnclaves).
-func (h *Handler) getEnclaveAttestationConfig(ctx context.Context) ([]json.RawMessage, string, error) {
-	dons, err := h.capRegistry.DONsForCapability(ctx, confidentialWorkflowsCapID)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to find DON for %s: %w", confidentialWorkflowsCapID, err)
-	}
-	if len(dons) == 0 {
-		return nil, "", fmt.Errorf("no DON found hosting %s", confidentialWorkflowsCapID)
+//
+// The config is read for localNode.WorkflowDON specifically, not for
+// DONsForCapability(...)[0]: that list is built by ranging over a map, so when
+// more than one DON hosts the capability (sharded DONs, or a shard brought up
+// before its config is set) the node would read another DON's config or none
+// at all on a per-call coin flip.
+func (h *Handler) getEnclaveAttestationConfig(ctx context.Context, localNode capabilities.Node) ([]json.RawMessage, string, error) {
+	donID := localNode.WorkflowDON.ID
+	if donID == 0 {
+		return nil, "", fmt.Errorf("local node is not a member of a workflow DON hosting %s", confidentialWorkflowsCapID)
 	}
 
-	capConfig, err := h.capRegistry.ConfigForCapability(ctx, confidentialWorkflowsCapID, dons[0].DON.ID)
+	capConfig, err := h.capRegistry.ConfigForCapability(ctx, confidentialWorkflowsCapID, donID)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get config for %s: %w", confidentialWorkflowsCapID, err)
+		return nil, "", fmt.Errorf("failed to get config for %s on DON %d: %w", confidentialWorkflowsCapID, donID, err)
 	}
 
 	if capConfig.DefaultConfig == nil {
-		return nil, "", fmt.Errorf("no default config for %s", confidentialWorkflowsCapID)
+		return nil, "", fmt.Errorf("no default config for %s on DON %d", confidentialWorkflowsCapID, donID)
 	}
 
 	var enclaves enclavesList
@@ -859,7 +866,7 @@ func (h *Handler) getEnclaveAttestationConfig(ctx context.Context) ([]json.RawMe
 	return measurements, caRootsPEM, nil
 }
 
-func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 string, cleanParams any, domainTag string) error {
+func (h *Handler) verifyAttestationHash(ctx context.Context, localNode capabilities.Node, attestationB64 string, cleanParams any, domainTag string) error {
 	if attestationB64 == "" {
 		return errors.New("missing attestation")
 	}
@@ -880,7 +887,7 @@ func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 stri
 	// Each enclave instance may have different PCR values, so we try each set
 	// and succeed if any match (same approach as pool.go's
 	// validateAttestationAgainstMultipleMeasurements).
-	measurements, caRootsPEM, err := h.getEnclaveAttestationConfig(ctx)
+	measurements, caRootsPEM, err := h.getEnclaveAttestationConfig(ctx, localNode)
 	if err != nil {
 		return fmt.Errorf("failed to get enclave attestation config: %w", err)
 	}

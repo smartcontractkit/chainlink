@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -180,6 +181,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))
 	var donsCapabilities = make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	var capabilityToOCR3Config = make(map[string]*ocr3.OracleConfig)
+	capabilityToOCR3_1Config := make(map[string]*ocr3_1.V3_1OracleConfig)
 	capabilityToExtraSignerFamilies := make(map[string][]string)
 	for _, feature := range input.Features.List() {
 		for _, donMetadata := range topology.DonsMetadataWithFlag(feature.Flag()) {
@@ -200,6 +202,7 @@ func SetupTestEnvironment(
 				}
 				donsCapabilities[donMetadata.ID] = append(donsCapabilities[donMetadata.ID], output.DONCapabilityWithConfig...)
 				maps.Copy(capabilityToOCR3Config, output.CapabilityToOCR3Config)
+				maps.Copy(capabilityToOCR3_1Config, output.CapabilityToOCR3_1Config)
 				for capability, families := range output.CapabilityToExtraSignerFamilies {
 					capabilityToExtraSignerFamilies[capability] = append([]string(nil), families...)
 				}
@@ -347,6 +350,7 @@ func SetupTestEnvironment(
 		NodeSets:                        input.NodeSets,
 		DONCapabilityWithConfigs:        make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
 		CapabilityToOCR3Config:          capabilityToOCR3Config,
+		CapabilityToOCR3_1Config:        capabilityToOCR3_1Config,
 		CapabilityToExtraSignerFamilies: capabilityToExtraSignerFamilies,
 	}
 

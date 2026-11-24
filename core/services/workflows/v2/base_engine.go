@@ -114,9 +114,9 @@ type baseEngine struct {
 	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
 	tracer trace.Tracer
 
-	usageMeter    *resourcemanager.ResourceManager
-	usageIdentity resourcemanager.ResourceIdentity
-	orgID         string
+	usageMeter        *resourcemanager.ResourceManager
+	baseUsageIdentity resourcemanager.ResourceIdentity
+	orgID             string
 	// orgIDMissingReason records why orgID is empty ("resolver_nil",
 	// "resolver_error", or "empty_response"). It is set once in startWith() and
 	// read by startExecution() to label the org_id_missing counter. It is only
@@ -197,9 +197,7 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 	engine.metrics = metricsLabeler
 	// Disabled metering is a no-op inside the resource manager.
 	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter, Settings: cfg.LocalLimiters.Settings})
-	engine.usageIdentity = resourcemanager.WithWorkflowUsagePool(
-		resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, ""),
-		resourcemanager.ResourceTypeWorkflowCompute)
+	engine.baseUsageIdentity = resourcemanager.NewBaseIdentity(cfg.MeteringIdentity, resourcemanager.EmittingServiceWorkflowEngine, "")
 	engine.loggerLabels.Store(&labelsMap)
 	engine.localNode.Store(&localNode)
 
@@ -357,9 +355,11 @@ func (e *baseEngine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscriptio
 	// No executionID exists unless startExecution is called.
 	// Hence, we initialize it as an empty string.
 	executionID := ""
+	// Subscribe has no execution timestamp, so the node's clock gates the metadata.
+	subscribeMetadata := e.executionMetadata(ctx, e.cfg.Clock.Now(), executionID)
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
 		Request:           &sdkpb.ExecuteRequest_Subscribe{},
-		ExecutionMetadata: e.getExecutionMetadata(executionID),
+		ExecutionMetadata: subscribeMetadata,
 		MaxResponseSize:   uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:            e.cfg.WorkflowConfig,
 	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider))
@@ -786,7 +786,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, event.TriggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
-	executionMetadata := e.getExecutionMetadata(executionID)
+	executionMetadata := e.executionMetadata(ctx, executionTimestamp, executionID)
 	var result *sdkpb.ExecutionResult
 	result, execErr = e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		ExecutionMetadata: executionMetadata,
@@ -811,7 +811,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 		computeDuration = time.Duration(result.GetComputeDurationMs()) * time.Millisecond
 	}
 
-	e.emitComputeUsage(ctx, executionLogger, executionID, computeDuration)
+	e.emitComputeUsage(ctx, executionLogger, tid, executionID, computeDuration)
 
 	if isMetering {
 		computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
@@ -1161,11 +1161,18 @@ func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflo
 	return resolvedOrg{ID: orgID}
 }
 
-// emitComputeUsage emits the cre:workflow:compute usage MeterRecord for one
-// execution and logs the emission. The log line is a contract consumed by the
-// billing reconciler (fields: executionID, eventID, resourceType, value, orgID)
-// and must stay stable. Fail-open: never returns an error to the execution.
-func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, executionID string, computeDuration time.Duration) {
+// computeResourceTyper is implemented by modules whose executions bill under
+// a non-default compute resource type.
+type computeResourceTyper interface {
+	ComputeResourceType() string
+}
+
+// emitComputeUsage emits the compute usage MeterRecord for one execution and
+// logs the emission. The record carries the routed runner's usage identity
+// when it declares one. The log line is a contract consumed by the billing
+// reconciler (fields: executionID, eventID, resourceType, value, orgID) and
+// must stay stable. Fail-open: never returns an error to the execution.
+func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, triggerIndex uint64, executionID string, computeDuration time.Duration) {
 	if !e.cfg.MeterRecordsEnabled {
 		return
 	}
@@ -1174,7 +1181,20 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, e
 		lggr.Errorw("Compute usage meter record not emitted", "err", err)
 		return
 	}
-	identity := e.usageIdentity
+	// The routed module's compute resource type, when it declares one.
+	resourceType := resourcemanager.ResourceTypeWorkflowCompute
+	if router, ok := e.cfg.Module.(workflowhost.TriggerRouter); ok {
+		if m, found := router.RoutedModule(triggerIndex); found {
+			if t, ok := m.(computeResourceTyper); ok {
+				resourceType = t.ComputeResourceType()
+			}
+		} else {
+			// Trigger events only flow after Subscribe, so this should be
+			// unreachable; a miss would mislabel the record as ordinary compute.
+			lggr.Errorw("Execution's trigger has no routed module; metering as ordinary compute", "triggerIndex", triggerIndex)
+		}
+	}
+	identity := resourcemanager.WithWorkflowUsagePool(e.baseUsageIdentity, resourceType)
 	if node := e.localNode.Load(); node != nil {
 		identity = identity.WithDonID(strconv.FormatUint(uint64(node.WorkflowDON.ID), 10))
 	}
@@ -1182,16 +1202,30 @@ func (e *baseEngine) emitComputeUsage(ctx context.Context, lggr logger.Logger, e
 	// The capability event id for compute is the execution id itself: one
 	// compute record per execution, identical on every node of the DON.
 	e.usageMeter.EmitUsage(ctx, identity, executionID, valueMs, resourcemanager.UtilizationFields{
-		ResourceType: resourcemanager.ResourceTypeWorkflowCompute,
+		ResourceType: resourceType,
 		ResourceID:   resourceID,
 		OrgID:        e.orgID,
 	})
 	lggr.Infow("Emitted capability usage meter record",
 		"eventID", executionID,
-		"resourceType", resourcemanager.ResourceTypeWorkflowCompute,
+		"resourceType", resourceType,
 		"value", valueMs,
 		"orgID", e.orgID,
 	)
+}
+
+// executionMetadata returns execution metadata for an ExecuteRequest, or nil when
+// the execution timestamp is outside FeatureExecutionMetadataActivePeriod.
+// The metadata changes the request bytes, which confidential workflows hash across nodes,
+// therefore, timestamp (featureGateTime) is used to switch a feature
+// together across all nodes (and avoid mixed-version environment inconsistencies).
+// An execution without a timestamp (zero time, when ExecutionTimestampsEnabled is off)
+// stays off unless the window reaches back to year 1.
+func (e *baseEngine) executionMetadata(ctx context.Context, featureGateTime time.Time, executionID string) *sdkpb.WorkflowExecutionMetadata {
+	if err := e.cfg.LocalLimiters.ExecutionMetadata.Check(ctx, commonconfig.Timestamp(featureGateTime.Unix())); err != nil {
+		return nil
+	}
+	return e.getExecutionMetadata(executionID)
 }
 
 func (e *baseEngine) getExecutionMetadata(executionID string) *sdkpb.WorkflowExecutionMetadata {

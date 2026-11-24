@@ -61,6 +61,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/arbiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -87,18 +88,16 @@ import (
 )
 
 const (
-	vaultCapabilityID   = "vault@1.0.0"
+	vaultCapabilityID   = internal.VaultCapabilityID
 	vaultOCRConfigKey   = "vault"
 	dkgOCRConfigKey     = "dkg"
-	dontimeCapabilityID = "dontime@1.0.0"
+	dontimeCapabilityID = internal.DontimeCapabilityID
 	// dontimeCapabilityPrefix matches any dontime version (e.g. "dontime@2.0.0"),
 	// so the registry-driven launch guard keeps working if the version changes.
 	dontimeCapabilityPrefix      = "dontime"
 	gaugeVaultDiskUsageBytes     = "platform_vault_disk_usage_bytes"
 	vaultDiskMonitorTickInterval = time.Minute
 
-	consensusQueueCapabilityID            = "consensus-queue@1.0.0"
-	consensusQueueOCRConfigKey            = "consensus-queue"
 	gaugeConsensusQueueBytes              = "platform_consensus_queue_usage_bytes"
 	consensusQueueDiskMonitorTickInterval = time.Minute
 )
@@ -581,9 +580,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.RingPlugin:
 		return d.newServicesRing(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
-	case types.ConsensusQueue:
-		return d.newServicesConsensusQueue(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
-
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
@@ -594,7 +590,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 //
 // capabilityID is the registry capability ID (e.g. "dontime@1.0.0").
 // donID is the on-chain DON ID this plugin process is being spawned for.
-// pluginType identifies which OCR2 plugin to create (currently only DonTimePlugin).
+// pluginType identifies which OCR2 plugin to create (DonTimePlugin or ConsensusQueue).
 // configJSON is the per-capability config from the registry.
 // registryOCRConfig is the on-chain OCR3 config from the registry. It is required:
 // the node's OCR key bundles and transmitter are taken from its signer in this config.
@@ -710,6 +706,9 @@ func (d *Delegate) NewServices(
 	switch pluginType {
 	case types.DonTimePlugin:
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, capabilityID, d.limitsFactory)
+	case types.ConsensusQueue:
+		// The plugin ignores configJSON. Its limits come from the OCR offchain config, which the digest covers.
+		return d.newServicesConsensusQueue(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, capabilityID, registryKVSubPath(capabilityID, donID))
 	default:
 		return nil, errors.Errorf("plugin type %s not supported for registry-driven launch", pluginType)
 	}
@@ -722,6 +721,19 @@ func registryOCR2RelayConfig(chainID string, pluginType types.OCR2PluginType, tr
 		"effectiveTransmitterID": transmitterID,
 		"sendingKeys":            []string{transmitterID},
 	}
+}
+
+// registryKVSubPath returns the KV store sub-path for a capability launched from the registry. A registry launch gets
+// a fresh ExternalJobID each time, so the path is keyed by the capability ID and DON ID instead, and the plugin's
+// on-disk state survives restarts.
+func registryKVSubPath(capabilityID string, donID uint32) string {
+	safeID := strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' {
+			return r
+		}
+		return '_'
+	}, capabilityID)
+	return fmt.Sprintf("%s_don%d", safeID, donID)
 }
 
 // registryOCRKeyBundles returns the node's OCR key bundles, keyed by chain family, that
@@ -818,11 +830,12 @@ func (d *Delegate) newServicesConsensusQueue(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
+	capabilityID string,
+	kvSubPath string,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	// TODO ticket validate job spec
-
+	// The plugin reads its limits from the registry's OCR offchain config, not from spec.PluginConfig.
 	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
 		return nil, err
@@ -849,7 +862,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		rid.Network,
 		rid.ChainID,
 		spec.ContractID,
-		synchronization.TelemetryType(types.VaultPlugin),
+		synchronization.TelemetryType(types.ConsensusQueue),
 	)
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
@@ -868,7 +881,7 @@ func (d *Delegate) newServicesConsensusQueue(
 	}
 	srvs = append(srvs, dm)
 
-	fullPath, err := d.ensureKeyValueStorePath(jb.ExternalJobID.String())
+	fullPath, err := d.ensureKeyValueStorePath(kvSubPath)
 	if err != nil {
 		return nil, err
 	}
@@ -882,8 +895,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		return nil, err
 	}
 
-	// Get DKG config tracker and digester, optionally wrapping with OCRConfigService
-	configTracker, configDigester, lc, err := d.maybeWrapConfigService(consensusQueueCapabilityID, consensusQueueOCRConfigKey, lggr, provider.ContractConfigTracker(), provider.OffchainConfigDigester(), lc)
+	configTracker, configDigester, lc, err := d.maybeWrapConfigService(capabilityID, capabilitiespb.OCR3ConfigDefaultKey, lggr, provider.ContractConfigTracker(), provider.OffchainConfigDigester(), lc)
 	if err != nil {
 		return nil, err
 	}
@@ -892,7 +904,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
-		ContractTransmitter:          nil, // TODO ticket transmitter
+		ContractTransmitter:          queue.NewTransmitter(lggr, ocrtypes.Account(spec.TransmitterID.String)),
 		Database:                     ocrDB,
 		KeyValueDatabaseFactory:      kvFactory,
 		LocalConfig:                  lc,

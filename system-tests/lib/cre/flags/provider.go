@@ -21,6 +21,7 @@ func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.StellarCapability,
 			cre.ConfidentialRelayCapability,
 			cre.ConfidentialWorkflowsCapability,
+			cre.ConsensusQueueCapability,
 		},
 	}
 }
@@ -44,6 +45,7 @@ func NewExtensibleCapabilityFlagsProvider(extraGlobalFlags []string) *Extensible
 			cre.HTTPActionCapability,
 			cre.ConfidentialRelayCapability,
 			cre.ConfidentialWorkflowsCapability,
+			cre.ConsensusQueueCapability,
 		}, extraGlobalFlags...),
 		chainSpecificCapabilities: []cre.CapabilityFlag{
 			cre.EVMCapability,

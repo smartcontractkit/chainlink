@@ -92,9 +92,11 @@ type EngineMetrics struct {
 	limitReadFallbackTotal    metric.Int64Counter
 	limitCheckUnenforcedTotal metric.Int64Counter
 
-	// Trigger coordinator instruments.
-	triggerCoordinatorWorkflowsGauge     metric.Int64Gauge
-	triggerCoordinatorReadersGauge       metric.Int64Gauge
+	// Trigger coordinator instruments. The gauges are observed at collection time through
+	// RegisterTriggerCoordinatorGauges, so meter is kept to register their callback.
+	meter                                metric.Meter
+	triggerCoordinatorWorkflowsGauge     metric.Int64ObservableGauge
+	triggerCoordinatorReadersGauge       metric.Int64ObservableGauge
 	triggerCoordinatorUnregisterFailures metric.Int64Counter
 
 	// activeExecutionsGauge tracks in-flight workflow executions, by workflowID.
@@ -111,7 +113,7 @@ func InitMonitoringResources() (*EngineMetrics, error) {
 // InitMonitoringResourcesWithMeter registers all engine metrics on meter.
 // A nil meter is not supported; pass beholder.GetMeter() explicitly instead.
 func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, err error) {
-	em = &EngineMetrics{}
+	em = &EngineMetrics{meter: meter}
 
 	em.workflowExecutionRateLimitGlobalCounter, err = meter.Int64Counter("platform_engine_execution_ratelimit_global")
 	if err != nil {
@@ -528,7 +530,7 @@ func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, er
 		return nil, fmt.Errorf("failed to register limit check unenforced counter: %w", err)
 	}
 
-	em.triggerCoordinatorWorkflowsGauge, err = meter.Int64Gauge(
+	em.triggerCoordinatorWorkflowsGauge, err = meter.Int64ObservableGauge(
 		"platform_trigger_coordinator_workflows",
 		metric.WithDescription("Number of workflows currently registered with the trigger coordinator"),
 	)
@@ -536,7 +538,7 @@ func InitMonitoringResourcesWithMeter(meter metric.Meter) (em *EngineMetrics, er
 		return nil, fmt.Errorf("failed to register trigger coordinator workflows gauge: %w", err)
 	}
 
-	em.triggerCoordinatorReadersGauge, err = meter.Int64Gauge(
+	em.triggerCoordinatorReadersGauge, err = meter.Int64ObservableGauge(
 		"platform_trigger_coordinator_readers",
 		metric.WithDescription("Number of trigger reader goroutines running across all coordinated workflows"),
 	)
@@ -988,18 +990,17 @@ func (c WorkflowsMetricLabeler) IncrementLimitCheckUnenforcedCounter(ctx context
 	lc.em.limitCheckUnenforcedTotal.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-// UpdateTriggerCoordinatorWorkflowsGauge records the number of workflows
-// currently registered with the trigger coordinator. Node-level (no workflow labels).
-func (c WorkflowsMetricLabeler) UpdateTriggerCoordinatorWorkflowsGauge(ctx context.Context, val int64) {
-	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
-	c.em.triggerCoordinatorWorkflowsGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
-}
-
-// UpdateTriggerCoordinatorReadersGauge records the number of trigger reader
-// goroutines running across all coordinated workflows. Node-level (no workflow labels).
-func (c WorkflowsMetricLabeler) UpdateTriggerCoordinatorReadersGauge(ctx context.Context, val int64) {
-	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
-	c.em.triggerCoordinatorReadersGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
+// RegisterTriggerCoordinatorGauges reports workflows() and readers() as the trigger coordinator's
+// workflows and readers gauges, with c's labels, each time metrics are collected. Observing at
+// collection time, rather than recording on every change, means concurrent changes can never leave
+// a stale value behind. The caller must unregister the returned registration when it stops.
+func (c WorkflowsMetricLabeler) RegisterTriggerCoordinatorGauges(workflows, readers func() int64) (metric.Registration, error) {
+	attrs := metric.WithAttributes(beholder.OtelAttributes(c.Labels).AsStringAttributes()...)
+	return c.em.meter.RegisterCallback(func(_ context.Context, o metric.Observer) error {
+		o.ObserveInt64(c.em.triggerCoordinatorWorkflowsGauge, workflows(), attrs)
+		o.ObserveInt64(c.em.triggerCoordinatorReadersGauge, readers(), attrs)
+		return nil
+	}, c.em.triggerCoordinatorWorkflowsGauge, c.em.triggerCoordinatorReadersGauge)
 }
 
 // IncrementTriggerCoordinatorUnregisterFailuresCounter records trigger

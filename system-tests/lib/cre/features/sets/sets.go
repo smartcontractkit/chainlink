@@ -11,6 +11,7 @@ import (
 	evm_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v2"
 	http_actions_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_action"
 	http_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_trigger"
+	consensus_queue_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/queue"
 	solana_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana/v2"
 	stellar_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	vault_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
@@ -30,5 +31,6 @@ func New() cre.Features {
 		&vault_feature.Vault{},
 		&confidential_relay_feature.ConfidentialRelay{},
 		&confidential_workflows_feature.ConfidentialWorkflows{},
+		&consensus_queue_feature.ConsensusQueue{},
 	)
 }

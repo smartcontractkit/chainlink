@@ -250,6 +250,24 @@ func TestChainCapabilityAllowlistMatchesCapabilityIDs(t *testing.T) {
 	assert.False(t, matches("solana:ChainSelector:11@1.0.0"), "solana stays on job specs")
 }
 
+// TestAddWorkerNodeConfig_ConsensusQueueRegistryLaunch asserts a DON with the consensus-queue flag gets it on the
+// registry launch allowlist exactly once, next to the topology's own entries.
+func TestAddWorkerNodeConfig_ConsensusQueueRegistryLaunch(t *testing.T) {
+	t.Parallel()
+	don := capabilitiesDonMetadata()
+	don.Flags = append(don.Flags, cre.ConsensusQueueCapability)
+	don.RegistryBasedLaunchAllowlist = []string{"cron-trigger@1.0.0", "dontime@1.0.0"}
+
+	config, err := addWorkerNodeConfig(corechainlink.Config{}, nil, testPeeringData(), capabilitiesCommonInputs("chip-router:50051"), don, &cre.NodeMetadata{Index: 0, Roles: []string{cre.WorkerNode}})
+	require.NoError(t, err)
+	want := []string{"cron-trigger@1.0.0", "dontime@1.0.0", "consensus-queue@1.0.0"}
+	assert.Equal(t, want, config.Capabilities.Local.RegistryBasedLaunchAllowlist)
+
+	config, err = addWorkerNodeConfig(config, nil, testPeeringData(), capabilitiesCommonInputs("chip-router:50051"), don, &cre.NodeMetadata{Index: 0, Roles: []string{cre.WorkerNode}})
+	require.NoError(t, err)
+	assert.Equal(t, want, config.Capabilities.Local.RegistryBasedLaunchAllowlist, "reapplying must not duplicate entries")
+}
+
 func capabilitiesDonMetadata() *cre.DonMetadata {
 	return &cre.DonMetadata{
 		Name:  "capabilities",

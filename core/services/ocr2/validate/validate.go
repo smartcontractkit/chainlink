@@ -122,6 +122,9 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 		return validateDonTimePluginSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.RingPlugin:
 		return validateRingPluginSpec(spec.OCR2OracleSpec.PluginConfig)
+	case types.ConsensusQueue:
+		return errors.New("consensus-queue is launched from the Capabilities Registry, not a job spec: " +
+			"add it to [Capabilities.Local] RegistryBasedLaunchAllowlist instead")
 	case "":
 		return errors.New("no plugin specified")
 	default:

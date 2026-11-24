@@ -939,14 +939,19 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 	return nil
 }
 
-// copied from flags package to avoid circular dependency
+// HasFlag reports whether values holds capability, either bare or with a
+// chain ID suffix such as "evm-1337". The suffix must be numeric, so
+// "consensus" does not match "consensus-queue".
 func HasFlag(values []string, capability string) bool {
-	if slices.Contains(values, capability) {
-		return true
-	}
-
 	for _, value := range values {
-		if strings.HasPrefix(value, capability+"-") {
+		if value == capability {
+			return true
+		}
+		suffix, ok := strings.CutPrefix(value, capability+"-")
+		if !ok {
+			continue
+		}
+		if _, err := strconv.ParseUint(suffix, 10, 64); err == nil {
 			return true
 		}
 	}

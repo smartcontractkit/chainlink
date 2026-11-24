@@ -15,6 +15,9 @@ import (
 
 	"google.golang.org/grpc"
 
+	capkeystore "github.com/smartcontractkit/capabilities/libs/capability/keystore"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/remote"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -26,13 +29,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
+// maxRecvMsgSize fits a keystore request carrying the largest report libocr allows, which is over gRPC's 4 MiB default.
+const maxRecvMsgSize = ocr3types.MaxMaxReportLength + 1024*1024
+
 func listenLocal(ctx context.Context) (net.Listener, error) {
 	return (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0")
 }
 
 // V2 runs a capability built with capability.Run. The host supervises the
 // process as an empty LOOP, and gives it its dependencies in env vars. The process reaches the
-// capabilities registry and CRE settings through a gRPC server that the host serves for this LOOP only.
+// capabilities registry, CRE settings and keystores through a gRPC server that the host serves for this LOOP only.
 type V2 struct {
 	services.StateMachine
 	log              logger.Logger
@@ -43,6 +49,7 @@ type V2 struct {
 	pluginRegistrar  plugins.RegistrarConfig
 	registry         registry.CapabilitiesRegistry
 	creSettings      settings.Broadcaster
+	keystores        capkeystore.Keystores
 
 	emptyLoop atomic.Pointer[loop.EmptyService]
 	loopID    string
@@ -69,6 +76,8 @@ type V2Params struct {
 	Registry registry.CapabilitiesRegistry
 	// CRESettings is served to the process. Nil serves no settings.
 	CRESettings settings.Broadcaster
+	// Keystores are served to the process. The zero value serves none.
+	Keystores capkeystore.Keystores
 }
 
 func NewV2(p V2Params) (*V2, error) {
@@ -81,6 +90,7 @@ func NewV2(p V2Params) (*V2, error) {
 		pluginRegistrar:  p.PluginRegistrar,
 		registry:         p.Registry,
 		creSettings:      p.CRESettings,
+		keystores:        p.Keystores,
 		stopChan:         make(services.StopChan),
 	}, nil
 }
@@ -116,6 +126,11 @@ func (s *V2) Start(ctx context.Context) error {
 		if s.creSettings != nil {
 			settingsremote.RegisterSettingsServer(srv.Server, s.log, s.creSettings)
 			envVars = append(envVars, "CL_SETTINGS_URL="+srv.addr())
+		}
+
+		if s.keystores != (capkeystore.Keystores{}) {
+			capkeystore.RegisterServers(srv.Server, s.keystores)
+			envVars = append(envVars, "CL_KEYSTORE_URL="+srv.addr())
 		}
 
 		s.startGRPCServer(srv)
@@ -199,7 +214,7 @@ func (s *V2) newGRPCServer(ctx context.Context) (*server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen for the server: %w", err)
 	}
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(grpc.MaxRecvMsgSize(maxRecvMsgSize))
 	return &server{listener: listener, Server: srv}, nil
 }
 

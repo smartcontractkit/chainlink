@@ -466,10 +466,11 @@ func addWorkerNodeConfig(
 		existingConfig.Capabilities.Local.RegistryBasedLaunchAllowlist = donMetadata.RegistryBasedLaunchAllowlist
 	}
 
-	// HTTP capabilities are launched from their registry spec_config, not job specs.
+	// These capabilities are launched from the Capabilities Registry, not job specs.
 	for _, capability := range []struct{ flag, id string }{
 		{cre.HTTPActionCapability, "http-actions@1.0.0-alpha"},
 		{cre.HTTPTriggerCapability, "http-trigger@1.0.0-alpha"},
+		{cre.ConsensusQueueCapability, "consensus-queue@1.0.0"},
 	} {
 		if donMetadata.HasFlag(capability.flag) && !slices.Contains(existingConfig.Capabilities.Local.RegistryBasedLaunchAllowlist, capability.id) {
 			existingConfig.Capabilities.Local.RegistryBasedLaunchAllowlist = append(existingConfig.Capabilities.Local.RegistryBasedLaunchAllowlist, capability.id)

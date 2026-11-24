@@ -936,6 +936,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		// confidential module routes and executes in this test.
 		limiters, err := v2.NewLimiters(lf, func(w *cresettings.Workflows) {
 			w.ConfidentialWorkflows.Enabled.DefaultValue = true
+			w.FeatureExecutionMetadataActivePeriod.DefaultValue = settings.TimeRange(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)).DefaultValue
 		})
 		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)

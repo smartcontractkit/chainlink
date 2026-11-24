@@ -98,6 +98,7 @@ func TestStandardCapabilitiesV2_NoServers(t *testing.T) {
 
 	assert.NotContains(t, env, "CL_CAPABILITIES_PROXY_URL")
 	assert.NotContains(t, env, "CL_SETTINGS_URL")
+	assert.NotContains(t, env, "CL_KEYSTORE_URL")
 	assert.NotContains(t, env, "CL_CAPABILITIES_CAPABILITY_DON_ID")
 }
 

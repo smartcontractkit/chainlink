@@ -3,7 +3,6 @@ package flags
 import (
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
 
@@ -28,17 +27,7 @@ func HasFlagForChain(values []string, capability string, chainID uint64) bool {
 }
 
 func HasFlagForAnyChain(values []string, capability string) bool {
-	if slices.Contains(values, capability) {
-		return true
-	}
-
-	for _, value := range values {
-		if strings.HasPrefix(value, capability+"-") {
-			return true
-		}
-	}
-
-	return false
+	return cre.HasFlag(values, capability)
 }
 
 func RequiresForwarderContract(values []string, chainID uint64) bool {

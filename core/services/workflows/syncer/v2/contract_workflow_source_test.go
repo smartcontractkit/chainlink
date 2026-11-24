@@ -3,6 +3,8 @@ package v2
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math/big"
 	"reflect"
 	"testing"
 
@@ -37,6 +39,9 @@ var (
 type mockWorkflowContractReader struct {
 	commontypes.ContractReader
 	workflowList []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView
+	// onGet, when set, returns the workflow list for a specific query (e.g. one page).
+	onGet        func(params GetWorkflowListByDONParams) []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView
+	calls        []GetWorkflowListByDONParams
 	head         *commontypes.Head
 	getLatestErr error
 	bindErr      error
@@ -47,17 +52,30 @@ func (m *mockWorkflowContractReader) GetLatestValueWithHeadData(
 	_ context.Context,
 	_ string,
 	_ primitives.ConfidenceLevel,
-	_ any,
+	params any,
 	result any,
 ) (*commontypes.Head, error) {
 	if m.getLatestErr != nil {
 		return nil, m.getLatestErr
 	}
 
+	list := m.workflowList
+	if p, ok := params.(GetWorkflowListByDONParams); ok {
+		// The caller mutates Start between pages, so snapshot it for assertions.
+		m.calls = append(m.calls, GetWorkflowListByDONParams{
+			DonFamily: p.DonFamily,
+			Start:     new(big.Int).Set(p.Start),
+			Limit:     new(big.Int).Set(p.Limit),
+		})
+		if m.onGet != nil {
+			list = m.onGet(p)
+		}
+	}
+
 	resultVal := reflect.ValueOf(result).Elem()
 	listField := resultVal.FieldByName("List")
 	if listField.IsValid() && listField.CanSet() {
-		listField.Set(reflect.ValueOf(m.workflowList))
+		listField.Set(reflect.ValueOf(list))
 	}
 
 	return m.head, nil
@@ -132,6 +150,56 @@ func TestContractWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
 	assert.Equal(t, "100", headResult.Height)
 	assert.Equal(t, "workflow-1", wfs[0].WorkflowName)
 	assert.Equal(t, "workflow-2", wfs[1].WorkflowName)
+}
+
+func TestContractWorkflowSource_ListWorkflowMetadata_PaginatesAcrossPages(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+	ctx := t.Context()
+
+	// One full page plus a short page so the loop is exercised end to end.
+	total := int(MaxResultsPerQuery) + 3
+	all := make([]workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, 0, total)
+	for i := range total {
+		all = append(all, createTestWorkflowMetadata(fmt.Sprintf("workflow-%d", i), "family-a"))
+	}
+
+	mockReader := &mockWorkflowContractReader{
+		onGet: func(params GetWorkflowListByDONParams) []workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView {
+			start := int(params.Start.Int64())
+			if start >= len(all) {
+				return nil
+			}
+			end := min(start+int(params.Limit.Int64()), len(all))
+			return all[start:end]
+		},
+		head: &commontypes.Head{Height: "100"},
+	}
+
+	source := NewContractWorkflowSource(
+		lggr,
+		func(_ context.Context, _ []byte) (commontypes.ContractReader, error) {
+			return mockReader, nil
+		},
+		testOwnerAddress,
+		"test-chain-selector",
+	)
+	source.contractReader = mockReader
+
+	don := capabilities.DON{
+		ID:       1,
+		Families: []string{"family-a"},
+	}
+
+	wfs, _, err := source.ListWorkflowMetadata(ctx, don)
+	require.NoError(t, err)
+	assert.Len(t, wfs, total)
+
+	require.Len(t, mockReader.calls, 2)
+	assert.Equal(t, int64(0), mockReader.calls[0].Start.Int64())
+	assert.Equal(t, MaxResultsPerQuery, mockReader.calls[0].Limit.Int64())
+	assert.Equal(t, MaxResultsPerQuery, mockReader.calls[1].Start.Int64())
+	assert.Equal(t, MaxResultsPerQuery, mockReader.calls[1].Limit.Int64())
 }
 
 func TestContractWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.T) {

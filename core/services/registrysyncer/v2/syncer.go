@@ -8,7 +8,11 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -62,6 +66,8 @@ type registrySyncer struct {
 
 	updateChan chan *registry.RegistryMetadata
 
+	lastPublished atomic.Pointer[registry.RegistryMetadata]
+
 	wg   sync.WaitGroup
 	lggr logger.Logger
 	mu   sync.RWMutex
@@ -78,8 +84,12 @@ func New(
 	relayer ContractReaderFactory,
 	registryAddress string,
 	orm registrysyncer.ORM,
+	meter metric.Meter,
 ) (RegistrySyncer, error) {
-	metricLabeler, err := newSyncerMetricLabeler()
+	if meter == nil {
+		meter = noop.NewMeterProvider().Meter("")
+	}
+	metricLabeler, err := newSyncerMetricLabeler(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create syncer metric labeler: %w", err)
 	}
@@ -226,16 +236,36 @@ func (s *registrySyncer) updateStateLoop() {
 	}
 }
 
+const (
+	capabilitiesPageSize = 100
+	donsPageSize         = 10
+	nodesPageSize        = 20
+)
+
+// readAllPages reads a paginated CapabilitiesRegistry list until a page comes back short.
+// Pages are read at latest block, not atomically. The contract uses EnumerableSet (swap-and-pop removal),
+// so a removal between page reads can move an unread entry into an already-read slot and drop it.
+// importConsistentOnchainRegistry guards against that.
+func readAllPages[T any](ctx context.Context, reader types.ContractReader, readIdentifier string, pageSize int64) ([]T, error) {
+	var all []T
+	for start := int64(0); ; start += pageSize {
+		params := struct {
+			Start *big.Int
+			Limit *big.Int
+		}{Start: big.NewInt(start), Limit: big.NewInt(pageSize)}
+		var page []T
+		if err := reader.GetLatestValue(ctx, readIdentifier, primitives.Unconfirmed, params, &page); err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if int64(len(page)) < pageSize {
+			return all, nil
+		}
+	}
+}
+
 func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.RegistryMetadata, error) {
-	caps := []capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo{}
-	// TODO support pagination if needed
-	// Using large limit for now to avoid pagination complexity
-	// since we don't expect to have that many capabilities
-	params := struct {
-		Start *big.Int
-		Limit *big.Int
-	}{Start: big.NewInt(0), Limit: big.NewInt(1024)}
-	err := s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getCapabilities"), primitives.Unconfirmed, params, &caps)
+	caps, err := readAllPages[capabilities_registry_v2.CapabilitiesRegistryCapabilityInfo](ctx, s.reader, s.capabilitiesContract.ReadIdentifier("getCapabilities"), capabilitiesPageSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest value for getCapabilities: %w", err)
 	}
@@ -253,9 +283,7 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.R
 		}
 	}
 
-	dons := []capabilities_registry_v2.CapabilitiesRegistryDONInfo{}
-
-	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getDONs"), primitives.Unconfirmed, params, &dons)
+	dons, err := readAllPages[capabilities_registry_v2.CapabilitiesRegistryDONInfo](ctx, s.reader, s.capabilitiesContract.ReadIdentifier("getDONs"), donsPageSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest value for getDONs: %w", err)
 	}
@@ -275,12 +303,14 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.R
 		}
 	}
 
-	nodes := []capabilities_registry_v2.INodeInfoProviderNodeInfo{}
-
-	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getNodes"), primitives.Unconfirmed, params, &nodes)
+	nodes, err := readAllPages[capabilities_registry_v2.INodeInfoProviderNodeInfo](ctx, s.reader, s.capabilitiesContract.ReadIdentifier("getNodes"), nodesPageSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest value for getNodes: %w", err)
 	}
+
+	s.metrics.recordRegistryEntries(ctx, "capabilities", len(caps))
+	s.metrics.recordRegistryEntries(ctx, "dons", len(dons))
+	s.metrics.recordRegistryEntries(ctx, "nodes", len(nodes))
 
 	idsToNodes := map[p2ptypes.PeerID]registry.NodeInfo{}
 	for _, node := range nodes {
@@ -320,6 +350,48 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registry.R
 	}, nil
 }
 
+const maxRegistryReadAttempts = 3
+
+// importConsistentOnchainRegistry re-reads the registry whenever an entry from the last published snapshot
+// is missing (or there is no previous snapshot), and returns only once two consecutive reads have the same
+// entries. Only removals can cause paginated reads to drop entries, so steady-state syncs read once.
+func (s *registrySyncer) importConsistentOnchainRegistry(ctx context.Context) (*registry.RegistryMetadata, error) {
+	reg, err := s.importOnchainRegistry(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if prev := s.lastPublished.Load(); prev != nil && containsAllEntries(reg, prev) {
+		return reg, nil
+	}
+	for range maxRegistryReadAttempts - 1 {
+		next, err := s.importOnchainRegistry(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if containsAllEntries(reg, next) && containsAllEntries(next, reg) {
+			return next, nil
+		}
+		s.lggr.Infow("registry entries changed between reads, re-reading")
+		reg = next
+	}
+	return nil, fmt.Errorf("registry entries changed in each of %d consecutive reads", maxRegistryReadAttempts)
+}
+
+func containsAllEntries(super, sub *registry.RegistryMetadata) bool {
+	return containsAllKeys(super.IDsToDONs, sub.IDsToDONs) &&
+		containsAllKeys(super.IDsToNodes, sub.IDsToNodes) &&
+		containsAllKeys(super.IDsToCapabilities, sub.IDsToCapabilities)
+}
+
+func containsAllKeys[K comparable, V any](super, sub map[K]V) bool {
+	for k := range sub {
+		if _, ok := super[k]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -354,7 +426,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 
 	if latestRegistry == nil {
 		s.lggr.Debug("syncing with remote registry")
-		importedRegistry, err := s.importOnchainRegistry(ctx)
+		importedRegistry, err := s.importConsistentOnchainRegistry(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to sync with remote registry: %w", err)
 		}
@@ -373,6 +445,8 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 			s.lggr.Debug("no listeners on update channel, remote registry update skipped")
 		}
 	}
+
+	s.lastPublished.Store(latestRegistry)
 
 	for _, listener := range s.listeners {
 		lrCopy := registry.DeepCopyRegistryMetadata(latestRegistry)
