@@ -153,6 +153,7 @@ type mockTelemeter struct {
 	mu                     sync.Mutex
 	v3PremiumLegacyPackets []v3PremiumLegacyPacket
 	ch                     chan any
+	chs                    []chan any // every channel ever created, so tests can drain all of them
 }
 
 type v3PremiumLegacyPacket struct {
@@ -176,6 +177,7 @@ func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts telem.DSOpts, size
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ch = make(chan any, size)
+	m.chs = append(m.chs, m.ch)
 
 	return m.ch
 }
@@ -353,10 +355,6 @@ func Test_DataSource(t *testing.T) {
 			defer cancel()
 
 			err := ds.Observe(ctx, vals, opts)
-			tm.mu.Lock()
-			ch := tm.ch
-			tm.mu.Unlock()
-
 			ds.Close()
 			require.NoError(t, err)
 
@@ -386,8 +384,19 @@ func Test_DataSource(t *testing.T) {
 
 			telems := []any{}
 
-			for p := range ch {
-				telems = append(telems, p)
+			tm.mu.Lock()
+			chs := tm.chs
+			tm.mu.Unlock()
+			for _, ch := range chs {
+				for p := range ch {
+					if p == nil {
+						continue
+					}
+					telems = append(telems, p)
+					if len(telems) >= 3 {
+						break
+					}
+				}
 				if len(telems) >= 3 {
 					break
 				}
