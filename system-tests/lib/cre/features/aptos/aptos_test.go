@@ -138,6 +138,8 @@ func TestBuildCapabilityConfig_WithoutP2PMap_StillSetsRuntimeSpecConfig(t *testi
 const testForwarder = "0x000000000000000000000000000000000000000000000000000000000000000a"
 
 func TestSetChainSpecConfig_AddsChainKeysAndKeepsExisting(t *testing.T) {
+	t.Parallel()
+
 	capConfig, err := BuildCapabilityConfig(nil, map[string]string{"peer-a": "0x1"}, true)
 	require.NoError(t, err)
 
@@ -373,6 +375,8 @@ func TestBuildCapabilityRegistrations_UsesCapRegOCRConfig(t *testing.T) {
 }
 
 func TestBuildCapabilityRegistrations_ErrorsWithoutForwarder(t *testing.T) {
+	t.Parallel()
+
 	don := testDonMetadataWithCapabilities(t, []string{"[Aptos]\n"}, []string{cre.AptosCapability + "-4"}, cre.CapabilityConfigs{
 		cre.AptosCapability: {BinaryName: "aptos"},
 	})
