@@ -713,6 +713,75 @@ func TestValidateObservation(t *testing.T) {
 	})
 }
 
+// blockingBlobs waits for its context to end, so tests can prove blob fetches and broadcasts are bounded.
+type blockingBlobs struct{}
+
+func (blockingBlobs) FetchBlob(ctx context.Context, _ ocr3_1types.BlobHandle) ([]byte, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func (blockingBlobs) BroadcastBlob(ctx context.Context, _ []byte, _ ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
+	<-ctx.Done()
+	return ocr3_1types.BlobHandle{}, ctx.Err()
+}
+
+// A stalled blob store or peer must not hold a plugin method open. Each blob operation is bounded, and a timeout is
+// treated as a failed blob: Observation still returns, ValidateObservation rejects the observation, and Committed
+// gives up on the event.
+func TestBlobOperations_AreBounded(t *testing.T) {
+	t.Parallel()
+
+	const blobTimeout = 20 * time.Millisecond
+	newEvents := func(t *testing.T) []hashedEvent {
+		return mkEvents(t, 1, time.Now().Add(time.Hour).Unix())
+	}
+
+	t.Run("Observation bounds a stalled broadcast", func(t *testing.T) {
+		t.Parallel()
+		c := testPlugin(t, sliceQueue{events: newEvents(t)}, &memBlobs{}, ocr3_1types.MaxMaxObservationBytes)
+		c.blobTimeout = blobTimeout
+
+		start := time.Now()
+		raw, err := c.Observation(t.Context(), 1, ocrtypes.AttributedQuery{}, memKV{}, blockingBlobs{})
+		elapsed := time.Since(start)
+		require.NoError(t, err, "a failed broadcast must not fail Observation")
+		assert.Less(t, elapsed, 2*time.Second)
+
+		var obs pb.ConsensusQueueObservation
+		require.NoError(t, proto.Unmarshal(raw, &obs))
+		assert.Empty(t, obs.Events, "the events of a timed-out blob are omitted")
+		assert.Empty(t, obs.BlobHandles)
+	})
+
+	t.Run("ValidateObservation bounds a stalled fetch", func(t *testing.T) {
+		t.Parallel()
+		blobs := &memBlobs{}
+		c := testPlugin(t, sliceQueue{events: newEvents(t)}, blobs, ocr3_1types.MaxMaxObservationBytes)
+		raw, err := c.Observation(t.Context(), 1, ocrtypes.AttributedQuery{}, memKV{}, blobs)
+		require.NoError(t, err)
+		c.blobTimeout = blobTimeout
+
+		start := time.Now()
+		err = c.ValidateObservation(t.Context(), 1, ocrtypes.AttributedQuery{},
+			ocrtypes.AttributedObservation{Observer: 1, Observation: raw}, memKV{}, blockingBlobs{})
+		assert.Less(t, time.Since(start), 2*time.Second)
+		require.ErrorContains(t, err, "failed to fetch")
+	})
+
+	t.Run("Committed bounds a stalled fetch", func(t *testing.T) {
+		t.Parallel()
+		blobs, kv := &memBlobs{}, memKV{}
+		seedKV(t, kv, blobs, []string{"a"}, nil)
+		c := newCommitPlugin(t, &recCoordinator{}, &recQueue{}, blockingBlobs{})
+		c.blobTimeout = blobTimeout
+
+		start := time.Now()
+		require.NoError(t, c.Committed(t.Context(), 1, kv))
+		assert.Less(t, time.Since(start), 2*time.Second)
+	})
+}
+
 func TestObservationQuorum(t *testing.T) {
 	t.Parallel()
 

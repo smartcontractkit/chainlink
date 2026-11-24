@@ -17,13 +17,26 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuelimits"
 )
 
+// defaultBlobOpTimeout bounds each blob fetch or broadcast, so a stalled blob store or peer cannot block a plugin
+// method indefinitely. It mirrors the vault plugin's blobBroadcastTimeout.
+const defaultBlobOpTimeout = 2 * time.Second
+
 // blobCache is a short-lived cache for coordinating concurrent fetches of event blobs, and of splitting them up.
 type blobCache struct {
 	fetcher ocr3_1types.BlobFetcher
+	// timeout bounds each fetch. Zero means defaultBlobOpTimeout.
+	timeout time.Duration
 
 	mu       sync.RWMutex
 	cache    map[string]func() ([]byte, error)   // blob handle -> blob
 	elements map[string]func() ([][]byte, error) // blob handle -> its events, split up
+}
+
+func (c *blobCache) opTimeout() time.Duration {
+	if c.timeout > 0 {
+		return c.timeout
+	}
+	return defaultBlobOpTimeout
 }
 
 // isCancellation reports whether an error is a context ending.
@@ -51,6 +64,8 @@ func uncancelled[T any](ctx context.Context, get func() (T, error), evict func()
 // fetchBlob fetches the blob once however many callers want it, and shares the result, whether a blob or an error. Not
 // an error that is a context ending: see uncancelled.
 func (c *blobCache) fetchBlob(ctx context.Context, handle []byte) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.opTimeout())
+	defer cancel()
 	return uncancelled(ctx, func() ([]byte, error) { return c.fetchBlobCached(ctx, handle) }, func() {
 		c.mu.Lock()
 		defer c.mu.Unlock()
@@ -91,6 +106,8 @@ func (c *blobCache) fetchBlobCached(ctx context.Context, handle []byte) ([]byte,
 // event by scanning from the start of a blob each time is quadratic in its events, which a peer could exploit by padding
 // a blob with empty events.
 func (c *blobCache) fetchElements(ctx context.Context, handle []byte) ([][]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.opTimeout())
+	defer cancel()
 	return uncancelled(ctx, func() ([][]byte, error) { return c.fetchElementsCached(ctx, handle) }, func() {
 		c.mu.Lock()
 		defer c.mu.Unlock()
