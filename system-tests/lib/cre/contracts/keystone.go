@@ -152,15 +152,8 @@ func (d *dons) embedOCR3_1Config(capConfig *capabilitiespb.CapabilityConfig, don
 		return err
 	}
 
-	// Vault and DKG carry their plugin config in the OCR offchain config.
-	// Other OCR 3.1 plugins read it from the job spec, so it stays empty here.
-	// Empty but not nil, because nil makes the generator ask for a Vault or DKG config.
-	var pluginConfig []byte
-	if oracleConfig.VaultOffchainConfig == nil && oracleConfig.DKGOffchainConfig == nil {
-		pluginConfig = []byte{}
-	}
-
-	ocrConfig, err := ocr3_1.GenerateOCR3_1ConfigFromNodes(*oracleConfig, nodes, registryChainSelector, d.env.OCRSecrets, pluginConfig, extraSignerFamilies)
+	// The plugin config comes from the typed offchain config on oracleConfig (DKG, Vault or consensus-queue).
+	ocrConfig, err := ocr3_1.GenerateOCR3_1ConfigFromNodes(*oracleConfig, nodes, registryChainSelector, d.env.OCRSecrets, nil, extraSignerFamilies)
 	if err != nil {
 		return fmt.Errorf("failed to generate OCR3_1 config: %w", err)
 	}

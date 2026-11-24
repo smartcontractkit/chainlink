@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package consensusqueue.v1;
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuepb";
+
+// ReportingPluginConfig is the consensus-queue plugin config carried in the OCR offchain config.
+// The OCR config digest covers it, so all oracles in a round run with the same values.
+message ReportingPluginConfig {
+  ReportingPluginLimits limits = 1;
+}
+
+// ReportingPluginLimits mirrors libocr's ocr3_1types.ReportingPluginLimits.
+message ReportingPluginLimits {
+  uint32 max_query_bytes = 1;
+  uint32 max_observation_bytes = 2;
+  uint32 max_reports_plus_precursor_bytes = 3;
+  uint32 max_report_bytes = 4;
+  uint32 max_report_count = 5;
+  uint32 max_key_value_modified_keys = 6;
+  uint32 max_key_value_modified_keys_plus_values_bytes = 7;
+  uint32 max_blob_payload_bytes = 8;
+  uint32 max_per_oracle_unexpired_blob_cumulative_payload_bytes = 9;
+  uint32 max_per_oracle_unexpired_blob_count = 10;
+}

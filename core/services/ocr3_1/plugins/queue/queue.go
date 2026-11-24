@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -11,26 +12,38 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuepb"
 )
 
 var _ ocr3_1types.ReportingPluginFactory[[]byte] = &consensusQueuePluginFactory{}
 
 type consensusQueuePluginFactory struct {
 	lggr logger.Logger
-	cfg  *PluginConfig
 }
 
-func NewConsensusQueuePluginFactory(lggr logger.Logger, cfg *PluginConfig, limitsFactory limits.Factory) (ocr3_1types.ReportingPluginFactory[[]byte], error) {
+func NewConsensusQueuePluginFactory(lggr logger.Logger, limitsFactory limits.Factory) (ocr3_1types.ReportingPluginFactory[[]byte], error) {
 	// TODO pass CentralTriggerQueue, CapacityReporter, EngineRegistry
 	// TODO construct limiters
-	return &consensusQueuePluginFactory{lggr: lggr, cfg: cfg}, nil
+	return &consensusQueuePluginFactory{lggr: lggr}, nil
 }
 
+// NewReportingPlugin reads the plugin's OCR limits from config.OffchainConfig, which the config digest covers.
+// Returns an error, without starting the plugin, if the offchain config is empty or invalid.
 func (c *consensusQueuePluginFactory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
+	pluginCfg, err := queuepb.Decode(config.OffchainConfig)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("decode reporting plugin config: %w", err)
+	}
+	pluginLimits, err := pluginCfg.OCRLimits()
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, err
+	}
+	c.lggr.Infow("Creating consensus-queue reporting plugin", "configDigest", config.ConfigDigest.String(), "limits", pluginLimits)
+
 	plugin := newConsensusQueuePlugin(c.lggr, config)
 	pluginInfo := ocr3_1types.ReportingPluginInfo1{
 		Name:   "ConsensusQueueReportingPlugin",
-		Limits: c.cfg.Limits,
+		Limits: pluginLimits,
 	}
 	return plugin, pluginInfo, plugin.Start(ctx)
 }
