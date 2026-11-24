@@ -37,7 +37,10 @@ type OverrideDefaultCfg struct {
 	DeltaStage time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
 	// ReceiverGasMinimum is the minimum amount of gas that the receiver contract must get to process the forwarder report.
 	// This is the default value used when the user doesn't specify a gas limit when invoking WriteReport.
-	ReceiverGasMinimum            uint64        `json:"receiverGasMinimum,omitempty" yaml:"receiverGasMinimum,omitempty"`
+	ReceiverGasMinimum uint64 `json:"receiverGasMinimum,omitempty" yaml:"receiverGasMinimum,omitempty"`
+	// ForwarderGasOverheadMargin is the safety margin, on top of the forwarder's internal gas reservation,
+	// used to estimate the receiver gas budget from the transmission gas limit. 0 uses the capability default.
+	ForwarderGasOverheadMargin    uint64        `json:"forwarderGasOverheadMargin,omitempty" yaml:"forwarderGasOverheadMargin,omitempty"`
 	NodeAddress                   string        `json:"nodeAddress,omitempty" yaml:"nodeAddress,omitempty"`
 	ObservationPollerWorkersCount uint          `json:"observationPollerWorkersCount,omitempty" yaml:"observationPollerWorkersCount,omitempty"`
 	ObservationPollPeriod         time.Duration `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
