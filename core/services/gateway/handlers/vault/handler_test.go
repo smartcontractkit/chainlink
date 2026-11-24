@@ -205,12 +205,13 @@ func TestHandleJSONRPCUserMessage_RequestIDTooLong(t *testing.T) {
 
 func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	createSecretsRequest := &vaultcommon.CreateSecretsRequest{
-		RequestId: "test_request_id",
+		RequestId: "1",
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id: &vaultcommon.SecretIdentifier{
-					Key:   "test_id",
-					Owner: owner,
+					Key:       "test_id",
+					Owner:     owner,
+					Namespace: vaulttypes.DefaultNamespace,
 				},
 				EncryptedValue: "abc123", // should be a valid hex string
 			},
@@ -301,7 +302,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		rawPayload := json.RawMessage(`{"request_id":"test_request_id","encrypted_secrets":[{"id":{"key":"test_id","owner":"0xworkflow","namespace":"default"},"encrypted_value":"abc123"}]}`)
+		rawPayload := json.RawMessage(`{"request_id":"1","encrypted_secrets":[{"id":{"key":"test_id","owner":"0xworkflow","namespace":"default"},"encrypted_value":"abc123"}]}`)
 
 		var forwarded jsonrpc.Request[json.RawMessage]
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -377,11 +378,13 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		cacheVaultPublicKeyForTest(t, h.(*handler), pk)
 
 		reqData := &vaultcommon.CreateSecretsRequest{
+			RequestId: "matching-label-secret",
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 				{
 					Id: &vaultcommon.SecretIdentifier{
-						Key:   "test_id",
-						Owner: owner,
+						Key:       "test_id",
+						Owner:     owner,
+						Namespace: vaulttypes.DefaultNamespace,
 					},
 					EncryptedValue: encryptedSecret,
 				},
@@ -564,7 +567,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Owner:     owner,
 		}
 		reqData := &vaultcommon.DeleteSecretsRequest{
-			RequestId: "id",
+			RequestId: "1",
 			Ids: []*vaultcommon.SecretIdentifier{
 				id,
 			},
@@ -667,6 +670,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		reqData := &vaultcommon.ListSecretIdentifiersRequest{
 			RequestId: requestID,
 			Owner:     owner,
+			Namespace: vaulttypes.DefaultNamespace,
 		}
 		reqDataBytes, err := json.Marshal(reqData)
 		require.NoError(t, err)
@@ -720,6 +724,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		reqData := &vaultcommon.ListSecretIdentifiersRequest{
 			RequestId: requestID,
 			Owner:     owner,
+			Namespace: vaulttypes.DefaultNamespace,
 		}
 		reqDataBytes, err := json.Marshal(reqData)
 		require.NoError(t, err)
@@ -780,6 +785,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		reqData := &vaultcommon.ListSecretIdentifiersRequest{
 			RequestId: requestID,
 			Owner:     owner,
+			Namespace: vaulttypes.DefaultNamespace,
 		}
 		reqDataBytes, err := json.Marshal(reqData)
 		require.NoError(t, err)
