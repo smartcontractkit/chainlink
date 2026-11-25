@@ -3,7 +3,9 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -35,6 +37,11 @@ type UpdateDONInput struct {
 	CapabilityConfigs                 []CapabilityConfig
 	MergeCapabilityConfigsWithOnChain bool
 
+	// RemoveCapabilityIDs names the on-chain capabilities of the DON that this update is allowed to remove.
+	// The registry replaces the whole capability set on every update, so any on-chain capability that is
+	// missing from the new set and not named here makes the operation fail instead of silently dropping it.
+	RemoveCapabilityIDs []string
+
 	// DonName to update, this is required
 	DonName string
 
@@ -48,10 +55,6 @@ type UpdateDONInput struct {
 	// IsPrivate indicates whether the DON is public or private
 	// If omitted, the existing value fetched from the registry is used
 	IsPrivate bool
-
-	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
-	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
-	Force bool
 
 	MCMSConfig *contracts.MCMSConfig
 }
@@ -103,9 +106,23 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			return UpdateDONOutput{}, fmt.Errorf("failed to call GetDONByName: %w", err)
 		}
 
-		cfgs, err := computeConfigs(input.CapabilityConfigs, don.CapabilityConfigurations, input.MergeCapabilityConfigsWithOnChain)
+		registered, err := ReadRegisteredCapabilities(registry)
+		if err != nil {
+			return UpdateDONOutput{}, err
+		}
+
+		cfgs, err := computeConfigs(input.CapabilityConfigs, don.CapabilityConfigurations, input.MergeCapabilityConfigsWithOnChain, input.RemoveCapabilityIDs, registered)
 		if err != nil {
 			return UpdateDONOutput{}, fmt.Errorf("failed to compute configs: %w", err)
+		}
+		// A named removal that is not on the DON is accepted so the same input can be run again. Say so,
+		// because it is also what a removal aimed at the wrong capability id looks like.
+		for _, id := range input.RemoveCapabilityIDs {
+			if !slices.ContainsFunc(don.CapabilityConfigurations, func(c capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration) bool {
+				return c.CapabilityId == id
+			}) {
+				deps.Env.Logger.Warnf("removeCapabilityIDs names capability %q which is not on DON '%s': nothing to remove", id, input.DonName)
+			}
 		}
 
 		f := input.F
@@ -156,33 +173,137 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 	},
 )
 
+// RegisteredCapabilities maps the id of every capability registered in the registry to whether it is
+// deprecated.
+type RegisteredCapabilities map[string]bool
+
+// ReadRegisteredCapabilities reads every capability registered in the registry.
+func ReadRegisteredCapabilities(registry *capabilities_registry_v2.CapabilitiesRegistry) (RegisteredCapabilities, error) {
+	caps, err := pkg.GetCapabilities(&bind.CallOpts{}, registry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the capabilities registered in the registry: %w", err)
+	}
+	out := make(RegisteredCapabilities, len(caps))
+	for _, c := range caps {
+		out[c.CapabilityId] = c.IsDeprecated
+	}
+	return out, nil
+}
+
+// CheckCapabilityUpdate validates a DON capability update against the DON's on-chain capabilities
+// (existingCapConfigs) and the capabilities registered in the registry. It only looks at capability ids, and
+// it is the check the operation itself runs, so preconditions and apply cannot disagree. It fails when:
+//   - an id is listed twice, or is both in capCfgs and in removeIDs
+//   - an id in removeIDs is neither on the DON nor registered (a typo). An id that is registered but no
+//     longer on the DON is accepted: the removal already happened, so the same input can be run again
+//   - the DON holds a deprecated capability that is not named in removeIDs (the contract rejects an update
+//     that keeps one, and dropping one must be named like any other removal)
+//   - with merge off, an on-chain capability is neither in capCfgs nor named in removeIDs
+//
+// It returns the on-chain capabilities that the update removes.
+func CheckCapabilityUpdate(
+	capCfgs []CapabilityConfig,
+	existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration,
+	mergeCapabilities bool,
+	removeIDs []string,
+	registered RegisteredCapabilities) (map[string]struct{}, error) {
+	onChainIDs := make(map[string]struct{}, len(existingCapConfigs))
+	for _, existingCapConfig := range existingCapConfigs {
+		onChainIDs[existingCapConfig.CapabilityId] = struct{}{}
+	}
+
+	var deprecated []string
+	newIDs := make(map[string]struct{}, len(capCfgs))
+	for _, capCfg := range capCfgs {
+		id := capCfg.Capability.CapabilityID
+		if _, ok := newIDs[id]; ok {
+			return nil, fmt.Errorf("duplicate capability configuration for id: %s", id)
+		}
+		// An id the registry does not know yet is not an error here: with MCMS the capability can be
+		// registered by an earlier operation of the same proposal, which has not executed at this point.
+		if registered[id] {
+			deprecated = append(deprecated, id)
+		}
+		newIDs[id] = struct{}{}
+	}
+
+	removals := make(map[string]struct{}, len(removeIDs))
+	for _, id := range removeIDs {
+		if _, ok := newIDs[id]; ok {
+			return nil, fmt.Errorf("capability %q is both in the capability configs and in removeCapabilityIDs", id)
+		}
+		if _, ok := onChainIDs[id]; ok {
+			removals[id] = struct{}{}
+		} else if _, known := registered[id]; !known {
+			return nil, fmt.Errorf("removeCapabilityIDs names capability %q which is not on the DON and is not registered in the registry; check the id", id)
+		}
+	}
+
+	var unexpected []string
+	for id := range onChainIDs {
+		_, inInput := newIDs[id]
+		_, removed := removals[id]
+		switch {
+		case inInput || removed:
+		case registered[id]:
+			deprecated = append(deprecated, id)
+		case !mergeCapabilities:
+			unexpected = append(unexpected, id)
+		}
+	}
+	if len(deprecated) > 0 {
+		sort.Strings(deprecated)
+		return nil, fmt.Errorf(
+			"capabilities %s are deprecated in the registry and can only be removed from the DON; "+
+				"name them in removeCapabilityIDs of an update_don input",
+			strings.Join(deprecated, ", "))
+	}
+	if len(unexpected) > 0 {
+		sort.Strings(unexpected)
+		return nil, fmt.Errorf(
+			"update would remove capabilities from the DON that are not listed for removal: %s. "+
+				"To keep them, set mergeCapabilityConfigsWithOnChain to true or include them in the capability configs; "+
+				"to remove them, name them in removeCapabilityIDs",
+			strings.Join(unexpected, ", "))
+	}
+
+	return removals, nil
+}
+
+// computeConfigs builds the new capability set of a DON. The registry replaces the whole set on every
+// update, so the set is only built once CheckCapabilityUpdate has accepted it.
 func computeConfigs(
 	capCfgs []CapabilityConfig,
 	existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration,
-	mergeCapabilities bool) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
+	mergeCapabilities bool,
+	removeIDs []string,
+	registered RegisteredCapabilities) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
+	removals, err := CheckCapabilityUpdate(capCfgs, existingCapConfigs, mergeCapabilities, removeIDs, registered)
+	if err != nil {
+		return nil, err
+	}
+
 	capSet := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration)
 	for _, capCfg := range capCfgs {
 		onChainCap, err := capabilityConfigToOnChain(capCfg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert capability config to on-chain format: %w", err)
 		}
-
-		_, ok := capSet[onChainCap.CapabilityId]
-		if ok {
-			return nil, fmt.Errorf("duplicate capability configuration for id: %s", onChainCap.CapabilityId)
-		}
-
 		capSet[onChainCap.CapabilityId] = *onChainCap
 	}
 
 	if mergeCapabilities {
 		for _, existingCapConfig := range existingCapConfigs {
+			if _, removed := removals[existingCapConfig.CapabilityId]; removed {
+				continue
+			}
 			_, ok := capSet[existingCapConfig.CapabilityId]
 			if !ok {
 				capSet[existingCapConfig.CapabilityId] = existingCapConfig
 			}
 		}
 	}
+
 	var out []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
 	for _, capCfg := range capSet {
 		out = append(out, capCfg)

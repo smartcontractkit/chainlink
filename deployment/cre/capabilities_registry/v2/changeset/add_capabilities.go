@@ -30,10 +30,6 @@ type AddCapabilitiesInput struct {
 	// DonCapabilityConfigs maps DON name to the list of capability configs for that DON.
 	DonCapabilityConfigs map[string][]contracts.CapabilityConfig `json:"donCapabilityConfigs" yaml:"donCapabilityConfigs"`
 
-	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
-	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
-	Force bool `json:"force" yaml:"force"`
-
 	// FirstOCR3ConfigCapabilities maps DON name to capability IDs for which this
 	// is the first OCR3 config (no existing config on-chain). Without listing a
 	// capability here, the changeset will fail if it cannot read the current config
@@ -150,7 +146,6 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 		sequences.AddCapabilitiesInput{
 			RegistryRef:          registryRef,
 			DonCapabilityConfigs: config.DonCapabilityConfigs,
-			Force:                config.Force,
 			MCMSConfig:           config.MCMSConfig,
 		},
 	)
