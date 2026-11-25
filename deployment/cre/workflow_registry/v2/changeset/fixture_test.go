@@ -65,7 +65,7 @@ func setupTest(t *testing.T) *testFixture {
 			Signers: []common.Address{
 				allowedSigner,
 			},
-			Allowed: true,
+			Allowed: new(true),
 		}),
 	)
 	require.NoError(t, err, "failed to update allowed signers")
@@ -77,8 +77,8 @@ func setupTest(t *testing.T) *testFixture {
 			ChainSelector:             selector,
 			WorkflowRegistryQualifier: qualifier,
 			DONFamily:                 "zone-a",
-			DONLimit:                  100,
-			UserDefaultLimit:          100,
+			DONLimit:                  new(uint32(100)),
+			UserDefaultLimit:          new(uint32(100)),
 			MCMSConfig:                nil,
 		},
 		),
