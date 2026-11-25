@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"crypto/ecdsa"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
@@ -111,4 +114,45 @@ func handOverToMCMS(t *testing.T, fixture *testFixture) {
 
 	// Deployer-side setup is done in setupTest; now the timelock really takes ownership.
 	test.TransferOwnershipToMCMS(t, fixture.rt, fixture.selector)
+}
+
+// linkTimelockAsOwner links the timelock as a workflow owner, through a real MCMS proposal that is
+// signed and executed. The registry only accepts user workflow calls from a linked owner, so a test
+// that sends them through MCMS needs this first.
+func linkTimelockAsOwner(t *testing.T, fixture *testFixture) {
+	t.Helper()
+
+	mcmsConfig := &crecontracts.MCMSConfig{
+		MinDelay:                  0, // the simulated chain does not advance time on its own
+		TimelockQualifierPerChain: map[uint64]string{fixture.selector: ""},
+	}
+	env := fixture.rt.Environment()
+	chain := env.BlockChains.EVMChains()[fixture.selector]
+	mcmsContracts, err := strategies.GetMCMSContracts(env, fixture.selector, *mcmsConfig)
+	require.NoError(t, err)
+	timelock := mcmsContracts.Timelock.Address()
+
+	validity, proof, signature := generateAndSignOwnershipProof(
+		t,
+		common.HexToAddress(fixture.workflowRegistryAddress),
+		timelock.Hex(),
+		chain,
+		chain.DeployerKey.From.Hex(),
+		"123",
+		"12",
+		"WorkflowRegistry 2.0.0",
+		0, // 0 for linking
+	)
+	err = fixture.rt.Exec(
+		runtime.ChangesetTask(UserLinkOwner{}, UserLinkOwnerInput{
+			ValidityTimestamp:         validity,
+			Proof:                     common.Bytes2Hex(proof.Bytes()),
+			Signature:                 common.Bytes2Hex(signature),
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			MCMSConfig:                mcmsConfig,
+		}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
+	)
+	require.NoError(t, err, "failed to link the timelock as a workflow owner")
 }
