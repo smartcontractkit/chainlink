@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gorilla/websocket"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -64,6 +66,10 @@ type wsConnectionWrapper struct {
 	shutdownCh chan struct{}
 	wg         services.WaitGroup
 	metrics    WSConnectionObserver
+
+	pingInterval time.Duration
+	pongTimeout  time.Duration
+	writeTimeout time.Duration
 }
 
 func (c *wsConnectionWrapper) HealthReport() map[string]error {
@@ -90,14 +96,46 @@ var (
 	ErrWrapperShutdown    = errors.New("wrapper shutting down")
 )
 
-func NewWSConnectionWrapper(lggr logger.Logger) WSConnectionWrapper {
-	return NewWSConnectionWrapperWithObserver(lggr, nil)
+type WSConnectionOption func(*wsConnectionWrapper)
+
+// WithKeepalive pings the peer every pingInterval and closes the connection
+// when no pong arrives within pongTimeout. Without it, a peer whose host
+// vanished is only noticed once the kernel gives up retransmitting (~15 min).
+// It replaces the connection's pong handler, so don't combine it with one.
+func WithKeepalive(pingInterval, pongTimeout time.Duration) WSConnectionOption {
+	return func(c *wsConnectionWrapper) {
+		c.pingInterval = pingInterval
+		c.pongTimeout = pongTimeout
+	}
+}
+
+// WithWriteTimeout fails a socket write that doesn't complete within timeout,
+// which closes the connection and lets the owner reconnect.
+func WithWriteTimeout(timeout time.Duration) WSConnectionOption {
+	return func(c *wsConnectionWrapper) {
+		c.writeTimeout = timeout
+	}
+}
+
+// keepaliveConn is the part of *websocket.Conn that keepalive needs.
+type keepaliveConn interface {
+	SetReadDeadline(t time.Time) error
+	SetPongHandler(h func(appData string) error)
+	WriteControl(messageType int, data []byte, deadline time.Time) error
+}
+
+type writeDeadlineConn interface {
+	SetWriteDeadline(t time.Time) error
+}
+
+func NewWSConnectionWrapper(lggr logger.Logger, opts ...WSConnectionOption) WSConnectionWrapper {
+	return NewWSConnectionWrapperWithObserver(lggr, nil, opts...)
 }
 
 // NewWSConnectionWrapperWithObserver is NewWSConnectionWrapper with a metrics
 // observer for the wrapper's blocking operations. A nil observer discards all
 // observations.
-func NewWSConnectionWrapperWithObserver(lggr logger.Logger, observer WSConnectionObserver) WSConnectionWrapper {
+func NewWSConnectionWrapperWithObserver(lggr logger.Logger, observer WSConnectionObserver, opts ...WSConnectionOption) WSConnectionWrapper {
 	if observer == nil {
 		observer = noopWSConnectionObserver{}
 	}
@@ -107,6 +145,9 @@ func NewWSConnectionWrapperWithObserver(lggr logger.Logger, observer WSConnectio
 		readCh:     make(chan ReadItem),
 		shutdownCh: make(chan struct{}),
 		metrics:    observer,
+	}
+	for _, opt := range opts {
+		opt(cw)
 	}
 	return cw
 }
@@ -144,9 +185,60 @@ func (c *wsConnectionWrapper) Reset(newConn WSConnection) <-chan error {
 		return nil
 	}
 	closeCh := make(chan error, 1)
+	readDone := make(chan struct{})
+	c.startKeepalive(newConn, readDone)
 	// readPump goroutine is tied to the lifecycle of the underlying conn object
-	go c.readPump(conn, closeCh)
+	go c.readPump(conn, closeCh, readDone)
 	return closeCh
+}
+
+// startKeepalive arms a read deadline that only pongs extend, and pings until stop is closed.
+// An expired deadline fails the pending read, so readPump closes the connection.
+func (c *wsConnectionWrapper) startKeepalive(conn WSConnection, stop <-chan struct{}) {
+	kc, ok := conn.(keepaliveConn)
+	if !ok || c.pingInterval <= 0 || c.pongTimeout <= 0 {
+		return
+	}
+	extendDeadline := func(string) error {
+		return kc.SetReadDeadline(time.Now().Add(c.pongTimeout))
+	}
+	if err := extendDeadline(""); err != nil {
+		c.lggr.Errorw("failed to set read deadline", "error", err)
+	}
+	kc.SetPongHandler(extendDeadline)
+	if err := c.wg.TryAdd(1); err != nil {
+		return
+	}
+	go c.pingLoop(kc, stop)
+}
+
+func (c *wsConnectionWrapper) pingLoop(conn keepaliveConn, stop <-chan struct{}) {
+	defer c.wg.Done()
+	ticker := time.NewTicker(c.pingInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-c.shutdownCh:
+			return
+		case <-ticker.C:
+			if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(c.pingInterval)); err != nil {
+				c.lggr.Debugw("failed to send keepalive ping", "error", err)
+			}
+		}
+	}
+}
+
+func (c *wsConnectionWrapper) armWriteDeadline(conn WSConnection) {
+	if c.writeTimeout <= 0 {
+		return
+	}
+	if wc, ok := conn.(writeDeadlineConn); ok {
+		if err := wc.SetWriteDeadline(time.Now().Add(c.writeTimeout)); err != nil {
+			c.lggr.Errorw("failed to set write deadline", "error", err)
+		}
+	}
 }
 
 func (c *wsConnectionWrapper) Write(ctx context.Context, msgType int, data []byte) error {
@@ -210,6 +302,7 @@ func (c *wsConnectionWrapper) writePump() {
 			// Time exactly the socket write, recording on return (including
 			// on error) so a stalled write still reports its full duration.
 			writeStart := time.Now()
+			c.armWriteDeadline(conn.WSConnection)
 			err := conn.WriteMessage(wsMsg.MsgType, wsMsg.Data)
 			c.metrics.RecordSocketWrite(context.Background(), time.Since(writeStart))
 			if err != nil {
@@ -234,8 +327,9 @@ func (c *wsConnectionWrapper) writePump() {
 	}
 }
 
-func (c *wsConnectionWrapper) readPump(conn *wsConnectionHolder, closeCh chan<- error) {
+func (c *wsConnectionWrapper) readPump(conn *wsConnectionHolder, closeCh chan<- error, done chan<- struct{}) {
 	defer c.wg.Done()
+	defer close(done)
 	for {
 		msgType, data, err := conn.ReadMessage()
 		if err != nil {

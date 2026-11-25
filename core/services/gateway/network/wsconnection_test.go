@@ -3,6 +3,8 @@ package network_test
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/internal/netfault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
@@ -372,4 +375,107 @@ func TestWSConnectionWrapper_Metrics_ReadDispatchWait(t *testing.T) {
 		waits := obs.dispatchWaitSamples()
 		return len(waits) == 1 && waits[0] >= 200*time.Millisecond
 	}, 5*time.Second, time.Millisecond, "blocked read consumer must produce one dispatch-wait sample covering the delay")
+}
+
+const (
+	pingInterval = 50 * time.Millisecond
+	pongTimeout  = 200 * time.Millisecond
+	writeTimeout = 200 * time.Millisecond
+)
+
+func TestWSConnectionWrapper_Keepalive_ClosesConnectionToVanishedGateway(t *testing.T) {
+	t.Parallel()
+	link := netfault.NewProxy(t, startGateway(t))
+	conn := network.NewWSConnectionWrapper(logger.Test(t), network.WithKeepalive(pingInterval, pongTimeout))
+	servicetest.Run(t, conn)
+	closed := conn.Reset(dial(t, link))
+
+	link.Blackhole()
+
+	requireClosedWithin(t, closed, time.Second)
+	require.False(t, conn.IsConnected())
+}
+
+func TestWSConnectionWrapper_Keepalive_KeepsHealthyConnectionOpen(t *testing.T) {
+	t.Parallel()
+	link := netfault.NewProxy(t, startGateway(t))
+	conn := network.NewWSConnectionWrapper(logger.Test(t), network.WithKeepalive(pingInterval, pongTimeout))
+	servicetest.Run(t, conn)
+	closed := conn.Reset(dial(t, link))
+
+	requireOpenFor(t, closed, 5*pongTimeout)
+	require.True(t, conn.IsConnected())
+}
+
+func TestWSConnectionWrapper_WriteTimeout_ClosesConnectionToVanishedGateway(t *testing.T) {
+	t.Parallel()
+	link := netfault.NewProxy(t, startGateway(t))
+	conn := network.NewWSConnectionWrapper(logger.Test(t), network.WithWriteTimeout(writeTimeout))
+	servicetest.Run(t, conn)
+	closed := conn.Reset(dial(t, link))
+
+	link.Blackhole()
+
+	err := writeUntilFailure(t, conn)
+	require.ErrorContains(t, err, "i/o timeout")
+	requireClosedWithin(t, closed, time.Second)
+	require.False(t, conn.IsConnected())
+}
+
+// startGateway runs a websocket server that keeps reading, so it answers pings like a real gateway.
+func startGateway(t *testing.T) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := (&websocket.Upgrader{}).Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer c.Close()
+		for {
+			if _, _, err := c.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv.Listener.Addr().String()
+}
+
+func dial(t *testing.T, l *netfault.Proxy) *websocket.Conn {
+	t.Helper()
+	c, resp, err := websocket.DefaultDialer.DialContext(t.Context(), "ws://"+l.Addr(), nil)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	return c
+}
+
+func writeUntilFailure(t *testing.T, conn network.WSConnectionWrapper) error {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	payload := make([]byte, 1<<20)
+	for {
+		if err := conn.Write(ctx, websocket.BinaryMessage, payload); err != nil {
+			return err
+		}
+	}
+}
+
+func requireClosedWithin(t *testing.T, closed <-chan error, d time.Duration) {
+	t.Helper()
+	select {
+	case err := <-closed:
+		t.Logf("connection closed: %v", err)
+	case <-time.After(d):
+		t.Fatalf("connection still open after %s", d)
+	}
+}
+
+func requireOpenFor(t *testing.T, closed <-chan error, d time.Duration) {
+	t.Helper()
+	select {
+	case err := <-closed:
+		t.Fatalf("connection closed unexpectedly: %v", err)
+	case <-time.After(d):
+	}
 }

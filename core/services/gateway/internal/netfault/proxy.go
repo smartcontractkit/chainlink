@@ -2,6 +2,7 @@
 package netfault
 
 import (
+	"context"
 	"io"
 	"net"
 	"sync"
@@ -28,11 +29,12 @@ type pair struct{ cut chan struct{} }
 
 func NewProxy(t *testing.T, target string) *Proxy {
 	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ctx := t.Context()
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	p := &Proxy{ln: ln, target: target}
 	t.Cleanup(p.close)
-	go p.acceptLoop()
+	go p.acceptLoop(ctx)
 	return p
 }
 
@@ -56,13 +58,13 @@ func (p *Proxy) Restore() {
 	p.blackholed = false
 }
 
-func (p *Proxy) acceptLoop() {
+func (p *Proxy) acceptLoop(ctx context.Context) {
 	for {
 		client, err := p.ln.Accept()
 		if err != nil {
 			return
 		}
-		server, err := net.Dial("tcp", p.target)
+		server, err := (&net.Dialer{}).DialContext(ctx, "tcp", p.target)
 		if err != nil {
 			client.Close()
 			continue
