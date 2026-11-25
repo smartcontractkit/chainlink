@@ -36,10 +36,6 @@ type AddCapabilitiesInput struct {
 	// DonCapabilityConfigs maps DON name to the list of capability configs for that DON.
 	DonCapabilityConfigs map[string][]contracts.CapabilityConfig
 
-	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
-	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
-	Force bool
-
 	RegistryRef datastore.AddressRefKey
 	MCMSConfig  *crecontracts.MCMSConfig
 }
@@ -205,7 +201,6 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 					DonName:                           donName,
 					F:                                 don.F,
 					IsPrivate:                         !don.IsPublic,
-					Force:                             input.Force,
 					MCMSConfig:                        input.MCMSConfig,
 				},
 			)

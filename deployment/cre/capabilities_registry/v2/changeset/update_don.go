@@ -43,8 +43,15 @@ type UpdateDONInput struct {
 	// When false (default), the provided configs fully replace the DON's capability list.
 	MergeCapabilityConfigsWithOnChain bool `json:"mergeCapabilityConfigsWithOnChain" yaml:"mergeCapabilityConfigsWithOnChain"`
 
-	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
-	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
+	// RemoveCapabilityIDs names the on-chain capabilities of the DON that this update may remove.
+	// The registry replaces the DON's whole capability set on every update, so the changeset fails if the
+	// result would drop an on-chain capability that is neither kept (in CapabilityConfigs, or via
+	// MergeCapabilityConfigsWithOnChain) nor named here. Naming a capability that is not on the DON, or one
+	// that is also in CapabilityConfigs, is an error.
+	RemoveCapabilityIDs []string `json:"removeCapabilityIDs" yaml:"removeCapabilityIDs"`
+
+	// Deprecated: Force has never had any effect and is ignored. It is only kept so that existing
+	// inputs which set "force" still parse. It will be removed.
 	Force bool `json:"force" yaml:"force"`
 
 	// FirstOCR3ConfigCapabilities lists capability IDs (e.g. "consensus@1.0.0")
@@ -76,12 +83,24 @@ func (u UpdateDON) VerifyPreconditions(e cldf.Environment, config UpdateDONInput
 		return errors.New("must provide a non-empty DONName")
 	}
 
-	if !config.SkipDuplicateCapabilityValidation {
-		existingDONs, err := getExistingDONsForPreconditionCheck(e, config.RegistryChainSel, config.RegistryQualifier)
-		if err != nil {
-			return err
-		}
+	existingDONs, err := getExistingDONsForPreconditionCheck(e, config.RegistryChainSel, config.RegistryQualifier)
+	if err != nil {
+		return err
+	}
 
+	// Fail before Apply if the update would remove a live capability that was not named for removal.
+	// The operation repeats this check against the DON it loads, which is the authoritative one.
+	for _, don := range existingDONs {
+		if don.Name != config.DONName {
+			continue
+		}
+		if err := contracts.CheckCapabilityRemovals(config.CapabilityConfigs, don.CapabilityConfigurations,
+			config.MergeCapabilityConfigsWithOnChain, config.RemoveCapabilityIDs); err != nil {
+			return fmt.Errorf("UpdateDON precondition failed: %w", err)
+		}
+	}
+
+	if !config.SkipDuplicateCapabilityValidation {
 		donCapabilityConfigs := map[string][]contracts.CapabilityConfig{config.DONName: config.CapabilityConfigs}
 		if err := sequences.ValidateNoDuplicateCapabilitiesAcrossDONs(donCapabilityConfigs, existingDONs); err != nil {
 			return fmt.Errorf("UpdateDON precondition failed: %w", err)
@@ -221,11 +240,11 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 			P2PIDs:                            p2pIDs,
 			CapabilityConfigs:                 config.CapabilityConfigs,
 			MergeCapabilityConfigsWithOnChain: config.MergeCapabilityConfigsWithOnChain,
+			RemoveCapabilityIDs:               config.RemoveCapabilityIDs,
 			DonName:                           config.DONName,
 			NewDonName:                        config.NewDonName,
 			F:                                 fValue,
 			IsPrivate:                         !don.IsPublic,
-			Force:                             config.Force,
 			MCMSConfig:                        config.MCMSConfig,
 		},
 	)

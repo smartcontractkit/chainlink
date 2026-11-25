@@ -43,6 +43,9 @@ const (
 	encryptionPublicKey = "7240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c254"
 )
 
+// fixtureAptosCapID is the second capability the setupRegistryForUpdateDON DON is created with.
+const fixtureAptosCapID = "aptos:ChainSelector:743186221051783445@1.0.0"
+
 type updFixture struct {
 	rt         *runtime.Runtime
 	selector   uint64
@@ -242,8 +245,10 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 		CapabilityConfigs: []contracts.CapabilityConfig{
 			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}, Config: newCfg},
 		},
-		Force:      false,
-		MCMSConfig: nil,
+		// the fixture DON also has the aptos capability, which this update drops on purpose
+		RemoveCapabilityIDs: []string{fixtureAptosCapID},
+		Force:               false,
+		MCMSConfig:          nil,
 	})
 
 	err = fx.rt.Exec(task)
@@ -289,7 +294,8 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 		CapabilityConfigs: []contracts.CapabilityConfig{
 			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}, Config: newCfg},
 		},
-		Force: false,
+		RemoveCapabilityIDs: []string{fixtureAptosCapID},
+		Force:               false,
 		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDelay: 1 * time.Second,
 			TimelockQualifierPerChain: map[uint64]string{
@@ -332,7 +338,8 @@ func TestUpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
 		CapabilityConfigs: []contracts.CapabilityConfig{
 			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}, Config: newCfg},
 		},
-		Force: true, // override
+		RemoveCapabilityIDs: []string{fixtureAptosCapID},
+		Force:               true, // ignored; kept to show old inputs still parse
 	})
 	require.NoError(t, err)
 
@@ -411,6 +418,7 @@ func TestUpdateDONChangeset_VerifyPreconditions_RejectsCapabilityAlreadyOnAnothe
 		CapabilityConfigs: []contracts.CapabilityConfig{
 			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}},
 		},
+		RemoveCapabilityIDs: []string{fixtureAptosCapID}, // dropped on purpose; not what this test is about
 	})
 	require.NoError(t, err)
 
@@ -756,4 +764,34 @@ func TestUpdateDONChangeset_WithNodes_InvalidP2PID(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "invalid P2P ID")
+}
+
+// An update that would drop a live capability fails in both VerifyPreconditions and Apply unless the
+// capability is named in RemoveCapabilityIDs; nothing is changed on-chain by the failed attempts.
+func TestUpdateDONChangeset_RejectsUnnamedCapabilityRemoval(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, false)
+
+	input := changeset.UpdateDONInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           fx.donName,
+		CapabilityConfigs: []contracts.CapabilityConfig{
+			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}, Config: map[string]any{"defaultConfig": map[string]any{}}},
+		},
+	}
+
+	err := changeset.UpdateDON{}.VerifyPreconditions(fx.rt.Environment(), input)
+	require.ErrorContains(t, err, fixtureAptosCapID)
+	require.ErrorContains(t, err, "removeCapabilityIDs")
+
+	_, err = changeset.UpdateDON{}.Apply(fx.rt.Environment(), input)
+	require.ErrorContains(t, err, fixtureAptosCapID)
+
+	got, err := fx.registry.GetDONByName(nil, fx.donName)
+	require.NoError(t, err)
+	require.Len(t, got.CapabilityConfigurations, 2, "failed update must leave the DON untouched")
+
+	input.RemoveCapabilityIDs = []string{fixtureAptosCapID}
+	require.NoError(t, changeset.UpdateDON{}.VerifyPreconditions(fx.rt.Environment(), input))
 }

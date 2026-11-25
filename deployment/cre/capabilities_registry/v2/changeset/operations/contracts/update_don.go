@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -35,6 +36,11 @@ type UpdateDONInput struct {
 	CapabilityConfigs                 []CapabilityConfig
 	MergeCapabilityConfigsWithOnChain bool
 
+	// RemoveCapabilityIDs names the on-chain capabilities of the DON that this update is allowed to remove.
+	// The registry replaces the whole capability set on every update, so any on-chain capability that is
+	// missing from the new set and not named here makes the operation fail instead of silently dropping it.
+	RemoveCapabilityIDs []string
+
 	// DonName to update, this is required
 	DonName string
 
@@ -48,10 +54,6 @@ type UpdateDONInput struct {
 	// IsPrivate indicates whether the DON is public or private
 	// If omitted, the existing value fetched from the registry is used
 	IsPrivate bool
-
-	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
-	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
-	Force bool
 
 	MCMSConfig *contracts.MCMSConfig
 }
@@ -103,7 +105,7 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			return UpdateDONOutput{}, fmt.Errorf("failed to call GetDONByName: %w", err)
 		}
 
-		cfgs, err := computeConfigs(input.CapabilityConfigs, don.CapabilityConfigurations, input.MergeCapabilityConfigsWithOnChain)
+		cfgs, err := computeConfigs(input.CapabilityConfigs, don.CapabilityConfigurations, input.MergeCapabilityConfigsWithOnChain, input.RemoveCapabilityIDs)
 		if err != nil {
 			return UpdateDONOutput{}, fmt.Errorf("failed to compute configs: %w", err)
 		}
@@ -156,10 +158,78 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 	},
 )
 
+// CheckCapabilityRemovals returns an error if updating a DON that currently has existingCapConfigs would
+// remove a capability that is not named in removeIDs, or if removeIDs itself is stale or contradictory.
+// It only looks at capability IDs (the configs may still be unexpanded), and it is the same check the
+// operation runs, so preconditions and apply cannot disagree.
+func CheckCapabilityRemovals(
+	capCfgs []CapabilityConfig,
+	existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration,
+	mergeCapabilities bool,
+	removeIDs []string) error {
+	newIDs := make(map[string]struct{}, len(capCfgs))
+	for _, capCfg := range capCfgs {
+		newIDs[capCfg.Capability.CapabilityID] = struct{}{}
+	}
+	_, err := checkRemovals(newIDs, existingCapConfigs, mergeCapabilities, removeIDs)
+	return err
+}
+
+// checkRemovals validates removeIDs against the DON's on-chain capabilities and the IDs in the new set, and
+// fails if any on-chain capability would disappear without being named. It returns the set of named removals.
+func checkRemovals(
+	newIDs map[string]struct{},
+	existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration,
+	mergeCapabilities bool,
+	removeIDs []string) (map[string]struct{}, error) {
+	onChainIDs := make(map[string]struct{}, len(existingCapConfigs))
+	for _, existingCapConfig := range existingCapConfigs {
+		onChainIDs[existingCapConfig.CapabilityId] = struct{}{}
+	}
+
+	removals := make(map[string]struct{}, len(removeIDs))
+	for _, id := range removeIDs {
+		if _, ok := onChainIDs[id]; !ok {
+			return nil, fmt.Errorf("removeCapabilityIDs names capability %q which is not on the DON; the input is stale", id)
+		}
+		if _, ok := newIDs[id]; ok {
+			return nil, fmt.Errorf("capability %q is both in the capability configs and in removeCapabilityIDs", id)
+		}
+		removals[id] = struct{}{}
+	}
+
+	if mergeCapabilities {
+		// merge keeps everything on-chain that is not explicitly removed
+		return removals, nil
+	}
+
+	var unexpected []string
+	for id := range onChainIDs {
+		_, kept := newIDs[id]
+		_, removed := removals[id]
+		if !kept && !removed {
+			unexpected = append(unexpected, id)
+		}
+	}
+	if len(unexpected) > 0 {
+		sort.Strings(unexpected)
+		return nil, fmt.Errorf(
+			"update would remove capabilities from the DON that are not listed for removal: %s. "+
+				"To keep them, set mergeCapabilityConfigsWithOnChain to true or include them in the capability configs; "+
+				"to remove them, name them in removeCapabilityIDs",
+			strings.Join(unexpected, ", "))
+	}
+	return removals, nil
+}
+
+// computeConfigs builds the new capability set of a DON. The registry replaces the whole set on every update,
+// so it refuses to drop an on-chain capability unless the caller named it in removeIDs: a stale or incomplete
+// input must not silently remove a live capability.
 func computeConfigs(
 	capCfgs []CapabilityConfig,
 	existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration,
-	mergeCapabilities bool) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
+	mergeCapabilities bool,
+	removeIDs []string) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
 	capSet := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration)
 	for _, capCfg := range capCfgs {
 		onChainCap, err := capabilityConfigToOnChain(capCfg)
@@ -175,14 +245,27 @@ func computeConfigs(
 		capSet[onChainCap.CapabilityId] = *onChainCap
 	}
 
+	newIDs := make(map[string]struct{}, len(capSet))
+	for id := range capSet {
+		newIDs[id] = struct{}{}
+	}
+	removals, err := checkRemovals(newIDs, existingCapConfigs, mergeCapabilities, removeIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	if mergeCapabilities {
 		for _, existingCapConfig := range existingCapConfigs {
+			if _, removed := removals[existingCapConfig.CapabilityId]; removed {
+				continue
+			}
 			_, ok := capSet[existingCapConfig.CapabilityId]
 			if !ok {
 				capSet[existingCapConfig.CapabilityId] = existingCapConfig
 			}
 		}
 	}
+
 	var out []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
 	for _, capCfg := range capSet {
 		out = append(out, capCfg)
