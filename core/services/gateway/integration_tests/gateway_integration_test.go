@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/internal/netfault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
@@ -180,63 +181,120 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	// Verify that addresses in config are case-insensitive
 	nodeKeys.Address = strings.ToUpper(nodeKeys.Address)
 
-	// Launch Gateway
-	lggr := logger.Test(t)
-	gatewayConfig := fmt.Sprintf(gatewayConfigTemplate, nodeKeys.Address)
-	c, err := network.NewHTTPClient(network.HTTPClientConfig{
-		DefaultTimeout:   5 * time.Second,
-		MaxResponseBytes: 1000,
-	}, lggr)
-	require.NoError(t, err)
-	lf := limits.Factory{Logger: lggr}
-	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, c, nil, nil, lggr, lf, nil, nil), lggr, lf)
-	require.NoError(t, err)
-	servicetest.Run(t, gateway)
-	userPort, nodePort := gateway.GetUserPort(), gateway.GetNodePort()
+	gw := startGateway(t, nodeKeys)
+	userPort, nodePort := gw.GetUserPort(), gw.GetNodePort()
 	userURL := fmt.Sprintf("http://localhost:%d/user", userPort)
-	nodeURL := fmt.Sprintf("ws://localhost:%d/node", nodePort)
 	require.Equal(t, http.StatusServiceUnavailable, getHTTPStatus(t, fmt.Sprintf("http://localhost:%d/health", userPort)))
 	require.Equal(t, http.StatusOK, getHTTPStatus(t, fmt.Sprintf("http://localhost:%d/health", nodePort)))
 
-	// Launch Connector
-	client := &client{privateKey: nodeKeys.PrivateKey}
-	// client acts as a signer here
-	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeURL), client, clockwork.NewRealClock(), lggr, "")
-	require.NoError(t, err)
-	require.NoError(t, connector.AddHandler(t.Context(), []string{"test"}, client))
-	client.connector = connector
-	servicetest.Run(t, connector)
+	node := startNode(t, nodeKeys, fmt.Sprintf("ws://localhost:%d/node", nodePort), nil)
 	require.Eventually(t, func() bool {
 		return getHTTPStatus(t, fmt.Sprintf("http://localhost:%d/health", userPort)) == http.StatusOK
 	}, testutils.WaitTimeout(t), testutils.TestInterval)
 
 	// Send requests until one of them reaches Connector (i.e. the node)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		req := newJSONRPCHTTPRequestObject(t, messageID1, userURL, userKeys.PrivateKey)
-		httpClient := &http.Client{}
-		resp, doErr := httpClient.Do(req) // could initially return error if Gateway is not fully initialized yet
-		if doErr == nil {
-			resp.Body.Close()
-		}
-		return client.done.Load()
+		_, _ = sendUserRequest(t, userURL, userKeys, messageID1) // could initially fail if Gateway is not fully initialized yet
+		return node.done.Load()
 	}, testutils.WaitTimeout(t), testutils.TestInterval).Should(gomega.BeTrue())
 
 	// Send another request and validate that response has correct content and sender
-	req := newJSONRPCHTTPRequestObject(t, messageID2, userURL, userKeys.PrivateKey)
-	httpClient := &http.Client{}
-	resp, err := httpClient.Do(req)
+	respMsg, err := sendUserRequest(t, userURL, userKeys, messageID2)
 	require.NoError(t, err)
-	defer resp.Body.Close()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+	requireNodeResponse(t, respMsg, nodeKeys, messageID2)
+}
 
+// The node must notice a gateway that went silent without closing its connection,
+// and serve requests again once it has redialed.
+func TestIntegration_Gateway_NodeRecoversFromVanishedGatewayConnection(t *testing.T) {
+	t.Parallel()
+
+	testWallets := common.NewTestNodes(t, 2)
+	nodeKeys, userKeys := testWallets[0], testWallets[1]
+
+	gw := startGateway(t, nodeKeys)
+	userURL := fmt.Sprintf("http://localhost:%d/user", gw.GetUserPort())
+	proxy := netfault.NewProxy(t, fmt.Sprintf("localhost:%d", gw.GetNodePort()))
+	startNode(t, nodeKeys, fmt.Sprintf("ws://%s/node", proxy.Addr()), func(cfg *connector.Config) {
+		cfg.PingInterval, cfg.PongTimeout, cfg.WriteTimeout = 100*time.Millisecond, 500*time.Millisecond, 500*time.Millisecond
+	})
+	requireServed := func(within time.Duration) {
+		t.Helper()
+		var respMsg *api.Message
+		require.Eventually(t, func() bool {
+			var err error
+			respMsg, err = sendUserRequest(t, userURL, userKeys, messageID2)
+			return err == nil
+		}, within, testutils.TestInterval)
+		requireNodeResponse(t, respMsg, nodeKeys, messageID2)
+	}
+	requireServed(testutils.WaitTimeout(t))
+
+	proxy.Blackhole()
+	proxy.Restore()
+
+	requireServed(5 * time.Second)
+}
+
+func startGateway(t *testing.T, nodeKeys common.TestNode) gateway.Gateway {
+	t.Helper()
+	lggr := logger.Test(t)
+	httpClient, err := network.NewHTTPClient(network.HTTPClientConfig{
+		DefaultTimeout:   5 * time.Second,
+		MaxResponseBytes: 1000,
+	}, lggr)
+	require.NoError(t, err)
+	lf := limits.Factory{Logger: lggr}
+	gw, err := gateway.NewGatewayFromConfig(
+		parseGatewayConfig(t, fmt.Sprintf(gatewayConfigTemplate, nodeKeys.Address)),
+		gateway.NewHandlerFactory(nil, nil, httpClient, nil, nil, lggr, lf, nil, nil), lggr, lf)
+	require.NoError(t, err)
+	servicetest.Run(t, gw)
+	return gw
+}
+
+// startNode runs a connector that dials nodeURL. tweak may adjust its config.
+func startNode(t *testing.T, nodeKeys common.TestNode, nodeURL string, tweak func(*connector.Config)) *client {
+	t.Helper()
+	lggr := logger.Test(t)
+	cfg := parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeURL)
+	if tweak != nil {
+		tweak(cfg)
+	}
+	// client acts as a signer here
+	node := &client{privateKey: nodeKeys.PrivateKey}
+	conn, err := connector.NewGatewayConnector(cfg, node, clockwork.NewRealClock(), lggr, "")
+	require.NoError(t, err)
+	require.NoError(t, conn.AddHandler(t.Context(), []string{"test"}, node))
+	node.connector = conn
+	servicetest.Run(t, conn)
+	return node
+}
+
+// sendUserRequest returns the node's response, or an error if the gateway could not get one.
+func sendUserRequest(t *testing.T, userURL string, userKeys common.TestNode, messageID string) (*api.Message, error) {
+	t.Helper()
+	resp, err := (&http.Client{}).Do(newJSONRPCHTTPRequestObject(t, messageID, userURL, userKeys.PrivateKey))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
 	rawResp, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 	codec := api.JSONRPCCodec{}
-	respMsg, err := codec.DecodeLegacyResponse(rawResp)
-	require.NoError(t, err)
+	return codec.DecodeLegacyResponse(rawResp)
+}
+
+func requireNodeResponse(t *testing.T, respMsg *api.Message, nodeKeys common.TestNode, messageID string) {
+	t.Helper()
 	require.NoError(t, respMsg.Validate())
 	require.Equal(t, strings.ToLower(nodeKeys.Address), respMsg.Body.Sender)
-	require.Equal(t, messageID2, respMsg.Body.MessageID)
+	require.Equal(t, messageID, respMsg.Body.MessageID)
 	require.JSONEq(t, nodeResponsePayload, string(respMsg.Body.Payload))
 }
 
