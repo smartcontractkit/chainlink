@@ -39,7 +39,7 @@ func TestConfigureForwardersSeq(t *testing.T) {
 		DON:        donConfig,
 		Qualifier:  setupForwarderQualifier,
 		MCMSConfig: nil,
-		Chains:     map[uint64]struct{}{}, //  Empty means all chains
+		Chains:     map[uint64]struct{}{h.RegistrySelector: {}},
 	}
 
 	// Execute the ConfigureSeq operation directly
@@ -208,11 +208,12 @@ func TestConfigureForwarders_SameQualifierAcrossChains(t *testing.T) {
 	// We need to create a new runtime from the updated environment
 	h.Runtime = runtime.NewFromEnvironment(env)
 
+	// Chains are listed explicitly: an empty list no longer means every chain.
 	task := runtime.ChangesetTask(forwarder.ConfigureForwarders{}, forwarder.ConfigureSeqInput{
 		DON:        donConfig,
 		Qualifier:  "test-configure-shared-qualifier",
 		MCMSConfig: nil,
-		Chains:     map[uint64]struct{}{},
+		Chains:     chainSet(allChains),
 	})
 	err = h.Runtime.Exec(task)
 	require.NoError(t, err, "changeset apply failed")
@@ -220,6 +221,79 @@ func TestConfigureForwarders_SameQualifierAcrossChains(t *testing.T) {
 
 	require.NotNil(t, out, "changeset output should not be nil")
 	require.NotEmpty(t, out.Reports, "should have reports for configured chains")
+}
+
+func chainSet(sels []uint64) map[uint64]struct{} {
+	out := make(map[uint64]struct{}, len(sels))
+	for _, sel := range sels {
+		out[sel] = struct{}{}
+	}
+	return out
+}
+
+func TestConfigureForwarders_EmptyChainsRejected(t *testing.T) {
+	h, donConfig := setupForwarderTest(t, false)
+	env := h.Runtime.Environment()
+
+	for _, chains := range []map[uint64]struct{}{nil, {}} {
+		input := forwarder.ConfigureSeqInput{DON: donConfig, Qualifier: setupForwarderQualifier, Chains: chains}
+
+		// the changeset precondition rejects it before anything runs
+		err := forwarder.ConfigureForwarders{}.VerifyPreconditions(env, input)
+		require.ErrorContains(t, err, "chains must be non-empty")
+		require.ErrorContains(t, err, "every chain")
+
+		// the sequence refuses it too, so calling it directly cannot reach "all chains"
+		_, err = operations.ExecuteSequence(optest.NewBundle(t), forwarder.ConfigureSeq, forwarder.ConfigureSeqDeps{Env: &env}, input)
+		require.ErrorContains(t, err, "chains must be non-empty")
+	}
+}
+
+func TestConfigureForwarders_VerifyPreconditions_DON(t *testing.T) {
+	h, donConfig := setupForwarderTest(t, false)
+	env := h.Runtime.Environment()
+	chains := map[uint64]struct{}{h.RegistrySelector: {}}
+
+	input := forwarder.ConfigureSeqInput{DON: donConfig, Qualifier: setupForwarderQualifier, Chains: chains}
+	require.NoError(t, forwarder.ConfigureForwarders{}.VerifyPreconditions(env, input))
+
+	t.Run("F is zero", func(t *testing.T) {
+		in := input
+		in.DON.F = 0
+		require.ErrorContains(t, forwarder.ConfigureForwarders{}.VerifyPreconditions(env, in), "F must be greater than 0")
+	})
+
+	t.Run("too few nodes for F", func(t *testing.T) {
+		in := input
+		in.DON.F = 200 // 3*F+1 can never fit in the node list
+		require.ErrorContains(t, forwarder.ConfigureForwarders{}.VerifyPreconditions(env, in), "needs more than 3*F")
+
+		in = input
+		in.DON.F = 2
+		in.DON.NodeIDs = donConfig.NodeIDs[:3*2] // exactly 3*F nodes is still too few
+		require.ErrorContains(t, forwarder.ConfigureForwarders{}.VerifyPreconditions(env, in), "needs more than 3*F")
+	})
+}
+
+func TestConfigureForwarders_NodeWithoutSigner(t *testing.T) {
+	h, donConfig := setupForwarderTest(t, false)
+	env := h.Runtime.Environment()
+	require.GreaterOrEqual(t, len(donConfig.NodeIDs), 4)
+
+	// Replace one node with an ID Job Distributor does not know. NodeInfo drops it silently, so without
+	// the count check the forwarder would be configured with one signer fewer than requested.
+	unknown := "node_not_in_jd"
+	donConfig.NodeIDs = append(append([]string{}, donConfig.NodeIDs[:len(donConfig.NodeIDs)-1]...), unknown)
+
+	_, err := operations.ExecuteSequence(optest.NewBundle(t), forwarder.ConfigureSeq,
+		forwarder.ConfigureSeqDeps{Env: &env},
+		forwarder.ConfigureSeqInput{
+			DON:       donConfig,
+			Qualifier: setupForwarderQualifier,
+			Chains:    map[uint64]struct{}{h.RegistrySelector: {}},
+		})
+	require.ErrorContains(t, err, unknown)
+	require.ErrorContains(t, err, "signers")
 }
 
 // setupForwarderTest is a helper function to reduce duplication in configure tests
