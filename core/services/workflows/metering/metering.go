@@ -806,6 +806,9 @@ func (r *Report) creditToSpendingLimits(
 // accepts fractional decimals ("0.001158"), scientific notation ("1e18"),
 // and negatives ("-5")
 func parseNativeGasUnits(s string) (decimal.Decimal, error) {
+	if strings.ContainsAny(s, "eE") {
+		return decimal.Zero, fmt.Errorf("spend value in gas units %q is not a non-negative integer", s)
+	}
 	value, err := decimal.NewFromString(s)
 	if err != nil {
 		return decimal.Zero, err
