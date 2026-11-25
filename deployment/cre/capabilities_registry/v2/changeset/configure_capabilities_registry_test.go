@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
 type testFixture struct {
@@ -580,6 +581,9 @@ func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 	deployOutput := rt.State().Outputs[deployTask.ID()]
 	t.Logf("Deployment result: err=%v, output=%v", err, deployOutput)
 	require.Len(t, deployOutput.Reports, 1, "deployment should produce exactly one report")
+
+	// MCMS proposals only execute if the timelock really owns the registry.
+	test.TransferOwnershipToMCMS(t, rt, selector)
 
 	deployReport := deployOutput.Reports[0]
 	deployReportOutput := deployReport.Output.(contracts.DeployCapabilitiesRegistryOutput)

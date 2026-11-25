@@ -17,6 +17,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
+
+	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
 type testFixture struct {
@@ -90,6 +92,15 @@ func setupTest(t *testing.T) *testFixture {
 
 func setupTestWithMCMS(t *testing.T) *testFixture {
 	fixture := setupTest(t)
+	handOverToMCMS(t, fixture)
+
+	return fixture
+}
+
+// handOverToMCMS deploys MCMS and makes the timelock the real owner of the registry. Tests that
+// still need to send deployer transactions to the registry must do so before calling it.
+func handOverToMCMS(t *testing.T, fixture *testFixture) {
+	t.Helper()
 
 	err := fixture.rt.Exec(
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
@@ -98,5 +109,6 @@ func setupTestWithMCMS(t *testing.T) *testFixture {
 	)
 	require.NoError(t, err, "failed to deploy MCMS")
 
-	return fixture
+	// Deployer-side setup is done in setupTest; now the timelock really takes ownership.
+	test.TransferOwnershipToMCMS(t, fixture.rt, fixture.selector)
 }

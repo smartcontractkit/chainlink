@@ -97,7 +97,7 @@ func (u UserWorkflowUpsert) Apply(e cldf.Environment, config UserWorkflowUpsertI
 	}
 
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -189,7 +189,7 @@ func (u UserWorkflowPause) Apply(e cldf.Environment, config UserWorkflowPauseInp
 	}
 
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -286,7 +286,7 @@ func (u UserWorkflowBatchPause) Apply(e cldf.Environment, config UserWorkflowBat
 	}
 
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -384,7 +384,7 @@ func (u UserWorkflowActivate) Apply(e cldf.Environment, config UserWorkflowActiv
 	}
 
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -469,7 +469,7 @@ func (u UserWorkflowDelete) Apply(e cldf.Environment, config UserWorkflowDeleteI
 	}
 
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -565,7 +565,7 @@ func (u UserLinkOwner) Apply(e cldf.Environment, config UserLinkOwnerInput) (cld
 	}
 
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -663,7 +663,7 @@ func (u UserUnlinkOwner) Apply(e cldf.Environment, config UserUnlinkOwnerInput) 
 	}
 
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -757,7 +757,7 @@ func (u UserAllowlistRequest) Apply(e cldf.Environment, config UserAllowlistRequ
 	}
 
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
