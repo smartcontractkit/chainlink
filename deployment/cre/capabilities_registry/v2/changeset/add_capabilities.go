@@ -43,6 +43,11 @@ type AddCapabilitiesInput struct {
 	// SkipDuplicateCapabilityValidation disables the precondition check that rejects assigning
 	// the same capability to multiple DONs within a DON family.
 	SkipDuplicateCapabilityValidation bool `json:"skipDuplicateCapabilityValidation,omitempty" yaml:"skipDuplicateCapabilityValidation,omitempty"`
+
+	// SkipSignerFamilyJobCheck disables the precondition check that, when this change adds
+	// extraSignerFamilies to an OCR3 config, every node already has an APPROVED consensus job with a
+	// key bundle for each family. Use only for emergencies.
+	SkipSignerFamilyJobCheck bool `json:"skipSignerFamilyJobCheck,omitempty" yaml:"skipSignerFamilyJobCheck,omitempty"`
 }
 
 type AddCapabilities struct{}
@@ -68,6 +73,14 @@ func (u AddCapabilities) VerifyPreconditions(e cldf.Environment, config AddCapab
 
 		if err := sequences.ValidateNoDuplicateCapabilitiesAcrossDONs(config.DonCapabilityConfigs, existingDONs); err != nil {
 			return fmt.Errorf("AddCapabilities precondition failed: %w", err)
+		}
+	}
+
+	if !config.SkipSignerFamilyJobCheck {
+		for donName, donCapConfigs := range config.DonCapabilityConfigs {
+			if err := verifyDONSignerFamilies(e, config.RegistryChainSel, config.RegistryQualifier, donName, donCapConfigs, nil); err != nil {
+				return fmt.Errorf("AddCapabilities precondition failed: %w", err)
+			}
 		}
 	}
 
