@@ -1,5 +1,33 @@
 # Changelog Chainlink Core
 
+## 2.75.0
+
+### Minor Changes
+
+- [#24222](https://github.com/smartcontractkit/chainlink/pull/24222) [`f21a159`](https://github.com/smartcontractkit/chainlink/commit/f21a159f3051289a8edb5312c63b8d07512fddc5) - #added llo_datasource_stream_observed_value gauge: latest observed value per LLO stream (value_type benchmark|bid|ask, config_digest, don_id, csa_public_key). To forward it to Beholder, set `[Telemetry.PrometheusBridge] Enabled = true` and add `llo_datasource_stream_observed_value` to `Prefixes`; setting `Prefixes` replaces the default `["go_"]`, so keep `"go_"` and any prefixes already forwarded.
+
+- [#24184](https://github.com/smartcontractkit/chainlink/pull/24184) [`07b9fa4`](https://github.com/smartcontractkit/chainlink/commit/07b9fa4ce8ff31e847e9ade990c10beab4f0187a) - #internal Minor bump to start next version
+
+- [#24098](https://github.com/smartcontractkit/chainlink/pull/24098) [`3c4a720`](https://github.com/smartcontractkit/chainlink/commit/3c4a7209764a3509843d27667c5af0961f771830) - #added `TelemetryIngress.BeholderEnabled` (off by default): sends node telemetry through Beholder's per-domain emitters instead of the WSRPC `TelemetryIngress.Endpoints`. Requires `Telemetry.Enabled` and `Telemetry.ChipIngressEndpoint`; cannot be combined with `TelemetryIngress.ChipIngressEnabled`.
+
+### Patch Changes
+
+- [#23491](https://github.com/smartcontractkit/chainlink/pull/23491) [`07f40e0`](https://github.com/smartcontractkit/chainlink/commit/07f40e01a0600a78167d308bcbffbe985c31147a) - #added `Telemetry.MetricExportBatchSize` config limiting metric data points per OTLP export request (0 disables batching); passed to the Beholder client and LOOP plugins
+
+- [#24259](https://github.com/smartcontractkit/chainlink/pull/24259) [`98f7155`](https://github.com/smartcontractkit/chainlink/commit/98f7155b043ac4eaa418b7aaf848ce42d2f6502c) - #internal Bound timeout-based shard failover executions by the workflow execution concurrency limit
+
+- [#24260](https://github.com/smartcontractkit/chainlink/pull/24260) [`21b2edb`](https://github.com/smartcontractkit/chainlink/commit/21b2edba6ed1561c4988ea679933072a03a02627) - #changed Consensus-queue launches only from the Capabilities Registry through `[Capabilities.Local] RegistryBasedLaunchAllowlist`, and reads its OCR limits from the plugin config in the registry's OCR offchain config. Consensus-queue job specs are rejected.
+
+- [#24256](https://github.com/smartcontractkit/chainlink/pull/24256) [`888d35a`](https://github.com/smartcontractkit/chainlink/commit/888d35a21485cf9b049105086a031506f2b2b77b) - #bugfix Include the L1 data fee in the EVM WriteReport transaction fee and gas metering when `FeatureEVMWriteReportL1FeeActivePeriod` is active. The relayer set dropped it before the fee was calculated.
+
+- [#24246](https://github.com/smartcontractkit/chainlink/pull/24246) [`4d1c13d`](https://github.com/smartcontractkit/chainlink/commit/4d1c13db52211f80487a7cfe433d6c4156625d0a) - #changed Gate workflow execution metadata behind the FeatureExecutionMetadataActivePeriod setting (off by default)
+
+- [#24233](https://github.com/smartcontractkit/chainlink/pull/24233) [`9ced1e9`](https://github.com/smartcontractkit/chainlink/commit/9ced1e978e7adbb5711a3646da2b7c1ddbe26fe0) - #updated Bump chainlink-evm and chainlink-framework/multinode: PriorityLevel node selection picks a random RPC within the top tier so nodes spread across RPCs
+
+- [#24212](https://github.com/smartcontractkit/chainlink/pull/24212) [`eca844b`](https://github.com/smartcontractkit/chainlink/commit/eca844b32d4630c141482885361dc72ad944e403) - #added Serve the node's OCR2 key bundles to standard capability v2 processes over an OCRKeystore gRPC service
+
+- [#24225](https://github.com/smartcontractkit/chainlink/pull/24225) [`184d788`](https://github.com/smartcontractkit/chainlink/commit/184d788e0f0640c5948d9ec0fbe4f3fcfd249c1c) - #internal Export ring.LocateShard so the sharding system test can pick workflow names that land on both shards
+
 ## 2.74.0
 
 ### Minor Changes
