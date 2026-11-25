@@ -247,7 +247,6 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 		},
 		// the fixture DON also has the aptos capability, which this update drops on purpose
 		RemoveCapabilityIDs: []string{fixtureAptosCapID},
-		Force:               false,
 		MCMSConfig:          nil,
 	})
 
@@ -295,7 +294,6 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}, Config: newCfg},
 		},
 		RemoveCapabilityIDs: []string{fixtureAptosCapID},
-		Force:               false,
 		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDelay: 1 * time.Second,
 			TimelockQualifierPerChain: map[uint64]string{
@@ -313,8 +311,7 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 	assert.NotEmpty(t, out.MCMSTimelockProposals, "MCMS → proposals must not be empty")
 }
 
-// Force override: workflow DON update succeeds when Force=true.
-func TestUpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
+func TestUpdateDONChangeset_ByName_Workflow_Succeeds(t *testing.T) {
 	t.Parallel()
 	fx := setupRegistryForUpdateDON(t /*isWorkflow=*/, true, false)
 
@@ -339,7 +336,6 @@ func TestUpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
 			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}, Config: newCfg},
 		},
 		RemoveCapabilityIDs: []string{fixtureAptosCapID},
-		Force:               true, // ignored; kept to show old inputs still parse
 	})
 	require.NoError(t, err)
 

@@ -268,7 +268,6 @@ func addNewCapability(t *testing.T, h *test.Harness, capID string) {
 				Config: newCapConfig,
 			}},
 		},
-		Force: true,
 	}
 
 	err := h.Runtime.Exec(
@@ -365,7 +364,6 @@ func TestAddCapabilities_Apply_MCMS(t *testing.T) {
 				Config: newCapConfig,
 			}},
 		},
-		Force: true,
 		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDelay: 1 * time.Second,
 			TimelockQualifierPerChain: map[uint64]string{
@@ -411,7 +409,6 @@ func addCapabilityWithModifier(t *testing.T, h *test.Harness) {
 				Config: maps.Clone(newCapConfig),
 			}},
 		},
-		Force: true,
 	}
 
 	err := h.Runtime.Exec(
@@ -525,7 +522,6 @@ func TestAddCapabilities_Apply_WithOCR3Config(t *testing.T) {
 				Config: ocr3Config,
 			}},
 		},
-		Force: true,
 		FirstOCR3ConfigCapabilities: map[string][]string{
 			test.DONName: {capID},
 		},

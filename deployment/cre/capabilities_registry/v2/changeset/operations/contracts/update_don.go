@@ -56,10 +56,6 @@ type UpdateDONInput struct {
 	// If omitted, the existing value fetched from the registry is used
 	IsPrivate bool
 
-	// Deprecated: Force has never had any effect and is ignored. It is only kept so that callers which
-	// set it still compile. It will be removed.
-	Force bool
-
 	MCMSConfig *contracts.MCMSConfig
 }
 
