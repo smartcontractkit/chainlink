@@ -265,7 +265,7 @@ func TestConfigureForwarders_VerifyPreconditions_DON(t *testing.T) {
 
 	t.Run("too few nodes for F", func(t *testing.T) {
 		in := input
-		in.DON.F = uint8(len(donConfig.NodeIDs)) // 3*F+1 can never fit in the node list
+		in.DON.F = 200 // 3*F+1 can never fit in the node list
 		require.ErrorContains(t, forwarder.ConfigureForwarders{}.VerifyPreconditions(env, in), "needs more than 3*F")
 
 		in = input
