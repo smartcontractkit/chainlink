@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -232,6 +235,10 @@ func TestStandardCapabilities_CloseRemovesCapabilitiesFromRegistry(t *testing.T)
 		require.NoError(t, std.Start(t.Context()))
 		return std
 	}
+	// pluginState is the state of the plugin supervisor. These tests use the real one.
+	pluginState := func(std *StandardCapabilities) string {
+		return std.capabilitiesLoop.(standardCapabilitiesLoop).State()
+	}
 	// pluginAdds adds a capability the way the plugin does: through the registry it is
 	// given in Initialise. The binary does not exist, so no plugin runs in these tests.
 	pluginRegistry := func(std *StandardCapabilities) core.CapabilitiesRegistry {
@@ -248,13 +255,13 @@ func TestStandardCapabilities_CloseRemovesCapabilitiesFromRegistry(t *testing.T)
 		var pluginStateAtRemove string
 		reg.EXPECT().Get(mock.Anything, capabilityID).Return(nil, nil).Once()
 		reg.EXPECT().Remove(mock.Anything, capabilityID).RunAndReturn(func(context.Context, string) error {
-			pluginStateAtRemove = std.capabilitiesLoop.State()
+			pluginStateAtRemove = pluginState(std)
 			return nil
 		}).Once()
 
 		require.NoError(t, std.Close())
 		require.Equal(t, "Started", pluginStateAtRemove)
-		require.Equal(t, "Stopped", std.capabilitiesLoop.State())
+		require.Equal(t, "Stopped", pluginState(std))
 	})
 
 	// The registry the node uses does not replace an entry that is still live, so
@@ -307,7 +314,7 @@ func TestStandardCapabilities_CloseRemovesCapabilitiesFromRegistry(t *testing.T)
 		reg.EXPECT().Remove(mock.Anything, capabilityID).Return(notFound).Once()
 
 		require.NoError(t, std.Close())
-		require.Equal(t, "Stopped", std.capabilitiesLoop.State())
+		require.Equal(t, "Stopped", pluginState(std))
 	})
 
 	// A registry that does not observe a context cannot abandon a Remove that waits
@@ -337,7 +344,7 @@ func TestStandardCapabilities_CloseRemovesCapabilitiesFromRegistry(t *testing.T)
 		case <-time.After(tests.WaitTimeout(t)):
 			require.FailNow(t, "Close waited for the registry")
 		}
-		require.Equal(t, "Stopped", std.capabilitiesLoop.State())
+		require.Equal(t, "Stopped", pluginState(std))
 	})
 
 	t.Run("no registry", func(t *testing.T) {
@@ -397,11 +404,291 @@ func TestStandardCapabilityStart(t *testing.T) {
 		err := standardCapability.Start(ctx)
 		require.NoError(t, err)
 
-		standardCapability.wg.Wait()
+		require.Error(t, standardCapability.Await(ctx), "the first start attempt must fail without the binary")
 		// Stop the plugin supervisor. It logs each time it tries to launch the plugin again,
 		// and a log after the test has ended fails the whole package.
 		require.NoError(t, standardCapability.Close())
 	})
+}
+
+// A failed Initialise can leave services running in the plugin process, so every
+// retry after it must run on a new process, with the capability DON ID resolved again.
+func TestStandardCapabilities_RetriesFailedStartOnNewPluginProcess(t *testing.T) {
+	t.Parallel()
+	errNotReady := errors.New("registry not ready")
+
+	for _, tc := range []struct {
+		name       string
+		failing    fakePluginLoop
+		wantEvents []string
+	}{
+		{
+			name:    "Initialise fails",
+			failing: fakePluginLoop{initialiseErr: errNotReady},
+			wantEvents: []string{
+				"loop1 start", "loop1 wait", "loop1 initialise donID=1", "loop1 close",
+				"loop2 start", "loop2 wait", "loop2 initialise donID=2", "loop2 close",
+				"loop3 start", "loop3 wait", "loop3 initialise donID=3", "loop3 infos",
+			},
+		},
+		{
+			name:    "Infos fails",
+			failing: fakePluginLoop{infosErr: errNotReady},
+			wantEvents: []string{
+				"loop1 start", "loop1 wait", "loop1 initialise donID=1", "loop1 infos", "loop1 close",
+				"loop2 start", "loop2 wait", "loop2 initialise donID=2", "loop2 infos", "loop2 close",
+				"loop3 start", "loop3 wait", "loop3 initialise donID=3", "loop3 infos",
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			loops := &fakePluginLoops{behaviours: []fakePluginLoop{tc.failing, tc.failing, {}}}
+			resolver := &gatedCapDonIDResolver{donIDs: make(chan uint32)}
+			std := newStandardCapabilitiesWithFakeLoops(t, loops, resolver)
+
+			require.NoError(t, std.Start(t.Context()))
+			require.ErrorIs(t, std.Ready(), ErrServiceNotReady)
+
+			resolver.release(t, 1)
+			require.ErrorIs(t, std.Await(t.Context()), errNotReady)
+			require.ErrorIs(t, std.Ready(), errNotReady, "the service must be unhealthy while the start is retried")
+
+			resolver.release(t, 2)
+			resolver.release(t, 3)
+			waitForStartToFinish(t, std)
+
+			require.NoError(t, std.Ready(), "the service must turn healthy when a retried start succeeds")
+			require.Equal(t, tc.wantEvents, loops.recorded())
+
+			require.NoError(t, std.Close())
+			require.Equal(t, slices.Concat(tc.wantEvents, []string{"loop3 close"}), loops.recorded())
+		})
+	}
+}
+
+// A plugin whose start fails after it has added its capability leaves a registry entry.
+// The entry must be removed before the process is replaced: the registry does not
+// replace an entry that is live, so the next process could not add its capability.
+func TestStandardCapabilities_RemovesCapabilitiesBeforeItReplacesThePluginProcess(t *testing.T) {
+	t.Parallel()
+	const capabilityID = "evm:ChainSelector:16015286601757825753@1.0.0"
+	added := readyCapability{CapabilityInfo: capabilities.MustNewCapabilityInfo(capabilityID, capabilities.CapabilityTypeAction, "test")}
+	loops := &fakePluginLoops{behaviours: []fakePluginLoop{
+		{adds: added, infosErr: errors.New("infos failed")},
+		{adds: added},
+	}}
+	reg := &recordingRegistry{CapabilitiesRegistry: registry.NewRegistry(logger.TestLogger(t)), loops: loops}
+	std := newStandardCapabilitiesWithFakeLoopsAndRegistry(t, loops, &staticCapDonIDResolver{}, reg)
+
+	require.NoError(t, std.Start(t.Context()))
+	waitForStartToFinish(t, std)
+	require.NoError(t, std.Ready())
+
+	wantEvents := []string{
+		"loop1 start", "loop1 wait", "loop1 initialise donID=0", "registry add err=false", "loop1 infos",
+		"registry remove err=false", "loop1 close",
+		"loop2 start", "loop2 wait", "loop2 initialise donID=0", "registry add err=false", "loop2 infos",
+	}
+	require.Equal(t, wantEvents, loops.recorded())
+
+	require.NoError(t, std.Close())
+	require.Equal(t, slices.Concat(wantEvents, []string{"registry remove err=false", "loop2 close"}), loops.recorded())
+}
+
+// A plugin process that is not up within the start timeout has not run Initialise,
+// so the start is retried on the same process.
+func TestStandardCapabilities_RetriesStartOnSamePluginProcessWhenItIsLate(t *testing.T) {
+	t.Parallel()
+	loops := &fakePluginLoops{behaviours: []fakePluginLoop{{waitErrs: []error{context.DeadlineExceeded}}}}
+	std := newStandardCapabilitiesWithFakeLoops(t, loops, &staticCapDonIDResolver{donID: 7})
+
+	require.NoError(t, std.Start(t.Context()))
+	waitForStartToFinish(t, std)
+
+	require.NoError(t, std.Ready())
+	require.Equal(t, []string{"loop1 start", "loop1 wait", "loop1 wait", "loop1 initialise donID=7", "loop1 infos"}, loops.recorded())
+	require.NoError(t, std.Close())
+}
+
+func TestStandardCapabilities_CloseStopsRetryingTheStart(t *testing.T) {
+	t.Parallel()
+	loops := &fakePluginLoops{behaviours: []fakePluginLoop{{initialiseErr: errors.New("database timeout")}}}
+	std := newStandardCapabilitiesWithFakeLoops(t, loops, &staticCapDonIDResolver{})
+	std.startRetryMinDelay = time.Hour
+	std.startRetryMaxDelay = time.Hour
+
+	require.NoError(t, std.Start(t.Context()))
+	require.Error(t, std.Await(t.Context()))
+
+	closeErr := make(chan error, 1)
+	go func() { closeErr <- std.Close() }()
+	select {
+	case err := <-closeErr:
+		require.NoError(t, err)
+	case <-time.After(tests.WaitTimeout(t)):
+		require.FailNow(t, "Close did not interrupt the wait before the next start attempt")
+	}
+
+	require.Equal(t, []string{"loop1 start", "loop1 wait", "loop1 initialise donID=0", "loop1 close"}, loops.recorded())
+}
+
+func newStandardCapabilitiesWithFakeLoops(t *testing.T, loops *fakePluginLoops, resolver CapDonIDResolver) *StandardCapabilities {
+	t.Helper()
+	return newStandardCapabilitiesWithFakeLoopsAndRegistry(t, loops, resolver, nil)
+}
+
+func newStandardCapabilitiesWithFakeLoopsAndRegistry(t *testing.T, loops *fakePluginLoops, resolver CapDonIDResolver, reg core.CapabilitiesRegistry) *StandardCapabilities {
+	t.Helper()
+	registrar := plugins.NewRegistrarConfig(loop.GRPCOpts{},
+		func(string) (*plugins.RegisteredLoop, error) { return &plugins.RegisteredLoop{}, nil },
+		func(string) {},
+	)
+	std := NewStandardCapabilities(logger.TestLogger(t), "not/found/path/to/binary", "{}", registrar, resolver,
+		core.StandardCapabilitiesDependencies{CapabilityRegistry: reg})
+	std.newPluginLoop = loops.launch
+	std.startRetryMinDelay = time.Millisecond
+	std.startRetryMaxDelay = time.Millisecond
+	return std
+}
+
+func waitForStartToFinish(t *testing.T, std *StandardCapabilities) {
+	t.Helper()
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		std.wg.Wait()
+	}()
+	tests.RequireSignal(t, finished, "the start did not finish")
+}
+
+// gatedCapDonIDResolver lets a test release one start attempt at a time, with the
+// capability DON ID that the attempt resolves.
+type gatedCapDonIDResolver struct {
+	donIDs chan uint32
+}
+
+func (r *gatedCapDonIDResolver) awaitCapDonID(ctx context.Context) (uint32, error) {
+	select {
+	case donID := <-r.donIDs:
+		return donID, nil
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	}
+}
+
+func (r *gatedCapDonIDResolver) release(t *testing.T, donID uint32) {
+	t.Helper()
+	select {
+	case r.donIDs <- donID:
+	case <-time.After(tests.WaitTimeout(t)):
+		require.FailNow(t, "no start attempt asked for the capability DON ID")
+	}
+}
+
+// fakePluginLoops launches one fakePluginLoop for each plugin process the service
+// starts, and records in order what the service does with each of them.
+type fakePluginLoops struct {
+	// behaviours has one entry for each launch. The last entry repeats.
+	behaviours []fakePluginLoop
+
+	mu       sync.Mutex
+	launched int
+	events   []string
+}
+
+func (f *fakePluginLoops) launch() pluginLoop {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	launched := f.behaviours[min(f.launched, len(f.behaviours)-1)]
+	f.launched++
+	launched.id = f.launched
+	launched.loops = f
+	return &launched
+}
+
+func (f *fakePluginLoops) record(id int, event string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.events = append(f.events, fmt.Sprintf("loop%d %s", id, event))
+}
+
+func (f *fakePluginLoops) recordEvent(event string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.events = append(f.events, event)
+}
+
+func (f *fakePluginLoops) recorded() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.events)
+}
+
+type fakePluginLoop struct {
+	loops *fakePluginLoops
+	id    int
+
+	// waitErrs are returned by successive WaitCtx calls. After them WaitCtx succeeds.
+	waitErrs      []error
+	initialiseErr error
+	infosErr      error
+	// adds is added to the registry in Initialise, as a plugin does.
+	adds capabilities.BaseCapability
+}
+
+func (l *fakePluginLoop) Start(context.Context) error {
+	l.loops.record(l.id, "start")
+	return nil
+}
+
+func (l *fakePluginLoop) Close() error {
+	l.loops.record(l.id, "close")
+	return nil
+}
+
+func (l *fakePluginLoop) WaitCtx(context.Context) error {
+	l.loops.record(l.id, "wait")
+	if len(l.waitErrs) == 0 {
+		return nil
+	}
+	err := l.waitErrs[0]
+	l.waitErrs = l.waitErrs[1:]
+	return err
+}
+
+func (l *fakePluginLoop) Initialise(_ context.Context, dependencies core.StandardCapabilitiesDependencies) error {
+	l.loops.record(l.id, fmt.Sprintf("initialise donID=%d", dependencies.CapabilityDonID))
+	if l.adds != nil {
+		if err := dependencies.CapabilityRegistry.Add(context.Background(), l.adds); err != nil {
+			return err
+		}
+	}
+	return l.initialiseErr
+}
+
+func (l *fakePluginLoop) Infos(context.Context) ([]capabilities.CapabilityInfo, error) {
+	l.loops.record(l.id, "infos")
+	return nil, l.infosErr
+}
+
+// recordingRegistry records the Add and Remove calls that reach the registry, in the
+// same list as the events of the fake plugin processes.
+type recordingRegistry struct {
+	core.CapabilitiesRegistry
+	loops *fakePluginLoops
+}
+
+func (r *recordingRegistry) Add(ctx context.Context, c capabilities.BaseCapability) error {
+	err := r.CapabilitiesRegistry.Add(ctx, c)
+	r.loops.recordEvent(fmt.Sprintf("registry add err=%v", err != nil))
+	return err
+}
+
+func (r *recordingRegistry) Remove(ctx context.Context, id string) error {
+	err := r.CapabilitiesRegistry.Remove(ctx, id)
+	r.loops.recordEvent(fmt.Sprintf("registry remove err=%v", err != nil))
+	return err
 }
 
 type telemetryServiceMock struct{}

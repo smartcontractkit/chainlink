@@ -336,6 +336,49 @@ func TestClose_StopsAllRunningCapabilities(t *testing.T) {
 	assert.Empty(t, mgr.runningCapabilities)
 }
 
+// A registry sync can arrive while the node shuts down. Close waits for a running
+// Reconcile, and a Reconcile after Close must not start the capabilities again.
+func TestReconcile_AfterCloseStartsNothing(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	metrics, err := newMetrics()
+	require.NoError(t, err)
+
+	var built []*mockService
+	mgr := &localCapabilityManager{
+		lggr: testLogger(t),
+		localCfg: &testLocalCapabilities{
+			allowlisted: map[string]bool{"test-cap@1.0.0": true},
+		},
+		newServicesFn: func(context.Context, string, uint32, string, string, *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
+			svc := &mockService{}
+			built = append(built, svc)
+			return []job.ServiceCtx{svc}, nil
+		},
+		runningCapabilities: make(map[string]*runningCapability),
+		metrics:             metrics,
+	}
+	dons := []registry.DON{
+		{
+			DON: capabilities.DON{ID: 1},
+			CapabilityConfigurations: map[string]registry.CapabilityConfiguration{
+				"test-cap@1.0.0": {Config: mustMarshalCapConfig(t, nil)},
+			},
+		},
+	}
+
+	require.NoError(t, mgr.Start(ctx))
+	require.NoError(t, mgr.Reconcile(ctx, dons, nil))
+	require.Len(t, built, 1)
+	require.NoError(t, mgr.Close())
+	require.True(t, built[0].closed)
+
+	require.NoError(t, mgr.Reconcile(ctx, dons, nil))
+
+	assert.Len(t, built, 1, "a reconcile after Close must not build the capability again")
+	assert.Empty(t, mgr.runningCapabilities)
+}
+
 // --- Test helpers ---
 
 type mockService struct {
