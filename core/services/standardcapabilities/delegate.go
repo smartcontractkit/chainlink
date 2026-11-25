@@ -189,7 +189,7 @@ func (d *Delegate) NewServices(
 
 	if filepath.Base(command) == conversions.CronCmd && d.cronV2Active(ctx) {
 		v2cmd := filepath.Join(filepath.Dir(command), conversions.CronV2Cmd)
-		return d.newServicesV2(ctx, log, v2cmd, conversions.CronV2Cmd, configJSON, capabilityDonID)
+		return d.newServicesV2(ctx, log, v2cmd, conversions.CronCmd, configJSON, capabilityDonID)
 	}
 
 	// Warn when neither the job spec nor the TOML config provide bootstrap peers.

@@ -75,8 +75,6 @@ func GetCapabilityIDFromCommand(command string, config string) string {
 		return "consensus@1.0.0-alpha"
 	case CronCmd:
 		return "cron-trigger@1.0.0"
-	case CronV2Cmd:
-		return "cron-trigger@1.0.0"
 	case "http_trigger":
 		return "http-trigger@1.0.0-alpha"
 	case "http_action":
