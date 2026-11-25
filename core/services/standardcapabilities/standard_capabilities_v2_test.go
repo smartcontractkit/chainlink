@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -251,6 +252,27 @@ func TestDelegate_CronV2Active(t *testing.T) {
 			assert.Equal(t, tc.want, d.cronV2Active(t.Context()))
 		})
 	}
+}
+
+// TestDelegate_NewServices_CronV2Config checks cron v2 gets its job config under the cron namespace it reads, as legacy cron gets it.
+func TestDelegate_NewServices_CronV2Config(t *testing.T) {
+	t.Parallel()
+	now := time.Now()
+	d := &Delegate{logger: logger.Test(t), limitsFactory: limits.Factory{Settings: activePeriodGetter{
+		Lower: commonconfig.Timestamp(now.Add(-time.Hour).Unix()),
+		Upper: commonconfig.Timestamp(now.Add(time.Hour).Unix()),
+	}}}
+	svcs, err := d.NewServices(t.Context(), "/usr/local/bin/cron", `{"fastestScheduleIntervalSeconds": 1}`, 1, "cron",
+		uuid.New(), nil, 7, nil)
+	require.NoError(t, err)
+	require.Len(t, svcs, 1)
+	v2, ok := svcs[0].(*V2)
+	require.True(t, ok)
+	assert.Equal(t, "/usr/local/bin/cronv2", v2.command)
+
+	env, err := envVarsFromConfigJSON(v2.app, v2.configJSON)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"CL_CRON_FASTEST_SCHEDULE_INTERVAL_SECONDS=1"}, env)
 }
 
 type activePeriodGetter settings.Range[commonconfig.Timestamp]
