@@ -10,13 +10,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/connectivity"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -205,6 +210,153 @@ func TestStandardCapabilities_CloseUnregistersLOOP(t *testing.T) {
 	require.Empty(t, registered)
 }
 
+// A registry entry that outlives its plugin blocks the registration of a
+// replacement, so Close must remove what the plugin added while the plugin is
+// still up.
+func TestStandardCapabilities_CloseRemovesCapabilitiesFromRegistry(t *testing.T) {
+	t.Parallel()
+	const capabilityID = "evm:ChainSelector:16015286601757825753@1.0.0"
+	newInstance := func() capabilities.ExecutableCapability {
+		return readyCapability{CapabilityInfo: capabilities.MustNewCapabilityInfo(capabilityID, capabilities.CapabilityTypeAction, "test")}
+	}
+
+	newStarted := func(t *testing.T, reg core.CapabilitiesRegistry) *StandardCapabilities {
+		t.Helper()
+		pluginRegistrar := plugins.NewRegistrarConfig(loop.GRPCOpts{},
+			func(string) (*plugins.RegisteredLoop, error) { return &plugins.RegisteredLoop{}, nil },
+			func(string) {},
+		)
+		std := NewStandardCapabilities(logger.TestLogger(t), "not/found/path/to/binary", "{}", pluginRegistrar,
+			&staticCapDonIDResolver{}, core.StandardCapabilitiesDependencies{CapabilityRegistry: reg})
+		std.startTimeout = time.Second
+		require.NoError(t, std.Start(t.Context()))
+		return std
+	}
+	// pluginAdds adds a capability the way the plugin does: through the registry it is
+	// given in Initialise. The binary does not exist, so no plugin runs in these tests.
+	pluginRegistry := func(std *StandardCapabilities) core.CapabilitiesRegistry {
+		return std.initialiseDependencies(0).CapabilityRegistry
+	}
+
+	t.Run("before the plugin is stopped", func(t *testing.T) {
+		t.Parallel()
+		reg := mocks.NewCapabilitiesRegistry(t)
+		std := newStarted(t, reg)
+		reg.EXPECT().Add(mock.Anything, mock.Anything).Return(nil).Once()
+		require.NoError(t, pluginRegistry(std).Add(t.Context(), newInstance()))
+
+		var pluginStateAtRemove string
+		reg.EXPECT().Get(mock.Anything, capabilityID).Return(nil, nil).Once()
+		reg.EXPECT().Remove(mock.Anything, capabilityID).RunAndReturn(func(context.Context, string) error {
+			pluginStateAtRemove = std.capabilitiesLoop.State()
+			return nil
+		}).Once()
+
+		require.NoError(t, std.Close())
+		require.Equal(t, "Started", pluginStateAtRemove)
+		require.Equal(t, "Stopped", std.capabilitiesLoop.State())
+	})
+
+	// The registry the node uses does not replace an entry that is still live, so
+	// without the removal the next instance of the capability cannot be added.
+	t.Run("a new instance can be added to the registry after Close", func(t *testing.T) {
+		t.Parallel()
+		reg := registry.NewRegistry(logger.TestLogger(t))
+		std := newStarted(t, reg)
+		require.NoError(t, pluginRegistry(std).Add(t.Context(), newInstance()))
+		require.ErrorIs(t, reg.Add(t.Context(), newInstance()), registry.ErrCapabilityAlreadyExists)
+
+		require.NoError(t, std.Close())
+
+		require.NoError(t, reg.Add(t.Context(), newInstance()))
+	})
+
+	// In the next two cases the mock fails the test if Close sends a Get or a Remove.
+	t.Run("not what the registry refused to add", func(t *testing.T) {
+		t.Parallel()
+		reg := mocks.NewCapabilitiesRegistry(t)
+		std := newStarted(t, reg)
+		refused := errors.New("refused")
+		reg.EXPECT().Add(mock.Anything, mock.Anything).Return(refused).Once()
+		require.ErrorIs(t, pluginRegistry(std).Add(t.Context(), newInstance()), refused)
+
+		require.NoError(t, std.Close())
+	})
+
+	t.Run("not what the plugin removed itself", func(t *testing.T) {
+		t.Parallel()
+		reg := mocks.NewCapabilitiesRegistry(t)
+		std := newStarted(t, reg)
+		reg.EXPECT().Add(mock.Anything, mock.Anything).Return(nil).Once()
+		require.NoError(t, pluginRegistry(std).Add(t.Context(), newInstance()))
+		reg.EXPECT().Remove(mock.Anything, capabilityID).Return(nil).Once()
+		require.NoError(t, pluginRegistry(std).Remove(t.Context(), capabilityID))
+
+		require.NoError(t, std.Close())
+	})
+
+	t.Run("a capability that is not in the registry does not fail Close", func(t *testing.T) {
+		t.Parallel()
+		reg := mocks.NewCapabilitiesRegistry(t)
+		std := newStarted(t, reg)
+		reg.EXPECT().Add(mock.Anything, mock.Anything).Return(nil).Once()
+		require.NoError(t, pluginRegistry(std).Add(t.Context(), newInstance()))
+
+		notFound := errors.New("capability not found")
+		reg.EXPECT().Get(mock.Anything, capabilityID).Return(nil, notFound).Once()
+		reg.EXPECT().Remove(mock.Anything, capabilityID).Return(notFound).Once()
+
+		require.NoError(t, std.Close())
+		require.Equal(t, "Stopped", std.capabilitiesLoop.State())
+	})
+
+	// A registry that does not observe a context cannot abandon a Remove that waits
+	// for a lock, and a Remove that completes after Close could remove the
+	// replacement. So when the registry does not answer, Close must go on without a
+	// Remove.
+	t.Run("a registry that does not answer does not block Close and gets no Remove", func(t *testing.T) {
+		t.Parallel()
+		reg := mocks.NewCapabilitiesRegistry(t)
+		std := newStarted(t, reg)
+		std.registryRemoveTimeout = 10 * time.Millisecond
+		reg.EXPECT().Add(mock.Anything, mock.Anything).Return(nil).Once()
+		require.NoError(t, pluginRegistry(std).Add(t.Context(), newInstance()))
+
+		unblock := make(chan struct{})
+		t.Cleanup(func() { close(unblock) })
+		reg.EXPECT().Get(mock.Anything, capabilityID).RunAndReturn(func(context.Context, string) (capabilities.BaseCapability, error) {
+			<-unblock
+			return nil, nil
+		}).Once()
+
+		closeErr := make(chan error, 1)
+		go func() { closeErr <- std.Close() }()
+		select {
+		case err := <-closeErr:
+			require.NoError(t, err)
+		case <-time.After(tests.WaitTimeout(t)):
+			require.FailNow(t, "Close waited for the registry")
+		}
+		require.Equal(t, "Stopped", std.capabilitiesLoop.State())
+	})
+
+	t.Run("no registry", func(t *testing.T) {
+		t.Parallel()
+		std := newStarted(t, nil)
+		require.Nil(t, pluginRegistry(std))
+		require.NoError(t, std.Close())
+	})
+}
+
+// readyCapability is a capability whose connection is up, as it is for a
+// running plugin.
+type readyCapability struct {
+	capabilities.CapabilityInfo
+	capabilities.Executable
+}
+
+func (readyCapability) GetState() connectivity.State { return connectivity.Ready }
+
 func TestStandardCapabilityStart(t *testing.T) {
 	if testing.Short() {
 		t.Skip("too slow for testing.Short")
@@ -246,6 +398,9 @@ func TestStandardCapabilityStart(t *testing.T) {
 		require.NoError(t, err)
 
 		standardCapability.wg.Wait()
+		// Stop the plugin supervisor. It logs each time it tries to launch the plugin again,
+		// and a log after the test has ended fails the whole package.
+		require.NoError(t, standardCapability.Close())
 	})
 }
 

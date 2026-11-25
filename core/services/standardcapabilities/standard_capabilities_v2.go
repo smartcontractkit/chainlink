@@ -48,8 +48,11 @@ type V2 struct {
 	capDonIDResolver CapDonIDResolver
 	pluginRegistrar  plugins.RegistrarConfig
 	registry         registry.CapabilitiesRegistry
-	creSettings      settings.Broadcaster
-	keystores        capkeystore.Keystores
+	// registered is registry, with a record of what the process added to it. Nil when
+	// there is no registry.
+	registered  *registeredCapabilities
+	creSettings settings.Broadcaster
+	keystores   capkeystore.Keystores
 
 	emptyLoop atomic.Pointer[loop.EmptyService]
 	loopID    string
@@ -81,6 +84,14 @@ type V2Params struct {
 }
 
 func NewV2(p V2Params) (*V2, error) {
+	// The process is given the registry through a wrapper that records what it adds, so
+	// that Close can remove it.
+	capabilitiesRegistry := p.Registry
+	var registered *registeredCapabilities
+	if capabilitiesRegistry != nil {
+		registered = trackRegisteredCapabilities(capabilitiesRegistry)
+		capabilitiesRegistry = registered
+	}
 	return &V2{
 		log:              p.Log,
 		command:          p.Command,
@@ -88,7 +99,8 @@ func NewV2(p V2Params) (*V2, error) {
 		configJSON:       p.ConfigJSON,
 		capDonIDResolver: p.CapDonIDResolver,
 		pluginRegistrar:  p.PluginRegistrar,
-		registry:         p.Registry,
+		registry:         capabilitiesRegistry,
+		registered:       registered,
 		creSettings:      p.CRESettings,
 		keystores:        p.Keystores,
 		stopChan:         make(services.StopChan),
@@ -184,6 +196,9 @@ func (s *V2) Close() error {
 	return s.StopOnce("StandardCapabilitiesV2", func() error {
 		s.cancelLaunch()
 		s.launchWG.Wait()
+
+		// Before the process is stopped: see registeredCapabilities.
+		s.registered.removeAll(s.log, defaultRegistryRemoveTimeout)
 
 		var err error
 		if emptyLoop := s.emptyLoop.Load(); emptyLoop != nil {
