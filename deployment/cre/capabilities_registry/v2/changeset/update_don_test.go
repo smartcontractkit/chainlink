@@ -908,18 +908,3 @@ func TestUpdateDONChangeset_DeprecatedCapabilityMustBeRemoved(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, got.CapabilityConfigurations, 1)
 }
-
-func TestUpdateDONChangeset_VerifyPreconditions_DuplicateCapability(t *testing.T) {
-	t.Parallel()
-	fx := setupRegistryForUpdateDON(t, false, false)
-
-	cfg := contracts.CapabilityConfig{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}, Config: map[string]any{"defaultConfig": map[string]any{}}}
-	err := changeset.UpdateDON{}.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
-		RegistryQualifier:                 fx.qualifier,
-		RegistryChainSel:                  fx.selector,
-		DONName:                           fx.donName,
-		MergeCapabilityConfigsWithOnChain: true,
-		CapabilityConfigs:                 []contracts.CapabilityConfig{cfg, cfg},
-	})
-	require.ErrorContains(t, err, "duplicate capability configuration")
-}

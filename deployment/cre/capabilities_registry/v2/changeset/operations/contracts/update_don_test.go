@@ -90,6 +90,12 @@ func TestComputeConfigs_Removals(t *testing.T) {
 			wantIDs:   []string{"a@1"},
 		},
 		{
+			name:     "a capability the registry does not know yet is accepted (it can be registered in the same proposal)",
+			cfgs:     []CapabilityConfig{cfg("a@1"), cfg("zzz@1")},
+			existing: onChain("a@1"),
+			wantIDs:  []string{"a@1", "zzz@1"},
+		},
+		{
 			name:     "same capability listed twice fails",
 			cfgs:     []CapabilityConfig{cfg("a@1"), cfg("a@1")},
 			existing: onChain("a@1"),
@@ -164,13 +170,9 @@ func TestComputeConfigs_Removals(t *testing.T) {
 				for _, s := range tc.wantErr {
 					assert.Contains(t, err.Error(), s)
 				}
-				// preconditions use this entry point; it must reject the same inputs
-				require.Error(t, CheckCapabilityRemovals(tc.cfgs, tc.existing, tc.merge, tc.removeIDs, registered))
-
 				return
 			}
 			require.NoError(t, err)
-			require.NoError(t, CheckCapabilityRemovals(tc.cfgs, tc.existing, tc.merge, tc.removeIDs, registered))
 			var ids []string
 			for _, c := range got {
 				ids = append(ids, c.CapabilityId)

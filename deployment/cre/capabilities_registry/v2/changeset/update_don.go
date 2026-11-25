@@ -105,7 +105,7 @@ func (u UpdateDON) VerifyPreconditions(e cldf.Environment, config UpdateDONInput
 
 	// Fail before Apply if the update would remove a live capability that was not named for removal.
 	// The operation repeats this check against the DON it loads, which is the authoritative one.
-	if err := contracts.CheckCapabilityRemovals(config.CapabilityConfigs, existingDONs[donIdx].CapabilityConfigurations,
+	if _, err := contracts.CheckCapabilityUpdate(config.CapabilityConfigs, existingDONs[donIdx].CapabilityConfigurations,
 		config.MergeCapabilityConfigsWithOnChain, config.RemoveCapabilityIDs, registered); err != nil {
 		return fmt.Errorf("UpdateDON precondition failed: %w", err)
 	}
