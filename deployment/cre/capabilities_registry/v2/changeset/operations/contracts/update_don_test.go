@@ -90,11 +90,58 @@ func TestComputeConfigs_Removals(t *testing.T) {
 			wantIDs:   []string{"a@1"},
 		},
 		{
-			name:      "removal naming a capability not on the DON fails",
+			name:     "same capability listed twice fails",
+			cfgs:     []CapabilityConfig{cfg("a@1"), cfg("a@1")},
+			existing: onChain("a@1"),
+			wantErr:  []string{"duplicate", "a@1"},
+		},
+		{
+			name:     "merge=true on a DON with a deprecated capability fails and says to remove it",
+			cfgs:     []CapabilityConfig{cfg("a@1")},
+			existing: onChain("a@1", "old@1"),
+			merge:    true,
+			wantErr:  []string{"old@1", "deprecated", "removeCapabilityIDs"},
+		},
+		{
+			name:     "merge=false leaving out a deprecated capability says to remove it, not to merge",
+			cfgs:     []CapabilityConfig{cfg("a@1")},
+			existing: onChain("a@1", "old@1"),
+			wantErr:  []string{"old@1", "deprecated"},
+		},
+		{
+			name:     "a deprecated capability in the input fails",
+			cfgs:     []CapabilityConfig{cfg("a@1"), cfg("old@1")},
+			existing: onChain("a@1", "old@1"),
+			wantErr:  []string{"old@1", "deprecated"},
+		},
+		{
+			name:      "merge=true with the deprecated capability named for removal drops only that one",
+			cfgs:      []CapabilityConfig{cfg("a@1")},
+			existing:  onChain("a@1", "b@1", "old@1"),
+			merge:     true,
+			removeIDs: []string{"old@1"},
+			wantIDs:   []string{"a@1", "b@1"},
+		},
+		{
+			name:      "removal naming an id the registry does not know fails",
 			cfgs:      []CapabilityConfig{cfg("a@1")},
 			existing:  onChain("a@1"),
 			removeIDs: []string{"zzz@1"},
-			wantErr:   []string{"zzz@1", "not on the DON"},
+			wantErr:   []string{"zzz@1", "not registered"},
+		},
+		{
+			name:      "removal that already happened is a no-op, so the input can be run again",
+			cfgs:      []CapabilityConfig{cfg("a@1")},
+			existing:  onChain("a@1"),
+			removeIDs: []string{"b@1"},
+			wantIDs:   []string{"a@1"},
+		},
+		{
+			name:      "removal that already happened does not excuse another unnamed removal",
+			cfgs:      []CapabilityConfig{cfg("a@1")},
+			existing:  onChain("a@1", "c@1"),
+			removeIDs: []string{"b@1"},
+			wantErr:   []string{"c@1", "removeCapabilityIDs"},
 		},
 		{
 			name:      "capability both in configs and removal list fails",
@@ -105,18 +152,25 @@ func TestComputeConfigs_Removals(t *testing.T) {
 		},
 	}
 
+	// what the registry knows ("zzz@1" is not in it), and whether each one is deprecated
+	registered := RegisteredCapabilities{"a@1": false, "b@1": false, "c@1": false, "old@1": true}
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := computeConfigs(tc.cfgs, tc.existing, tc.merge, tc.removeIDs)
+			got, err := computeConfigs(tc.cfgs, tc.existing, tc.merge, tc.removeIDs, registered)
 			if len(tc.wantErr) > 0 {
 				require.Error(t, err)
 				for _, s := range tc.wantErr {
 					assert.Contains(t, err.Error(), s)
 				}
+				// preconditions use this entry point; it must reject the same inputs
+				require.Error(t, CheckCapabilityRemovals(tc.cfgs, tc.existing, tc.merge, tc.removeIDs, registered))
+
 				return
 			}
 			require.NoError(t, err)
+			require.NoError(t, CheckCapabilityRemovals(tc.cfgs, tc.existing, tc.merge, tc.removeIDs, registered))
 			var ids []string
 			for _, c := range got {
 				ids = append(ids, c.CapabilityId)

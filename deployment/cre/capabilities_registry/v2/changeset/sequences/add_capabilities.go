@@ -36,6 +36,10 @@ type AddCapabilitiesInput struct {
 	// DonCapabilityConfigs maps DON name to the list of capability configs for that DON.
 	DonCapabilityConfigs map[string][]contracts.CapabilityConfig
 
+	// Deprecated: Force has never had any effect and is ignored. It is only kept so that callers which
+	// set it still compile. It will be removed.
+	Force bool
+
 	RegistryRef datastore.AddressRefKey
 	MCMSConfig  *crecontracts.MCMSConfig
 }

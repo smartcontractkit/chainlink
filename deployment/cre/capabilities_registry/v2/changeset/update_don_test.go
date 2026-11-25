@@ -792,6 +792,134 @@ func TestUpdateDONChangeset_RejectsUnnamedCapabilityRemoval(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, got.CapabilityConfigurations, 2, "failed update must leave the DON untouched")
 
+	// an id the registry does not know is a typo, not a removal
+	input.RemoveCapabilityIDs = []string{fixtureAptosCapID, "no-such-capability@1.0.0"}
+	err = changeset.UpdateDON{}.VerifyPreconditions(fx.rt.Environment(), input)
+	require.ErrorContains(t, err, "no-such-capability@1.0.0")
+	require.ErrorContains(t, err, "not registered")
+
+	// named: the removal goes through
 	input.RemoveCapabilityIDs = []string{fixtureAptosCapID}
 	require.NoError(t, changeset.UpdateDON{}.VerifyPreconditions(fx.rt.Environment(), input))
+	_, err = changeset.UpdateDON{}.Apply(fx.rt.Environment(), input)
+	require.NoError(t, err)
+
+	got, err = fx.registry.GetDONByName(nil, fx.donName)
+	require.NoError(t, err)
+	require.Len(t, got.CapabilityConfigurations, 1)
+	require.Equal(t, fx.capIDs[0], got.CapabilityConfigurations[0].CapabilityId)
+
+	// the same input can be run again: the capability is already gone, which is not an error
+	require.NoError(t, changeset.UpdateDON{}.VerifyPreconditions(fx.rt.Environment(), input))
+	_, err = changeset.UpdateDON{}.Apply(fx.rt.Environment(), input)
+	require.NoError(t, err)
+}
+
+// The MCMS path goes through the same check: no proposal is built for an unnamed removal.
+func TestUpdateDONChangeset_RejectsUnnamedCapabilityRemoval_MCMS(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, true)
+
+	input := changeset.UpdateDONInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           fx.donName,
+		CapabilityConfigs: []contracts.CapabilityConfig{
+			{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}, Config: map[string]any{"defaultConfig": map[string]any{}}},
+		},
+		MCMSConfig: &crecontracts.MCMSConfig{
+			MinDelay:                  1 * time.Second,
+			TimelockQualifierPerChain: map[uint64]string{fx.selector: ""},
+		},
+	}
+
+	require.ErrorContains(t, changeset.UpdateDON{}.VerifyPreconditions(fx.rt.Environment(), input), fixtureAptosCapID)
+
+	out, err := changeset.UpdateDON{}.Apply(fx.rt.Environment(), input)
+	require.ErrorContains(t, err, fixtureAptosCapID)
+	require.Empty(t, out.MCMSTimelockProposals)
+}
+
+func TestUpdateDONChangeset_VerifyPreconditions_UnknownDON(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, false)
+
+	err := changeset.UpdateDON{}.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
+		RegistryQualifier:                 fx.qualifier,
+		RegistryChainSel:                  fx.selector,
+		DONName:                           "no-such-don",
+		MergeCapabilityConfigsWithOnChain: true,
+	})
+	require.ErrorContains(t, err, `DON "no-such-don" does not exist`)
+}
+
+// Merge keeps what the input does not mention, and a named removal is still honoured.
+func TestUpdateDONChangeset_MergeWithNamedRemoval(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, false)
+
+	input := changeset.UpdateDONInput{
+		RegistryQualifier:                 fx.qualifier,
+		RegistryChainSel:                  fx.selector,
+		DONName:                           fx.donName,
+		MergeCapabilityConfigsWithOnChain: true,
+		RemoveCapabilityIDs:               []string{fixtureAptosCapID},
+	}
+	require.NoError(t, changeset.UpdateDON{}.VerifyPreconditions(fx.rt.Environment(), input))
+	_, err := changeset.UpdateDON{}.Apply(fx.rt.Environment(), input)
+	require.NoError(t, err)
+
+	got, err := fx.registry.GetDONByName(nil, fx.donName)
+	require.NoError(t, err)
+	require.Len(t, got.CapabilityConfigurations, 1)
+	require.Equal(t, fx.capIDs[0], got.CapabilityConfigurations[0].CapabilityId)
+}
+
+// The contract rejects a DON update that keeps a deprecated capability, so the changeset fails first
+// and says the capability has to be named for removal.
+func TestUpdateDONChangeset_DeprecatedCapabilityMustBeRemoved(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, false)
+
+	chain := fx.rt.Environment().BlockChains.EVMChains()[fx.selector]
+	tx, err := fx.registry.DeprecateCapabilities(chain.DeployerKey, []string{fixtureAptosCapID})
+	require.NoError(t, err)
+	_, err = chain.Confirm(tx)
+	require.NoError(t, err)
+
+	input := changeset.UpdateDONInput{
+		RegistryQualifier:                 fx.qualifier,
+		RegistryChainSel:                  fx.selector,
+		DONName:                           fx.donName,
+		MergeCapabilityConfigsWithOnChain: true,
+	}
+	err = changeset.UpdateDON{}.VerifyPreconditions(fx.rt.Environment(), input)
+	require.ErrorContains(t, err, fixtureAptosCapID)
+	require.ErrorContains(t, err, "deprecated")
+	_, err = changeset.UpdateDON{}.Apply(fx.rt.Environment(), input)
+	require.ErrorContains(t, err, "deprecated")
+
+	input.RemoveCapabilityIDs = []string{fixtureAptosCapID}
+	require.NoError(t, changeset.UpdateDON{}.VerifyPreconditions(fx.rt.Environment(), input))
+	_, err = changeset.UpdateDON{}.Apply(fx.rt.Environment(), input)
+	require.NoError(t, err)
+
+	got, err := fx.registry.GetDONByName(nil, fx.donName)
+	require.NoError(t, err)
+	require.Len(t, got.CapabilityConfigurations, 1)
+}
+
+func TestUpdateDONChangeset_VerifyPreconditions_DuplicateCapability(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, false)
+
+	cfg := contracts.CapabilityConfig{Capability: contracts.Capability{CapabilityID: fx.capIDs[0]}, Config: map[string]any{"defaultConfig": map[string]any{}}}
+	err := changeset.UpdateDON{}.VerifyPreconditions(fx.rt.Environment(), changeset.UpdateDONInput{
+		RegistryQualifier:                 fx.qualifier,
+		RegistryChainSel:                  fx.selector,
+		DONName:                           fx.donName,
+		MergeCapabilityConfigsWithOnChain: true,
+		CapabilityConfigs:                 []contracts.CapabilityConfig{cfg, cfg},
+	})
+	require.ErrorContains(t, err, "duplicate capability configuration")
 }

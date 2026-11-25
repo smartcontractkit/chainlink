@@ -55,6 +55,10 @@ type UpdateDONInput struct {
 	// If omitted, the existing value fetched from the registry is used
 	IsPrivate bool
 
+	// Deprecated: Force has never had any effect and is ignored. It is only kept so that callers which
+	// set it still compile. It will be removed.
+	Force bool
+
 	MCMSConfig *contracts.MCMSConfig
 }
 
@@ -105,9 +109,28 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 			return UpdateDONOutput{}, fmt.Errorf("failed to call GetDONByName: %w", err)
 		}
 
-		cfgs, err := computeConfigs(input.CapabilityConfigs, don.CapabilityConfigurations, input.MergeCapabilityConfigsWithOnChain, input.RemoveCapabilityIDs)
+		registered, err := ReadRegisteredCapabilities(registry)
+		if err != nil {
+			return UpdateDONOutput{}, err
+		}
+
+		cfgs, err := computeConfigs(input.CapabilityConfigs, don.CapabilityConfigurations, input.MergeCapabilityConfigsWithOnChain, input.RemoveCapabilityIDs, registered)
 		if err != nil {
 			return UpdateDONOutput{}, fmt.Errorf("failed to compute configs: %w", err)
+		}
+		// A named removal that is not on the DON is accepted so the same input can be run again. Say so,
+		// because it is also what a removal aimed at the wrong capability id looks like.
+		for _, id := range input.RemoveCapabilityIDs {
+			onDON := false
+			for _, c := range don.CapabilityConfigurations {
+				if c.CapabilityId == id {
+					onDON = true
+					break
+				}
+			}
+			if !onDON {
+				deps.Env.Logger.Warnf("removeCapabilityIDs names capability %q which is not on DON '%s': nothing to remove", id, input.DonName)
+			}
 		}
 
 		f := input.F
@@ -158,30 +181,59 @@ var UpdateDON = operations.NewOperation[UpdateDONInput, UpdateDONOutput, UpdateD
 	},
 )
 
+// RegisteredCapabilities maps the id of every capability registered in the registry to whether it is
+// deprecated.
+type RegisteredCapabilities map[string]bool
+
+// ReadRegisteredCapabilities reads every capability registered in the registry.
+func ReadRegisteredCapabilities(registry *capabilities_registry_v2.CapabilitiesRegistry) (RegisteredCapabilities, error) {
+	caps, err := pkg.GetCapabilities(&bind.CallOpts{}, registry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the capabilities registered in the registry: %w", err)
+	}
+	out := make(RegisteredCapabilities, len(caps))
+	for _, c := range caps {
+		out[c.CapabilityId] = c.IsDeprecated
+	}
+	return out, nil
+}
+
 // CheckCapabilityRemovals returns an error if updating a DON that currently has existingCapConfigs would
-// remove a capability that is not named in removeIDs, or if removeIDs itself is stale or contradictory.
+// remove a capability that is not named in removeIDs, if removeIDs is contradictory or names an id the
+// registry does not know, if a capability id is listed twice, or if the new set would keep a deprecated
+// capability (the contract rejects that).
 // It only looks at capability IDs (the configs may still be unexpanded), and it is the same check the
 // operation runs, so preconditions and apply cannot disagree.
 func CheckCapabilityRemovals(
 	capCfgs []CapabilityConfig,
 	existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration,
 	mergeCapabilities bool,
-	removeIDs []string) error {
+	removeIDs []string,
+	registered RegisteredCapabilities) error {
 	newIDs := make(map[string]struct{}, len(capCfgs))
 	for _, capCfg := range capCfgs {
-		newIDs[capCfg.Capability.CapabilityID] = struct{}{}
+		id := capCfg.Capability.CapabilityID
+		if _, ok := newIDs[id]; ok {
+			return fmt.Errorf("duplicate capability configuration for id: %s", id)
+		}
+		newIDs[id] = struct{}{}
 	}
-	_, err := checkRemovals(newIDs, existingCapConfigs, mergeCapabilities, removeIDs)
+	_, err := checkRemovals(newIDs, existingCapConfigs, mergeCapabilities, removeIDs, registered)
 	return err
 }
 
 // checkRemovals validates removeIDs against the DON's on-chain capabilities and the IDs in the new set, and
 // fails if any on-chain capability would disappear without being named. It returns the set of named removals.
+//
+// A named capability that is not on the DON is accepted when the registry knows the id: the removal has
+// already happened, so running the same input again is not an error. An id the registry does not know is
+// rejected, because it is a typo and the capability the caller meant would otherwise stay.
 func checkRemovals(
 	newIDs map[string]struct{},
 	existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration,
 	mergeCapabilities bool,
-	removeIDs []string) (map[string]struct{}, error) {
+	removeIDs []string,
+	registered RegisteredCapabilities) (map[string]struct{}, error) {
 	onChainIDs := make(map[string]struct{}, len(existingCapConfigs))
 	for _, existingCapConfig := range existingCapConfigs {
 		onChainIDs[existingCapConfig.CapabilityId] = struct{}{}
@@ -189,27 +241,52 @@ func checkRemovals(
 
 	removals := make(map[string]struct{}, len(removeIDs))
 	for _, id := range removeIDs {
-		if _, ok := onChainIDs[id]; !ok {
-			return nil, fmt.Errorf("removeCapabilityIDs names capability %q which is not on the DON; the input is stale", id)
-		}
 		if _, ok := newIDs[id]; ok {
 			return nil, fmt.Errorf("capability %q is both in the capability configs and in removeCapabilityIDs", id)
+		}
+		if _, ok := onChainIDs[id]; !ok {
+			if _, known := registered[id]; !known {
+				return nil, fmt.Errorf("removeCapabilityIDs names capability %q which is not on the DON and is not registered in the registry; check the id", id)
+			}
+			// already removed from this DON: nothing to do
+			continue
 		}
 		removals[id] = struct{}{}
 	}
 
-	if mergeCapabilities {
-		// merge keeps everything on-chain that is not explicitly removed
-		return removals, nil
+	// The contract rejects an update whose new set holds a deprecated capability, so a deprecated
+	// capability can only leave the DON. Find every one the new set would hold: the ones in the input,
+	// and with merge on, the ones on the DON that are not named for removal.
+	var deprecatedKept []string
+	for id := range newIDs {
+		if registered[id] {
+			deprecatedKept = append(deprecatedKept, id)
+		}
 	}
 
 	var unexpected []string
 	for id := range onChainIDs {
-		_, kept := newIDs[id]
+		_, inInput := newIDs[id]
 		_, removed := removals[id]
-		if !kept && !removed {
+		if inInput || removed {
+			continue
+		}
+		if registered[id] {
+			// deprecated, and neither removed nor in the input: merge would keep it, and without merge
+			// it would be dropped without being named. Either way it has to be named for removal.
+			deprecatedKept = append(deprecatedKept, id)
+			continue
+		}
+		if !mergeCapabilities {
 			unexpected = append(unexpected, id)
 		}
+	}
+	if len(deprecatedKept) > 0 {
+		sort.Strings(deprecatedKept)
+		return nil, fmt.Errorf(
+			"capabilities %s are deprecated in the registry and the contract rejects a DON update that keeps them; "+
+				"name them in removeCapabilityIDs",
+			strings.Join(deprecatedKept, ", "))
 	}
 	if len(unexpected) > 0 {
 		sort.Strings(unexpected)
@@ -229,7 +306,8 @@ func computeConfigs(
 	capCfgs []CapabilityConfig,
 	existingCapConfigs []capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration,
 	mergeCapabilities bool,
-	removeIDs []string) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
+	removeIDs []string,
+	registered RegisteredCapabilities) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
 	capSet := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration)
 	for _, capCfg := range capCfgs {
 		onChainCap, err := capabilityConfigToOnChain(capCfg)
@@ -249,7 +327,7 @@ func computeConfigs(
 	for id := range capSet {
 		newIDs[id] = struct{}{}
 	}
-	removals, err := checkRemovals(newIDs, existingCapConfigs, mergeCapabilities, removeIDs)
+	removals, err := checkRemovals(newIDs, existingCapConfigs, mergeCapabilities, removeIDs, registered)
 	if err != nil {
 		return nil, err
 	}
