@@ -355,7 +355,7 @@ func WithModuleEngineVersion(v string) func(*eventHandler) {
 }
 
 type WorkflowArtifactsStore interface {
-	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryIdentifier, configIdentifier string, existingSpec *job.WorkflowSpec) ([]byte, []byte, error)
+	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryIdentifier, configIdentifier string) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
 	ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error)
 	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
@@ -737,7 +737,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	spec, err := h.workflowArtifactsStore.GetWorkflowSpec(ctx, payload.WorkflowID.Hex())
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		newSpec, innerErr := h.createWorkflowSpec(ctx, payload, spec)
+		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
 		if innerErr != nil {
 			return innerErr
 		}
@@ -748,10 +748,9 @@ func (h *eventHandler) workflowRegisteredEvent(
 		spec = newSpec
 	case err != nil:
 		return fmt.Errorf("failed to get workflow spec: %w", err)
-	case spec.WorkflowID != payload.WorkflowID.Hex() ||
-		spec.WorkflowOwner != hex.EncodeToString(payload.WorkflowOwner) ||
+	case spec.WorkflowOwner != hex.EncodeToString(payload.WorkflowOwner) ||
 		spec.WorkflowName != payload.WorkflowName:
-		newSpec, innerErr := h.createWorkflowSpec(ctx, payload, spec)
+		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
 		if innerErr != nil {
 			return innerErr
 		}
@@ -765,7 +764,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		// Activating a paused tombstone: the artifact payload was cleared at
 		// pause time, so refetch and re-persist it. Level-neutral for metering
 		// (the registration generation was never released), so no delta.
-		newSpec, innerErr := h.createWorkflowSpec(ctx, payload, spec)
+		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
 		if innerErr != nil {
 			return innerErr
 		}
@@ -876,9 +875,7 @@ func toSpecStatus(s uint8) job.WorkflowSpecStatus {
 	}
 }
 
-// existingSpec is the workflow_specs_v2 row the caller already looked up for payload.WorkflowID
-// (nil if it's known not to exist).
-func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowRegisteredEvent, existingSpec *job.WorkflowSpec) (*job.WorkflowSpec, error) {
+func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowRegisteredEvent) (*job.WorkflowSpec, error) {
 	ctx, span := h.tracer.Start(ctx, "fetch_artifacts",
 		trace.WithAttributes(
 			attribute.String("component", "workflow_syncer"),
@@ -895,8 +892,15 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: owner, Workflow: wfID})
 
 	// With Workflow Registry contract v2 the BinaryURL and ConfigURL are expected to be identifiers that put through the Storage Service.
-	decodedBinary, config, err := h.workflowArtifactsStore.FetchWorkflowArtifacts(ctx, wfID, payload.BinaryURL, payload.ConfigURL, existingSpec)
+	decodedBinary, config, err := h.workflowArtifactsStore.FetchWorkflowArtifacts(ctx, wfID, payload.BinaryURL, payload.ConfigURL)
 	if err != nil {
+		return nil, err
+	}
+
+	// The row is keyed by workflow ID alone and shared across sources, so artifacts
+	// that don't hash to the claimed ID must never be persisted: another source
+	// legitimately owning this ID would otherwise reuse them.
+	if _, err = verifyWorkflowID(payload.WorkflowOwner, payload.WorkflowName, decodedBinary, config, wfID); err != nil {
 		return nil, err
 	}
 
@@ -1447,26 +1451,14 @@ func (h *eventHandler) prepareEngineInputs(ctx context.Context, spec *job.Workfl
 	// Free the hex-encoded binary string as it is not needed beyond this decode
 	spec.Workflow = ""
 
-	// Workflow Registry version >2 no longer handles secrets
-	secretsURL := ""
-
-	// Before running the engine, handle validations
-	// Workflow ID should match what is generated from the stored artifacts
 	ownerBytes, err := hex.DecodeString(spec.WorkflowOwner)
 	if err != nil {
 		return nil, nonRetryable(fmt.Errorf("failed to decode owner: %w", err))
 	}
 	configBytes := []byte(spec.Config)
-	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, configBytes, secretsURL)
+	wid, err := verifyWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, configBytes, spec.WorkflowID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate workflow id: %w", err)
-	}
-	wid, err := types.WorkflowIDFromHex(spec.WorkflowID)
-	if err != nil {
-		return nil, nonRetryable(fmt.Errorf("invalid workflow id: %w", err))
-	}
-	if !types.WorkflowID(hash).Equal(wid) {
-		return nil, nonRetryable(fmt.Errorf("workflowID mismatch: %s != %s", types.WorkflowID(hash).Hex(), wid.Hex()))
+		return nil, err
 	}
 
 	workflowName, err := types.NewWorkflowName(spec.WorkflowName)
@@ -1487,6 +1479,22 @@ func (h *eventHandler) prepareEngineInputs(ctx context.Context, spec *job.Workfl
 		config:       configBytes,
 		reconcileKey: reconcileKey,
 	}, nil
+}
+
+func verifyWorkflowID(owner []byte, name string, binary, config []byte, workflowID string) (types.WorkflowID, error) {
+	// Workflow Registry version >2 no longer handles secrets
+	hash, err := pkgworkflows.GenerateWorkflowID(owner, name, binary, config, "")
+	if err != nil {
+		return types.WorkflowID{}, fmt.Errorf("failed to generate workflow id: %w", err)
+	}
+	wid, err := types.WorkflowIDFromHex(workflowID)
+	if err != nil {
+		return types.WorkflowID{}, nonRetryable(fmt.Errorf("invalid workflow id: %w", err))
+	}
+	if !types.WorkflowID(hash).Equal(wid) {
+		return types.WorkflowID{}, nonRetryable(fmt.Errorf("workflowID mismatch: %s != %s", types.WorkflowID(hash).Hex(), wid.Hex()))
+	}
+	return wid, nil
 }
 
 // startEngine starts engine and waits for it to complete initialization

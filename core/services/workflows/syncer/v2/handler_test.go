@@ -1311,8 +1311,8 @@ type mockArtifactStore struct {
 	deleteWorkflowArtifactsErr error
 }
 
-func (m *mockArtifactStore) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string, existingSpec *job.WorkflowSpec) ([]byte, []byte, error) {
-	return m.artifactStore.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL, existingSpec)
+func (m *mockArtifactStore) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryURL, configURL string) ([]byte, []byte, error) {
+	return m.artifactStore.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
 }
 
 func (m *mockArtifactStore) GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error) {
@@ -1631,7 +1631,7 @@ type stubWorkflowArtifactsStore struct {
 	savedSubsPayload []byte
 }
 
-func (s *stubWorkflowArtifactsStore) FetchWorkflowArtifacts(context.Context, string, string, string, *job.WorkflowSpec) ([]byte, []byte, error) {
+func (s *stubWorkflowArtifactsStore) FetchWorkflowArtifacts(context.Context, string, string, string) ([]byte, []byte, error) {
 	s.fetchCalls.Add(1)
 	return []byte("binary"), []byte("config"), nil
 }
@@ -1995,6 +1995,7 @@ func Test_workflowRegisteredEvent_DrainingEngineNotTreatedAsHealthy(t *testing.T
 		spec: &job.WorkflowSpec{
 			WorkflowID: workflowID.Hex(),
 			Status:     job.WorkflowSpecStatusActive,
+			Workflow:   hex.EncodeToString([]byte("binary")),
 		},
 	}
 	h := &eventHandler{
