@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -266,15 +267,23 @@ func configureForwarderOp(
 		return fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", target, err)
 	}
 
-	// The forwarder was deployed a moment ago by this sequence, so the deployer key still owns it: ownership
-	// moves to the timelock only in the next step. It is therefore configured with a direct transaction even
-	// when MCMS is in use. Building an MCMS operation here produced a call the timelock could not execute,
-	// and the sequence never added that operation to a proposal, so the forwarder was left unconfigured.
-	strategy, err := strategies.CreateStrategy(
+	var mcmsContracts *evmstate.MCMSWithTimelockState
+	if input.MCMSConfig != nil {
+		var mcmsErr error
+		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, *input.MCMSConfig)
+		if mcmsErr != nil {
+			return fmt.Errorf("failed to get MCMS contracts: %w", mcmsErr)
+		}
+	}
+
+	// The forwarder was deployed by this sequence and is still owned by the deployer key at this point,
+	// while input.MCMSConfig may be set. The owner check in CreateStrategy would reject that, so this
+	// legacy sequence keeps its previous behaviour by not running it.
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		*deps.Env,
-		nil,
-		nil,
+		input.MCMSConfig,
+		mcmsContracts,
 		forwarderAddress,
 		contracts2.ConfigureForwarderDescription,
 	)
@@ -299,7 +308,7 @@ func configureForwarderOp(
 			Chain:    &chain,
 			Contract: forwarderContract.Contract,
 			Strategy: strategy,
-		}, creforwarder.ConfigureOpInput{UseMCMS: false, ChainSelector: target, Config: cfg})
+		}, creforwarder.ConfigureOpInput{UseMCMS: input.UseMCMS(), ChainSelector: target, Config: cfg})
 		if err != nil {
 			return fmt.Errorf("configure-forwarders-seq failed for chain selector %d, donID: %d: %w", target, don.Info.Id, err)
 		}

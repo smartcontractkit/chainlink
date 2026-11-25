@@ -114,7 +114,7 @@ func CreateStrategy(
 	targetAddress common.Address,
 	description string,
 ) (TransactionStrategy, error) {
-	return createStrategy(chain, env, mcmsConfig, mcmsContracts, targetAddress, description, true)
+	return buildStrategy(chain, env, mcmsConfig, mcmsContracts, targetAddress, description, true)
 }
 
 // CreateStrategyForNonOwnerCall is CreateStrategy without the owner check. It is only for calls the
@@ -130,10 +130,10 @@ func CreateStrategyForNonOwnerCall(
 	targetAddress common.Address,
 	description string,
 ) (TransactionStrategy, error) {
-	return createStrategy(chain, env, mcmsConfig, mcmsContracts, targetAddress, description, false)
+	return buildStrategy(chain, env, mcmsConfig, mcmsContracts, targetAddress, description, false)
 }
 
-func createStrategy(
+func buildStrategy(
 	chain cldf_evm.Chain,
 	env cldf.Environment,
 	mcmsConfig *contracts.MCMSConfig,
