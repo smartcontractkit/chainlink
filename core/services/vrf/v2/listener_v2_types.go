@@ -116,7 +116,7 @@ func newBatchFulfillment(result vrfPipelineResult, fromAddress common.Address, v
 			result.req.req.RequestID(),
 		},
 		maxFees: []*big.Int{
-			result.maxFee,
+			reservedFee(&result),
 		},
 		txHashes: []common.Hash{
 			result.req.req.Raw().TxHash,
@@ -163,7 +163,7 @@ func (b *batchFulfillments) addRun(result vrfPipelineResult, fromAddress common.
 			currBatch.totalGasLimit += result.gasLimit
 			currBatch.runs = append(currBatch.runs, result.run)
 			currBatch.reqIDs = append(currBatch.reqIDs, result.req.req.RequestID())
-			currBatch.maxFees = append(currBatch.maxFees, result.maxFee)
+			currBatch.maxFees = append(currBatch.maxFees, reservedFee(&result))
 			currBatch.txHashes = append(currBatch.txHashes, result.req.req.Raw().TxHash)
 		}
 	}

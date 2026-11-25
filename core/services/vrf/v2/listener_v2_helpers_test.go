@@ -18,22 +18,61 @@ import (
 func TestListener_EstimateFeeJuels(t *testing.T) {
 	t.Parallel()
 	callbackGasLimit := uint32(150_000)
-	maxGasPriceGwei := assets.GWei(30).ToInt()
-	weiPerUnitLink := big.NewInt(5898160000000000)
-	actual, err := v2.EstimateFeeJuels(callbackGasLimit, maxGasPriceGwei, weiPerUnitLink)
-	expected := big.NewInt(1780216203019246680)
-	require.Equal(t, 0, actual.Cmp(expected), "expected:", expected.String(), "actual:", actual.String())
-	require.NoError(t, err)
+	maxGasPriceWei := assets.GWei(30).ToInt()
 
-	weiPerUnitLink = big.NewInt(5898161234554321)
-	actual, err = v2.EstimateFeeJuels(callbackGasLimit, maxGasPriceGwei, weiPerUnitLink)
-	expected = big.NewInt(1780215830399116719)
-	require.Equal(t, 0, actual.Cmp(expected), "expected:", expected.String(), "actual:", actual.String())
-	require.NoError(t, err)
+	tests := []struct {
+		name              string
+		gasOverhead       uint32
+		weiPerUnitLink    *big.Int
+		premiumPercentage uint32
+		expected          *big.Int
+	}{
+		{"no premium", v2.GasProofVerification, big.NewInt(5898160000000000), 0, big.NewInt(1780216203019246680)},
+		{"default premium", v2.GasProofVerification, big.NewInt(5898160000000000), 20, big.NewInt(2136259443623096016)},
+		{"max premium", v2.GasProofVerification, big.NewInt(5898160000000000), 155, big.NewInt(4539551317699079034)},
+		{"no premium, different feed", v2.GasProofVerification, big.NewInt(5898161234554321), 0, big.NewInt(1780215830399116719)},
+		{"default premium, different feed", v2.GasProofVerification, big.NewInt(5898161234554321), 20, big.NewInt(2136258996478940062)},
+		{"max premium, different feed", v2.GasProofVerification, big.NewInt(5898161234554321), 155, big.NewInt(4539550367517747633)},
+		{"gas overhead override", 250_000, big.NewInt(5898160000000000), 20, big.NewInt(2441439364140681161)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			actual, err := v2.EstimateFeeJuels(callbackGasLimit, tt.gasOverhead, maxGasPriceWei, tt.weiPerUnitLink, tt.premiumPercentage)
+			require.NoError(t, err)
+			require.Equal(t, 0, actual.Cmp(tt.expected), "expected:", tt.expected.String(), "actual:", actual.String())
+		})
+	}
 
-	actual, err = v2.EstimateFeeJuels(callbackGasLimit, maxGasPriceGwei, big.NewInt(0))
+	actual, err := v2.EstimateFeeJuels(callbackGasLimit, v2.GasProofVerification, maxGasPriceWei, big.NewInt(0), 20)
 	require.Nil(t, actual)
 	require.Error(t, err)
+}
+
+func TestListener_EstimateFeeWei(t *testing.T) {
+	t.Parallel()
+	callbackGasLimit := uint32(150_000)
+	maxGasPriceWei := assets.GWei(30).ToInt()
+
+	tests := []struct {
+		name              string
+		gasOverhead       uint32
+		premiumPercentage uint32
+		expected          *big.Int
+	}{
+		{"no premium", v2.GasProofVerification, 0, big.NewInt(10500000000000000)},
+		{"default premium", v2.GasProofVerification, 20, big.NewInt(12600000000000000)},
+		{"max premium", v2.GasProofVerification, 155, big.NewInt(26775000000000000)},
+		{"gas overhead override", 250_000, 20, big.NewInt(14400000000000000)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			actual, err := v2.EstimateFeeWei(callbackGasLimit, tt.gasOverhead, maxGasPriceWei, tt.premiumPercentage)
+			require.NoError(t, err)
+			require.Equal(t, 0, actual.Cmp(tt.expected), "expected:", tt.expected.String(), "actual:", actual.String())
+		})
+	}
 }
 
 func TestListener_WorstCaseGasFloor(t *testing.T) {
