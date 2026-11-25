@@ -3061,11 +3061,6 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 			Success: true,
 			Credits: "10000",
 		}, nil)
-	billingClient.EXPECT().
-		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
-			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
-		})).
-		Return(&emptypb.Empty{}, nil).Maybe()
 	return billingClient
 }
 

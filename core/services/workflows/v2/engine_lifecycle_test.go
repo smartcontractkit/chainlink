@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/metric"
-	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
@@ -1173,6 +1172,5 @@ func newTestBillingClient(t *testing.T, reserveOK bool) *metmocks.BillingClient 
 		}, nil).Maybe()
 	client.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 		Return(&billing.ReserveCreditsResponse{Success: reserveOK, Credits: "10000"}, nil).Maybe()
-	client.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).Return(&emptypb.Empty{}, nil).Maybe()
 	return client
 }

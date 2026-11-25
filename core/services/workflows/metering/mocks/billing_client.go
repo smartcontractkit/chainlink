@@ -7,8 +7,6 @@ import (
 
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
-
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -198,65 +196,6 @@ func (_c *BillingClient_ReserveCredits_Call) Return(_a0 *billing.ReserveCreditsR
 }
 
 func (_c *BillingClient_ReserveCredits_Call) RunAndReturn(run func(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)) *BillingClient_ReserveCredits_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// SubmitWorkflowReceipt provides a mock function with given fields: _a0, _a1
-func (_m *BillingClient) SubmitWorkflowReceipt(_a0 context.Context, _a1 *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error) {
-	ret := _m.Called(_a0, _a1)
-
-	if len(ret) == 0 {
-		panic("no return value specified for SubmitWorkflowReceipt")
-	}
-
-	var r0 *emptypb.Empty
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)); ok {
-		return rf(_a0, _a1)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, *billing.SubmitWorkflowReceiptRequest) *emptypb.Empty); ok {
-		r0 = rf(_a0, _a1)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*emptypb.Empty)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, *billing.SubmitWorkflowReceiptRequest) error); ok {
-		r1 = rf(_a0, _a1)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// BillingClient_SubmitWorkflowReceipt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubmitWorkflowReceipt'
-type BillingClient_SubmitWorkflowReceipt_Call struct {
-	*mock.Call
-}
-
-// SubmitWorkflowReceipt is a helper method to define mock.On call
-//   - _a0 context.Context
-//   - _a1 *billing.SubmitWorkflowReceiptRequest
-func (_e *BillingClient_Expecter) SubmitWorkflowReceipt(_a0 interface{}, _a1 interface{}) *BillingClient_SubmitWorkflowReceipt_Call {
-	return &BillingClient_SubmitWorkflowReceipt_Call{Call: _e.mock.On("SubmitWorkflowReceipt", _a0, _a1)}
-}
-
-func (_c *BillingClient_SubmitWorkflowReceipt_Call) Run(run func(_a0 context.Context, _a1 *billing.SubmitWorkflowReceiptRequest)) *BillingClient_SubmitWorkflowReceipt_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*billing.SubmitWorkflowReceiptRequest))
-	})
-	return _c
-}
-
-func (_c *BillingClient_SubmitWorkflowReceipt_Call) Return(_a0 *emptypb.Empty, _a1 error) *BillingClient_SubmitWorkflowReceipt_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *BillingClient_SubmitWorkflowReceipt_Call) RunAndReturn(run func(context.Context, *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)) *BillingClient_SubmitWorkflowReceipt_Call {
 	_c.Call.Return(run)
 	return _c
 }

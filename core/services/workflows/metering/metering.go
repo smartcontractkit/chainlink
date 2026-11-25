@@ -15,10 +15,6 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
@@ -39,7 +35,7 @@ const (
 	EngineVersionV2 = "v2"
 
 	// defaultBillingCallTimeout bounds the blocking billing-service RPCs
-	// (GetWorkflowExecutionRates, ReserveCredits, SubmitWorkflowReceipt). The
+	// (GetWorkflowExecutionRates, ReserveCredits). The
 	// billing client itself sets no deadline, so without this a slow or hung
 	// billing call (e.g. an upstream proxy returning a 524) can stall workflow
 	// executions long enough to fall behind peer nodes and fail consensus. We
@@ -51,7 +47,6 @@ var (
 	ErrMissingLabels         = errors.New("missing required labels: owner, workflowID, workflowExecutionID")
 	ErrNoBillingClient       = errors.New("no billing client has been configured")
 	ErrInsufficientFunding   = errors.New("insufficient funding")
-	ErrReceiptFailed         = errors.New("failed to submit workflow receipt")
 	ErrNoReserve             = errors.New("must call Reserve first")
 	ErrStepDeductExists      = errors.New("step deduct already exists")
 	ErrNoOpenCalls           = errors.New("openConcurrentCallSlots must be greater than 0")
@@ -69,7 +64,6 @@ type BillingClient interface {
 	GetOrganizationCreditsByWorkflow(context.Context, *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)
 	GetWorkflowExecutionRates(context.Context, *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error)
 	ReserveCredits(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
-	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)
 }
 
 type SpendTuple struct {
@@ -141,11 +135,6 @@ type Report struct {
 	// This value is used for ALL workflows regardless of source (contract, GRPC, or file).
 	// TODO: CRE-1716, CRE-1717 - This is a temporary approach until we finalize multi-env billing plans.
 	workflowRegistryChainSelector uint64
-
-	// maxRetries is number of attempts to retry SubmitWorkflowReceipt
-	maxRetries int
-	// retryDelay is the delay between retries on SubmitWorkflowReceipt
-	retryDelay time.Duration
 }
 
 // Option configures metering report construction.
@@ -203,9 +192,6 @@ func NewReport(
 
 		reserved: false,
 		steps:    make(map[string]ReportStep),
-
-		maxRetries: 1,
-		retryDelay: 150 * time.Millisecond,
 	}
 
 	// for safety in evaluating the client interface.
@@ -641,90 +627,18 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 	return protoReport
 }
 
-// isRetryableError determines if an error is retryable based on gRPC status codes
-func isRetryableError(err error) bool {
-	switch status.Code(err) {
-	case codes.Unavailable, codes.DeadlineExceeded, codes.ResourceExhausted:
-		return true
-	default:
-		// includes code.Unknown + err == nil
-		return false
-	}
-}
-
 func (r *Report) isMeteringMode() bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.meteringMode
 }
 
-func (r *Report) SendReceipt(ctx context.Context) error {
-	if !r.reserved {
-		return ErrNoReserve
-	}
-
-	if r.client == nil {
-		return ErrNoBillingClient
-	}
-
-	r.metrics.UpdateWorkflowMeteringModeGauge(ctx, r.isMeteringMode())
-
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
-
-	req := billing.SubmitWorkflowReceiptRequest{
-		WorkflowOwner:                 r.labels[platform.KeyWorkflowOwner],
-		WorkflowId:                    r.labels[platform.KeyWorkflowID],
-		WorkflowExecutionId:           r.labels[platform.KeyWorkflowExecutionID],
-		WorkflowRegistryAddress:       r.workflowRegistryAddress,
-		WorkflowRegistryChainSelector: r.workflowRegistryChainSelector,
-		Metering:                      r.FormatReport(),
-		CreditsConsumed:               r.balance.GetSpent().String(),
-	}
-
-	var resp *emptypb.Empty
-	var err error
-
-	for attempt := 0; ; attempt++ {
-		receiptCtx, cancel := context.WithTimeout(ctx, defaultBillingCallTimeout)
-		resp, err = r.client.SubmitWorkflowReceipt(receiptCtx, &req)
-		cancel()
-		if err == nil {
-			break
-		}
-
-		if attempt >= r.maxRetries || !isRetryableError(err) {
-			break
-		}
-
-		r.lggr.Warnw("SubmitWorkflowReceipt failed, retrying",
-			"attempt", attempt+1,
-			"maxRetries", r.maxRetries+1,
-			"error", err,
-			"retryDelay", r.retryDelay)
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(r.retryDelay):
-			// Continue to next attempt
-		}
-	}
-
-	if err != nil {
-		return err
-	}
-
-	if resp == nil {
-		return ErrReceiptFailed
-	}
-
-	return nil
-}
-
 func (r *Report) EmitReceipt(ctx context.Context) error {
 	if !r.reserved {
 		return ErrNoReserve
 	}
+
+	r.metrics.UpdateWorkflowMeteringModeGauge(ctx, r.isMeteringMode())
 
 	rpt := r.FormatReport()
 
@@ -1060,12 +974,6 @@ func (s *Reports) End(ctx context.Context, workflowExecutionID string) error {
 	if emitErr != nil {
 		s.metrics.IncrementWorkflowMissingMeteringReport(ctx)
 		multiErr = errors.Join(multiErr, emitErr)
-	}
-
-	sendErr := report.SendReceipt(ctx)
-	if sendErr != nil {
-		s.metrics.IncrementWorkflowMissingMeteringReport(ctx)
-		multiErr = errors.Join(multiErr, sendErr)
 	}
 
 	delete(s.reports, workflowExecutionID)
