@@ -139,6 +139,7 @@ func TestAdminPauseAllByOwner(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			Owner:                     testOwner,
+			Limit:                     big.NewInt(1),
 		})
 		require.NoError(t, err, "preconditions should pass")
 		t.Log("Admin pause all by owner preconditions passed")
@@ -164,6 +165,7 @@ func TestAdminPauseAllByOwner(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			Owner:                     testOwner,
+			Limit:                     big.NewInt(1),
 			MCMSConfig: &contracts.MCMSConfig{
 				MinDelay: 30 * time.Second,
 				TimelockQualifierPerChain: map[uint64]string{
@@ -207,6 +209,7 @@ func TestAdminPauseAllByDON(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			DONFamily:                 testDONFamily,
+			Limit:                     big.NewInt(1),
 		})
 		require.NoError(t, err, "preconditions should pass")
 		t.Log("Admin pause all by DON preconditions passed")
@@ -232,6 +235,7 @@ func TestAdminPauseAllByDON(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
 			DONFamily:                 testDONFamily,
+			Limit:                     big.NewInt(1),
 			MCMSConfig: &contracts.MCMSConfig{
 				MinDelay: 1 * time.Second,
 				TimelockQualifierPerChain: map[uint64]string{
@@ -304,4 +308,132 @@ func TestAdminBatchPauseWorkflowsValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestAdminOmittedValues checks that required admin inputs left out are errors, and that a pause limit of 0
+// (which means "no limit, pause everything" on-chain) is accepted only when written out.
+func TestAdminOmittedValues(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupTest(t)
+	env := fixture.rt.Environment()
+	owner := common.HexToAddress("0x1234567890123456789012345678901234567890")
+	id := [32]byte{1}
+
+	t.Run("AdminPauseWorkflow", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			input   AdminPauseWorkflowInput
+			wantErr string
+		}{
+			{"valid", AdminPauseWorkflowInput{ChainSelector: fixture.selector, WorkflowRegistryQualifier: fixture.workflowRegistryQualifier, WorkflowID: id}, ""},
+			{"zero workflow id", AdminPauseWorkflowInput{ChainSelector: fixture.selector, WorkflowRegistryQualifier: fixture.workflowRegistryQualifier}, "workflowID must be set"},
+			{"qualifier omitted", AdminPauseWorkflowInput{ChainSelector: fixture.selector, WorkflowID: id}, "workflowRegistryQualifier must be set"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				err := AdminPauseWorkflow{}.VerifyPreconditions(env, tt.input)
+				if tt.wantErr == "" {
+					require.NoError(t, err)
+					return
+				}
+				require.ErrorContains(t, err, tt.wantErr)
+			})
+		}
+	})
+
+	t.Run("AdminBatchPauseWorkflows", func(t *testing.T) {
+		err := AdminBatchPauseWorkflows{}.VerifyPreconditions(env, AdminBatchPauseWorkflowsInput{
+			ChainSelector: fixture.selector, WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			WorkflowIDs: [][32]byte{id, {}},
+		})
+		require.ErrorContains(t, err, "all-zero ID")
+		err = AdminBatchPauseWorkflows{}.VerifyPreconditions(env, AdminBatchPauseWorkflowsInput{
+			ChainSelector: fixture.selector, WorkflowIDs: [][32]byte{id},
+		})
+		require.ErrorContains(t, err, "workflowRegistryQualifier must be set")
+	})
+
+	t.Run("AdminPauseAllByOwner", func(t *testing.T) {
+		base := func() AdminPauseAllByOwnerInput {
+			return AdminPauseAllByOwnerInput{ChainSelector: fixture.selector, WorkflowRegistryQualifier: fixture.workflowRegistryQualifier, Owner: owner, Limit: big.NewInt(10)}
+		}
+		tests := []struct {
+			name    string
+			mutate  func(*AdminPauseAllByOwnerInput)
+			wantErr string
+		}{
+			{"valid", func(*AdminPauseAllByOwnerInput) {}, ""},
+			{"explicit limit 0 (no limit) is allowed", func(i *AdminPauseAllByOwnerInput) { i.Limit = big.NewInt(0) }, ""},
+			{"limit omitted", func(i *AdminPauseAllByOwnerInput) { i.Limit = nil }, "limit must be set"},
+			{"negative limit", func(i *AdminPauseAllByOwnerInput) { i.Limit = big.NewInt(-1) }, "does not fit a uint256"},
+			{"limit above uint256", func(i *AdminPauseAllByOwnerInput) { i.Limit = new(big.Int).Lsh(big.NewInt(1), 256) }, "does not fit a uint256"},
+			{"owner omitted", func(i *AdminPauseAllByOwnerInput) { i.Owner = common.Address{} }, "owner must be set"},
+			{"qualifier omitted", func(i *AdminPauseAllByOwnerInput) { i.WorkflowRegistryQualifier = "" }, "workflowRegistryQualifier must be set"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				in := base()
+				tt.mutate(&in)
+				err := AdminPauseAllByOwner{}.VerifyPreconditions(env, in)
+				if tt.wantErr == "" {
+					require.NoError(t, err)
+					return
+				}
+				require.ErrorContains(t, err, tt.wantErr)
+			})
+		}
+
+		t.Run("explicit limit 0 goes through Apply", func(t *testing.T) {
+			in := base()
+			in.Limit = big.NewInt(0)
+			out, err := AdminPauseAllByOwner{}.Apply(env, in)
+			require.NoError(t, err)
+			require.Len(t, out.Reports, 1)
+		})
+		t.Run("omitted limit is rejected by Apply", func(t *testing.T) {
+			in := base()
+			in.Limit = nil
+			_, err := AdminPauseAllByOwner{}.Apply(env, in)
+			require.ErrorContains(t, err, "limit must be set")
+		})
+	})
+
+	t.Run("AdminPauseAllByDON", func(t *testing.T) {
+		base := func() AdminPauseAllByDONInput {
+			return AdminPauseAllByDONInput{ChainSelector: fixture.selector, WorkflowRegistryQualifier: fixture.workflowRegistryQualifier, DONFamily: "zone-a", Limit: big.NewInt(10)}
+		}
+		tests := []struct {
+			name    string
+			mutate  func(*AdminPauseAllByDONInput)
+			wantErr string
+		}{
+			{"valid", func(*AdminPauseAllByDONInput) {}, ""},
+			{"explicit limit 0 (no limit) is allowed", func(i *AdminPauseAllByDONInput) { i.Limit = big.NewInt(0) }, ""},
+			{"limit omitted", func(i *AdminPauseAllByDONInput) { i.Limit = nil }, "limit must be set"},
+			{"negative limit", func(i *AdminPauseAllByDONInput) { i.Limit = big.NewInt(-5) }, "does not fit a uint256"},
+			{"donFamily omitted", func(i *AdminPauseAllByDONInput) { i.DONFamily = "" }, "donFamily must be set"},
+			{"qualifier omitted", func(i *AdminPauseAllByDONInput) { i.WorkflowRegistryQualifier = "" }, "workflowRegistryQualifier must be set"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				in := base()
+				tt.mutate(&in)
+				err := AdminPauseAllByDON{}.VerifyPreconditions(env, in)
+				if tt.wantErr == "" {
+					require.NoError(t, err)
+					return
+				}
+				require.ErrorContains(t, err, tt.wantErr)
+			})
+		}
+
+		t.Run("explicit limit 0 goes through Apply", func(t *testing.T) {
+			in := base()
+			in.Limit = big.NewInt(0)
+			out, err := AdminPauseAllByDON{}.Apply(env, in)
+			require.NoError(t, err)
+			require.Len(t, out.Reports, 1)
+		})
+	})
 }

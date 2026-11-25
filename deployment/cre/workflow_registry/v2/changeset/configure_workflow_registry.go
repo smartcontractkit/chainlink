@@ -26,6 +26,18 @@ var _ cldf.ChangeSetV2[SetUserDONOverrideInput] = SetUserDONOverride{}
 var _ cldf.ChangeSetV2[BatchSetUserDONOverrideInput] = BatchSetUserDONOverride{}
 var _ cldf.ChangeSetV2[SetCapabilitiesRegistryInput] = SetCapabilitiesRegistry{}
 
+// validateRegistryTarget checks the two fields every registry changeset uses to find its registry.
+// Before, a missing chain selector or qualifier was only noticed (or not) by the datastore lookup.
+func validateRegistryTarget(chainSelector uint64, qualifier string) error {
+	if chainSelector == 0 {
+		return errors.New("chainSelector must be set")
+	}
+	if qualifier == "" {
+		return errors.New("workflowRegistryQualifier must be set: it picks which WorkflowRegistry to change")
+	}
+	return nil
+}
+
 // prepareWorkflowRegistryDeps loads MCMS state, EVM chain, registry contract, and the transaction
 // strategy needed to execute a workflow-registry operation. The returned deps is ready to pass to
 // operations.ExecuteOperation and the strategy is reachable via deps.Strategy for the subsequent
@@ -97,23 +109,45 @@ func finalizeWorkflowRegistryOutput(
 
 // SetConfigInput configures metadata validation settings for workflow registry v2
 type SetConfigInput struct {
-	ChainSelector             uint64                   `json:"chainSelector"`
-	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	NameLen                   uint8                    `json:"nameLen"`                   // Maximum length for workflow names
-	TagLen                    uint8                    `json:"tagLen"`                    // Maximum length for workflow tags
-	URLLen                    uint8                    `json:"urlLen"`                    // Maximum length for URLs
-	AttrLen                   uint16                   `json:"attrLen"`                   // Maximum length for attributes
-	ExpiryLen                 uint32                   `json:"expiryLen"`                 // Maximum expiry duration for allowlisted secret requests
-	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64 `json:"chainSelector"`
+	WorkflowRegistryQualifier string `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	// The five lengths are pointers and must all be set. On-chain 0 means "unlimited", so a length left out
+	// of the input used to silently remove that cap. Set 0 explicitly if you really want unlimited.
+	NameLen    *uint8                   `json:"nameLen"`              // Maximum length for workflow names (0 = unlimited)
+	TagLen     *uint8                   `json:"tagLen"`               // Maximum length for workflow tags (0 = unlimited)
+	URLLen     *uint8                   `json:"urlLen"`               // Maximum length for URLs (0 = unlimited)
+	AttrLen    *uint16                  `json:"attrLen"`              // Maximum length for attributes (0 = unlimited)
+	ExpiryLen  *uint32                  `json:"expiryLen"`            // Maximum expiry duration for allowlisted secret requests (0 = unlimited)
+	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"` // MCMS configuration
 }
 
 type SetConfig struct{}
 
 func (l SetConfig) VerifyPreconditions(e cldf.Environment, config SetConfigInput) error {
+	if err := validateRegistryTarget(config.ChainSelector, config.WorkflowRegistryQualifier); err != nil {
+		return err
+	}
+	const unset = "%s must be set explicitly: omitting it would have set it to 0, which means unlimited on-chain"
+	switch {
+	case config.NameLen == nil:
+		return fmt.Errorf(unset, "nameLen")
+	case config.TagLen == nil:
+		return fmt.Errorf(unset, "tagLen")
+	case config.URLLen == nil:
+		return fmt.Errorf(unset, "urlLen")
+	case config.AttrLen == nil:
+		return fmt.Errorf(unset, "attrLen")
+	case config.ExpiryLen == nil:
+		return fmt.Errorf(unset, "expiryLen")
+	}
 	return nil
 }
 
 func (l SetConfig) Apply(e cldf.Environment, config SetConfigInput) (cldf.ChangesetOutput, error) {
+	if err := l.VerifyPreconditions(e, config); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	// Get MCMS contracts if needed
 	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
@@ -158,11 +192,11 @@ func (l SetConfig) Apply(e cldf.Environment, config SetConfigInput) (cldf.Change
 		contracts.SetConfigOp, deps, contracts.SetConfigOpInput{
 			ChainSelector: config.ChainSelector,
 			Qualifier:     config.WorkflowRegistryQualifier,
-			NameLen:       config.NameLen,
-			TagLen:        config.TagLen,
-			URLLen:        config.URLLen,
-			AttrLen:       config.AttrLen,
-			ExpiryLen:     config.ExpiryLen,
+			NameLen:       *config.NameLen,
+			TagLen:        *config.TagLen,
+			URLLen:        *config.URLLen,
+			AttrLen:       *config.AttrLen,
+			ExpiryLen:     *config.ExpiryLen,
 			MCMSConfig:    config.MCMSConfig,
 		},
 	)
@@ -192,7 +226,7 @@ type UpdateAllowedSignersInput struct {
 	ChainSelector             uint64                   `json:"chainSelector"`
 	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
 	Signers                   []common.Address         `json:"signers"`                   // List of signer addresses
-	Allowed                   bool                     `json:"allowed"`                   // Whether to allow or disallow these signers
+	Allowed                   *bool                    `json:"allowed"`                   // Whether to allow or disallow these signers; must be set (a missing value used to mean false, which REMOVES the signers)
 	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
 	Description               string                   `json:"description,omitempty"`     // Description for MCMS proposal
 }
@@ -200,8 +234,19 @@ type UpdateAllowedSignersInput struct {
 type UpdateAllowedSigners struct{}
 
 func (l UpdateAllowedSigners) VerifyPreconditions(e cldf.Environment, config UpdateAllowedSignersInput) error {
+	if err := validateRegistryTarget(config.ChainSelector, config.WorkflowRegistryQualifier); err != nil {
+		return err
+	}
 	if len(config.Signers) == 0 {
 		return errors.New("must provide at least one signer")
+	}
+	for i, signer := range config.Signers {
+		if signer == (common.Address{}) {
+			return fmt.Errorf("signers[%d] is the zero address, which the contract rejects", i)
+		}
+	}
+	if config.Allowed == nil {
+		return errors.New("allowed must be set explicitly: omitting it would have meant false, which removes the listed signers")
 	}
 	return nil
 }
@@ -256,7 +301,7 @@ func (l UpdateAllowedSigners) Apply(e cldf.Environment, config UpdateAllowedSign
 			ChainSelector: config.ChainSelector,
 			Qualifier:     config.WorkflowRegistryQualifier,
 			Signers:       config.Signers,
-			Allowed:       config.Allowed,
+			Allowed:       *config.Allowed,
 
 			MCMSConfig: config.MCMSConfig,
 		},
@@ -294,10 +339,23 @@ type SetWorkflowOwnerConfigInput struct {
 type SetWorkflowOwnerConfig struct{}
 
 func (l SetWorkflowOwnerConfig) VerifyPreconditions(e cldf.Environment, config SetWorkflowOwnerConfigInput) error {
+	if err := validateRegistryTarget(config.ChainSelector, config.WorkflowRegistryQualifier); err != nil {
+		return err
+	}
+	if config.Owner == (common.Address{}) {
+		return errors.New("owner must be set: the zero address would write a config for nobody")
+	}
+	if len(config.Config) == 0 {
+		return errors.New("config must not be empty: omitting it would have overwritten the owner's stored config with empty bytes")
+	}
 	return nil
 }
 
 func (l SetWorkflowOwnerConfig) Apply(e cldf.Environment, config SetWorkflowOwnerConfigInput) (cldf.ChangesetOutput, error) {
+	if err := l.VerifyPreconditions(e, config); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	// Get MCMS contracts if needed
 	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
@@ -371,21 +429,43 @@ func (l SetWorkflowOwnerConfig) Apply(e cldf.Environment, config SetWorkflowOwne
 
 // SetDONLimitInput configures DON workflow limits
 type SetDONLimitInput struct {
-	ChainSelector             uint64                   `json:"chainSelector"`
-	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
-	DONFamily                 string                   `json:"donFamily"`                 // DON family identifier
-	DONLimit                  uint32                   `json:"donlimit"`                  // Maximum number of workflows per owner
-	UserDefaultLimit          uint32                   `json:"userDefaultLimit"`          // Whether the limit is enabled
-	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
+	ChainSelector             uint64 `json:"chainSelector"`
+	WorkflowRegistryQualifier string `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
+	DONFamily                 string `json:"donFamily"`                 // DON family identifier
+	// Both limits are pointers and must be set. On-chain a DON limit of 0 DISABLES the DON family and a user
+	// default of 0 means users get no active workflows by default, so a value left out of the input used to
+	// silently do that. Set 0 explicitly if you really want it.
+	DONLimit         *uint32                  `json:"donlimit"`             // Maximum number of active workflows on the DON family (0 = DON disabled)
+	UserDefaultLimit *uint32                  `json:"userDefaultLimit"`     // Default per-user limit of active workflows (0 = none unless overridden)
+	MCMSConfig       *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"` // MCMS configuration
 }
 
 type SetDONLimit struct{}
 
 func (l SetDONLimit) VerifyPreconditions(e cldf.Environment, config SetDONLimitInput) error {
+	if err := validateRegistryTarget(config.ChainSelector, config.WorkflowRegistryQualifier); err != nil {
+		return err
+	}
+	if config.DONFamily == "" {
+		return errors.New("donFamily must be set")
+	}
+	if config.DONLimit == nil {
+		return errors.New("donlimit must be set explicitly: omitting it would have set it to 0, which disables the DON family")
+	}
+	if config.UserDefaultLimit == nil {
+		return errors.New("userDefaultLimit must be set explicitly: omitting it would have set it to 0, so users get no active workflows on this DON family by default")
+	}
+	if *config.UserDefaultLimit > *config.DONLimit {
+		return fmt.Errorf("userDefaultLimit (%d) is above donlimit (%d); the contract reverts on this", *config.UserDefaultLimit, *config.DONLimit)
+	}
 	return nil
 }
 
 func (l SetDONLimit) Apply(e cldf.Environment, config SetDONLimitInput) (cldf.ChangesetOutput, error) {
+	if err := l.VerifyPreconditions(e, config); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	// Get MCMS contracts if needed
 	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
@@ -431,8 +511,8 @@ func (l SetDONLimit) Apply(e cldf.Environment, config SetDONLimitInput) (cldf.Ch
 			ChainSelector:    config.ChainSelector,
 			Qualifier:        config.WorkflowRegistryQualifier,
 			DONFamily:        config.DONFamily,
-			DONLimit:         config.DONLimit,
-			UserDefaultLimit: config.UserDefaultLimit,
+			DONLimit:         *config.DONLimit,
+			UserDefaultLimit: *config.UserDefaultLimit,
 			MCMSConfig:       config.MCMSConfig,
 		},
 	)
@@ -463,18 +543,36 @@ type SetUserDONOverrideInput struct {
 	WorkflowRegistryQualifier string                   `json:"workflowRegistryQualifier"` // Qualifier to identify the specific workflow registry
 	User                      common.Address           `json:"user"`                      // User address
 	DONFamily                 string                   `json:"donFamily"`                 // DON family identifier
-	Limit                     uint32                   `json:"limit"`                     // User-specific limit
-	Enabled                   bool                     `json:"enabled"`                   // Whether the override is enabled
+	Limit                     *uint32                  `json:"limit"`                     // User-specific limit; must be set when enabled is true
+	Enabled                   *bool                    `json:"enabled"`                   // Whether the override is enabled; must be set (a missing value used to mean false, which DELETES the override)
 	MCMSConfig                *crecontracts.MCMSConfig `json:"mcmsConfig,omitempty"`      // MCMS configuration
 }
 
 type SetUserDONOverride struct{}
 
 func (l SetUserDONOverride) VerifyPreconditions(e cldf.Environment, config SetUserDONOverrideInput) error {
-	return nil
+	if err := validateRegistryTarget(config.ChainSelector, config.WorkflowRegistryQualifier); err != nil {
+		return err
+	}
+	if config.User == (common.Address{}) {
+		return errors.New("user must be set: the zero address is not a real user")
+	}
+	if config.DONFamily == "" {
+		return errors.New("donFamily must be set")
+	}
+	_, _, err := contracts.SetUserDONOverrideEntry{Limit: config.Limit, Enabled: config.Enabled}.Resolve()
+	return err
 }
 
 func (l SetUserDONOverride) Apply(e cldf.Environment, config SetUserDONOverrideInput) (cldf.ChangesetOutput, error) {
+	if err := l.VerifyPreconditions(e, config); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	limit, enabled, err := contracts.SetUserDONOverrideEntry{Limit: config.Limit, Enabled: config.Enabled}.Resolve()
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	deps, err := prepareWorkflowRegistryDeps(e, config.ChainSelector, config.WorkflowRegistryQualifier, config.MCMSConfig, contracts.SetUserDONOverrideDescription)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
@@ -487,8 +585,8 @@ func (l SetUserDONOverride) Apply(e cldf.Environment, config SetUserDONOverrideI
 			Qualifier:     config.WorkflowRegistryQualifier,
 			User:          config.User,
 			DONFamily:     config.DONFamily,
-			Limit:         config.Limit,
-			Enabled:       config.Enabled,
+			Limit:         limit,
+			Enabled:       enabled,
 			MCMSConfig:    config.MCMSConfig,
 		},
 	)
@@ -515,6 +613,9 @@ type BatchSetUserDONOverrideInput struct {
 type BatchSetUserDONOverride struct{}
 
 func (l BatchSetUserDONOverride) VerifyPreconditions(e cldf.Environment, config BatchSetUserDONOverrideInput) error {
+	if err := validateRegistryTarget(config.ChainSelector, config.WorkflowRegistryQualifier); err != nil {
+		return err
+	}
 	if len(config.Overrides) == 0 {
 		return errors.New("must provide at least one override")
 	}
@@ -525,6 +626,9 @@ func (l BatchSetUserDONOverride) VerifyPreconditions(e cldf.Environment, config 
 		}
 		if entry.DONFamily == "" {
 			return fmt.Errorf("override[%d] (user %s): donFamily must not be empty", i, entry.User.Hex())
+		}
+		if _, _, err := entry.Resolve(); err != nil {
+			return fmt.Errorf("override[%d] (user %s): %w", i, entry.User.Hex(), err)
 		}
 		key := entry.User.Hex() + "|" + entry.DONFamily
 		if _, dup := seen[key]; dup {
@@ -576,10 +680,23 @@ type SetCapabilitiesRegistryInput struct {
 type SetCapabilitiesRegistry struct{}
 
 func (l SetCapabilitiesRegistry) VerifyPreconditions(e cldf.Environment, config SetCapabilitiesRegistryInput) error {
+	if err := validateRegistryTarget(config.ChainSelector, config.WorkflowRegistryQualifier); err != nil {
+		return err
+	}
+	if config.Registry == (common.Address{}) {
+		return errors.New("registry must be set: omitting it would have overwritten the capabilities registry address with the zero address")
+	}
+	if config.ChainSelectorDON == 0 {
+		return errors.New("chainSelectorDON must be set: omitting it would have overwritten the capabilities registry chain selector with 0")
+	}
 	return nil
 }
 
 func (l SetCapabilitiesRegistry) Apply(e cldf.Environment, config SetCapabilitiesRegistryInput) (cldf.ChangesetOutput, error) {
+	if err := l.VerifyPreconditions(e, config); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	// Get MCMS contracts if needed
 	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {

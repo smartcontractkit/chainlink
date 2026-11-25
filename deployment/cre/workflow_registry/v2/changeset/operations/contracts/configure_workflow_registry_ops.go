@@ -293,11 +293,32 @@ var SetUserDONOverrideOp = operations.NewOperation(
 // or assembles a single MCMS BatchOperation containing one transaction per override. Using a single
 // BatchOperation keeps the resulting proposal compact (1 batch, N transactions) instead of producing
 // N separate batch operations as repeated SetUserDONOverride calls would.
+//
+// Limit and Enabled are pointers so that a field left out of the input can be told apart from an explicit
+// zero/false. Before, a missing "enabled" silently became false, which DELETES the user's override.
 type SetUserDONOverrideEntry struct {
 	User      common.Address `json:"user"`
 	DONFamily string         `json:"donFamily"`
-	Limit     uint32         `json:"limit"`
-	Enabled   bool           `json:"enabled"`
+	Limit     *uint32        `json:"limit"`
+	Enabled   *bool          `json:"enabled"`
+}
+
+// Resolve checks that the entry was fully specified and returns the plain values to send on-chain.
+// "enabled" must always be set. "limit" must be set when enabled is true (the contract stores it, and 0 would
+// block that user from having any active workflow on the DON); when enabled is false the contract ignores
+// the limit, so it may be left out.
+func (e SetUserDONOverrideEntry) Resolve() (limit uint32, enabled bool, err error) {
+	if e.Enabled == nil {
+		return 0, false, errors.New("enabled must be set explicitly: omitting it would have meant false, which removes the user's DON override")
+	}
+	enabled = *e.Enabled
+	if e.Limit == nil {
+		if enabled {
+			return 0, false, errors.New("limit must be set when enabled is true: omitting it would have set a limit of 0, blocking the user from having any active workflow on this DON")
+		}
+		return 0, false, nil
+	}
+	return *e.Limit, enabled, nil
 }
 
 type BatchSetUserDONOverrideOpInput struct {
@@ -358,7 +379,11 @@ var BatchSetUserDONOverrideOp = operations.NewOperation(
 
 		var mcmsTxs []mcmstypes.Transaction
 		for _, entry := range input.Overrides {
-			tx, err := deps.Registry.SetUserDONOverride(txOpts, entry.User, entry.DONFamily, entry.Limit, entry.Enabled)
+			limit, enabled, rErr := entry.Resolve()
+			if rErr != nil {
+				return BatchSetUserDONOverrideOpOutput{}, fmt.Errorf("invalid override for %s: %w", entry.User.Hex(), rErr)
+			}
+			tx, err := deps.Registry.SetUserDONOverride(txOpts, entry.User, entry.DONFamily, limit, enabled)
 			if err != nil {
 				err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
 				return BatchSetUserDONOverrideOpOutput{}, fmt.Errorf("failed to build SetUserDONOverride for %s: %w", entry.User.Hex(), err)
@@ -451,15 +476,22 @@ func GetWorkflowRegistryV2FromDatastore(env *cldf.Environment, chainSelector uin
 		return nil, fmt.Errorf("no addresses found for chain selector %d", chainSelector)
 	}
 
+	// The qualifier must pick out exactly one WorkflowRegistry. Before, the first match won, so an empty or
+	// ambiguous qualifier silently targeted whichever registry the datastore happened to list first.
 	var registryAddr common.Address
-	found := false
+	matches := 0
 	for _, addr := range addresses {
 		if addr.Type == "WorkflowRegistry" && addr.Qualifier == qualifier {
+			matches++
 			registryAddr = common.HexToAddress(addr.Address)
-			found = true
-			env.Logger.Infof("Found WorkflowRegistry at %s with qualifier %s", addr.Address, qualifier)
-			break
 		}
+	}
+	if matches > 1 {
+		return nil, fmt.Errorf("found %d WorkflowRegistry address refs for chain selector %d and qualifier %q; the qualifier must match exactly one", matches, chainSelector, qualifier)
+	}
+	found := matches == 1
+	if found {
+		env.Logger.Infof("Found WorkflowRegistry at %s with qualifier %s", registryAddr.Hex(), qualifier)
 	}
 
 	if !found {
