@@ -220,6 +220,46 @@ func TestDeleteDONChangeset_VerifyPreconditions_EmptyList(t *testing.T) {
 	assert.Contains(t, err.Error(), "must provide at least one DON name")
 }
 
+func TestDeleteDONChangeset_VerifyPreconditions_DuplicateNames(t *testing.T) {
+	t.Parallel()
+	var cs changeset.DeleteDONs
+	// duplicates are rejected before the registry is read, so an empty environment is enough
+	err := cs.VerifyPreconditions(cldf.Environment{}, changeset.DeleteDONsInput{
+		RegistryQualifier: "q",
+		RegistryChainSel:  1,
+		DonNames:          []string{"a", "b", "a"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate")
+	assert.Contains(t, err.Error(), "a")
+}
+
+func TestDeleteDONChangeset_VerifyPreconditions_MissingDON(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForDeleteDON(t, false)
+
+	err := changeset.DeleteDONs{}.VerifyPreconditions(fx.env, changeset.DeleteDONsInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DonNames:          []string{fx.donNames[0], "no-such-don", "also-missing"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no-such-don")
+	assert.Contains(t, err.Error(), "also-missing")
+	assert.NotContains(t, err.Error(), fx.donNames[0])
+}
+
+func TestDeleteDONChangeset_VerifyPreconditions_ExistingDONs(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForDeleteDON(t, true)
+
+	require.NoError(t, changeset.DeleteDONs{}.VerifyPreconditions(fx.env, changeset.DeleteDONsInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DonNames:          fx.donNames,
+	}))
+}
+
 func TestDeleteDONChangeset_Apply_MissingDON_Fails(t *testing.T) {
 	t.Parallel()
 

@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
+var errClearChainsRequired = errors.New("chains must be non-empty: an empty list used to mean every chain in the environment, the chains to clear must now be listed explicitly")
+
 type ClearConfigSeqDeps struct {
 	Env *cldf.Environment
 }
@@ -32,7 +34,9 @@ type ClearConfigSeqInput struct {
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *contracts.MCMSConfig
-	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
+	// Chains is required and must be non-empty. It lists the chains whose forwarders get cleared.
+	// An empty list used to mean "every chain loaded in the environment", so a wrong DON id cleared
+	// that DON from every forwarder at once; it is now rejected.
 	Chains map[uint64]struct{}
 }
 
@@ -50,11 +54,16 @@ var ClearConfigSeq = operations.NewSequence[ClearConfigSeqInput, ClearConfigSeqO
 	semver.MustParse("1.0.0"),
 	"Clear Keystone Forwarders Config",
 	func(b operations.Bundle, deps ClearConfigSeqDeps, input ClearConfigSeqInput) (ClearConfigSeqOutput, error) {
+		// Checked here as well as in the changeset so no caller can reach "all chains" by calling the sequence directly.
+		if len(input.Chains) == 0 {
+			return ClearConfigSeqOutput{}, errClearChainsRequired
+		}
+
 		evmChain := deps.Env.BlockChains.EVMChains()
 
 		var out ClearConfigSeqOutput
 		for _, chain := range evmChain {
-			if _, shouldInclude := input.Chains[chain.Selector]; len(input.Chains) > 0 && !shouldInclude {
+			if _, shouldInclude := input.Chains[chain.Selector]; !shouldInclude {
 				continue
 			}
 
@@ -183,6 +192,9 @@ type ClearForwardersConfig struct{}
 var _ cldf.ChangeSetV2[ClearConfigSeqInput] = ClearForwardersConfig{}
 
 func (c ClearForwardersConfig) VerifyPreconditions(e cldf.Environment, config ClearConfigSeqInput) error {
+	if len(config.Chains) == 0 {
+		return errClearChainsRequired
+	}
 	for chainSel := range config.Chains {
 		if _, ok := e.BlockChains.EVMChains()[chainSel]; !ok {
 			return fmt.Errorf("chain selector %d not found in environment", chainSel)

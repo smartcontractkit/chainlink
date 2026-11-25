@@ -57,15 +57,19 @@ func TestClearConfigSeq(t *testing.T) {
 	requireLatestConfig(t, env, h.RegistrySelector, donConfig.ID, donConfig.Version, 0)
 }
 
-// TestClearForwardersConfig covers the changeset wrapper and, by passing an empty Chains map,
-// pins the documented "empty means all available chains" behaviour.
+// TestClearForwardersConfig_AllChains lists every chain explicitly: an empty Chains used to mean all
+// chains and is now rejected (see the empty-chains test below).
 func TestClearForwardersConfig_AllChains(t *testing.T) {
 	h, donConfig := setupForwarderTest(t, false)
+	allChains := map[uint64]struct{}{}
+	for sel := range h.Runtime.Environment().BlockChains.EVMChains() {
+		allChains[sel] = struct{}{}
+	}
 
 	err := h.Runtime.Exec(runtime.ChangesetTask(forwarder.ConfigureForwarders{}, forwarder.ConfigureSeqInput{
 		DON:       donConfig,
 		Qualifier: setupForwarderQualifier,
-		Chains:    map[uint64]struct{}{}, // Empty means all chains
+		Chains:    allChains,
 	}))
 	require.NoError(t, err, "configure changeset apply failed")
 
@@ -73,7 +77,7 @@ func TestClearForwardersConfig_AllChains(t *testing.T) {
 		DonID:         donConfig.ID,
 		ConfigVersion: donConfig.Version,
 		Qualifier:     setupForwarderQualifier,
-		Chains:        map[uint64]struct{}{}, // Empty means all chains
+		Chains:        allChains,
 	})
 	require.NoError(t, h.Runtime.Exec(task), "clear changeset apply failed")
 
@@ -85,6 +89,28 @@ func TestClearForwardersConfig_AllChains(t *testing.T) {
 	env := h.Runtime.Environment()
 	for chainSel := range env.BlockChains.EVMChains() {
 		requireLatestConfig(t, env, chainSel, donConfig.ID, donConfig.Version, 0)
+	}
+}
+
+// TestClearForwardersConfig_EmptyChainsRejected pins that an empty chain list is refused both by the
+// changeset precondition and by the sequence itself.
+func TestClearForwardersConfig_EmptyChainsRejected(t *testing.T) {
+	h, donConfig := setupForwarderTest(t, false)
+	env := h.Runtime.Environment()
+
+	for _, chains := range []map[uint64]struct{}{nil, {}} {
+		input := forwarder.ClearConfigSeqInput{
+			DonID:         donConfig.ID,
+			ConfigVersion: donConfig.Version,
+			Qualifier:     setupForwarderQualifier,
+			Chains:        chains,
+		}
+		err := forwarder.ClearForwardersConfig{}.VerifyPreconditions(env, input)
+		require.ErrorContains(t, err, "chains must be non-empty")
+
+		_, err = operations.ExecuteSequence(optest.NewBundle(t), forwarder.ClearConfigSeq,
+			forwarder.ClearConfigSeqDeps{Env: &env}, input)
+		require.ErrorContains(t, err, "chains must be non-empty")
 	}
 }
 
@@ -200,8 +226,9 @@ func TestClearForwardersConfig_VerifyPreconditions(t *testing.T) {
 			mutate: func(*forwarder.ClearConfigSeqInput) {},
 		},
 		{
-			name:   "no chains means all chains",
-			mutate: func(in *forwarder.ClearConfigSeqInput) { in.Chains = nil },
+			name:    "no chains is rejected",
+			mutate:  func(in *forwarder.ClearConfigSeqInput) { in.Chains = nil },
+			wantErr: "chains must be non-empty",
 		},
 		{
 			name:    "unknown chain selector",
