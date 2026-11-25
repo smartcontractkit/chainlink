@@ -273,6 +273,7 @@ type VRFSpec struct {
 	GasLanePrice                  *assets.Wei           `json:"gasLanePrice"`
 	RequestedConfsDelay           int64                 `json:"requestedConfsDelay"`
 	GasOverhead                   *uint32               `json:"gasOverhead,omitempty"`
+	PremiumPercentage             *uint32               `json:"premiumPercentage,omitempty"`
 	VRFOwnerAddress               *types.EIP55Address   `json:"vrfOwnerAddress,omitempty"`
 }
 
@@ -297,6 +298,7 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 		GasLanePrice:                  spec.GasLanePrice,
 		RequestedConfsDelay:           spec.RequestedConfsDelay,
 		GasOverhead:                   spec.GasOverhead,
+		PremiumPercentage:             spec.PremiumPercentage,
 		VRFOwnerAddress:               spec.VRFOwnerAddress,
 	}
 }
