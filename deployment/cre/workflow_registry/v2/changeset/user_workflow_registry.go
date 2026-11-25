@@ -7,11 +7,15 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -96,8 +100,12 @@ func (u UserWorkflowUpsert) Apply(e cldf.Environment, config UserWorkflowUpsertI
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
 	}
 
+	if err = verifySenderIsLinkedOwner(chain, registry, config.MCMSConfig, mcmsContracts); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -188,8 +196,12 @@ func (u UserWorkflowPause) Apply(e cldf.Environment, config UserWorkflowPauseInp
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
 	}
 
+	if err = verifySenderIsLinkedOwner(chain, registry, config.MCMSConfig, mcmsContracts); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -285,8 +297,12 @@ func (u UserWorkflowBatchPause) Apply(e cldf.Environment, config UserWorkflowBat
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
 	}
 
+	if err = verifySenderIsLinkedOwner(chain, registry, config.MCMSConfig, mcmsContracts); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -383,8 +399,12 @@ func (u UserWorkflowActivate) Apply(e cldf.Environment, config UserWorkflowActiv
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
 	}
 
+	if err = verifySenderIsLinkedOwner(chain, registry, config.MCMSConfig, mcmsContracts); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -468,8 +488,12 @@ func (u UserWorkflowDelete) Apply(e cldf.Environment, config UserWorkflowDeleteI
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
 	}
 
+	if err = verifySenderIsLinkedOwner(chain, registry, config.MCMSConfig, mcmsContracts); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -565,7 +589,7 @@ func (u UserLinkOwner) Apply(e cldf.Environment, config UserLinkOwnerInput) (cld
 	}
 
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -663,7 +687,7 @@ func (u UserUnlinkOwner) Apply(e cldf.Environment, config UserUnlinkOwnerInput) 
 	}
 
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -756,8 +780,12 @@ func (u UserAllowlistRequest) Apply(e cldf.Environment, config UserAllowlistRequ
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
 	}
 
+	if err = verifySenderIsLinkedOwner(chain, registry, config.MCMSConfig, mcmsContracts); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		e,
 		config.MCMSConfig,
@@ -804,4 +832,41 @@ func (u UserAllowlistRequest) Apply(e cldf.Environment, config UserAllowlistRequ
 	return cldf.ChangesetOutput{
 		Reports: []operations.Report[any, any]{report.ToGenericReport()},
 	}, nil
+}
+
+// verifySenderIsLinkedOwner fails when the account that will send a user workflow call is not linked as
+// a workflow owner in the registry. The sender is the timelock when mcmsConfig is set and the deployer
+// key otherwise. The registry rejects these calls from an unlinked account, so without this check an
+// MCMS proposal from the wrong timelock is signed first and only reverts when it executes.
+func verifySenderIsLinkedOwner(
+	chain cldf_evm.Chain,
+	registry *workflow_registry_wrapper_v2.WorkflowRegistry,
+	mcmsConfig *crecontracts.MCMSConfig,
+	mcmsContracts *evmstate.MCMSWithTimelockState,
+) error {
+	var sender common.Address
+	var kind string
+	switch {
+	case mcmsConfig != nil:
+		if mcmsContracts == nil || mcmsContracts.Timelock == nil {
+			return errors.New("MCMS contracts are missing the timelock")
+		}
+		sender, kind = mcmsContracts.Timelock.Address(), "timelock"
+	case chain.DeployerKey != nil:
+		sender, kind = chain.DeployerKey.From, "deployer key"
+	default:
+		return errors.New("chain has no deployer key and mcmsConfig is not set")
+	}
+
+	linked, err := registry.IsOwnerLinked(&bind.CallOpts{}, sender)
+	if err != nil {
+		return fmt.Errorf("failed to read isOwnerLinked(%s) from workflow registry %s: %w", sender, registry.Address(), err)
+	}
+	if !linked {
+		return fmt.Errorf("%s %s is not a linked workflow owner in workflow registry %s on chain %d, so the registry would reject this call: "+
+			"link it first (and execute that proposal, if it went through MCMS), or fix mcmsConfig to name the linked owner",
+			kind, sender, registry.Address(), chain.Selector)
+	}
+
+	return nil
 }

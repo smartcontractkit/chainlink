@@ -237,7 +237,7 @@ func TestSetUserDONOverride(t *testing.T) {
 	})
 
 	t.Run("set user DON override with MCMS", func(t *testing.T) {
-		fixture := setupTestWithMCMS(t)
+		fixture := setupTest(t)
 
 		// set DON limit first
 		_, err := SetDONLimit{}.Apply(fixture.rt.Environment(), SetDONLimitInput{
@@ -249,6 +249,7 @@ func TestSetUserDONOverride(t *testing.T) {
 			MCMSConfig:                nil,
 		})
 		require.NoError(t, err, "set DON limit should succeed")
+		handOverToMCMS(t, fixture)
 
 		t.Log("Starting set user DON override with MCMS...")
 		output, err := SetUserDONOverride{}.Apply(fixture.rt.Environment(), SetUserDONOverrideInput{
@@ -364,7 +365,7 @@ func TestBatchSetUserDONOverride(t *testing.T) {
 	})
 
 	t.Run("batch set user DON override with MCMS produces single BatchOperation", func(t *testing.T) {
-		fixture := setupTestWithMCMS(t)
+		fixture := setupTest(t)
 
 		// set DON limit first
 		_, err := SetDONLimit{}.Apply(fixture.rt.Environment(), SetDONLimitInput{
@@ -376,6 +377,7 @@ func TestBatchSetUserDONOverride(t *testing.T) {
 			MCMSConfig:                nil,
 		})
 		require.NoError(t, err, "set DON limit should succeed")
+		handOverToMCMS(t, fixture)
 
 		overrides := makeOverrides()
 		t.Log("Starting batch set user DON override with MCMS...")

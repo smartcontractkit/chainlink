@@ -326,12 +326,21 @@ func setupMCMSInfrastructure(t *testing.T, h *Harness) {
 
 	t.Log("MCMS infrastructure deployed successfully")
 
+	TransferOwnershipToMCMS(t, h.Runtime, h.RegistrySelector)
+}
+
+// TransferOwnershipToMCMS hands every transferable CRE contract in the runtime's datastore on the
+// given chain to the already deployed timelock and executes the accept-ownership proposal.
+// Do any deployer-side setup of those contracts before calling it.
+func TransferOwnershipToMCMS(t *testing.T, rt *runtime.Runtime, selector uint64) {
+	t.Helper()
+
 	t.Log("Transferring ownership to MCMS...")
-	err = h.Runtime.Exec(
+	err := rt.Exec(
 		runtime.ChangesetTask(
 			cldf.CreateLegacyChangeSet(changeset3.AcceptAllOwnershipsProposal),
 			&changeset3.AcceptAllOwnershipRequest{
-				ChainSelector: h.RegistrySelector,
+				ChainSelector: selector,
 				MinDelay:      0,
 			},
 		),
