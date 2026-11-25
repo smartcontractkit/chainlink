@@ -26,11 +26,11 @@ func TestSetConfig(t *testing.T) {
 		output, err := SetConfig{}.Apply(fixture.rt.Environment(), SetConfigInput{
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
-			NameLen:                   ptr[uint8](32),
-			TagLen:                    ptr[uint8](16),
-			URLLen:                    ptr[uint8](128),
-			AttrLen:                   ptr[uint16](256),
-			ExpiryLen:                 ptr[uint32](604800),
+			NameLen:                   new(uint8(32)),
+			TagLen:                    new(uint8(16)),
+			URLLen:                    new(uint8(128)),
+			AttrLen:                   new(uint16(256)),
+			ExpiryLen:                 new(uint32(604800)),
 			MCMSConfig:                nil,
 		})
 		t.Logf("Metadata config result: err=%v, output=%v", err, output)
@@ -46,11 +46,11 @@ func TestSetConfig(t *testing.T) {
 		output, err := SetConfig{}.Apply(fixture.rt.Environment(), SetConfigInput{
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
-			NameLen:                   ptr[uint8](32),
-			TagLen:                    ptr[uint8](16),
-			URLLen:                    ptr[uint8](128),
-			AttrLen:                   ptr[uint16](256),
-			ExpiryLen:                 ptr[uint32](604800),
+			NameLen:                   new(uint8(32)),
+			TagLen:                    new(uint8(16)),
+			URLLen:                    new(uint8(128)),
+			AttrLen:                   new(uint16(256)),
+			ExpiryLen:                 new(uint32(604800)),
 			MCMSConfig: &crecontracts.MCMSConfig{
 				MinDelay: 30 * time.Second,
 				TimelockQualifierPerChain: map[uint64]string{
@@ -80,7 +80,7 @@ func TestUpdateAllowedSigners(t *testing.T) {
 				common.HexToAddress("0x1234567890123456789012345678901234567890"),
 				common.HexToAddress("0x2234567890123456789012345678901234567890"),
 			},
-			Allowed:    ptr(true),
+			Allowed:    new(true),
 			MCMSConfig: nil,
 		})
 		t.Logf("Update allowed signers result: err=%v, output=%v", err, output)
@@ -99,7 +99,7 @@ func TestUpdateAllowedSigners(t *testing.T) {
 			Signers: []common.Address{
 				common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			},
-			Allowed: ptr(true),
+			Allowed: new(true),
 			MCMSConfig: &crecontracts.MCMSConfig{
 				MinDelay: 30 * time.Second,
 				TimelockQualifierPerChain: map[uint64]string{
@@ -170,8 +170,8 @@ func TestSetDONLimit(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			DONFamily:                 "test-don-family",
-			DONLimit:                  ptr[uint32](10),
-			UserDefaultLimit:          ptr[uint32](5),
+			DONLimit:                  new(uint32(10)),
+			UserDefaultLimit:          new(uint32(5)),
 			MCMSConfig:                nil,
 		})
 		t.Logf("Set DON limit result: err=%v, output=%v", err, output)
@@ -188,8 +188,8 @@ func TestSetDONLimit(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			DONFamily:                 "test-don-family",
-			DONLimit:                  ptr[uint32](10),
-			UserDefaultLimit:          ptr[uint32](5),
+			DONLimit:                  new(uint32(10)),
+			UserDefaultLimit:          new(uint32(5)),
 			MCMSConfig: &crecontracts.MCMSConfig{
 				MinDelay: 30 * time.Second,
 				TimelockQualifierPerChain: map[uint64]string{
@@ -216,8 +216,8 @@ func TestSetUserDONOverride(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			DONFamily:                 "test-don-family",
-			DONLimit:                  ptr[uint32](10),
-			UserDefaultLimit:          ptr[uint32](5),
+			DONLimit:                  new(uint32(10)),
+			UserDefaultLimit:          new(uint32(5)),
 			MCMSConfig:                nil,
 		})
 		require.NoError(t, err, "set DON limit should succeed")
@@ -228,8 +228,8 @@ func TestSetUserDONOverride(t *testing.T) {
 			User:                      common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			DONFamily:                 "test-don-family",
-			Limit:                     ptr[uint32](5),
-			Enabled:                   ptr(true),
+			Limit:                     new(uint32(5)),
+			Enabled:                   new(true),
 			MCMSConfig:                nil,
 		})
 		t.Logf("Set user DON override result: err=%v, output=%v", err, output)
@@ -246,8 +246,8 @@ func TestSetUserDONOverride(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			DONFamily:                 "test-don-family",
-			DONLimit:                  ptr[uint32](10),
-			UserDefaultLimit:          ptr[uint32](5),
+			DONLimit:                  new(uint32(10)),
+			UserDefaultLimit:          new(uint32(5)),
 			MCMSConfig:                nil,
 		})
 		require.NoError(t, err, "set DON limit should succeed")
@@ -258,8 +258,8 @@ func TestSetUserDONOverride(t *testing.T) {
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			User:                      common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			DONFamily:                 "test-don-family",
-			Limit:                     ptr[uint32](5),
-			Enabled:                   ptr(true),
+			Limit:                     new(uint32(5)),
+			Enabled:                   new(true),
 			MCMSConfig: &crecontracts.MCMSConfig{
 				MinDelay: 30 * time.Second,
 				TimelockQualifierPerChain: map[uint64]string{
@@ -281,9 +281,9 @@ func TestBatchSetUserDONOverride(t *testing.T) {
 	// A small but non-trivial set of overrides reused across subtests.
 	makeOverrides := func() []contracts.SetUserDONOverrideEntry {
 		return []contracts.SetUserDONOverrideEntry{
-			{User: common.HexToAddress("0x1111111111111111111111111111111111111111"), DONFamily: "test-don-family", Limit: ptr[uint32](5), Enabled: ptr(true)},
-			{User: common.HexToAddress("0x2222222222222222222222222222222222222222"), DONFamily: "test-don-family", Limit: ptr[uint32](7), Enabled: ptr(true)},
-			{User: common.HexToAddress("0x3333333333333333333333333333333333333333"), DONFamily: "test-don-family", Limit: ptr[uint32](9), Enabled: ptr(false)},
+			{User: common.HexToAddress("0x1111111111111111111111111111111111111111"), DONFamily: "test-don-family", Limit: new(uint32(5)), Enabled: new(true)},
+			{User: common.HexToAddress("0x2222222222222222222222222222222222222222"), DONFamily: "test-don-family", Limit: new(uint32(7)), Enabled: new(true)},
+			{User: common.HexToAddress("0x3333333333333333333333333333333333333333"), DONFamily: "test-don-family", Limit: new(uint32(9)), Enabled: new(false)},
 		}
 	}
 
@@ -303,7 +303,7 @@ func TestBatchSetUserDONOverride(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Overrides: []contracts.SetUserDONOverrideEntry{
-				{User: common.Address{}, DONFamily: "test-don-family", Limit: ptr[uint32](1), Enabled: ptr(true)},
+				{User: common.Address{}, DONFamily: "test-don-family", Limit: new(uint32(1)), Enabled: new(true)},
 			},
 		})
 		require.Error(t, err)
@@ -315,7 +315,7 @@ func TestBatchSetUserDONOverride(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Overrides: []contracts.SetUserDONOverrideEntry{
-				{User: common.HexToAddress("0x1111111111111111111111111111111111111111"), DONFamily: "", Limit: ptr[uint32](1), Enabled: ptr(true)},
+				{User: common.HexToAddress("0x1111111111111111111111111111111111111111"), DONFamily: "", Limit: new(uint32(1)), Enabled: new(true)},
 			},
 		})
 		require.Error(t, err)
@@ -328,8 +328,8 @@ func TestBatchSetUserDONOverride(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			Overrides: []contracts.SetUserDONOverrideEntry{
-				{User: dup, DONFamily: "test-don-family", Limit: ptr[uint32](1), Enabled: ptr(true)},
-				{User: dup, DONFamily: "test-don-family", Limit: ptr[uint32](2), Enabled: ptr(false)},
+				{User: dup, DONFamily: "test-don-family", Limit: new(uint32(1)), Enabled: new(true)},
+				{User: dup, DONFamily: "test-don-family", Limit: new(uint32(2)), Enabled: new(false)},
 			},
 		})
 		require.Error(t, err)
@@ -343,8 +343,8 @@ func TestBatchSetUserDONOverride(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			DONFamily:                 "test-don-family",
-			DONLimit:                  ptr[uint32](100),
-			UserDefaultLimit:          ptr[uint32](5),
+			DONLimit:                  new(uint32(100)),
+			UserDefaultLimit:          new(uint32(5)),
 			MCMSConfig:                nil,
 		})
 		require.NoError(t, err, "set DON limit should succeed")
@@ -373,8 +373,8 @@ func TestBatchSetUserDONOverride(t *testing.T) {
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 			DONFamily:                 "test-don-family",
-			DONLimit:                  ptr[uint32](100),
-			UserDefaultLimit:          ptr[uint32](5),
+			DONLimit:                  new(uint32(100)),
+			UserDefaultLimit:          new(uint32(5)),
 			MCMSConfig:                nil,
 		})
 		require.NoError(t, err, "set DON limit should succeed")
@@ -587,11 +587,11 @@ func TestConfigureWorkflowRegistryValidation(t *testing.T) {
 				input: SetConfigInput{
 					ChainSelector:             fixture.selector,
 					WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
-					NameLen:                   ptr[uint8](32),
-					TagLen:                    ptr[uint8](16),
-					URLLen:                    ptr[uint8](128),
-					AttrLen:                   ptr[uint16](256),
-					ExpiryLen:                 ptr[uint32](604800),
+					NameLen:                   new(uint8(32)),
+					TagLen:                    new(uint8(16)),
+					URLLen:                    new(uint8(128)),
+					AttrLen:                   new(uint16(256)),
+					ExpiryLen:                 new(uint32(604800)),
 					MCMSConfig:                nil,
 				},
 				expectError: false,
@@ -626,11 +626,11 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 			return SetConfigInput{
 				ChainSelector:             fixture.selector,
 				WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
-				NameLen:                   ptr[uint8](32),
-				TagLen:                    ptr[uint8](16),
-				URLLen:                    ptr[uint8](128),
-				AttrLen:                   ptr[uint16](256),
-				ExpiryLen:                 ptr[uint32](604800),
+				NameLen:                   new(uint8(32)),
+				TagLen:                    new(uint8(16)),
+				URLLen:                    new(uint8(128)),
+				AttrLen:                   new(uint16(256)),
+				ExpiryLen:                 new(uint32(604800)),
 			}
 		}
 		tests := []struct {
@@ -640,7 +640,7 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 		}{
 			{"all set", func(*SetConfigInput) {}, ""},
 			{"all explicitly zero (unlimited) is allowed", func(i *SetConfigInput) {
-				i.NameLen, i.TagLen, i.URLLen, i.AttrLen, i.ExpiryLen = ptr[uint8](0), ptr[uint8](0), ptr[uint8](0), ptr[uint16](0), ptr[uint32](0)
+				i.NameLen, i.TagLen, i.URLLen, i.AttrLen, i.ExpiryLen = new(uint8(0)), new(uint8(0)), new(uint8(0)), new(uint16(0)), new(uint32(0))
 			}, ""},
 			{"nameLen omitted", func(i *SetConfigInput) { i.NameLen = nil }, "nameLen must be set"},
 			{"tagLen omitted", func(i *SetConfigInput) { i.TagLen = nil }, "tagLen must be set"},
@@ -665,7 +665,7 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 
 		t.Run("explicit zeros go through Apply", func(t *testing.T) {
 			in := valid()
-			in.NameLen, in.TagLen, in.URLLen, in.AttrLen, in.ExpiryLen = ptr[uint8](0), ptr[uint8](0), ptr[uint8](0), ptr[uint16](0), ptr[uint32](0)
+			in.NameLen, in.TagLen, in.URLLen, in.AttrLen, in.ExpiryLen = new(uint8(0)), new(uint8(0)), new(uint8(0)), new(uint16(0)), new(uint32(0))
 			out, err := SetConfig{}.Apply(env, in)
 			require.NoError(t, err)
 			require.Len(t, out.Reports, 1)
@@ -684,7 +684,7 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 				ChainSelector:             fixture.selector,
 				WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 				Signers:                   []common.Address{owner},
-				Allowed:                   ptr(true),
+				Allowed:                   new(true),
 			}
 		}
 		tests := []struct {
@@ -693,7 +693,7 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 			wantErr string
 		}{
 			{"allowed true", func(*UpdateAllowedSignersInput) {}, ""},
-			{"allowed explicitly false (remove) is allowed", func(i *UpdateAllowedSignersInput) { i.Allowed = ptr(false) }, ""},
+			{"allowed explicitly false (remove) is allowed", func(i *UpdateAllowedSignersInput) { i.Allowed = new(false) }, ""},
 			{"allowed omitted", func(i *UpdateAllowedSignersInput) { i.Allowed = nil }, "allowed must be set"},
 			{"zero signer address", func(i *UpdateAllowedSignersInput) { i.Signers = []common.Address{owner, {}} }, "zero address"},
 			{"no signers", func(i *UpdateAllowedSignersInput) { i.Signers = nil }, "at least one signer"},
@@ -714,7 +714,7 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 
 		t.Run("explicit false goes through Apply", func(t *testing.T) {
 			in := valid()
-			in.Allowed = ptr(false)
+			in.Allowed = new(false)
 			out, err := UpdateAllowedSigners{}.Apply(env, in)
 			require.NoError(t, err)
 			require.Len(t, out.Reports, 1)
@@ -760,8 +760,8 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 				ChainSelector:             fixture.selector,
 				WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 				DONFamily:                 "omitted-values-family",
-				DONLimit:                  ptr[uint32](10),
-				UserDefaultLimit:          ptr[uint32](5),
+				DONLimit:                  new(uint32(10)),
+				UserDefaultLimit:          new(uint32(5)),
 			}
 		}
 		tests := []struct {
@@ -770,10 +770,10 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 			wantErr string
 		}{
 			{"valid", func(*SetDONLimitInput) {}, ""},
-			{"both explicitly zero (disable) is allowed", func(i *SetDONLimitInput) { i.DONLimit, i.UserDefaultLimit = ptr[uint32](0), ptr[uint32](0) }, ""},
+			{"both explicitly zero (disable) is allowed", func(i *SetDONLimitInput) { i.DONLimit, i.UserDefaultLimit = new(uint32(0)), new(uint32(0)) }, ""},
 			{"donlimit omitted", func(i *SetDONLimitInput) { i.DONLimit = nil }, "donlimit must be set"},
 			{"userDefaultLimit omitted", func(i *SetDONLimitInput) { i.UserDefaultLimit = nil }, "userDefaultLimit must be set"},
-			{"user default above DON limit", func(i *SetDONLimitInput) { i.UserDefaultLimit = ptr[uint32](11) }, "above donlimit"},
+			{"user default above DON limit", func(i *SetDONLimitInput) { i.UserDefaultLimit = new(uint32(11)) }, "above donlimit"},
 			{"donFamily omitted", func(i *SetDONLimitInput) { i.DONFamily = "" }, "donFamily must be set"},
 			{"qualifier omitted", func(i *SetDONLimitInput) { i.WorkflowRegistryQualifier = "" }, "workflowRegistryQualifier must be set"},
 		}
@@ -792,7 +792,7 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 
 		t.Run("explicit zero limits go through Apply", func(t *testing.T) {
 			in := valid()
-			in.DONLimit, in.UserDefaultLimit = ptr[uint32](0), ptr[uint32](0)
+			in.DONLimit, in.UserDefaultLimit = new(uint32(0)), new(uint32(0))
 			out, err := SetDONLimit{}.Apply(env, in)
 			require.NoError(t, err)
 			require.Len(t, out.Reports, 1)
@@ -806,8 +806,8 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 				WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
 				User:                      owner,
 				DONFamily:                 "zone-a", // configured by setupTest with limit 100
-				Limit:                     ptr[uint32](5),
-				Enabled:                   ptr(true),
+				Limit:                     new(uint32(5)),
+				Enabled:                   new(true),
 			}
 		}
 		tests := []struct {
@@ -816,8 +816,8 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 			wantErr string
 		}{
 			{"valid", func(*SetUserDONOverrideInput) {}, ""},
-			{"explicit limit 0 when enabled is allowed", func(i *SetUserDONOverrideInput) { i.Limit = ptr[uint32](0) }, ""},
-			{"explicit enabled false without limit is allowed", func(i *SetUserDONOverrideInput) { i.Enabled, i.Limit = ptr(false), nil }, ""},
+			{"explicit limit 0 when enabled is allowed", func(i *SetUserDONOverrideInput) { i.Limit = new(uint32(0)) }, ""},
+			{"explicit enabled false without limit is allowed", func(i *SetUserDONOverrideInput) { i.Enabled, i.Limit = new(false), nil }, ""},
 			{"enabled omitted", func(i *SetUserDONOverrideInput) { i.Enabled = nil }, "enabled must be set"},
 			{"limit omitted while enabled", func(i *SetUserDONOverrideInput) { i.Limit = nil }, "limit must be set"},
 			{"user omitted", func(i *SetUserDONOverrideInput) { i.User = common.Address{} }, "user must be set"},
@@ -839,7 +839,7 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 
 		t.Run("explicit enabled false goes through Apply", func(t *testing.T) {
 			in := valid()
-			in.Enabled, in.Limit = ptr(false), nil
+			in.Enabled, in.Limit = new(false), nil
 			out, err := SetUserDONOverride{}.Apply(env, in)
 			require.NoError(t, err)
 			require.Len(t, out.Reports, 1)
@@ -852,10 +852,10 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 			entry   contracts.SetUserDONOverrideEntry
 			wantErr string
 		}{
-			{"enabled with limit", contracts.SetUserDONOverrideEntry{User: owner, DONFamily: "zone-a", Limit: ptr[uint32](1), Enabled: ptr(true)}, ""},
-			{"explicit enabled false without limit", contracts.SetUserDONOverrideEntry{User: owner, DONFamily: "zone-a", Enabled: ptr(false)}, ""},
-			{"enabled omitted", contracts.SetUserDONOverrideEntry{User: owner, DONFamily: "zone-a", Limit: ptr[uint32](1)}, "enabled must be set"},
-			{"limit omitted while enabled", contracts.SetUserDONOverrideEntry{User: owner, DONFamily: "zone-a", Enabled: ptr(true)}, "limit must be set"},
+			{"enabled with limit", contracts.SetUserDONOverrideEntry{User: owner, DONFamily: "zone-a", Limit: new(uint32(1)), Enabled: new(true)}, ""},
+			{"explicit enabled false without limit", contracts.SetUserDONOverrideEntry{User: owner, DONFamily: "zone-a", Enabled: new(false)}, ""},
+			{"enabled omitted", contracts.SetUserDONOverrideEntry{User: owner, DONFamily: "zone-a", Limit: new(uint32(1))}, "enabled must be set"},
+			{"limit omitted while enabled", contracts.SetUserDONOverrideEntry{User: owner, DONFamily: "zone-a", Enabled: new(true)}, "limit must be set"},
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
@@ -874,7 +874,7 @@ func TestConfigureWorkflowRegistryOmittedValues(t *testing.T) {
 		t.Run("qualifier omitted", func(t *testing.T) {
 			err := BatchSetUserDONOverride{}.VerifyPreconditions(env, BatchSetUserDONOverrideInput{
 				ChainSelector: fixture.selector,
-				Overrides:     []contracts.SetUserDONOverrideEntry{{User: owner, DONFamily: "zone-a", Limit: ptr[uint32](1), Enabled: ptr(true)}},
+				Overrides:     []contracts.SetUserDONOverrideEntry{{User: owner, DONFamily: "zone-a", Limit: new(uint32(1)), Enabled: new(true)}},
 			})
 			require.ErrorContains(t, err, "workflowRegistryQualifier must be set")
 		})

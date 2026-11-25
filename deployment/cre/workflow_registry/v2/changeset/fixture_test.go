@@ -19,9 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 )
 
-// ptr returns a pointer to v, for the inputs where "omitted" must differ from an explicit zero.
-func ptr[T any](v T) *T { return &v }
-
 type testFixture struct {
 	rt                        *runtime.Runtime
 	selector                  uint64
@@ -63,7 +60,7 @@ func setupTest(t *testing.T) *testFixture {
 			Signers: []common.Address{
 				allowedSigner,
 			},
-			Allowed: ptr(true),
+			Allowed: new(true),
 		}),
 	)
 	require.NoError(t, err, "failed to update allowed signers")
@@ -75,8 +72,8 @@ func setupTest(t *testing.T) *testFixture {
 			ChainSelector:             selector,
 			WorkflowRegistryQualifier: qualifier,
 			DONFamily:                 "zone-a",
-			DONLimit:                  ptr[uint32](100),
-			UserDefaultLimit:          ptr[uint32](100),
+			DONLimit:                  new(uint32(100)),
+			UserDefaultLimit:          new(uint32(100)),
 			MCMSConfig:                nil,
 		},
 		),
