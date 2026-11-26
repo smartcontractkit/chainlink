@@ -2,11 +2,18 @@ package changeset
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/go-cmp/cmp"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -22,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuepb"
 )
 
 // ---------------------------------------------------------------------------
@@ -250,6 +258,77 @@ func v3_1DKGConfigMap(numNodes int) map[string]any {
 		"T": 1,
 	}
 	return m
+}
+
+// v3_1ConsensusQueueConfigMap adds a consensusQueueOffchainConfig to a base V3_1OracleConfig map.
+// The values are DefaultConsensusQueueOffchainConfig, written the way a pipeline input spells them.
+func v3_1ConsensusQueueConfigMap(numNodes int) map[string]any {
+	m := v3_1OracleConfigMap(numNodes)
+	m["consensusQueueOffchainConfig"] = map[string]any{
+		"limits": map[string]any{
+			"maxObservationBytes":                             524288,
+			"maxKeyValueModifiedKeys":                         4,
+			"maxKeyValueModifiedKeysPlusValuesBytes":          10485760,
+			"maxBlobPayloadBytes":                             5242880,
+			"maxPerOracleUnexpiredBlobCumulativePayloadBytes": 104857600,
+			"maxPerOracleUnexpiredBlobCount":                  100,
+		},
+	}
+	return m
+}
+
+// consensusQueuePluginLimits decodes an expanded ocr3Configs entry the way the node does.
+// It returns the limits NewReportingPlugin would build from config.OffchainConfig.
+func consensusQueuePluginLimits(t *testing.T, expanded map[string]any) ocr3_1types.ReportingPluginLimits {
+	t.Helper()
+	decode := func(v any) []byte {
+		s, ok := v.(string)
+		require.True(t, ok, "expected a base64 string, got %T", v)
+		b, err := base64.StdEncoding.DecodeString(s)
+		require.NoError(t, err)
+		return b
+	}
+
+	rawSigners, ok := expanded["signers"].([]string)
+	require.True(t, ok)
+	signers := make([]ocrtypes.OnchainPublicKey, len(rawSigners))
+	for i, s := range rawSigners {
+		signers[i] = decode(s)
+	}
+	rawTransmitters, ok := expanded["transmitters"].([]string)
+	require.True(t, ok)
+	transmitters := make([]ocrtypes.Account, len(rawTransmitters))
+	for i, s := range rawTransmitters {
+		transmitters[i] = ocrtypes.Account(common.BytesToAddress(decode(s)).Hex())
+	}
+	var onchainConfig []byte
+	if _, has := expanded["onchainConfig"]; has {
+		onchainConfig = decode(expanded["onchainConfig"])
+	}
+	f, ok := expanded["f"].(uint32)
+	require.True(t, ok)
+	require.LessOrEqual(t, f, uint32(math.MaxUint8))
+	version, ok := expanded["offchainConfigVersion"].(uint64)
+	require.True(t, ok)
+
+	pc, err := ocr3_1confighelper.PublicConfigFromContractConfig(
+		ocr3_1confighelper.CheckPublicConfigLevelDefault,
+		ocrtypes.ContractConfig{
+			Signers:               signers,
+			Transmitters:          transmitters,
+			F:                     uint8(f), //nolint:gosec // G115 f is checked against MaxUint8 above
+			OnchainConfig:         onchainConfig,
+			OffchainConfigVersion: version,
+			OffchainConfig:        decode(expanded["offchainConfig"]),
+		},
+	)
+	require.NoError(t, err)
+
+	cfg, err := queuepb.Decode(pc.ReportingPluginConfig)
+	require.NoError(t, err)
+	limits, err := cfg.OCRLimits()
+	require.NoError(t, err)
+	return limits
 }
 
 // oracleConfigMap returns a minimal OracleConfig as map[string]any suitable for
@@ -613,6 +692,81 @@ func TestExpandOCR3Configs(t *testing.T) {
 		offchainCfg, ok := expanded["offchainConfig"].(string)
 		require.True(t, ok, "offchainConfig should be a base64 string after expansion")
 		assert.NotEmpty(t, offchainCfg)
+	})
+
+	t.Run("ocr3_1 - consensus-queue plugin config reaches the node", func(t *testing.T) {
+		t.Parallel()
+		chainSel := chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector
+		fakeNodes, registryNodes := makeTestNodes(t, chainSel)
+		env := cldf.Environment{
+			Logger:     logger.Test(t),
+			Offchain:   newFakeOffchainClient(fakeNodes),
+			OCRSecrets: ocr.XXXGenerateTestOCRSecrets(),
+		}
+		capConfigs := []ocr3CapConfig{
+			{
+				CapabilityID: "consensus-queue@1.0.0",
+				Config: map[string]any{
+					"ocr3Configs": map[string]any{
+						"__default__": map[string]any{
+							"__ocrVersion__": "ocr3_1",
+							"offchainConfig": v3_1ConsensusQueueConfigMap(len(registryNodes)),
+						},
+					},
+				},
+			},
+		}
+		err := expandOCR3Configs(env, chainSel, registryNodes, capConfigs, func(capID, key string) (uint64, error) {
+			assert.Equal(t, "consensus-queue@1.0.0", capID)
+			assert.Equal(t, "__default__", key)
+			return 1, nil
+		})
+		require.NoError(t, err)
+
+		expanded := capConfigs[0].Config["ocr3Configs"].(map[string]any)["__default__"].(map[string]any)
+		assert.Equal(t, uint64(310), expanded["offchainConfigVersion"], "OCR 3.1 nodes only accept offchain config version 310")
+
+		want := ocr3_1types.ReportingPluginLimits{
+			MaxObservationBytes:                             512 * 1024,
+			MaxKeyValueModifiedKeys:                         4,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          10 * 1024 * 1024,
+			MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCount:                  100,
+		}
+		if diff := cmp.Diff(want, consensusQueuePluginLimits(t, expanded)); diff != "" {
+			t.Errorf("limits the node decodes differ from the pipeline input (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("ocr3_1 - consensus-queue limits the node would reject fail at generation", func(t *testing.T) {
+		t.Parallel()
+		chainSel := chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector
+		fakeNodes, registryNodes := makeTestNodes(t, chainSel)
+		env := cldf.Environment{
+			Logger:     logger.Test(t),
+			Offchain:   newFakeOffchainClient(fakeNodes),
+			OCRSecrets: ocr.XXXGenerateTestOCRSecrets(),
+		}
+		offchain := v3_1ConsensusQueueConfigMap(len(registryNodes))
+		offchain["consensusQueueOffchainConfig"].(map[string]any)["limits"].(map[string]any)["maxKeyValueModifiedKeys"] = 0
+		capConfigs := []ocr3CapConfig{
+			{
+				CapabilityID: "consensus-queue@1.0.0",
+				Config: map[string]any{
+					"ocr3Configs": map[string]any{
+						"__default__": map[string]any{
+							"__ocrVersion__": "ocr3_1",
+							"offchainConfig": offchain,
+						},
+					},
+				},
+			},
+		}
+		err := expandOCR3Configs(env, chainSel, registryNodes, capConfigs, func(_, _ string) (uint64, error) {
+			return 1, nil
+		})
+		require.ErrorContains(t, err, "MaxKeyValueModifiedKeys")
 	})
 
 	t.Run("ocr3_1_DKG - missing DKGOffchainConfig", func(t *testing.T) {
