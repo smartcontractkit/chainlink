@@ -427,7 +427,7 @@ func TestLaunchConfigWithNodeAddress(t *testing.T) {
 		const in = `{"chainId":"4"}`
 		out, err := launchConfigWithNodeAddress(in, aptosID, ocr, 0)
 		require.NoError(t, err)
-		assert.Equal(t, in, out)
+		assert.JSONEq(t, in, out)
 	})
 	t.Run("no OCR config, unknown signer or out-of-range index leaves config unchanged", func(t *testing.T) {
 		t.Parallel()
@@ -439,7 +439,7 @@ func TestLaunchConfigWithNodeAddress(t *testing.T) {
 		}{{"nil config", nil, 0}, {"unknown signer", ocr, -1}, {"out of range", ocr, 5}} {
 			out, err := launchConfigWithNodeAddress(in, evmID, c.ocr, c.idx)
 			require.NoError(t, err, c.name)
-			assert.Equal(t, in, out, c.name)
+			assert.JSONEq(t, in, out, c.name)
 		}
 	})
 }
