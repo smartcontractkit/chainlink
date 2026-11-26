@@ -29,6 +29,28 @@ type StellarOverrideDefaultCfg struct {
 	UnknownRequestsTTL            time.Duration `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
 }
 
+// stellarCapConfig returns the Stellar capability config for a chain: base (the caller's overrides)
+// with the chain-derived fields applied. The job-spec changeset and the registry payload entry both
+// build their config here.
+func stellarCapConfig(base StellarOverrideDefaultCfg, chainID, forwarderAddress string, deltaStage time.Duration, forwarderLookbackLedgers int64) StellarOverrideDefaultCfg {
+	cfg := base
+	cfg.ChainID = chainID
+	cfg.Network = stellarNetwork
+	cfg.CREForwarderAddress = forwarderAddress
+	cfg.DeltaStage = deltaStage
+	if base.DeltaStage != 0 {
+		cfg.DeltaStage = base.DeltaStage
+	}
+	// Fall back to the DON-wide value; a non-zero per-node override wins.
+	// If neither is set the field is omitted and the worker applies its own
+	// default (actions.DefaultForwarderLookbackLedgers), matching how EVM
+	// leaves ForwarderLookbackBlocks to the worker.
+	if cfg.ForwarderLookbackLedgers == 0 {
+		cfg.ForwarderLookbackLedgers = forwarderLookbackLedgers
+	}
+	return cfg
+}
+
 type StellarCapabilityInput struct {
 	NodeID             string                    `json:"nodeID" yaml:"nodeID"`
 	OverrideDefaultCfg StellarOverrideDefaultCfg `json:"overrideDefaultCfg" yaml:"overrideDefaultCfg"`
@@ -163,21 +185,7 @@ func (u ProposeStellarCapJobSpec) Apply(e cldf.Environment, input ProposeStellar
 			return cldf.ChangesetOutput{}, fmt.Errorf("duplicate nodeID %q in stellarCapabilityInputs", capInput.NodeID)
 		}
 
-		cfg := capInput.OverrideDefaultCfg
-		cfg.ChainID = chainIDStr
-		cfg.Network = stellarNetwork
-		cfg.CREForwarderAddress = forwarderAddr
-		cfg.DeltaStage = input.DeltaStage
-		if capInput.OverrideDefaultCfg.DeltaStage != 0 {
-			cfg.DeltaStage = capInput.OverrideDefaultCfg.DeltaStage
-		}
-		// Fall back to the DON-wide value; a non-zero per-node override wins.
-		// If neither is set the field is omitted and the worker applies its own
-		// default (actions.DefaultForwarderLookbackLedgers), matching how EVM
-		// leaves ForwarderLookbackBlocks to the worker.
-		if cfg.ForwarderLookbackLedgers == 0 {
-			cfg.ForwarderLookbackLedgers = input.ForwarderLookbackLedgers
-		}
+		cfg := stellarCapConfig(capInput.OverrideDefaultCfg, chainIDStr, forwarderAddr, input.DeltaStage, input.ForwarderLookbackLedgers)
 
 		enc, err := json.Marshal(cfg)
 		if err != nil {
