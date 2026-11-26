@@ -1,6 +1,7 @@
 package jobs_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -534,4 +535,14 @@ func TestProposeStandardCapabilityJob_ReusesUUIDWithLegacyNameFormat(t *testing.
 		}
 	}
 	assert.True(t, hasLegacyFormat, "should find job with legacy name format (evm-capabilities-v2) when UUIDs are reused")
+}
+
+func TestOverrideDefaultCfg_ForwarderGasOverheadMargin_JSON(t *testing.T) {
+	enc, err := json.Marshal(jobs.OverrideDefaultCfg{ForwarderGasOverheadMargin: 150_000})
+	require.NoError(t, err)
+	assert.Contains(t, string(enc), `"forwarderGasOverheadMargin":150000`)
+
+	enc, err = json.Marshal(jobs.OverrideDefaultCfg{})
+	require.NoError(t, err)
+	assert.NotContains(t, string(enc), "forwarderGasOverheadMargin", "zero must be omitted so the capability default applies")
 }
