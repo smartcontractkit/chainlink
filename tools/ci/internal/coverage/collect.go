@@ -114,6 +114,11 @@ func Collect(ctx context.Context, opts CollectOptions) (CollectResult, error) {
 	}
 	opts.OutDir = outDir
 	opts.ArtifactsDir = artifactsDir
+	if opts.BaseSHA != "" {
+		if err := fetchCollectionDiff(ctx, opts.RepoRoot, opts.BaseSHA, opts.TargetSHA); err != nil {
+			return result, err
+		}
+	}
 
 	var runs []WorkflowRun
 	if opts.Wait {
@@ -246,6 +251,18 @@ func Collect(ctx context.Context, opts CollectOptions) (CollectResult, error) {
 		return result, err
 	}
 	return result, nil
+}
+
+// fetchCollectionDiff retrieves revisions as data for git diff without
+// checking out or executing code from the target commit.
+func fetchCollectionDiff(ctx context.Context, repoRoot, baseSHA, targetSHA string) error {
+	if repoRoot == "" {
+		return errors.New("repository root is required for patch coverage")
+	}
+	if _, err := commandOutput(ctx, repoRoot, "git", "fetch", "--no-tags", "origin", baseSHA, targetSHA); err != nil {
+		return fmt.Errorf("fetch coverage diff revisions: %w", err)
+	}
+	return nil
 }
 
 func coverageCategory(name string) string {

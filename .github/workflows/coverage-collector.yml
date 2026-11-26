@@ -44,10 +44,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Checkout
+      - name: Checkout trusted collector source
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.target_sha || github.event.workflow_run.head_sha }}
+          # Never execute a workflow_dispatch target SHA on the default branch.
+          # The Go collector fetches target revisions as data only when needed
+          # for git diff; this also prevents default-branch cache poisoning.
           fetch-depth: 0
           persist-credentials: false
 

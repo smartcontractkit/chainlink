@@ -279,6 +279,34 @@ func TestCollectRefusesToCleanRepositoryAncestor(t *testing.T) {
 	}
 }
 
+func TestFetchCollectionDiffDoesNotCheckoutTarget(t *testing.T) {
+	t.Parallel()
+	remoteRepo := initTestRepo(t)
+	writeTestFile(t, filepath.Join(remoteRepo, "base.txt"), "base\n")
+	runGitTest(t, remoteRepo, "add", "base.txt")
+	runGitTest(t, remoteRepo, "commit", "-m", "base")
+	base := strings.TrimSpace(runGitTest(t, remoteRepo, "rev-parse", "HEAD"))
+	runGitTest(t, remoteRepo, "branch", "develop")
+	writeTestFile(t, filepath.Join(remoteRepo, "head.txt"), "head\n")
+	runGitTest(t, remoteRepo, "add", "head.txt")
+	runGitTest(t, remoteRepo, "commit", "-m", "head")
+	head := strings.TrimSpace(runGitTest(t, remoteRepo, "rev-parse", "HEAD"))
+
+	trusted := filepath.Join(t.TempDir(), "trusted")
+	cmd := exec.Command("git", "clone", "--branch", "develop", "--single-branch", remoteRepo, trusted)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("clone: %v\n%s", err, out)
+	}
+	trustedHead := strings.TrimSpace(runGitTest(t, trusted, "rev-parse", "HEAD"))
+	if err := fetchCollectionDiff(t.Context(), trusted, base, head); err != nil {
+		t.Fatal(err)
+	}
+	runGitTest(t, trusted, "cat-file", "-e", head)
+	if got := strings.TrimSpace(runGitTest(t, trusted, "rev-parse", "HEAD")); got != trustedHead {
+		t.Fatalf("trusted checkout moved from %s to %s", trustedHead, got)
+	}
+}
+
 func TestCollectWaitsOnlyForWatchedWorkflows(t *testing.T) {
 	t.Parallel()
 
