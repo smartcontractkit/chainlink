@@ -16,6 +16,10 @@
 | `ci matrix in-memory` | Parse in-memory test configuration and generate matrix | Inline `jq` matrix scripts |
 | `ci matrix ccip` | Generate CCIP system test matrix | Inline `jq` matrix scripts |
 | `ci matrix mixed-env` | Generate CRE mixed-environment test matrix | Inline `jq` matrix scripts |
+| `ci coverage pr` | Run affected-package diff coverage for any PR | `tools/coverage/patch.sh` |
+| `ci coverage publish-pr` | Publish trusted PR comments with nightly artifact links | Inline `gh`/`jq` comment handling |
+| `ci coverage collect` | Merge scheduled unit, integration, and E2E artifacts; keep race separate | `tools/coverage/collect.sh` |
+| `ci coverage badge` / `ci coverage publish-badge` | Generate and publish the orphan-branch badge | `tools/coverage/badge.py` and inline Git shell |
 
 ## Usage
 

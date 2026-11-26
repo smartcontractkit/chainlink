@@ -1,15 +1,11 @@
-// Command coverage computes Go coverage summaries and PR patch coverage.
-//
-// It is intentionally dependency-free so it can run in CI jobs that only have
-// the Go toolchain and a coverage profile.
-package main
+// Package coverage computes Go coverage summaries and PR patch coverage.
+package coverage
 
 import (
 	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -18,6 +14,73 @@ import (
 	"strconv"
 	"strings"
 )
+
+// ReportOptions configures coverage report generation.
+type ReportOptions struct {
+	Profiles     []string
+	Base         string
+	Head         string
+	Repo         string
+	Category     string
+	JSONPath     string
+	MarkdownPath string
+	MinGlobal    float64
+	MinPatch     float64
+}
+
+// ReportResult contains a generated report and its Markdown rendering.
+type ReportResult struct {
+	Report   Report
+	Markdown string
+}
+
+// LineRange is an inclusive range of added lines.
+type LineRange struct {
+	Start int
+	End   int
+}
+
+// FilePatch contains patch coverage for one changed file.
+type FilePatch struct {
+	Path        string
+	TestFile    bool
+	Added       []LineRange
+	Statements  int
+	Covered     int
+	Missed      int
+	MissedSpans []string
+}
+
+// Stats contains statement coverage totals.
+type Stats struct {
+	Statements int
+	Covered    int
+	Missed     int
+	Percent    float64
+}
+
+// PatchStats contains coverage totals for changed files.
+type PatchStats struct {
+	ChangedFiles int
+	ChangedLines int
+	Statements   int
+	Covered      int
+	Missed       int
+	Percent      float64
+	Files        []FilePatch
+}
+
+// Report contains global and optional patch coverage.
+type Report struct {
+	Category         string
+	Profile          []string
+	Base             string
+	Head             string
+	Global           Stats
+	GlobalSourceOnly Stats
+	Patch            *PatchStats
+	PatchSourceOnly  *PatchStats
+}
 
 type block struct {
 	File      string
@@ -29,100 +92,84 @@ type block struct {
 	Count     int64
 }
 
-type lineRange struct {
-	Start int
-	End   int
-}
-
-type filePatch struct {
-	Path        string
-	TestFile    bool
-	Added       []lineRange
-	Statements  int
-	Covered     int
-	Missed      int
-	MissedSpans []string
-}
-
-type stats struct {
-	Statements int
-	Covered    int
-	Missed     int
-	Percent    float64
-}
-
-type patchStats struct {
-	ChangedFiles int
-	ChangedLines int
-	Statements   int
-	Covered      int
-	Missed       int
-	Percent      float64
-	Files        []filePatch
-}
-
-type report struct {
-	Category         string
-	Profile          []string
-	Base             string
-	Head             string
-	Global           stats
-	GlobalSourceOnly stats
-	Patch            *patchStats
-	PatchSourceOnly  *patchStats
-}
-
 var modulePrefixes = []string{
 	"github.com/smartcontractkit/chainlink/v2/",
 	"github.com/smartcontractkit/chainlink/",
 }
 
-func main() {
-	if len(os.Args) < 2 {
-		usage()
-		os.Exit(2)
+// GenerateReport loads profiles, computes coverage, writes requested outputs,
+// and checks the configured thresholds.
+func GenerateReport(ctx context.Context, opts ReportOptions) (ReportResult, error) {
+	if len(opts.Profiles) == 0 {
+		return ReportResult{}, errors.New("--profile is required")
 	}
-	var err error
-	switch os.Args[1] {
-	case "report":
-		err = runReport(os.Args[2:])
-	case "merge":
-		err = runMerge(os.Args[2:])
-	case "merge-profiles":
-		err = runMergeProfiles(os.Args[2:])
-	case "-h", "--help", "help":
-		usage()
-		return
-	default:
-		err = fmt.Errorf("unknown subcommand %q", os.Args[1])
-	}
+
+	blocks, err := loadProfiles(opts.Profiles)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "coverage:", err)
-		os.Exit(1)
+		return ReportResult{}, err
 	}
+	rep := Report{
+		Category: opts.Category,
+		Profile:  opts.Profiles,
+		Base:     opts.Base,
+		Head:     opts.Head,
+	}
+	rep.Global = summarize(blocks, func(string) bool { return true })
+	rep.GlobalSourceOnly = summarize(blocks, func(path string) bool { return !excluded(path) })
+
+	if opts.Base != "" || opts.Head != "" {
+		if opts.Base == "" || opts.Head == "" {
+			return ReportResult{}, errors.New("--base and --head must be provided together")
+		}
+		diff, err := gitDiff(ctx, opts.Repo, opts.Base, opts.Head)
+		if err != nil {
+			return ReportResult{}, err
+		}
+		rep.Patch = computePatch(blocks, diff, func(string) bool { return true })
+		rep.PatchSourceOnly = computePatch(blocks, diff, func(path string) bool {
+			return !excluded(path) && !strings.HasSuffix(path, "_test.go")
+		})
+	}
+
+	result := ReportResult{Report: rep, Markdown: RenderMarkdown(rep)}
+	if opts.MarkdownPath != "" {
+		if err := os.WriteFile(opts.MarkdownPath, []byte(result.Markdown), 0o600); err != nil {
+			return result, err
+		}
+	}
+	if opts.JSONPath != "" {
+		data, err := json.MarshalIndent(rep, "", "  ")
+		if err != nil {
+			return result, err
+		}
+		if err := os.WriteFile(opts.JSONPath, append(data, '\n'), 0o600); err != nil {
+			return result, err
+		}
+	}
+
+	var failures []string
+	if opts.MinGlobal >= 0 && rep.Global.Percent < opts.MinGlobal {
+		failures = append(failures, fmt.Sprintf("global coverage %.2f%% is below %.2f%%", rep.Global.Percent, opts.MinGlobal))
+	}
+	if opts.MinPatch >= 0 {
+		if rep.Patch == nil {
+			failures = append(failures, "patch coverage requested but --base/--head not provided")
+		} else if rep.Patch.Percent < opts.MinPatch {
+			failures = append(failures, fmt.Sprintf("patch coverage %.2f%% is below %.2f%%", rep.Patch.Percent, opts.MinPatch))
+		}
+	}
+	if len(failures) > 0 {
+		return result, fmt.Errorf("%s", strings.Join(failures, "; "))
+	}
+	return result, nil
 }
 
-func usage() {
-	fmt.Fprintln(os.Stderr, `usage:
-  coverage report --profile file[,file...] [--base SHA --head SHA] [--repo DIR]
-                  [--category NAME] [--json FILE] [--markdown FILE]
-                  [--min-global PCT] [--min-patch PCT]
-  coverage merge --covdata dir[,dir...] --out coverage.txt
-  coverage merge-profiles --profile file[,file...] --out coverage.txt`)
-}
-
-func runMerge(args []string) error {
-	fs := flag.NewFlagSet("merge", flag.ExitOnError)
-	covdata := fs.String("covdata", "", "comma-separated covdata directories")
-	out := fs.String("out", "coverage.txt", "text profile output path")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	dirs := splitList(*covdata)
-	if len(dirs) == 0 {
+// Merge merges binary Go coverage data directories and writes a text profile.
+func Merge(ctx context.Context, covdataDirs []string, out string) error {
+	if len(covdataDirs) == 0 {
 		return errors.New("--covdata is required")
 	}
-	for _, dir := range dirs {
+	for _, dir := range covdataDirs {
 		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
 			return fmt.Errorf("covdata directory %q is not accessible", dir)
 		}
@@ -133,37 +180,27 @@ func runMerge(args []string) error {
 	}
 	defer os.RemoveAll(tmp)
 
-	merge := exec.CommandContext(context.Background(), "go", "tool", "covdata", "merge", "-i="+strings.Join(dirs, ","), "-o="+tmp) //nolint:gosec // paths are validated above
-	merge.Stdout = os.Stdout
-	merge.Stderr = os.Stderr
+	merge := exec.CommandContext(ctx, "go", "tool", "covdata", "merge", "-i="+strings.Join(covdataDirs, ","), "-o="+tmp) //nolint:gosec // paths are validated above
 	if err := merge.Run(); err != nil {
 		return fmt.Errorf("covdata merge: %w", err)
 	}
-	textfmt := exec.CommandContext(context.Background(), "go", "tool", "covdata", "textfmt", "-i="+tmp, "-o="+*out) //nolint:gosec // output path is user-provided CLI input
-	textfmt.Stdout = os.Stdout
-	textfmt.Stderr = os.Stderr
+	textfmt := exec.CommandContext(ctx, "go", "tool", "covdata", "textfmt", "-i="+tmp, "-o="+out) //nolint:gosec // output path is caller-provided
 	if err := textfmt.Run(); err != nil {
 		return fmt.Errorf("covdata textfmt: %w", err)
 	}
 	return nil
 }
 
-func runMergeProfiles(args []string) error {
-	fs := flag.NewFlagSet("merge-profiles", flag.ExitOnError)
-	profiles := fs.String("profile", "", "comma-separated text coverage profiles")
-	out := fs.String("out", "coverage.txt", "text profile output path")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	paths := splitList(*profiles)
-	if len(paths) == 0 {
+// MergeProfiles merges text profiles, retaining the greatest count for each block.
+func MergeProfiles(_ context.Context, profiles []string, out string) error {
+	if len(profiles) == 0 {
 		return errors.New("--profile is required")
 	}
-	blocks, err := loadProfiles(paths)
+	blocks, err := loadProfiles(profiles)
 	if err != nil {
 		return err
 	}
-	f, err := os.Create(*out)
+	f, err := os.Create(out)
 	if err != nil {
 		return err
 	}
@@ -196,88 +233,6 @@ func runMergeProfiles(args []string) error {
 		if _, err := fmt.Fprintf(f, "%s:%d.%d,%d.%d %d %d\n", b.File, b.StartLine, b.StartCol, b.EndLine, b.EndCol, b.NumStmt, b.Count); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func runReport(args []string) error {
-	fs := flag.NewFlagSet("report", flag.ExitOnError)
-	profiles := fs.String("profile", "", "comma-separated text coverage profiles")
-	base := fs.String("base", "", "base git revision for patch coverage")
-	head := fs.String("head", "", "head git revision for patch coverage")
-	repo := fs.String("repo", ".", "repository root")
-	category := fs.String("category", "all", "coverage category label")
-	jsonOut := fs.String("json", "", "JSON output path (default stdout when --markdown is empty)")
-	mdOut := fs.String("markdown", "", "Markdown output path")
-	minGlobal := fs.Float64("min-global", -1, "fail if global coverage is below this percentage")
-	minPatch := fs.Float64("min-patch", -1, "fail if patch coverage is below this percentage")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	profilePaths := splitList(*profiles)
-	if len(profilePaths) == 0 {
-		return errors.New("--profile is required")
-	}
-
-	blocks, err := loadProfiles(profilePaths)
-	if err != nil {
-		return err
-	}
-	rep := report{
-		Category: *category,
-		Profile:  profilePaths,
-		Base:     *base,
-		Head:     *head,
-	}
-	rep.Global = summarize(blocks, func(string) bool { return true })
-	rep.GlobalSourceOnly = summarize(blocks, func(path string) bool { return !excluded(path) })
-
-	if *base != "" || *head != "" {
-		if *base == "" || *head == "" {
-			return errors.New("--base and --head must be provided together")
-		}
-		diff, err := gitDiff(*repo, *base, *head)
-		if err != nil {
-			return err
-		}
-		rep.Patch = computePatch(blocks, diff, func(string) bool { return true })
-		rep.PatchSourceOnly = computePatch(blocks, diff, func(path string) bool {
-			return !excluded(path) && !strings.HasSuffix(path, "_test.go")
-		})
-	}
-
-	md := markdown(rep)
-	if *mdOut != "" {
-		if err := os.WriteFile(*mdOut, []byte(md), 0o600); err != nil {
-			return err
-		}
-	}
-	if *jsonOut != "" {
-		data, err := json.MarshalIndent(rep, "", "  ")
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(*jsonOut, append(data, '\n'), 0o600); err != nil {
-			return err
-		}
-	}
-	if *mdOut == "" && *jsonOut == "" {
-		fmt.Print(md)
-	}
-
-	var failures []string
-	if *minGlobal >= 0 && rep.Global.Percent < *minGlobal {
-		failures = append(failures, fmt.Sprintf("global coverage %.2f%% is below %.2f%%", rep.Global.Percent, *minGlobal))
-	}
-	if *minPatch >= 0 {
-		if rep.Patch == nil {
-			failures = append(failures, "patch coverage requested but --base/--head not provided")
-		} else if rep.Patch.Percent < *minPatch {
-			failures = append(failures, fmt.Sprintf("patch coverage %.2f%% is below %.2f%%", rep.Patch.Percent, *minPatch))
-		}
-	}
-	if len(failures) > 0 {
-		return fmt.Errorf("%s", strings.Join(failures, "; "))
 	}
 	return nil
 }
@@ -409,8 +364,8 @@ func excluded(path string) bool {
 	return false
 }
 
-func summarize(blocks map[string]block, include func(string) bool) stats {
-	var s stats
+func summarize(blocks map[string]block, include func(string) bool) Stats {
+	var s Stats
 	for _, b := range blocks {
 		if !include(b.File) {
 			continue
@@ -425,8 +380,8 @@ func summarize(blocks map[string]block, include func(string) bool) stats {
 	return s
 }
 
-func computePatch(blocks map[string]block, diff map[string][]lineRange, include func(string) bool) *patchStats {
-	ps := &patchStats{}
+func computePatch(blocks map[string]block, diff map[string][]LineRange, include func(string) bool) *PatchStats {
+	ps := &PatchStats{}
 	paths := make([]string, 0, len(diff))
 	for path := range diff {
 		paths = append(paths, path)
@@ -438,7 +393,7 @@ func computePatch(blocks map[string]block, diff map[string][]lineRange, include 
 		for _, r := range ranges {
 			ps.ChangedLines += r.End - r.Start + 1
 		}
-		fp := filePatch{
+		fp := FilePatch{
 			Path:     path,
 			TestFile: strings.HasSuffix(path, "_test.go"),
 			Added:    ranges,
@@ -473,7 +428,7 @@ func computePatch(blocks map[string]block, diff map[string][]lineRange, include 
 	return ps
 }
 
-func intersects(b block, ranges []lineRange) bool {
+func intersects(b block, ranges []LineRange) bool {
 	for _, r := range ranges {
 		if b.EndLine >= r.Start && b.StartLine <= r.End {
 			return true
@@ -489,8 +444,8 @@ func percent(covered, total int) float64 {
 	return float64(int(10000*float64(covered)/float64(total)+0.5)) / 100
 }
 
-func gitDiff(repo, base, head string) (map[string][]lineRange, error) {
-	cmd := exec.CommandContext(context.Background(), "git", "-c", "core.quotePath=false", "diff", "-U0", "--no-color", "--no-ext-diff", base+".."+head, "--", "*.go") //nolint:gosec // revisions come from the caller
+func gitDiff(ctx context.Context, repo, base, head string) (map[string][]LineRange, error) {
+	cmd := exec.CommandContext(ctx, "git", "-c", "core.quotePath=false", "diff", "-U0", "--no-color", "--no-ext-diff", base+".."+head, "--", "*.go") //nolint:gosec // revisions come from the caller
 	cmd.Dir = repo
 	out, err := cmd.Output()
 	if err != nil {
@@ -499,8 +454,8 @@ func gitDiff(repo, base, head string) (map[string][]lineRange, error) {
 	return parseDiff(string(out)), nil
 }
 
-func parseDiff(diff string) map[string][]lineRange {
-	files := make(map[string][]lineRange)
+func parseDiff(diff string) map[string][]LineRange {
+	files := make(map[string][]LineRange)
 	var current string
 	sc := bufio.NewScanner(strings.NewReader(diff))
 	sc.Buffer(make([]byte, 64*1024), 8*1024*1024)
@@ -524,15 +479,15 @@ func parseDiff(diff string) map[string][]lineRange {
 	return files
 }
 
-func parseHunk(line string) (lineRange, bool) {
+func parseHunk(line string) (LineRange, bool) {
 	plus := strings.Index(line, " +")
 	if plus < 0 {
-		return lineRange{}, false
+		return LineRange{}, false
 	}
 	rest := line[plus+1:]
 	end := strings.Index(rest, " @@")
 	if end < 0 {
-		return lineRange{}, false
+		return LineRange{}, false
 	}
 	rest = rest[:end]
 	startStr := rest
@@ -541,28 +496,19 @@ func parseHunk(line string) (lineRange, bool) {
 		startStr = rest[:comma]
 		n, err := strconv.Atoi(rest[comma+1:])
 		if err != nil {
-			return lineRange{}, false
+			return LineRange{}, false
 		}
 		count = n
 	}
 	start, err := strconv.Atoi(startStr)
 	if err != nil || count <= 0 || start <= 0 {
-		return lineRange{}, false
+		return LineRange{}, false
 	}
-	return lineRange{Start: start, End: start + count - 1}, true
+	return LineRange{Start: start, End: start + count - 1}, true
 }
 
-func splitList(value string) []string {
-	var out []string
-	for item := range strings.SplitSeq(value, ",") {
-		if trimmed := strings.TrimSpace(item); trimmed != "" {
-			out = append(out, trimmed)
-		}
-	}
-	return out
-}
-
-func markdown(rep report) string {
+// RenderMarkdown renders a report in the legacy coverage Markdown format.
+func RenderMarkdown(rep Report) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "## Coverage — %s\n\n", rep.Category)
 	if rep.Base != "" || rep.Head != "" {
@@ -597,11 +543,11 @@ func markdown(rep report) string {
 	return b.String()
 }
 
-func writeStatsRow(b *strings.Builder, name string, s stats) {
+func writeStatsRow(b *strings.Builder, name string, s Stats) {
 	fmt.Fprintf(b, "| %s | %d | %d | %d | **%.2f%%** |\n", name, s.Statements, s.Covered, s.Missed, s.Percent)
 }
 
-func writePatchRow(b *strings.Builder, name string, p *patchStats) {
+func writePatchRow(b *strings.Builder, name string, p *PatchStats) {
 	fmt.Fprintf(b, "| %s | %d | %d | %d | %d | %d | **%.2f%%** |\n",
 		name, p.ChangedFiles, p.ChangedLines, p.Statements, p.Covered, p.Missed, p.Percent)
 }

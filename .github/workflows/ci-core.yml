@@ -389,7 +389,7 @@ jobs:
             build-cache-write: always
             # Nightly race runs also produce a coverage artifact so a race-
             # instrumented run can be inspected later. It is deliberately not
-            # merged into the project coverage calculation; see collect.sh.
+            # merged into the project coverage calculation; see ci coverage collect.
             coverage_on_schedule: "true"
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
