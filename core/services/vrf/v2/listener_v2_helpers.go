@@ -46,6 +46,20 @@ func EstimateFeeWei(callbackGasLimit uint32, maxGasPriceWei *big.Int) (*big.Int,
 	return costWei, nil
 }
 
+// WorstCaseGasFloorMargin covers the fulfillment event emission and counter
+// writes not included in the gas overhead.
+const WorstCaseGasFloorMargin uint32 = 10_000
+
+// WorstCaseGasFloor returns the gas limit needed to fulfill a request whose
+// callback uses its entire callbackGasLimit: the callback allotment plus the
+// EIP-150 retained gas required by _callWithExactGas, and the coordinator's
+// verification and accounting work (gasOverhead).
+func WorstCaseGasFloor(callbackGasLimit, gasOverhead uint32) uint64 {
+	return uint64(callbackGasLimit)*64/63 +
+		uint64(gasOverhead) +
+		uint64(WorstCaseGasFloorMargin)
+}
+
 // observeRequestSimDuration records the time between the given requests simulations or
 // the time until it's first simulation, whichever is applicable.
 // Cases:
