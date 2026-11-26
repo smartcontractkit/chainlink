@@ -112,4 +112,66 @@ func TestSampleTask(t *testing.T) {
 		s := out.Value.(pipeline.Sample)
 		assert.True(t, s.Weight.Equal(decimal.NewFromInt(1)))
 	})
+	eaInput := func(timestamps map[string]any) map[string]any {
+		return map[string]any{"data": map[string]any{"mid": 100.0}, "timestamps": timestamps}
+	}
+	runTs := func(t *testing.T, task pipeline.SampleTask, input map[string]any) pipeline.Result {
+		task.BaseTask = pipeline.NewBaseTask(0, "s", nil, nil, 0)
+		task.Source = "src"
+		task.ValuePath = "data,mid"
+		task.TsPath = "timestamps,providerIndicatedTimeUnixMs"
+		out, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: input}})
+		return out
+	}
+
+	t.Run("tsFallbackPath used when tsPath is missing", func(t *testing.T) {
+		t.Parallel()
+		out := runTs(t, pipeline.SampleTask{TsFallbackPath: "timestamps,providerDataReceivedUnixMs"},
+			eaInput(map[string]any{"providerDataReceivedUnixMs": 1725000000500}))
+		require.NoError(t, out.Error)
+		assert.Equal(t, int64(1725000000500), out.Value.(pipeline.Sample).TsMs)
+	})
+
+	t.Run("tsFallbackPath used when tsPath is null", func(t *testing.T) {
+		t.Parallel()
+		out := runTs(t, pipeline.SampleTask{TsFallbackPath: "timestamps,providerDataReceivedUnixMs"},
+			eaInput(map[string]any{"providerIndicatedTimeUnixMs": nil, "providerDataReceivedUnixMs": 1725000000500}))
+		require.NoError(t, out.Error)
+		assert.Equal(t, int64(1725000000500), out.Value.(pipeline.Sample).TsMs)
+	})
+
+	t.Run("tsPath preferred over tsFallbackPath", func(t *testing.T) {
+		t.Parallel()
+		out := runTs(t, pipeline.SampleTask{TsFallbackPath: "timestamps,providerDataReceivedUnixMs"},
+			eaInput(map[string]any{"providerIndicatedTimeUnixMs": 1725000000000, "providerDataReceivedUnixMs": 1725000000500}))
+		require.NoError(t, out.Error)
+		assert.Equal(t, int64(1725000000000), out.Value.(pipeline.Sample).TsMs)
+	})
+
+	t.Run("missing timestamp errors by default", func(t *testing.T) {
+		t.Parallel()
+		out := runTs(t, pipeline.SampleTask{TsFallbackPath: "timestamps,providerDataReceivedUnixMs"}, eaInput(map[string]any{}))
+		require.ErrorIs(t, out.Error, pipeline.ErrKeypathNotFound)
+	})
+
+	t.Run("onMissingTs=unknown yields zero timestamp", func(t *testing.T) {
+		t.Parallel()
+		out := runTs(t, pipeline.SampleTask{OnMissingTs: "unknown"}, eaInput(map[string]any{}))
+		require.NoError(t, out.Error)
+		s := out.Value.(pipeline.Sample)
+		assert.Equal(t, int64(0), s.TsMs)
+		assert.True(t, s.Value.Equal(decimal.NewFromInt(100)))
+	})
+
+	t.Run("onMissingTs=unknown still rejects malformed timestamps", func(t *testing.T) {
+		t.Parallel()
+		out := runTs(t, pipeline.SampleTask{OnMissingTs: "unknown"}, eaInput(map[string]any{"providerIndicatedTimeUnixMs": "soon"}))
+		require.ErrorIs(t, out.Error, pipeline.ErrBadInput)
+	})
+
+	t.Run("invalid onMissingTs errors", func(t *testing.T) {
+		t.Parallel()
+		out := runTs(t, pipeline.SampleTask{OnMissingTs: "ignore"}, eaInput(map[string]any{"providerIndicatedTimeUnixMs": 1}))
+		require.Error(t, out.Error)
+	})
 }

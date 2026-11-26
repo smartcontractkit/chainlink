@@ -252,17 +252,23 @@ func (a *AnyParam) UnmarshalPipelineParam(val any) error {
 // Output: Sample — one labelled measurement ready for normalize/staleness/aggregation
 // Fails:  if valuePath or tsPath is missing, or the upstream input errored
 // Fails:  if the JSON path does not resolve to a valid number
+//
+// The timestamp is read from tsPath, else tsFallbackPath when set. When neither
+// resolves to a non-null value, onMissingTs decides: "error" (default) fails the
+// task, "unknown" produces a Sample with TsMs=0.
 type SampleTask struct {
-	BaseTask  `mapstructure:",squash"`
-	Input     string `json:"input"`
-	Source    string `json:"source"`
-	Weight    string `json:"weight"`
-	Unit      string `json:"unit"`
-	Tag       string `json:"tag"`
-	ValuePath string `json:"valuePath"`
-	TsPath    string `json:"tsPath"`
-	TsUnit    string `json:"tsUnit"`
-	Decimals  string `json:"decimals"`
+	BaseTask       `mapstructure:",squash"`
+	Input          string `json:"input"`
+	Source         string `json:"source"`
+	Weight         string `json:"weight"`
+	Unit           string `json:"unit"`
+	Tag            string `json:"tag"`
+	ValuePath      string `json:"valuePath"`
+	TsPath         string `json:"tsPath"`
+	TsFallbackPath string `json:"tsFallbackPath"`
+	OnMissingTs    string `json:"onMissingTs"`
+	TsUnit         string `json:"tsUnit"`
+	Decimals       string `json:"decimals"`
 }
 
 var _ Task = (*SampleTask)(nil)
@@ -273,19 +279,22 @@ func (t *SampleTask) Type() TaskType {
 
 func (t *SampleTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
-		input     AnyParam
-		source    StringParam
-		weight    DecimalParam
-		unit      StringParam
-		tag       StringParam
-		valuePath JSONPathParam
-		tsPath    JSONPathParam
-		tsUnit    StringParam
-		decimals  MaybeInt32Param
+		input          AnyParam
+		source         StringParam
+		weight         DecimalParam
+		unit           StringParam
+		tag            StringParam
+		valuePath      JSONPathParam
+		tsPath         JSONPathParam
+		tsFallbackPath JSONPathParam
+		onMissingTs    StringParam
+		tsUnit         StringParam
+		decimals       MaybeInt32Param
 	)
 	// Default separator for JSONPathParam is comma.
 	valuePath = NewJSONPathParam("")
 	tsPath = NewJSONPathParam("")
+	tsFallbackPath = NewJSONPathParam("")
 
 	err := stderrors.Join(
 		errors.Wrap(ResolveParam(&input, From(VarExpr(t.Input, vars), Input(inputs, 0))), "input"),
@@ -295,11 +304,17 @@ func (t *SampleTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		errors.Wrap(ResolveParam(&tag, From(t.Tag, "")), "tag"),
 		errors.Wrap(ResolveParam(&valuePath, From(NonemptyString(t.ValuePath))), "valuePath"),
 		errors.Wrap(ResolveParam(&tsPath, From(NonemptyString(t.TsPath))), "tsPath"),
+		errors.Wrap(ResolveParam(&tsFallbackPath, From(t.TsFallbackPath)), "tsFallbackPath"),
+		errors.Wrap(ResolveParam(&onMissingTs, From(NonemptyString(t.OnMissingTs), "error")), "onMissingTs"),
 		errors.Wrap(ResolveParam(&tsUnit, From(NonemptyString(t.TsUnit), "ms")), "tsUnit"),
 		errors.Wrap(ResolveParam(&decimals, From(VarExpr(t.Decimals, vars), t.Decimals)), "decimals"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
+	}
+	missingTsUnknown := strings.EqualFold(string(onMissingTs), "unknown")
+	if !missingTsUnknown && !strings.EqualFold(string(onMissingTs), "error") {
+		return Result{Error: errors.Errorf("onMissingTs: unknown value %q, expected error or unknown", onMissingTs)}, runInfo
 	}
 
 	decoded, err := sampleInputToMap(input.v)
@@ -320,16 +335,21 @@ func (t *SampleTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		value = value.Div(decimal.New(1, dec))
 	}
 
-	tsRaw, err := getJSONRaw(decoded, tsPath)
-	if err != nil {
+	var tsMs int64
+	tsRaw, err := getJSONTimestamp(decoded, tsPath, tsFallbackPath)
+	switch {
+	case err != nil && missingTsUnknown:
+		// leave tsMs=0: the source timestamp is unknown
+	case err != nil:
 		return Result{Error: errors.Wrap(err, "tsPath")}, runInfo
-	}
-	tsMs, err := toInt64(tsRaw)
-	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "timestamp: %v", err)}, runInfo
-	}
-	if strings.EqualFold(string(tsUnit), "s") {
-		tsMs *= 1000
+	default:
+		tsMs, err = toInt64(tsRaw)
+		if err != nil {
+			return Result{Error: errors.Wrapf(ErrBadInput, "timestamp: %v", err)}, runInfo
+		}
+		if strings.EqualFold(string(tsUnit), "s") {
+			tsMs *= 1000
+		}
 	}
 
 	return Result{Value: Sample{
@@ -348,6 +368,26 @@ func getJSONRaw(decoded any, path []string) (any, error) {
 		return nil, err
 	}
 	return normalizeJSONNumber(v)
+}
+
+// getJSONTimestamp resolves path, falling back to fallback (when set) if path is
+// missing or null.
+func getJSONTimestamp(decoded any, path, fallback []string) (any, error) {
+	v, err := getJSONRaw(decoded, path)
+	if err == nil && v == nil {
+		err = errors.Wrapf(ErrKeypathNotFound, `null value at path ["%v"]`, strings.Join(path, `","`))
+	}
+	if err == nil || len(fallback) == 0 {
+		return v, err
+	}
+	fv, ferr := getJSONRaw(decoded, fallback)
+	if ferr == nil && fv == nil {
+		ferr = errors.Wrapf(ErrKeypathNotFound, `null value at path ["%v"]`, strings.Join(fallback, `","`))
+	}
+	if ferr != nil {
+		return nil, stderrors.Join(err, ferr)
+	}
+	return fv, nil
 }
 
 func sampleInputToMap(v any) (map[string]any, error) {

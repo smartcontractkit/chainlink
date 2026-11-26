@@ -629,6 +629,8 @@ func TestDecimalSliceParam_UnmarshalPipelineParam(t *testing.T) {
 		{"bool", true, pipeline.DecimalSliceParam(nil), pipeline.ErrBadInput},
 		{"nil", nil, pipeline.DecimalSliceParam(nil), nil},
 		{"[]decimal.Decimal", decimalsSlice, expected, nil},
+		{"[]interface{} with Samples", []any{pipeline.Sample{Value: *mustDecimal(t, "1.1")}, &pipeline.Sample{Value: *mustDecimal(t, "2.2")}, 3.3}, expected, nil},
+		{"[]interface{} with nil *Sample", []any{(*pipeline.Sample)(nil)}, pipeline.DecimalSliceParam(nil), pipeline.ErrBadInput},
 	}
 
 	for _, test := range tests {
@@ -754,4 +756,13 @@ func TestResolveValue(t *testing.T) {
 		err := pipeline.ResolveParam(param, getters)
 		require.Equal(t, expectedErr, err)
 	})
+}
+
+func TestDecimalParam_RejectsSample(t *testing.T) {
+	t.Parallel()
+
+	// Scalar tasks must not silently shed a sample's timestamp.
+	var p pipeline.DecimalParam
+	err := p.UnmarshalPipelineParam(pipeline.Sample{Value: decimal.NewFromInt(1)})
+	require.ErrorIs(t, err, pipeline.ErrBadInput)
 }
