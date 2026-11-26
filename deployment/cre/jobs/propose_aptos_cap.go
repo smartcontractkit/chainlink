@@ -29,20 +29,6 @@ type AptosOverrideDefaultCfg struct {
 	P2PToTransmitterMap           map[string]string `json:"p2pToTransmitterMap,omitempty" yaml:"p2pToTransmitterMap,omitempty"`
 }
 
-// aptosCapConfig returns the Aptos capability config for a chain: base (the caller's overrides) with
-// the chain-derived and DON-wide fields applied. The job-spec changeset and the registry payload entry
-// both build their config here.
-func aptosCapConfig(base AptosOverrideDefaultCfg, chainID, forwarderAddress string, p2pToTransmitterMap map[string]string, deltaStage, txSearchStartingBuffer time.Duration) AptosOverrideDefaultCfg {
-	cfg := base
-	cfg.ChainID = chainID
-	cfg.Network = aptosNetwork
-	cfg.CREForwarderAddress = forwarderAddress // PLEX-2797
-	cfg.P2PToTransmitterMap = p2pToTransmitterMap
-	cfg.DeltaStage = deltaStage
-	cfg.TxSearchStartingBuffer = txSearchStartingBuffer
-	return cfg
-}
-
 type AptosCapabilityInput struct {
 	NodeID             string                  `json:"nodeID" yaml:"nodeID"`
 	OverrideDefaultCfg AptosOverrideDefaultCfg `json:"overrideDefaultCfg" yaml:"overrideDefaultCfg"`
@@ -166,7 +152,13 @@ func (u ProposeAptosCapJobSpec) Apply(e cldf.Environment, input ProposeAptosCapJ
 			return cldf.ChangesetOutput{}, fmt.Errorf("duplicate nodeID %q in aptosCapabilityInputs", aptosCapInput.NodeID)
 		}
 
-		cfg := aptosCapConfig(aptosCapInput.OverrideDefaultCfg, chainIDStr, input.CREForwarderAddress, input.P2PToTransmitterMap, input.DeltaStage, input.TxSearchStartingBuffer)
+		cfg := aptosCapInput.OverrideDefaultCfg
+		cfg.ChainID = chainIDStr
+		cfg.Network = aptosNetwork
+		cfg.CREForwarderAddress = input.CREForwarderAddress // PLEX-2797
+		cfg.P2PToTransmitterMap = input.P2PToTransmitterMap
+		cfg.DeltaStage = input.DeltaStage
+		cfg.TxSearchStartingBuffer = input.TxSearchStartingBuffer
 		enc, err := json.Marshal(cfg)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to marshal aptos cap config: %w", err)

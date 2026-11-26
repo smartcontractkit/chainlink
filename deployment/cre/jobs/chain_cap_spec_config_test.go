@@ -93,81 +93,25 @@ func TestEVMCapabilityEntry_MatchesJobSpecConfig(t *testing.T) {
 	}
 }
 
-func TestAptosCapabilityEntry(t *testing.T) {
-	t.Parallel()
-	sel := chainselectors.APTOS_TESTNET.Selector
-	entry, err := AptosCapabilityEntry(AptosCapabilityEntryInput{
-		ChainSelector:          sel,
-		ForwarderAddress:       "0xa",
-		DeltaStage:             10 * time.Second,
-		TxSearchStartingBuffer: 20 * time.Second,
-		P2PToTransmitterMap:    map[string]string{"peer-a": "0x1"},
-	})
-	require.NoError(t, err)
-	assert.Equal(t, ChainCapabilityID("aptos", sel), entry.CapabilityID)
-
-	fields := entry.Config.GetSpecConfig().GetFields()
-	assert.Equal(t, "2", fields["chainId"].GetStringValue(), "aptos testnet chain id is a string")
-	assert.Equal(t, "aptos", fields["network"].GetStringValue())
-	assert.Equal(t, "0xa", fields["creForwarderAddress"].GetStringValue())
-	assert.Equal(t, int64(10*time.Second), fields["deltaStage"].GetInt64Value())
-	assert.Equal(t, "0x1", fields["p2pToTransmitterMap"].GetMapValue().GetFields()["peer-a"].GetStringValue())
-}
-
-func TestStellarCapabilityEntry(t *testing.T) {
-	t.Parallel()
-	sel := chainselectors.STELLAR_TESTNET.Selector
-
-	entry, err := StellarCapabilityEntry(StellarCapabilityEntryInput{
-		ChainSelector: sel, ForwarderAddress: "C1", DeltaStage: 15 * time.Second, ForwarderLookbackLedgers: 100,
-	})
-	require.NoError(t, err)
-	assert.Equal(t, ChainCapabilityID("stellar", sel), entry.CapabilityID)
-	fields := entry.Config.GetSpecConfig().GetFields()
-	assert.Equal(t, "stellar", fields["network"].GetStringValue())
-	assert.Equal(t, "C1", fields["creForwarderAddress"].GetStringValue())
-	assert.Equal(t, int64(15*time.Second), fields["deltaStage"].GetInt64Value())
-	assert.Equal(t, int64(100), fields["forwarderLookbackLedgers"].GetInt64Value())
-
-	override, err := StellarCapabilityEntry(StellarCapabilityEntryInput{
-		ChainSelector: sel, ForwarderAddress: "C1", DeltaStage: 15 * time.Second,
-		Override: StellarOverrideDefaultCfg{DeltaStage: 3 * time.Second},
-	})
-	require.NoError(t, err)
-	assert.Equal(t, int64(3*time.Second), override.Config.GetSpecConfig().GetFields()["deltaStage"].GetInt64Value(), "a non-zero override wins")
-}
-
-func TestChainCapabilityEntry_RejectsBadInput(t *testing.T) {
+func TestEVMCapabilityEntry_RejectsBadInput(t *testing.T) {
 	t.Parallel()
 	_, err := EVMCapabilityEntry(EVMCapabilityEntryInput{ChainSelector: chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector})
-	require.ErrorContains(t, err, "forwarder address is required")
-	_, err = AptosCapabilityEntry(AptosCapabilityEntryInput{ChainSelector: chainselectors.APTOS_TESTNET.Selector})
-	require.ErrorContains(t, err, "forwarder address is required")
-	_, err = StellarCapabilityEntry(StellarCapabilityEntryInput{ChainSelector: chainselectors.STELLAR_TESTNET.Selector})
 	require.ErrorContains(t, err, "forwarder address is required")
 	_, err = EVMCapabilityEntry(EVMCapabilityEntryInput{ChainSelector: 1, ForwarderAddress: testForwarder})
 	require.ErrorContains(t, err, "chain ID from selector")
 }
 
-func TestChainCapabilityEntries_BuildAValidPayload(t *testing.T) {
+func TestEVMCapabilityEntry_BuildsAValidPayload(t *testing.T) {
 	t.Parallel()
 	evm, err := EVMCapabilityEntry(EVMCapabilityEntryInput{ChainSelector: chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ForwarderAddress: testForwarder, DeltaStage: time.Second})
-	require.NoError(t, err)
-	aptos, err := AptosCapabilityEntry(AptosCapabilityEntryInput{ChainSelector: chainselectors.APTOS_TESTNET.Selector, ForwarderAddress: "0xa", DeltaStage: time.Second})
-	require.NoError(t, err)
-	stellar, err := StellarCapabilityEntry(StellarCapabilityEntryInput{ChainSelector: chainselectors.STELLAR_TESTNET.Selector, ForwarderAddress: "C1", DeltaStage: time.Second})
 	require.NoError(t, err)
 
 	payload, err := pkg.BuildCapabilitiesRegistryPayload("cre", "staging", 3, map[string]map[string]*capabilitiespb.CapabilityConfig{
 		"workflow_1": {
 			evm.CapabilityID:     evm.Config,
-			aptos.CapabilityID:   aptos.Config,
-			stellar.CapabilityID: stellar.Config,
 			"cron-trigger@1.0.0": {},
 		},
 	})
 	require.NoError(t, err)
 	require.NoError(t, pkg.ValidateChainCapabilityEntries(payload))
-	require.NoError(t, pkg.CheckAllowlistCompleteness(payload, "workflow_1", []string{evm.CapabilityID, aptos.CapabilityID, stellar.CapabilityID}))
-	require.Error(t, pkg.CheckAllowlistCompleteness(payload, "workflow_1", []string{ChainCapabilityID("evm", 1)}), "a chain not in the payload is caught")
 }

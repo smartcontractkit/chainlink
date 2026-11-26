@@ -44,11 +44,11 @@ type EVMCapabilityEntryInput struct {
 }
 
 // EVMCapabilityEntry builds the payload entry of an EVM chain, with the same derivation and defaults as
-// ProposeEVMCapJobSpec.
+// ProposeEVMCapJobSpec (both use evmCapConfig).
 func EVMCapabilityEntry(in EVMCapabilityEntryInput) (ChainCapabilityEntry, error) {
-	chainID, err := chainIDFromSelector(in.ChainSelector)
+	chainID, err := chainselectors.GetChainIDFromSelector(in.ChainSelector)
 	if err != nil {
-		return ChainCapabilityEntry{}, err
+		return ChainCapabilityEntry{}, fmt.Errorf("failed to get chain ID from selector %d: %w", in.ChainSelector, err)
 	}
 	numericChainID, err := strconv.ParseUint(chainID, 10, 64)
 	if err != nil {
@@ -57,74 +57,15 @@ func EVMCapabilityEntry(in EVMCapabilityEntryInput) (ChainCapabilityEntry, error
 	if in.ForwarderAddress == "" {
 		return ChainCapabilityEntry{}, fmt.Errorf("evm chain selector %d: forwarder address is required", in.ChainSelector)
 	}
+
 	cfg := evmCapConfig(in.Override, numericChainID, in.ForwarderAddress, in.DeltaStage, in.ForwarderLookbackBlocks)
 	cfg.NodeAddress = "" // per node; filled at launch
-	return chainCapabilityEntry("evm", in.ChainSelector, cfg)
-}
-
-// AptosCapabilityEntryInput holds what the Aptos job-spec changeset takes for one chain, minus the nodes.
-type AptosCapabilityEntryInput struct {
-	ChainSelector          uint64
-	ForwarderAddress       string
-	DeltaStage             time.Duration
-	TxSearchStartingBuffer time.Duration
-	P2PToTransmitterMap    map[string]string
-	Override               AptosOverrideDefaultCfg
-}
-
-// AptosCapabilityEntry builds the payload entry of an Aptos chain, with the same derivation as
-// ProposeAptosCapJobSpec.
-func AptosCapabilityEntry(in AptosCapabilityEntryInput) (ChainCapabilityEntry, error) {
-	chainID, err := chainIDFromSelector(in.ChainSelector)
-	if err != nil {
-		return ChainCapabilityEntry{}, err
-	}
-	if in.ForwarderAddress == "" {
-		return ChainCapabilityEntry{}, fmt.Errorf("aptos chain selector %d: forwarder address is required", in.ChainSelector)
-	}
-	cfg := aptosCapConfig(in.Override, chainID, in.ForwarderAddress, in.P2PToTransmitterMap, in.DeltaStage, in.TxSearchStartingBuffer)
-	return chainCapabilityEntry("aptos", in.ChainSelector, cfg)
-}
-
-// StellarCapabilityEntryInput holds what the Stellar job-spec changeset takes for one chain, minus the nodes.
-type StellarCapabilityEntryInput struct {
-	ChainSelector    uint64
-	ForwarderAddress string
-	DeltaStage       time.Duration
-	// ForwarderLookbackLedgers is the DON-wide default; a non-zero Override value wins.
-	ForwarderLookbackLedgers int64
-	Override                 StellarOverrideDefaultCfg
-}
-
-// StellarCapabilityEntry builds the payload entry of a Stellar chain, with the same derivation as
-// ProposeStellarCapJobSpec.
-func StellarCapabilityEntry(in StellarCapabilityEntryInput) (ChainCapabilityEntry, error) {
-	chainID, err := chainIDFromSelector(in.ChainSelector)
-	if err != nil {
-		return ChainCapabilityEntry{}, err
-	}
-	if in.ForwarderAddress == "" {
-		return ChainCapabilityEntry{}, fmt.Errorf("stellar chain selector %d: forwarder address is required", in.ChainSelector)
-	}
-	cfg := stellarCapConfig(in.Override, chainID, in.ForwarderAddress, in.DeltaStage, in.ForwarderLookbackLedgers)
-	return chainCapabilityEntry("stellar", in.ChainSelector, cfg)
-}
-
-func chainIDFromSelector(chainSelector uint64) (string, error) {
-	chainID, err := chainselectors.GetChainIDFromSelector(chainSelector)
-	if err != nil {
-		return "", fmt.Errorf("failed to get chain ID from selector %d: %w", chainSelector, err)
-	}
-	return chainID, nil
-}
-
-func chainCapabilityEntry(family string, chainSelector uint64, cfg any) (ChainCapabilityEntry, error) {
 	specConfig, err := specConfigFromStruct(cfg)
 	if err != nil {
-		return ChainCapabilityEntry{}, fmt.Errorf("%s chain selector %d: %w", family, chainSelector, err)
+		return ChainCapabilityEntry{}, fmt.Errorf("evm chain selector %d: %w", in.ChainSelector, err)
 	}
 	return ChainCapabilityEntry{
-		CapabilityID: ChainCapabilityID(family, chainSelector),
+		CapabilityID: ChainCapabilityID("evm", in.ChainSelector),
 		Config:       &capabilitiespb.CapabilityConfig{SpecConfig: specConfig},
 	}, nil
 }

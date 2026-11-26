@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	chain_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
-	job_pkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
@@ -114,35 +113,22 @@ func ExecuteOffchainChainCapabilitiesTest(t *testing.T, testEnv *ttypes.TestEnvi
 
 	entries := evmChainCapabilityEntries(t, testEnv, workflowDON)
 	require.NotEmpty(t, entries, "the workflow DON has no EVM chain enabled")
-	allowlisted := make([]string, 0, len(entries))
-	chainCapabilities := make(map[string]*capabilitiespb.CapabilityConfig, len(entries)+1)
+	donCapabilities := make(map[string]*capabilitiespb.CapabilityConfig, len(entries)+1)
 	for _, entry := range entries {
-		allowlisted = append(allowlisted, entry.CapabilityID)
-		chainCapabilities[entry.CapabilityID] = entry.Config
+		donCapabilities[entry.CapabilityID] = entry.Config
 	}
-
 	cronConfig, err := jobs.SpecConfigCapability(map[string]any{"fastestScheduleIntervalSeconds": 5})
 	require.NoError(t, err)
+	donCapabilities[cronCapabilityID] = cronConfig
+
 	version := uint64(time.Now().Unix()) //nolint:gosec // G115: positive
-
-	// An allowlisted chain missing from the payload would launch with an empty config. The completeness
-	// check is what catches it before delivery; prove it does for a payload that carries only cron.
-	cronOnly, err := jobs.CapabilitiesRegistryPayload(testEnv.CreEnvironment.CldfEnvironment, version, map[string]map[string]*capabilitiespb.CapabilityConfig{
-		workflowDON.Name: {cronCapabilityID: cronConfig},
-	})
-	require.NoError(t, err)
-	require.Error(t, job_pkg.CheckAllowlistCompleteness(cronOnly, workflowDON.Name, allowlisted),
-		"a payload without the allowlisted EVM chains must be reported incomplete")
-
-	chainCapabilities[cronCapabilityID] = cronConfig
 	payload, err := jobs.CapabilitiesRegistryPayload(testEnv.CreEnvironment.CldfEnvironment, version, map[string]map[string]*capabilitiespb.CapabilityConfig{
-		workflowDON.Name: chainCapabilities,
+		workflowDON.Name: donCapabilities,
 	})
 	require.NoError(t, err)
-	require.NoError(t, job_pkg.CheckAllowlistCompleteness(payload, workflowDON.Name, allowlisted), "the full payload covers every allowlisted chain")
 
 	require.NoError(t, jobs.ProposeAndApproveCapabilitiesRegistry(t.Context(), testEnv.CreEnvironment.CldfEnvironment, testEnv.Dons, workflowDON, payload))
-	testLogger.Info().Str("don", workflowDON.Name).Strs("chains", allowlisted).Msg("Chain capabilities delivered through the offchain registry payload")
+	testLogger.Info().Str("don", workflowDON.Name).Int("evm_chains", len(entries)).Msg("Chain capabilities delivered through the offchain registry payload")
 
 	ExecuteEVMReadTestForCases(t, testEnv, []evm_config.TestCase{evm_config.TestCaseEVMReadBalance})
 }

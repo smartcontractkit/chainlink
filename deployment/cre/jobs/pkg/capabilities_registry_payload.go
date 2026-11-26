@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"slices"
 	"sort"
 	"strings"
 
@@ -81,39 +80,6 @@ func ValidateChainCapabilityEntries(raw string) error {
 				if _, ok := fields[key]; !ok {
 					problems = append(problems, fmt.Errorf("%s: spec_config is missing %q", where, key))
 				}
-			}
-		}
-	}
-	return errors.Join(problems...)
-}
-
-// CheckAllowlistCompleteness fails when the payload has no entry for an allowlisted capability of
-// the given DON. A capability that is allowlisted on the node but absent from the payload launches
-// with an empty config, so a partial payload would silently strip a chain's config. donName is the
-// onchain DON name (the payload's key); allowlisted are the exact capability IDs the DON's nodes
-// allowlist, supplied by the caller (this never reads node TOML). Allowlisted solana: IDs are
-// refused. All problems are reported together.
-func CheckAllowlistCompleteness(raw, donName string, allowlisted []string) error {
-	reg, err := parsePayload(raw)
-	if err != nil {
-		return err
-	}
-
-	don, haveDON := reg.GetDons()[donName]
-	ids := slices.Clone(allowlisted)
-	sort.Strings(ids)
-	ids = slices.Compact(ids)
-
-	var problems []error
-	for _, capID := range ids {
-		switch {
-		case strings.HasPrefix(capID, solanaFamily+":"):
-			problems = append(problems, fmt.Errorf("allowlisted capability %q: solana stays on job specs and cannot be launched from the registry", capID))
-		case !haveDON:
-			problems = append(problems, fmt.Errorf("allowlisted capability %q: payload has no entry for DON %q", capID, donName))
-		default:
-			if _, ok := don.GetCapabilities()[capID]; !ok {
-				problems = append(problems, fmt.Errorf("allowlisted capability %q has no entry in the payload for DON %q: it would launch with an empty config", capID, donName))
 			}
 		}
 	}
