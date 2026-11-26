@@ -50,8 +50,8 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.15.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20261013132128-58831cfe6302
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20260126202327-6be9a05f0caf
-	github.com/smartcontractkit/chainlink/v2 v2.29.0
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20261126160323-bb0bf269731c
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20261126160323-bb0bf269731c
 	github.com/smartcontractkit/cld-changesets v0.9.1-0.20261006140245-39c6e0739a44
 	github.com/smartcontractkit/libocr v0.0.0-20261124122528-7112dc75ac47
 	github.com/smartcontractkit/smdkg v0.0.0-20260819115032-4afa3ab56bc4
