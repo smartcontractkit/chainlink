@@ -45,6 +45,32 @@ type OverrideDefaultCfg struct {
 	UnknownRequestsTTL            time.Duration `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
 }
 
+// evmCapConfig returns the EVM capability config for a chain: base (the caller's overrides) with the
+// chain-derived fields and the defaults for unset ones applied. It carries no per-node nodeAddress.
+// The job-spec changeset and the registry payload entry both build their config here.
+func evmCapConfig(base OverrideDefaultCfg, chainID uint64, forwarderAddress string, deltaStage time.Duration, forwarderLookbackBlocks int64) OverrideDefaultCfg {
+	cfg := base
+	cfg.ChainID = chainID
+	cfg.Network = network
+	cfg.CREForwarderAddress = forwarderAddress
+	cfg.DeltaStage = deltaStage
+	if cfg.ForwarderLookbackBlocks == 0 {
+		cfg.ForwarderLookbackBlocks = forwarderLookbackBlocks
+	}
+
+	// Apply defaults if unset (zero-values). Values provided and validated in VerifyPreconditions are preserved.
+	if cfg.LogTriggerPollInterval == 0 {
+		cfg.LogTriggerPollInterval = logTriggerPollInterval
+	}
+	if cfg.ReceiverGasMinimum == 0 {
+		cfg.ReceiverGasMinimum = receiverGasMinimum
+	}
+	if cfg.LogTriggerSendChannelBufferSize == 0 {
+		cfg.LogTriggerSendChannelBufferSize = logTriggerSendChanBuf
+	}
+	return cfg
+}
+
 type EVMCapabilityInput struct {
 	NodeID             string             `json:"nodeID" yaml:"nodeID"`
 	OverrideDefaultCfg OverrideDefaultCfg `json:"overrideDefaultCfg" yaml:"overrideDefaultCfg"`
@@ -202,26 +228,8 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 			return cldf.ChangesetOutput{}, fmt.Errorf("no evm ocr config for node %s and chain selector %d", evmCapInput.NodeID, input.ChainSelector)
 		}
 
-		cfg := evmCapInput.OverrideDefaultCfg
-		cfg.ChainID = chainID
-		cfg.Network = network
+		cfg := evmCapConfig(evmCapInput.OverrideDefaultCfg, chainID, resolved.ForwarderAddress, input.DeltaStage, input.ForwarderLookbackBlocks)
 		cfg.NodeAddress = string(evmOCRConfig.TransmitAccount)
-		cfg.CREForwarderAddress = resolved.ForwarderAddress
-		cfg.DeltaStage = input.DeltaStage
-		if cfg.ForwarderLookbackBlocks == 0 {
-			cfg.ForwarderLookbackBlocks = input.ForwarderLookbackBlocks
-		}
-
-		// Apply defaults if unset (zero-values). Values provided and validated in VerifyPreconditions are preserved.
-		if cfg.LogTriggerPollInterval == 0 {
-			cfg.LogTriggerPollInterval = logTriggerPollInterval
-		}
-		if cfg.ReceiverGasMinimum == 0 {
-			cfg.ReceiverGasMinimum = receiverGasMinimum
-		}
-		if cfg.LogTriggerSendChannelBufferSize == 0 {
-			cfg.LogTriggerSendChannelBufferSize = logTriggerSendChanBuf
-		}
 
 		enc, err := json.Marshal(cfg)
 		if err != nil {

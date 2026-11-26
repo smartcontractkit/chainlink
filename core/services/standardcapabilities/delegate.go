@@ -315,7 +315,7 @@ func (d *Delegate) NewServices(
 
 	// Registry-launched EVM capabilities share one spec_config across the DON, so the per-node
 	// nodeAddress monitoring label is filled in here from this node's OCR3 transmitter.
-	configJSON, err = withEVMNodeAddress(configJSON, capabilityID, transmitter)
+	configJSON, err = launchConfigWithNodeAddress(configJSON, capabilityID, ocrContractConfig, signerIndex)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set EVM nodeAddress: %w", err)
 	}
@@ -420,6 +420,22 @@ func (d *Delegate) NewServices(
 	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, idResolver, dependencies)
 
 	return []job.ServiceCtx{standardCapability}, nil
+}
+
+// launchConfigWithNodeAddress returns the config a capability is launched with: configJSON with the
+// EVM nodeAddress filled from the transmitter paired with this node's signer in the registry OCR
+// config (checksummed, as generic.TransmitterAt returns it). It is the seam NewServices uses, so the
+// launch-path behavior can be tested without building the keystores and relayers NewServices needs.
+// With no OCR config or an unknown signer the config is returned unchanged.
+func launchConfigWithNodeAddress(configJSON, capabilityID string, ocrContractConfig *ocrtypes.ContractConfig, signerIndex int) (string, error) {
+	if ocrContractConfig == nil {
+		return configJSON, nil
+	}
+	transmitter, ok := generic.TransmitterAt(*ocrContractConfig, signerIndex)
+	if !ok {
+		return configJSON, nil
+	}
+	return withEVMNodeAddress(configJSON, capabilityID, transmitter)
 }
 
 // withEVMNodeAddress sets "nodeAddress" in an EVM capability's config JSON to transmitter when the

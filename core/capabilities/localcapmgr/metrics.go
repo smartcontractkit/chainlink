@@ -15,8 +15,14 @@ const (
 	keyDivergenceKind = "kind"
 	keyConfigSource   = "config_source"
 
+	keySkipReason = "reason"
+
 	configSourceOnchain  = "onchain"
 	configSourceOffchain = "offchain"
+
+	// skipReasonUnsupportedFamily: an allowlisted capability whose family (for example solana)
+	// cannot launch from the registry.
+	skipReasonUnsupportedFamily = "unsupported_family"
 )
 
 type metrics struct {
@@ -32,6 +38,7 @@ type metrics struct {
 	gateEnabled      metric.Int64Gauge
 	runningBySource  metric.Int64Gauge
 	reconcileSkipped metric.Int64Counter
+	localCapSkipped  metric.Int64Counter
 }
 
 func newMetrics() (*metrics, error) {
@@ -91,7 +98,14 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	localCapSkipped, err := meter.Int64Counter("platform_local_cap_skipped_total",
+		metric.WithDescription("Allowlisted capabilities refused for registry launch, by reason (unsupported_family)"))
+	if err != nil {
+		return nil, err
+	}
+
 	return &metrics{
+		localCapSkipped:     localCapSkipped,
 		launchesTotal:       launchesTotal,
 		stopsTotal:          stopsTotal,
 		configUpdates:       configUpdates,
@@ -134,6 +148,10 @@ func (m *metrics) recordGate(ctx context.Context, enabled bool) {
 
 func (m *metrics) recordReconcileSkipped(ctx context.Context) {
 	m.reconcileSkipped.Add(ctx, 1)
+}
+
+func (m *metrics) recordLocalCapSkipped(ctx context.Context, reason string) {
+	m.localCapSkipped.Add(ctx, 1, metric.WithAttributes(attribute.String(keySkipReason, reason)))
 }
 
 // recordRunningBySource records how many running capabilities were launched from each source.

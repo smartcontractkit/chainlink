@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,6 +82,10 @@ type localCapabilityManager struct {
 
 	runningCapabilities map[string]*runningCapability
 	mu                  sync.RWMutex
+
+	// skippedUnsupported holds the (capID, donID) keys already reported by
+	// recordSkippedUnsupported. Only touched from Reconcile, which does not overlap.
+	skippedUnsupported map[string]struct{}
 
 	metrics *metrics
 }
@@ -243,6 +248,44 @@ func uniqueDONsByID(dons []registry.DON) []registry.DON {
 	return out
 }
 
+// unsupportedFamilies lists capability ID families that must not launch from the registry. Their
+// capabilities stay on job specs: Solana needs its transmitter, which only a job spec supplies.
+// An allowlist pattern that happens to match one of them (for example a broad ".*") is ignored.
+var unsupportedFamilies = []string{"solana"}
+
+// unsupportedFamily reports whether capID belongs to a family that cannot launch from the registry,
+// and which one. Capability IDs are "<family>:ChainSelector:<n>@<version>" for chain capabilities.
+func unsupportedFamily(capID string) (string, bool) {
+	for _, family := range unsupportedFamilies {
+		if strings.HasPrefix(capID, family+":") {
+			return family, true
+		}
+	}
+	return "", false
+}
+
+// recordSkippedUnsupported logs and counts an allowlisted capability that is refused because its
+// family cannot launch from the registry. It does so once per (capID, donID) for as long as the
+// manager lives, not on every reconcile: reconciles run on every registry update and an
+// unchanged skip would otherwise inflate the counter and flood the logs. Reconcile calls do not
+// overlap, so the set needs no lock.
+func (m *localCapabilityManager) recordSkippedUnsupported(capID string, donID uint32, family string) {
+	key := runningKey(capID, donID)
+	if _, seen := m.skippedUnsupported[key]; seen {
+		return
+	}
+	if m.skippedUnsupported == nil {
+		m.skippedUnsupported = make(map[string]struct{})
+	}
+	m.skippedUnsupported[key] = struct{}{}
+
+	m.lggr.Errorw("Refusing to launch allowlisted capability from the registry: family is not supported on this path; it must stay on a job spec",
+		"capID", capID, "donID", donID, "family", family, "reason", skipReasonUnsupportedFamily)
+	if m.metrics != nil {
+		m.metrics.recordLocalCapSkipped(context.Background(), skipReasonUnsupportedFamily)
+	}
+}
+
 // buildDesiredState extracts capabilities that should be running from DON configs, and
 // computes each one's effective config. Only includes capabilities that are in the
 // RegistryBasedLaunchAllowlist. offchainDONs holds the offchain config by on-chain DON ID; it is
@@ -252,6 +295,10 @@ func (m *localCapabilityManager) buildDesiredState(myCapabilityDONs []registry.D
 	for _, don := range myCapabilityDONs {
 		for capID, capCfg := range don.CapabilityConfigurations {
 			if m.localCfg == nil || !m.localCfg.IsAllowlisted(capID) {
+				continue
+			}
+			if family, unsupported := unsupportedFamily(capID); unsupported {
+				m.recordSkippedUnsupported(capID, don.ID, family)
 				continue
 			}
 

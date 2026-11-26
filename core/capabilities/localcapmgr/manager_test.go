@@ -15,6 +15,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/globalconfig"
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -429,4 +430,61 @@ func TestBuildConfigJSON(t *testing.T) {
 		_, err := mgr.buildConfigJSON(info)
 		require.ErrorContains(t, err, "failed to unmarshal cap registry config")
 	})
+}
+
+func TestUnsupportedFamily(t *testing.T) {
+	t.Parallel()
+
+	for capID, wantFamily := range map[string]string{
+		"solana:ChainSelector:124615329519749607@1.0.0": "solana",
+		"solana:anything": "solana",
+	} {
+		family, unsupported := unsupportedFamily(capID)
+		assert.True(t, unsupported, capID)
+		assert.Equal(t, wantFamily, family, capID)
+	}
+
+	for _, capID := range []string{
+		"evm:ChainSelector:3379446385462418246@1.0.0",
+		"aptos:ChainSelector:4457093679053095497@1.0.0",
+		"stellar:ChainSelector:7777@1.0.0",
+		"cron-trigger@1.0.0",
+		"solanalike:ChainSelector:1@1.0.0", // prefix must end at the family separator
+	} {
+		_, unsupported := unsupportedFamily(capID)
+		assert.False(t, unsupported, capID)
+	}
+}
+
+// A broad allowlist pattern that matches a Solana capability must not start it, must not stop
+// other capabilities from starting, and must stay skipped (and reported once) across reconciles.
+func TestReconcile_RefusesUnsupportedFamily(t *testing.T) {
+	t.Parallel()
+
+	const (
+		solanaID = "solana:ChainSelector:124615329519749607@1.0.0"
+		evmID    = "evm:ChainSelector:3379446385462418246@1.0.0"
+	)
+	dons := []registry.DON{onchainDONWith(7, map[string]registry.CapabilityConfiguration{
+		solanaID: {Config: mustMarshalCapConfig(t, map[string]string{"k": "v"})},
+		evmID:    {Config: mustMarshalCapConfig(t, map[string]string{"k": "v"})},
+	})}
+	// Both IDs are allowlisted, as a ".*"-style pattern would do.
+	localCfg := &testLocalCapabilities{allowlisted: map[string]bool{solanaID: true, evmID: true}}
+
+	m, rec := newCutoverManager(t, localCfg, globalconfig.New(), false)
+	ctx := t.Context()
+
+	require.NoError(t, m.reconcile(ctx, dons))
+	require.Len(t, rec.all(), 1, "only the EVM capability starts")
+	assert.Equal(t, evmID, rec.all()[0].capID)
+	assert.Len(t, m.skippedUnsupported, 1, "solana is recorded as skipped")
+	assert.NotContains(t, m.runningCapabilities, runningKey(solanaID, 7))
+	assert.Contains(t, m.runningCapabilities, runningKey(evmID, 7))
+
+	// Unchanged reconciles neither restart anything nor report the skip again.
+	require.NoError(t, m.reconcile(ctx, dons))
+	require.NoError(t, m.reconcile(ctx, dons))
+	assert.Len(t, rec.all(), 1, "no restart loop")
+	assert.Len(t, m.skippedUnsupported, 1, "skip is reported once per capability and DON")
 }
