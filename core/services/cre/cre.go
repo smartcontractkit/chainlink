@@ -1055,6 +1055,9 @@ func newWorkflowRegistrySyncerV2(
 			)
 		}
 	}
+	if !cacheEnabled {
+		lggr.Infow("Module cache disabled")
+	}
 
 	// An event can be queued again (by nodes that were late to see it) until it expires, and the store is what tells the
 	// engine that such an event already ran. So it must remember executions for at least that long.

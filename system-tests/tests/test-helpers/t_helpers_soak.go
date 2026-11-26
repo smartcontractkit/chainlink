@@ -175,6 +175,9 @@ func CompileAndDeployWorkflowNTimes[T WorkflowConfig](t *testing.T,
 		registryAddr, registryVersion, registryChainSelector, donID, cfg.attributes,
 	)
 
+	if cfg.skipCleanup {
+		return ids
+	}
 	cleanupByKey := buildNTimesCleanupByKey(workflowNameFn, configPaths, wasmPaths, numDeployments, numKeys, deployKeys)
 	t.Cleanup(func() {
 		deleteWorkflowsNTimesCleanup(t, cleanupByKey, registryAddr, registryVersion)

@@ -113,6 +113,7 @@ func PrepareNodeTOMLs(
 					Provider:                  creEnv.Provider,
 					ChipRouterInternalGRPCURL: chipRouterInternalGRPCURL,
 					EnableMetering:            localNodeSets[i].EnableMetering,
+					DisableDurableEmitter:     localNodeSets[i].DisableDurableEmitter,
 				},
 				configFactoryFunctions,
 			)
@@ -350,7 +351,7 @@ func addBootstrapNodeConfig(
 		existingConfig.Telemetry.ChipIngressEndpoint = new(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = new(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
-		existingConfig.Telemetry.DurableEmitterEnabled = new(true)
+		existingConfig.Telemetry.DurableEmitterEnabled = new(!commonInputs.disableDurableEmitter)
 
 		existingConfig.Billing = coretoml.Billing{
 			URL:        new("billing-platform-service:2223"),
@@ -435,7 +436,7 @@ func addWorkerNodeConfig(
 		existingConfig.Telemetry.ChipIngressEndpoint = new(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = new(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
-		existingConfig.Telemetry.DurableEmitterEnabled = new(true)
+		existingConfig.Telemetry.DurableEmitterEnabled = new(!commonInputs.disableDurableEmitter)
 
 		existingConfig.Billing = coretoml.Billing{
 			URL:        new("billing-platform-service:2223"),
@@ -686,6 +687,7 @@ type commonInputs struct {
 
 	chipRouterInternalGRPCURL string
 	enableMetering            bool
+	disableDurableEmitter     bool
 }
 
 func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
@@ -731,6 +733,7 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		provider:                  input.Provider,
 		chipRouterInternalGRPCURL: input.ChipRouterInternalGRPCURL,
 		enableMetering:            input.EnableMetering,
+		disableDurableEmitter:     input.DisableDurableEmitter,
 	}, nil
 }
 

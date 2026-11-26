@@ -909,6 +909,7 @@ func envVarOrDefault(envVar string, defaultValue int) int {
 type compileAndDeployWorkflowCfg struct {
 	artifactCopyDONTypes []cre.CapabilityFlag
 	attributes           []byte
+	skipCleanup          bool
 }
 
 // CompileAndDeployWorkflowOpt customizes workflow compilation/deployment behavior.
@@ -931,6 +932,15 @@ func WithArtifactCopyDONTypes(donTypes ...cre.CapabilityFlag) CompileAndDeployWo
 func WithAttributes(attributes []byte) CompileAndDeployWorkflowOpt {
 	return func(cfg *compileAndDeployWorkflowCfg) {
 		cfg.attributes = slices.Clone(attributes)
+	}
+}
+
+// WithoutCleanup leaves deployed workflows registered after the test ends. Used by
+// CompileAndDeployWorkflowNTimes callers that deploy thousands of workflows, where
+// per-workflow deletion would take longer than the test and `env stop` is the teardown.
+func WithoutCleanup() CompileAndDeployWorkflowOpt {
+	return func(cfg *compileAndDeployWorkflowCfg) {
+		cfg.skipCleanup = true
 	}
 }
 

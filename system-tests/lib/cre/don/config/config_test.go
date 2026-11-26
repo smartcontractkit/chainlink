@@ -165,6 +165,23 @@ func TestAddWorkerNodeConfig_MeteringDisabled(t *testing.T) {
 	assert.Equal(t, routerURL, *config.Telemetry.ChipIngressEndpoint)
 }
 
+func TestAddWorkerNodeConfig_DurableEmitter(t *testing.T) {
+	t.Parallel()
+
+	for _, disable := range []bool{false, true} {
+		inputs := capabilitiesCommonInputs("chip-router:50051")
+		inputs.disableDurableEmitter = disable
+
+		config, err := addWorkerNodeConfig(corechainlink.Config{}, nil, testPeeringData(), inputs, capabilitiesDonMetadata(), &cre.NodeMetadata{
+			Index: 0,
+			Roles: []string{cre.WorkerNode},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, config.Telemetry.DurableEmitterEnabled)
+		assert.Equal(t, !disable, *config.Telemetry.DurableEmitterEnabled, "disable_durable_emitter=%t", disable)
+	}
+}
+
 func TestAddWorkerNodeConfig_HTTPRegistryLaunch(t *testing.T) {
 	t.Parallel()
 	don := capabilitiesDonMetadata()

@@ -456,6 +456,7 @@ type GenerateConfigsInput struct {
 	Provider                  infra.Provider
 	ChipRouterInternalGRPCURL string
 	EnableMetering            bool
+	DisableDurableEmitter     bool
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -1305,6 +1306,10 @@ type NodeSet struct {
 	// EnableMetering turns on framework-generated [Metering] node config for this
 	// nodeset's worker nodes (durable MeterRecord/MeterSnapshot emission).
 	EnableMetering bool `toml:"enable_metering"`
+
+	// DisableDurableEmitter turns off the telemetry DurableEmitter, which local CRE enables by
+	// default on this nodeset's nodes.
+	DisableDurableEmitter bool `toml:"disable_durable_emitter"`
 
 	chainCapabilityIndex      map[CapabilityFlag][]uint64
 	chainCapabilityIndexBuilt bool
