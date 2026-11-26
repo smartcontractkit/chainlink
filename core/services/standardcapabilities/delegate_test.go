@@ -390,3 +390,56 @@ func TestWithEVMNodeAddress(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestLaunchConfigWithNodeAddress(t *testing.T) {
+	t.Parallel()
+	const (
+		evmID       = "evm:ChainSelector:3379446385462418246@1.0.0"
+		aptosID     = "aptos:ChainSelector:4457093679053095497@1.0.0"
+		lower0      = "0x5b38da6a701c568545dcfcb03fcb875f56beddc4"
+		lower1      = "0xab8483f64d9c6d1ecf9b849ae677dd3315835cb2"
+		checksummed = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"
+	)
+	ocr := &ocrtypes.ContractConfig{
+		Transmitters: []ocrtypes.Account{ocrtypes.Account(lower0), ocrtypes.Account(lower1)},
+	}
+
+	t.Run("EVM gets this node's checksummed transmitter", func(t *testing.T) {
+		t.Parallel()
+		out, err := launchConfigWithNodeAddress(`{"chainId":1337}`, evmID, ocr, 0)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"chainId":1337,"nodeAddress":"`+checksummed+`"}`, out)
+	})
+	t.Run("each node gets the transmitter at its own signer index", func(t *testing.T) {
+		t.Parallel()
+		out, err := launchConfigWithNodeAddress(`{}`, evmID, ocr, 1)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"nodeAddress":"0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2"}`, out)
+	})
+	t.Run("an authored nodeAddress wins", func(t *testing.T) {
+		t.Parallel()
+		out, err := launchConfigWithNodeAddress(`{"nodeAddress":"0xauthored"}`, evmID, ocr, 0)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"nodeAddress":"0xauthored"}`, out)
+	})
+	t.Run("non-EVM capability is unchanged", func(t *testing.T) {
+		t.Parallel()
+		const in = `{"chainId":"4"}`
+		out, err := launchConfigWithNodeAddress(in, aptosID, ocr, 0)
+		require.NoError(t, err)
+		assert.Equal(t, in, out)
+	})
+	t.Run("no OCR config, unknown signer or out-of-range index leaves config unchanged", func(t *testing.T) {
+		t.Parallel()
+		const in = `{"chainId":1337}`
+		for _, c := range []struct {
+			name string
+			ocr  *ocrtypes.ContractConfig
+			idx  int
+		}{{"nil config", nil, 0}, {"unknown signer", ocr, -1}, {"out of range", ocr, 5}} {
+			out, err := launchConfigWithNodeAddress(in, evmID, c.ocr, c.idx)
+			require.NoError(t, err, c.name)
+			assert.Equal(t, in, out, c.name)
+		}
+	})
+}
