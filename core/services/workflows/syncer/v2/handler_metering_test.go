@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	capreg "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -938,4 +940,48 @@ func Test_meterRecords_TombstoneSnapshotAndDeleteReleaseRegisteredBytes(t *testi
 	wantDeleteID := resourcemanager.EventID("workflow-spec-delete", wfID.Hex(), strconv.FormatUint(createdAt, 10))
 	requireSpecDelta(t, records[2], "-1", wfID.Hex(), wantDeleteID)
 	requireSpecBytesDelta(t, records[3], "-12", wfID.Hex(), meteringBytesEventID(wantDeleteID))
+}
+
+func Test_Handler_SweepDeleteOfPausedWorkflow(t *testing.T) {
+	t.Parallel()
+
+	for _, shardTransition := range []bool{true, false} {
+		t.Run("ShardTransition="+strconv.FormatBool(shardTransition), func(t *testing.T) {
+			t.Parallel()
+			emitter := &recordingEmitter{}
+			store := &stubWorkflowArtifactsStore{persistUpserts: true}
+			h := newMeteringTestHandler(t, store, newMeteringResourceManager(t, true, emitter))
+			rec := beholdertest.NewRecorder()
+			h.eventEmitter = events.NewEmitter(rec, events.WithNoDurableEmit())
+
+			createdAt := uint64(456)
+			require.NoError(t, h.workflowRegisteredEvent(t.Context(), WorkflowRegisteredEvent{
+				Status:        WorkflowStatusActive,
+				WorkflowID:    meteringwfID,
+				WorkflowOwner: []byte{0xaa, 0xbb, 0xcc, 0xdd},
+				WorkflowName:  "wf-name",
+				CreatedAt:     createdAt,
+			}))
+			require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: meteringwfID}))
+			require.NotNil(t, store.spec, "pause keeps the spec row")
+
+			require.NoError(t, h.Handle(t.Context(), Event{
+				Name:            WorkflowDeleted,
+				Data:            WorkflowDeletedEvent{WorkflowID: meteringwfID},
+				ShardTransition: shardTransition,
+			}))
+
+			assert.Nil(t, store.spec, "the spec is released")
+			records := emitter.Records()
+			require.Len(t, records, 4)
+			requireSpecDelta(t, records[2], "-1", meteringwfID.Hex(), resourcemanager.EventID("workflow-spec-delete", meteringwfID.Hex(), strconv.FormatUint(createdAt, 10)))
+			deleted := rec.Len(t, "beholder_entity", "workflows.v2.WorkflowDeleted")
+			if shardTransition {
+				assert.Zero(t, deleted)
+				assert.Zero(t, rec.Len(t))
+			} else {
+				assert.Equal(t, 1, deleted)
+			}
+		})
+	}
 }
