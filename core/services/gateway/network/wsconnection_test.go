@@ -205,6 +205,19 @@ type recordingObserver struct {
 	dispatchWaits []time.Duration
 	pending       int64
 	closeReasons  []network.CloseReason
+	pingRTTs      []time.Duration
+}
+
+func (o *recordingObserver) RecordPingRTT(_ context.Context, d time.Duration) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.pingRTTs = append(o.pingRTTs, d)
+}
+
+func (o *recordingObserver) pingRTTSamples() []time.Duration {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return append([]time.Duration(nil), o.pingRTTs...)
 }
 
 func (o *recordingObserver) RecordConnectionClosed(_ context.Context, reason network.CloseReason) {
@@ -493,6 +506,52 @@ func TestWSConnectionWrapper_WriteTimeout_ClosesConnectionToVanishedGateway(t *t
 	requireClosedWithin(t, closed, time.Second)
 	require.False(t, conn.IsConnected())
 	require.Equal(t, []network.CloseReason{network.CloseReasonWriteTimeout}, obs.closeReasonSamples())
+}
+
+func TestWSConnectionWrapper_Keepalive_RecordsPingRTT(t *testing.T) {
+	t.Parallel()
+	link := netfault.NewProxy(t, startGateway(t))
+	obs := &recordingObserver{}
+	conn := network.NewWSConnectionWrapperWithObserver(logger.Test(t), obs, network.WithKeepalive(pingInterval, pongTimeout))
+	servicetest.Run(t, conn)
+	conn.Reset(dial(t, link))
+
+	require.Eventually(t, func() bool { return len(obs.pingRTTSamples()) >= 3 }, 5*time.Second, 10*time.Millisecond)
+	for _, rtt := range obs.pingRTTSamples() {
+		require.GreaterOrEqual(t, rtt, time.Duration(0))
+		require.Less(t, rtt, pongTimeout)
+	}
+}
+
+func TestWSConnectionWrapper_Keepalive_IgnoresPongsItDidNotSolicit(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := (&websocket.Upgrader{}).Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer c.Close()
+		c.SetPingHandler(func(string) error { return nil })
+		for _, payload := range []string{"", "not a timestamp"} {
+			_ = c.WriteControl(websocket.PongMessage, []byte(payload), time.Now().Add(time.Second))
+		}
+		for {
+			if _, _, err := c.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}))
+	t.Cleanup(srv.Close)
+	obs := &recordingObserver{}
+	conn := network.NewWSConnectionWrapperWithObserver(logger.Test(t), obs, network.WithKeepalive(time.Hour, time.Hour))
+	servicetest.Run(t, conn)
+	c, resp, err := websocket.DefaultDialer.DialContext(t.Context(), "ws://"+srv.Listener.Addr().String(), nil)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	closed := conn.Reset(c)
+
+	requireOpenFor(t, closed, 300*time.Millisecond)
+	require.Empty(t, obs.pingRTTSamples())
 }
 
 // startGateway runs a websocket server that keeps reading, so it answers pings like a real gateway.

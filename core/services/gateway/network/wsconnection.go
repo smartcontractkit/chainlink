@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"net"
 	"sync/atomic"
@@ -205,13 +206,18 @@ func (c *wsConnectionWrapper) startKeepalive(conn WSConnection, stop <-chan stru
 	if !ok || c.pingInterval <= 0 || c.pongTimeout <= 0 {
 		return
 	}
-	extendDeadline := func(string) error {
+	extendDeadline := func() error {
 		return kc.SetReadDeadline(time.Now().Add(c.pongTimeout))
 	}
-	if err := extendDeadline(""); err != nil {
+	if err := extendDeadline(); err != nil {
 		c.lggr.Errorw("failed to set read deadline", "error", err)
 	}
-	kc.SetPongHandler(extendDeadline)
+	kc.SetPongHandler(func(payload string) error {
+		if sentAt, ok := parsePingPayload(payload); ok {
+			c.metrics.RecordPingRTT(context.Background(), time.Since(sentAt))
+		}
+		return extendDeadline()
+	})
 	if err := c.wg.TryAdd(1); err != nil {
 		return
 	}
@@ -229,7 +235,7 @@ func (c *wsConnectionWrapper) pingLoop(conn keepaliveConn, stop <-chan struct{})
 		case <-c.shutdownCh:
 			return
 		case <-ticker.C:
-			if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(c.pingInterval)); err != nil {
+			if err := conn.WriteControl(websocket.PingMessage, newPingPayload(time.Now()), time.Now().Add(c.pingInterval)); err != nil {
 				c.lggr.Debugw("failed to send keepalive ping", "error", err)
 			}
 		}
@@ -383,4 +389,20 @@ func closeReasonFor(err error, timeout, other CloseReason) CloseReason {
 		return timeout
 	}
 	return other
+}
+
+// The ping payload carries its send time, which the peer echoes in the pong.
+func newPingPayload(sentAt time.Time) []byte {
+	return binary.BigEndian.AppendUint64(nil, uint64(sentAt.UnixNano()))
+}
+
+func parsePingPayload(payload string) (time.Time, bool) {
+	if len(payload) != 8 {
+		return time.Time{}, false
+	}
+	sentAt := time.Unix(0, int64(binary.BigEndian.Uint64([]byte(payload)))) //nolint:gosec // round trip of newPingPayload
+	if sentAt.After(time.Now()) {
+		return time.Time{}, false
+	}
+	return sentAt, true
 }
