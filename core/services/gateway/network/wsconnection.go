@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"errors"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -177,6 +178,11 @@ func (c *wsConnectionWrapper) Reset(newConn WSConnection) <-chan error {
 
 	if oldConn != nil {
 		oldConn.Close()
+		if newConn == nil {
+			c.metrics.RecordConnectionClosed(context.Background(), CloseReasonShutdown)
+		} else {
+			c.metrics.RecordConnectionClosed(context.Background(), CloseReasonReplaced)
+		}
 	}
 	if newConn == nil {
 		return nil
@@ -314,6 +320,7 @@ func (c *wsConnectionWrapper) writePump() {
 				// If CAS fails, Reset already swapped the pointer and will close the old
 				// conn itself — don't close it twice.
 				if c.conn.CompareAndSwap(conn, nil) {
+					c.metrics.RecordConnectionClosed(context.Background(), closeReasonFor(err, CloseReasonWriteTimeout, CloseReasonWriteError))
 					if closeErr := conn.Close(); closeErr != nil {
 						c.lggr.Errorw("error closing connection after write failure", "error", closeErr)
 					}
@@ -336,6 +343,7 @@ func (c *wsConnectionWrapper) readPump(conn *wsConnectionHolder, closeCh chan<- 
 			c.lggr.Errorw("failed to read message, closing connection", "error", err)
 			var closeErr error
 			if c.conn.CompareAndSwap(conn, nil) {
+				c.metrics.RecordConnectionClosed(context.Background(), closeReasonFor(err, CloseReasonReadTimeout, CloseReasonReadError))
 				closeErr = conn.Close()
 				if closeErr != nil {
 					c.lggr.Errorw("error closing connection", "error", closeErr)
@@ -354,6 +362,7 @@ func (c *wsConnectionWrapper) readPump(conn *wsConnectionHolder, closeCh chan<- 
 		case <-c.shutdownCh:
 			var closeErr error
 			if c.conn.CompareAndSwap(conn, nil) {
+				c.metrics.RecordConnectionClosed(context.Background(), CloseReasonShutdown)
 				closeErr = conn.Close()
 				if closeErr != nil {
 					c.lggr.Errorw("error closing connection during shutdown", "error", closeErr)
@@ -364,4 +373,14 @@ func (c *wsConnectionWrapper) readPump(conn *wsConnectionHolder, closeCh chan<- 
 			return
 		}
 	}
+}
+
+// closeReasonFor picks timeout when err is a deadline expiry, which gorilla
+// reports as a net.Error without unwrapping to os.ErrDeadlineExceeded.
+func closeReasonFor(err error, timeout, other CloseReason) CloseReason {
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return timeout
+	}
+	return other
 }

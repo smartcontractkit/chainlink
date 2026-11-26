@@ -204,6 +204,19 @@ type recordingObserver struct {
 	socketWrites  []time.Duration
 	dispatchWaits []time.Duration
 	pending       int64
+	closeReasons  []network.CloseReason
+}
+
+func (o *recordingObserver) RecordConnectionClosed(_ context.Context, reason network.CloseReason) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.closeReasons = append(o.closeReasons, reason)
+}
+
+func (o *recordingObserver) closeReasonSamples() []network.CloseReason {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return append([]network.CloseReason(nil), o.closeReasons...)
 }
 
 func (o *recordingObserver) RecordWriteQueueWait(_ context.Context, d time.Duration) {
@@ -377,6 +390,60 @@ func TestWSConnectionWrapper_Metrics_ReadDispatchWait(t *testing.T) {
 	}, 5*time.Second, time.Millisecond, "blocked read consumer must produce one dispatch-wait sample covering the delay")
 }
 
+func TestWSConnectionWrapper_Metrics_ConnectionClosedReason(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		cause  func(t *testing.T, w network.WSConnectionWrapper, peer, local *mockConnection)
+		reason network.CloseReason
+	}{
+		{
+			name: "peer closes the connection",
+			cause: func(t *testing.T, _ network.WSConnectionWrapper, peer, _ *mockConnection) {
+				require.NoError(t, peer.Close())
+			},
+			reason: network.CloseReasonReadError,
+		},
+		{
+			name: "write fails",
+			cause: func(t *testing.T, w network.WSConnectionWrapper, _, local *mockConnection) {
+				local.writeErr = errors.New("write error")
+				require.Error(t, w.Write(t.Context(), websocket.TextMessage, []byte("x")))
+			},
+			reason: network.CloseReasonWriteError,
+		},
+		{
+			name:   "wrapper disconnects",
+			cause:  func(t *testing.T, w network.WSConnectionWrapper, _, _ *mockConnection) { w.Reset(nil) },
+			reason: network.CloseReasonShutdown,
+		},
+		{
+			name: "connection is replaced",
+			cause: func(t *testing.T, w network.WSConnectionWrapper, _, _ *mockConnection) {
+				replacement, _ := newWebSocketPair(t)
+				w.Reset(replacement)
+			},
+			reason: network.CloseReasonReplaced,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			obs := &recordingObserver{}
+			w := network.NewWSConnectionWrapperWithObserver(logger.Test(t), obs)
+			servicetest.Run(t, w)
+			peer, local := newWebSocketPair(t)
+			closed := w.Reset(local)
+
+			tt.cause(t, w, peer, local)
+
+			requireClosedWithin(t, closed, time.Second)
+			require.Equal(t, []network.CloseReason{tt.reason}, obs.closeReasonSamples())
+		})
+	}
+}
+
 const (
 	pingInterval = 50 * time.Millisecond
 	pongTimeout  = 200 * time.Millisecond
@@ -386,7 +453,8 @@ const (
 func TestWSConnectionWrapper_Keepalive_ClosesConnectionToVanishedGateway(t *testing.T) {
 	t.Parallel()
 	link := netfault.NewProxy(t, startGateway(t))
-	conn := network.NewWSConnectionWrapper(logger.Test(t), network.WithKeepalive(pingInterval, pongTimeout))
+	obs := &recordingObserver{}
+	conn := network.NewWSConnectionWrapperWithObserver(logger.Test(t), obs, network.WithKeepalive(pingInterval, pongTimeout))
 	servicetest.Run(t, conn)
 	closed := conn.Reset(dial(t, link))
 
@@ -394,23 +462,27 @@ func TestWSConnectionWrapper_Keepalive_ClosesConnectionToVanishedGateway(t *test
 
 	requireClosedWithin(t, closed, time.Second)
 	require.False(t, conn.IsConnected())
+	require.Equal(t, []network.CloseReason{network.CloseReasonReadTimeout}, obs.closeReasonSamples())
 }
 
 func TestWSConnectionWrapper_Keepalive_KeepsHealthyConnectionOpen(t *testing.T) {
 	t.Parallel()
 	link := netfault.NewProxy(t, startGateway(t))
-	conn := network.NewWSConnectionWrapper(logger.Test(t), network.WithKeepalive(pingInterval, pongTimeout))
+	obs := &recordingObserver{}
+	conn := network.NewWSConnectionWrapperWithObserver(logger.Test(t), obs, network.WithKeepalive(pingInterval, pongTimeout))
 	servicetest.Run(t, conn)
 	closed := conn.Reset(dial(t, link))
 
 	requireOpenFor(t, closed, 5*pongTimeout)
 	require.True(t, conn.IsConnected())
+	require.Empty(t, obs.closeReasonSamples())
 }
 
 func TestWSConnectionWrapper_WriteTimeout_ClosesConnectionToVanishedGateway(t *testing.T) {
 	t.Parallel()
 	link := netfault.NewProxy(t, startGateway(t))
-	conn := network.NewWSConnectionWrapper(logger.Test(t), network.WithWriteTimeout(writeTimeout))
+	obs := &recordingObserver{}
+	conn := network.NewWSConnectionWrapperWithObserver(logger.Test(t), obs, network.WithWriteTimeout(writeTimeout))
 	servicetest.Run(t, conn)
 	closed := conn.Reset(dial(t, link))
 
@@ -420,6 +492,7 @@ func TestWSConnectionWrapper_WriteTimeout_ClosesConnectionToVanishedGateway(t *t
 	require.ErrorContains(t, err, "i/o timeout")
 	requireClosedWithin(t, closed, time.Second)
 	require.False(t, conn.IsConnected())
+	require.Equal(t, []network.CloseReason{network.CloseReasonWriteTimeout}, obs.closeReasonSamples())
 }
 
 // startGateway runs a websocket server that keeps reading, so it answers pings like a real gateway.
