@@ -1525,7 +1525,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 			Execute(matches.AnyContext, mock.Anything).
 			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
 				assert.NotNil(t, req.Metadata.SpendLimits)
-				assert.Len(t, req.Metadata.SpendLimits, 2)
+				assert.Empty(t, req.Metadata.SpendLimits, "no rate card: no spend limits")
 			}).
 			Return(capabilities.CapabilityResponse{
 				Metadata: capabilities.ResponseMetadata{
@@ -1578,7 +1578,8 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		capability.AssertExpectations(t)
 
 		logged := relevantLogs()
-		require.Empty(t, logged)
+		require.Len(t, logged, 1)
+		assert.Contains(t, logged[0].Message, "switching to metering mode")
 	})
 
 	t.Run("single spend type and no ratios config produces spending limit with no error", func(t *testing.T) { //nolint:paralleltest // subtests share setup
@@ -1610,7 +1611,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 			Execute(matches.AnyContext, mock.Anything).
 			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
 				assert.NotNil(t, req.Metadata.SpendLimits)
-				assert.Len(t, req.Metadata.SpendLimits, 1)
+				assert.Empty(t, req.Metadata.SpendLimits, "no rate card: no spend limits")
 			}).
 			Return(capabilities.CapabilityResponse{
 				Metadata: capabilities.ResponseMetadata{
@@ -1658,7 +1659,8 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		capability.AssertExpectations(t)
 
 		logged := relevantLogs()
-		require.Empty(t, logged)
+		require.Len(t, logged, 1)
+		assert.Contains(t, logged[0].Message, "switching to metering mode")
 	})
 
 	t.Run("billing type and capability settle spend type mismatch", func(t *testing.T) { //nolint:paralleltest // subtests share setup
@@ -1698,7 +1700,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 			Execute(matches.AnyContext, mock.Anything).
 			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
 				assert.NotNil(t, req.Metadata.SpendLimits)
-				assert.Len(t, req.Metadata.SpendLimits, 2)
+				assert.Empty(t, req.Metadata.SpendLimits, "no rate card: no spend limits")
 			}).
 			Return(capabilities.CapabilityResponse{
 				Metadata: capabilities.ResponseMetadata{
@@ -3038,22 +3040,6 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 	billingClient := metmocks.NewBillingClient(t)
 
 	billingClient.EXPECT().
-		GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-		Return(&billing.GetWorkflowExecutionRatesResponse{
-			RateCards: []*billing.RateCard{
-				{
-					ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
-					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
-					UnitsPerCredit:  "0.0001",
-				},
-				{
-					ResourceType:    billing.ResourceType_RESOURCE_TYPE_NETWORK,
-					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST,
-					UnitsPerCredit:  "0.01",
-				},
-			},
-		}, nil)
-	billingClient.EXPECT().
 		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
 			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
 		})).
@@ -3070,17 +3056,6 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 func setupFailingReserveBillingClient(t *testing.T) *metmocks.BillingClient {
 	billingClient := metmocks.NewBillingClient(t)
 
-	billingClient.EXPECT().
-		GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-		Return(&billing.GetWorkflowExecutionRatesResponse{
-			RateCards: []*billing.RateCard{
-				{
-					ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
-					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
-					UnitsPerCredit:  "0.0001",
-				},
-			},
-		}, nil)
 	billingClient.EXPECT().
 		ReserveCredits(mock.Anything, mock.Anything).
 		Return(&billing.ReserveCreditsResponse{

@@ -1155,21 +1155,6 @@ func newLifecycleBillingClient(t *testing.T) *metmocks.BillingClient {
 func newTestBillingClient(t *testing.T, reserveOK bool) *metmocks.BillingClient {
 	t.Helper()
 	client := metmocks.NewBillingClient(t)
-	client.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-		Return(&billing.GetWorkflowExecutionRatesResponse{
-			RateCards: []*billing.RateCard{
-				{
-					ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
-					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
-					UnitsPerCredit:  "0.0001",
-				},
-				{
-					ResourceType:    billing.ResourceType_RESOURCE_TYPE_NETWORK,
-					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST,
-					UnitsPerCredit:  "0.01",
-				},
-			},
-		}, nil).Maybe()
 	client.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
 		Return(&billing.ReserveCreditsResponse{Success: reserveOK, Credits: "10000"}, nil).Maybe()
 	return client

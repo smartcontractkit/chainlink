@@ -61,8 +61,6 @@ var (
 )
 
 type BillingClient interface {
-	GetOrganizationCreditsByWorkflow(context.Context, *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)
-	GetWorkflowExecutionRates(context.Context, *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error)
 	ReserveCredits(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
 }
 
@@ -214,25 +212,6 @@ func NewReport(
 
 	if client != nil {
 		report.client = client
-
-		var resp *billing.GetWorkflowExecutionRatesResponse
-
-		rateCtx, cancel := context.WithTimeout(ctx, defaultBillingCallTimeout)
-		resp, err = report.client.GetWorkflowExecutionRates(rateCtx, &billing.GetWorkflowExecutionRatesRequest{
-			WorkflowOwner:           labels[platform.KeyWorkflowOwner],
-			WorkflowRegistryAddress: report.workflowRegistryAddress,
-			ChainSelector:           report.workflowRegistryChainSelector,
-			WorkflowExecutionId:     labels[platform.KeyWorkflowExecutionID],
-		})
-		cancel()
-		if err != nil {
-			report.switchToMeteringMode(err)
-		}
-
-		report.rateCard, err = toRateCard(resp)
-		if err != nil {
-			report.switchToMeteringMode(err)
-		}
 	}
 
 	if len(report.rateCard) == 0 {
@@ -811,35 +790,6 @@ func (r *Report) switchToMeteringMode(err error) {
 	r.lggr.Debugw("switching to metering mode", "err", err)
 
 	r.meteringMode = true
-}
-
-func toRateCard(resp *billing.GetWorkflowExecutionRatesResponse) (map[string]decimal.Decimal, error) {
-	rates := resp.GetRateCards()
-
-	rateCard := map[string]decimal.Decimal{}
-	for _, rate := range rates {
-		conversionDeci, err := decimal.NewFromString(rate.UnitsPerCredit)
-		if err != nil {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert unit %s's value %s to decimal", rate.ResourceType, rate.UnitsPerCredit)
-		}
-
-		rateCard[rate.ResourceType.String()] = conversionDeci
-	}
-
-	// credits per gas are provided in the form of map[chainselector] -> <gasRate>string
-	// each entry should be converted to a usable rate card with form of GAS.[chainselector] -> <unitsPerCredit>decimal
-	gasCredits := resp.GetGasTokensPerCredit()
-
-	for chainSelector, gasRate := range gasCredits {
-		conversionDeci, err := decimal.NewFromString(gasRate)
-		if err != nil {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert gas rate %d's value %s to decimal", chainSelector, gasRate)
-		}
-
-		rateCard[fmt.Sprintf("GAS.%d", chainSelector)] = conversionDeci
-	}
-
-	return rateCard, nil
 }
 
 func medianSpend(spends []decimal.Decimal) decimal.Decimal {
