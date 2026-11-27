@@ -890,16 +890,6 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 			totalWorkflowsFetched := 0
 			reconcileReport := newReconcileReport()
 
-			// Persisted specs are listed once per tick and reconciled against
-			// the union of every source's metadata after the loop (see
-			// reconcileOrphanedSpecs); a listing failure skips only orphan
-			// reconciliation this tick — engines still reconcile.
-			persistedSpecs, specsErr := w.handler.ListWorkflowSpecs(ctx)
-			if specsErr != nil {
-				persistedSpecs = nil
-				w.lggr.Warnw("failed to list persisted workflow specs; skipping orphaned-spec reconciliation this tick", "err", specsErr)
-			}
-
 			// metadataUnion collects every source's (post-shard) workflow IDs and
 			// unfilteredIDs the same IDs before the shard filter, in any status;
 			// allSourcesHealthy stays true only when every source fetched and
@@ -1099,6 +1089,16 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 			}
 
 			if allSourcesHealthy && len(w.workflowSources) > 0 {
+				// Persisted specs are reconciled against the union of every source's
+				// metadata (see reconcileOrphanedSpecs). They are listed here, after
+				// the engines reconciled, so a spec deleted in this tick is not swept
+				// again. A listing failure skips only orphan reconciliation this
+				// tick — engines still reconcile.
+				persistedSpecs, specsErr := w.handler.ListWorkflowSpecs(ctx)
+				if specsErr != nil {
+					persistedSpecs = nil
+					w.lggr.Warnw("failed to list persisted workflow specs; skipping orphaned-spec reconciliation this tick", "err", specsErr)
+				}
 				w.reconcileOrphanedSpecs(ctx, persistedSpecs, metadataUnion, unfilteredIDs)
 			}
 
