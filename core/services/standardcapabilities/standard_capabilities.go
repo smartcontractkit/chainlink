@@ -56,6 +56,11 @@ type StandardCapabilities struct {
 	// registered again when the capability is restarted (e.g. on a config change).
 	loopID string
 
+	// registered is CapabilitiesRegistry, with a record of what the plugin added to
+	// it. Nil when there is no registry.
+	registered            *registeredCapabilities
+	registryRemoveTimeout time.Duration
+
 	wg           sync.WaitGroup
 	readyChan    chan struct{}
 	stopChan     services.StopChan
@@ -90,13 +95,22 @@ func NewStandardCapabilities(
 	capDonIDResolver CapDonIDResolver,
 	dependencies core.StandardCapabilitiesDependencies,
 ) *StandardCapabilities {
+	// The plugin is given the registry through a wrapper that records what it adds, so
+	// that Close can remove it.
+	capabilitiesRegistry := dependencies.CapabilityRegistry
+	var registered *registeredCapabilities
+	if capabilitiesRegistry != nil {
+		registered = trackRegisteredCapabilities(capabilitiesRegistry)
+		capabilitiesRegistry = registered
+	}
 	return &StandardCapabilities{
 		log:                  log,
 		command:              command,
 		config:               configJSON,
 		pluginRegistrar:      pluginRegistrar,
 		store:                dependencies.Store,
-		CapabilitiesRegistry: dependencies.CapabilityRegistry,
+		CapabilitiesRegistry: capabilitiesRegistry,
+		registered:           registered,
 		relayerSet:           dependencies.RelayerSet,
 		oracleFactory:        dependencies.OracleFactory,
 		gatewayConnector:     dependencies.GatewayConnector,
@@ -253,6 +267,9 @@ func (s *StandardCapabilities) Close() error {
 	// fails, so that a new instance with the same ID can register it again.
 	defer s.unregisterLOOP()
 	return s.StopOnce("StandardCapabilities", func() error {
+		// Before the plugin is stopped: see registeredCapabilities.
+		s.registered.removeAll(s.log, s.registryRemoveTimeout)
+
 		if s.capabilitiesLoop != nil {
 			return s.capabilitiesLoop.Close()
 		}

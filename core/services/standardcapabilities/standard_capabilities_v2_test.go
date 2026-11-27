@@ -137,6 +137,32 @@ func (c chanCapDonIDResolver) awaitCapDonID(ctx context.Context) (uint32, error)
 	}
 }
 
+// As for the first version: what the process added to the registry is removed before the
+// process is stopped, so that the next instance of the capability can be added.
+func TestStandardCapabilitiesV2_CloseRemovesCapabilitiesFromRegistry(t *testing.T) {
+	t.Parallel()
+	const capabilityID = "cron-trigger@1.0.0"
+	newInstance := func() capabilities.ExecutableCapability {
+		return readyCapability{CapabilityInfo: capabilities.MustNewCapabilityInfo(capabilityID, capabilities.CapabilityTypeAction, "test")}
+	}
+	reg := registry.NewRegistry(logger.Test(t))
+	s, err := NewV2(V2Params{
+		Log: logger.Test(t), Command: "cronv2", App: "cron", PluginRegistrar: &capturingRegistrar{},
+		CapDonIDResolver: &staticCapDonIDResolver{}, Registry: reg,
+	})
+	require.NoError(t, err)
+	require.NoError(t, s.Start(t.Context()))
+	s.launchWG.Wait()
+
+	// s.registry is what the host serves to the process.
+	require.NoError(t, s.registry.Add(t.Context(), newInstance()))
+	require.ErrorIs(t, reg.Add(t.Context(), newInstance()), registry.ErrCapabilityAlreadyExists)
+
+	require.NoError(t, s.Close())
+
+	require.NoError(t, reg.Add(t.Context(), newInstance()))
+}
+
 func TestStandardCapabilitiesV2_LaunchWaitsForDonID(t *testing.T) {
 	t.Parallel()
 	registered := make(chan map[string]string, 1)
