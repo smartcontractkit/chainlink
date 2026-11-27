@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"crypto/ecdsa"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,6 +18,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
+
+	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
+	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
 
 type testFixture struct {
@@ -60,7 +65,7 @@ func setupTest(t *testing.T) *testFixture {
 			Signers: []common.Address{
 				allowedSigner,
 			},
-			Allowed: true,
+			Allowed: new(true),
 		}),
 	)
 	require.NoError(t, err, "failed to update allowed signers")
@@ -72,8 +77,8 @@ func setupTest(t *testing.T) *testFixture {
 			ChainSelector:             selector,
 			WorkflowRegistryQualifier: qualifier,
 			DONFamily:                 "zone-a",
-			DONLimit:                  100,
-			UserDefaultLimit:          100,
+			DONLimit:                  new(uint32(100)),
+			UserDefaultLimit:          new(uint32(100)),
 			MCMSConfig:                nil,
 		},
 		),
@@ -90,6 +95,15 @@ func setupTest(t *testing.T) *testFixture {
 
 func setupTestWithMCMS(t *testing.T) *testFixture {
 	fixture := setupTest(t)
+	handOverToMCMS(t, fixture)
+
+	return fixture
+}
+
+// handOverToMCMS deploys MCMS and makes the timelock the real owner of the registry. Tests that
+// still need to send deployer transactions to the registry must do so before calling it.
+func handOverToMCMS(t *testing.T, fixture *testFixture) {
+	t.Helper()
 
 	err := fixture.rt.Exec(
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
@@ -98,5 +112,47 @@ func setupTestWithMCMS(t *testing.T) *testFixture {
 	)
 	require.NoError(t, err, "failed to deploy MCMS")
 
-	return fixture
+	// Deployer-side setup is done in setupTest; now the timelock really takes ownership.
+	test.TransferOwnershipToMCMS(t, fixture.rt, fixture.selector)
+}
+
+// linkTimelockAsOwner links the timelock as a workflow owner, through a real MCMS proposal that is
+// signed and executed. The registry only accepts user workflow calls from a linked owner, so a test
+// that sends them through MCMS needs this first.
+func linkTimelockAsOwner(t *testing.T, fixture *testFixture) {
+	t.Helper()
+
+	mcmsConfig := &crecontracts.MCMSConfig{
+		MinDelay:                  0, // the simulated chain does not advance time on its own
+		TimelockQualifierPerChain: map[uint64]string{fixture.selector: ""},
+	}
+	env := fixture.rt.Environment()
+	chain := env.BlockChains.EVMChains()[fixture.selector]
+	mcmsContracts, err := strategies.GetMCMSContracts(env, fixture.selector, *mcmsConfig)
+	require.NoError(t, err)
+	timelock := mcmsContracts.Timelock.Address()
+
+	validity, proof, signature := generateAndSignOwnershipProof(
+		t,
+		common.HexToAddress(fixture.workflowRegistryAddress),
+		timelock.Hex(),
+		chain,
+		chain.DeployerKey.From.Hex(),
+		"123",
+		"12",
+		"WorkflowRegistry 2.0.0",
+		0, // 0 for linking
+	)
+	err = fixture.rt.Exec(
+		runtime.ChangesetTask(UserLinkOwner{}, UserLinkOwnerInput{
+			ValidityTimestamp:         validity,
+			Proof:                     common.Bytes2Hex(proof.Bytes()),
+			Signature:                 common.Bytes2Hex(signature),
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			MCMSConfig:                mcmsConfig,
+		}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
+	)
+	require.NoError(t, err, "failed to link the timelock as a workflow owner")
 }

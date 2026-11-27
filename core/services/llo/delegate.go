@@ -83,6 +83,8 @@ type DelegateConfig struct {
 	PluginMonitoringEndpoint telemetry.MultitypeMonitoringEndpoint
 	DonID                    uint32
 	ChainID                  string
+	// CSAPublicKey is this node's CSA public key in hex, used to label the observed value gauge.
+	CSAPublicKey string
 
 	// OCR3
 	TraceLogging                 bool
@@ -198,7 +200,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 
 	t := telem.NewTelemeterService(cfg.telemeterParams(lggr))
 
-	ds := observation.NewDataSource(logger.Named(lggr, "DataSource"), cfg.Registry, t)
+	ds := observation.NewDataSource(logger.Named(lggr, "DataSource"), cfg.Registry, t, cfg.DonID, cfg.CSAPublicKey)
 
 	notifier, ok := cfg.ContractTransmitter.(transmitter.TransmitNotifier)
 	if ok {
@@ -333,6 +335,7 @@ func (d *delegate) v31FactoryParams(lggr logger.Logger, psrrc lloprotocol.Predec
 		DonID:                            d.cfg.DonID,
 		BlobLifetimeRounds:               d.cfg.V31Config.BlobLifetimeRounds,
 		MaxDurationBlobObservation:       d.cfg.V31Config.MaxDurationBlobObservation.Duration(),
+		MaxDurationBlobBroadcast:         d.cfg.V31Config.MaxDurationBlobBroadcast.Duration(),
 		BlobInFlightWaitFactor:           d.cfg.V31Config.BlobInFlightWaitFactor,
 	}
 }

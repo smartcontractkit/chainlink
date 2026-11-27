@@ -559,25 +559,10 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 	loggerLabels := e.eventLabels()
 	lggr := e.logger().With(platform.KeyOrganizationID, e.orgID)
 
-	var executionTimestamp time.Time
-	var executionDonTimeProvider TimeProvider
-	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
-		executionDonTimeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.donTimeRequestTimeout(ctx, e.cfg.LocalLimiters.DONTimeRequestTimeout), lggr, e.metrics, e.cfg.Clock)
-		donTime, dtErr := executionDonTimeProvider.GetDONTime()
-		if dtErr != nil {
-			executionTimestamp = e.cfg.Clock.Now()
-			lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr, "executionTimestamp", executionTimestamp)
-			e.metrics.IncrementExecutionTimestampFallbackCounter(ctx)
-		} else {
-			executionTimestamp = donTime
-			lggr.Debugw("Execution timestamp assigned", "executionTimestamp", executionTimestamp)
-			e.metrics.IncrementExecutionTimestampAssignedCounter(ctx)
-		}
-	}
-
 	triggerEvent := event.Event.Event
 
-	// disallow duplicate executions
+	// Disallow duplicate executions. This comes first, before anything with a cost or a side effect (like requesting DON
+	// time), because events are started more than once on purpose by the consensus queue, and the repeats must be cheap.
 	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)
 	if addErr != nil {
 		if errors.Is(addErr, store.ErrDuplicateExecution) {
@@ -594,6 +579,22 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 			return ErrDuplicateExecution
 		}
 		lggr.Errorw("Failed to register execution in store, proceeding anyway", "executionID", executionID, "err", addErr)
+	}
+
+	var executionTimestamp time.Time
+	var executionDonTimeProvider TimeProvider
+	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
+		executionDonTimeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.donTimeRequestTimeout(ctx, e.cfg.LocalLimiters.DONTimeRequestTimeout), lggr, e.metrics, e.cfg.Clock)
+		donTime, dtErr := executionDonTimeProvider.GetDONTime()
+		if dtErr != nil {
+			executionTimestamp = e.cfg.Clock.Now()
+			lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr, "executionTimestamp", executionTimestamp)
+			e.metrics.IncrementExecutionTimestampFallbackCounter(ctx)
+		} else {
+			executionTimestamp = donTime
+			lggr.Debugw("Execution timestamp assigned", "executionTimestamp", executionTimestamp)
+			e.metrics.IncrementExecutionTimestampAssignedCounter(ctx)
+		}
 	}
 
 	var executionStatus string

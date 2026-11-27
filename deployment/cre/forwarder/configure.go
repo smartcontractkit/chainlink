@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -24,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
+
+var errConfigureChainsRequired = errors.New("chains must be non-empty: an empty list used to mean every chain in the environment, the chains to configure must now be listed explicitly")
 
 type ConfigureSeqDeps struct {
 	Env *cldf.Environment
@@ -59,7 +62,9 @@ type ConfigureSeqInput struct {
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *contracts.MCMSConfig
-	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
+	// Chains is required and must be non-empty. It lists the chains whose forwarders get written.
+	// An empty list used to mean "every chain loaded in the environment", which let one wrong DON id,
+	// f or signer set be written to every forwarder at once, so it is now rejected.
 	Chains map[uint64]struct{}
 }
 
@@ -80,6 +85,11 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 	semver.MustParse("1.0.0"),
 	"Configure Keystone Forwarders",
 	func(b operations.Bundle, deps ConfigureSeqDeps, input ConfigureSeqInput) (ConfigureSeqOutput, error) {
+		// Checked here as well as in the changeset so no caller can reach "all chains" by calling the sequence directly.
+		if len(input.Chains) == 0 {
+			return ConfigureSeqOutput{}, errConfigureChainsRequired
+		}
+
 		evmChain := deps.Env.BlockChains.EVMChains()
 		proposalsPerChain := make(map[uint64][]*mcmslib.TimelockProposal)
 		forwarderContracts := make(map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
@@ -93,7 +103,7 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 		}
 
 		for _, chain := range evmChain {
-			if _, shouldInclude := input.Chains[chain.Selector]; len(input.Chains) > 0 && !shouldInclude {
+			if _, shouldInclude := input.Chains[chain.Selector]; !shouldInclude {
 				continue
 			}
 
@@ -268,7 +278,42 @@ func Signers(nodeIDs []string, c offchain.Client, chainFamily string) ([]common.
 		signerAddress := common.BytesToAddress(signer)
 		out = append(out, signerAddress)
 	}
+
+	// Job Distributor silently leaves out nodes that are disabled or unknown to it, and bootstrap nodes
+	// produce no signer. Without this check a forwarder would be configured with fewer signers than
+	// intended, which can drop the DON below its quorum or lock out the real signers.
+	if len(out) != len(nodeIDs) {
+		return nil, fmt.Errorf("got %d signers for %d requested node IDs; node IDs with no signer (unknown or disabled in Job Distributor): %v",
+			len(out), len(nodeIDs), nodeIDsWithoutSigner(nodeIDs, nodes))
+	}
 	return out, nil
+}
+
+// nodeIDsWithoutSigner returns the requested node IDs that Job Distributor did not return a node for, or that
+// resolved to a bootstrap node (bootstrap nodes never sign). Nodes are matched the way deployment.NodeInfo
+// looks them up: by the form of the first ID (p2p_ peer ID, node_ JD ID, otherwise CSA public key).
+func nodeIDsWithoutSigner(nodeIDs []string, nodes deployment.Nodes) []string {
+	have := make(map[string]struct{}, len(nodes))
+	for _, n := range nodes {
+		if n.IsBootstrap {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(nodeIDs[0], "p2p_"):
+			have[n.PeerID.String()] = struct{}{}
+		case strings.HasPrefix(nodeIDs[0], "node_"):
+			have[n.NodeID] = struct{}{}
+		default:
+			have[n.CSAKey] = struct{}{}
+		}
+	}
+	var missing []string
+	for _, id := range nodeIDs {
+		if _, ok := have[id]; !ok {
+			missing = append(missing, id)
+		}
+	}
+	return missing
 }
 
 // ConfigureForwarders is a changeset that configures Keystone Forwarder contracts for a given DON.
@@ -277,6 +322,9 @@ type ConfigureForwarders struct{}
 var _ cldf.ChangeSetV2[ConfigureSeqInput] = ConfigureForwarders{}
 
 func (c ConfigureForwarders) VerifyPreconditions(e cldf.Environment, config ConfigureSeqInput) error {
+	if len(config.Chains) == 0 {
+		return errConfigureChainsRequired
+	}
 	for chainSel := range config.Chains {
 		if _, ok := e.BlockChains.EVMChains()[chainSel]; !ok {
 			return fmt.Errorf("chain selector %d not found in environment", chainSel)
@@ -291,6 +339,14 @@ func (c ConfigureForwarders) VerifyPreconditions(e cldf.Environment, config Conf
 	}
 	if config.DON.Version != 1 {
 		return errors.New("DON config version must be 1")
+	}
+	// The forwarder contract reverts on f == 0 and on fewer than 3f+1 signers; fail here, before any
+	// transaction is sent or proposal is built.
+	if config.DON.F == 0 {
+		return errors.New("DON F must be greater than 0")
+	}
+	if len(config.DON.NodeIDs) <= 3*int(config.DON.F) {
+		return fmt.Errorf("DON has %d node IDs but needs more than 3*F (F=%d, so at least %d)", len(config.DON.NodeIDs), config.DON.F, 3*int(config.DON.F)+1)
 	}
 
 	return nil

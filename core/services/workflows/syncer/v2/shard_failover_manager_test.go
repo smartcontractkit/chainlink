@@ -1061,6 +1061,164 @@ func TestShardFailoverManager_TimeoutBasedFailover_CompletionDrainsCache(t *test
 	assert.Empty(t, eng.executedIDs(), "cached event was auto-executed although the primary reported success")
 }
 
+// releasableEngine holds each execution until release receives a value.
+type releasableEngine struct {
+	recordingEngine
+	release chan struct{}
+}
+
+func (e *releasableEngine) ExecuteTrigger(ctx context.Context, event triggers.CoordinatedEvent) error {
+	err := e.recordingEngine.ExecuteTrigger(ctx, event)
+	select {
+	case <-e.release:
+	case <-ctx.Done():
+	}
+	return err
+}
+
+func TestShardFailoverManager_TimeoutBasedFailover_ExecutionConcurrencyBound(t *testing.T) {
+	t.Parallel()
+
+	eng := &releasableEngine{release: make(chan struct{})}
+	t.Cleanup(func() { close(eng.release) })
+	gate := &fakeGateLimiter{open: true}
+	window := &fakeWindowLimiter{window: 10 * time.Millisecond}
+	m := newTimeoutBasedFailoverManager(t, &eng.recordingEngine, gate, window, &switchableShardResolver{ownerDON: 1, found: true})
+	m.SetEngine(eng)
+	m.cfg.Failover.ExecutionConcurrency = limits.GlobalResourcePoolLimiter(3)
+
+	for i := range 10 {
+		err := m.admissionCheck(t.Context(), timeoutBasedFailoverTestEvent(fmt.Sprintf("evt-%d", i)))
+		require.ErrorIs(t, err, v2.ErrAdmissionCache)
+	}
+
+	require.Eventually(t, func() bool {
+		m.executeDueTimeoutBasedFailovers(t.Context())
+		return len(eng.executedIDs()) == 3
+	}, 10*time.Second, 10*time.Millisecond, "auto failover did not start executions up to the concurrency limit")
+	assert.Len(t, m.cacheIDs(), 7, "events over the concurrency limit were not kept in the cache")
+
+	eng.release <- struct{}{}
+	require.Eventually(t, func() bool {
+		m.executeDueTimeoutBasedFailovers(t.Context())
+		return len(eng.executedIDs()) == 4
+	}, 10*time.Second, 10*time.Millisecond, "a later tick did not execute a cached event after a slot was freed")
+	assert.Len(t, m.cacheIDs(), 6, "a later tick executed more cached events than the freed slots")
+}
+
+// countingLimiter records Use and Free calls. useErr, when set, fails every Use; onUse runs
+// after a successful Use.
+type countingLimiter struct {
+	limits.ResourcePoolLimiter[int]
+	useErr error
+	onUse  func()
+
+	mu    sync.Mutex
+	used  int
+	freed int
+}
+
+func (l *countingLimiter) Use(context.Context, int) error {
+	if l.useErr != nil {
+		return l.useErr
+	}
+	l.mu.Lock()
+	l.used++
+	l.mu.Unlock()
+	if l.onUse != nil {
+		l.onUse()
+	}
+	return nil
+}
+
+func (l *countingLimiter) Free(context.Context, int) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.freed++
+	return nil
+}
+
+func (l *countingLimiter) counts() (used, freed int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.used, l.freed
+}
+
+func newConcurrencyTestManager(t *testing.T, eng *recordingEngine, limiter limits.ResourcePoolLimiter[int], eventIDs ...string) *ShardFailoverManager {
+	t.Helper()
+	window := &fakeWindowLimiter{window: 10 * time.Millisecond}
+	m := newTimeoutBasedFailoverManager(t, eng, &fakeGateLimiter{open: true}, window, &switchableShardResolver{ownerDON: 1, found: true})
+	m.cfg.Failover.ExecutionConcurrency = limiter
+	for _, id := range eventIDs {
+		require.ErrorIs(t, m.admissionCheck(t.Context(), timeoutBasedFailoverTestEvent(id)), v2.ErrAdmissionCache)
+	}
+	time.Sleep(15 * time.Millisecond)
+	return m
+}
+
+func TestShardFailoverManager_TimeoutBasedFailover_LimiterErrorKeepsEventsCached(t *testing.T) {
+	t.Parallel()
+
+	eng := &recordingEngine{}
+	m := newConcurrencyTestManager(t, eng, &countingLimiter{useErr: errors.New("limiter stopped")}, "evt-1", "evt-2", "evt-3")
+
+	m.executeDueTimeoutBasedFailovers(t.Context())
+
+	assert.Empty(t, eng.executedIDs(), "events were executed although the limiter failed")
+	assert.Len(t, m.cacheIDs(), 3, "events were not kept in the cache after a limiter error")
+}
+
+func TestShardFailoverManager_TimeoutBasedFailover_FreesSlotWhenExecuteTriggerFails(t *testing.T) {
+	t.Parallel()
+
+	eng := &recordingEngine{execErr: errors.New("execution failed")}
+	limiter := &countingLimiter{}
+	m := newConcurrencyTestManager(t, eng, limiter, "evt-1")
+
+	m.executeDueTimeoutBasedFailovers(t.Context())
+
+	require.Eventually(t, func() bool {
+		used, freed := limiter.counts()
+		return used == 1 && freed == 1
+	}, 10*time.Second, 10*time.Millisecond, "slot was not freed after ExecuteTrigger failed")
+}
+
+func TestShardFailoverManager_TimeoutBasedFailover_FreesSlotWhenEventLeftCache(t *testing.T) {
+	t.Parallel()
+
+	eng := &recordingEngine{}
+	limiter := &countingLimiter{}
+	m := newConcurrencyTestManager(t, eng, limiter, "evt-1")
+	limiter.onUse = func() { m.removeCachedEvent("evt-1") }
+
+	m.executeDueTimeoutBasedFailovers(t.Context())
+
+	used, freed := limiter.counts()
+	assert.Equal(t, 1, used)
+	assert.Equal(t, 1, freed, "slot leaked when the event left the cache before it was popped")
+	assert.Empty(t, eng.executedIDs())
+}
+
+func TestShardFailoverManager_TimeoutBasedFailover_FreesSlotWhenContextCancelled(t *testing.T) {
+	t.Parallel()
+
+	eng := &releasableEngine{release: make(chan struct{})}
+	t.Cleanup(func() { close(eng.release) })
+	limiter := &countingLimiter{}
+	m := newConcurrencyTestManager(t, &eng.recordingEngine, limiter, "evt-1")
+	m.SetEngine(eng)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	m.executeDueTimeoutBasedFailovers(ctx)
+	require.Eventually(t, func() bool { return len(eng.executedIDs()) == 1 }, 10*time.Second, 10*time.Millisecond)
+	cancel()
+
+	require.Eventually(t, func() bool {
+		_, freed := limiter.counts()
+		return freed == 1
+	}, 10*time.Second, 10*time.Millisecond, "slot was not freed after the context was cancelled")
+}
+
 func TestShardFailoverManager_TimeoutBasedFailover_DisabledByDefault(t *testing.T) {
 	t.Parallel()
 

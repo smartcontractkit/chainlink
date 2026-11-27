@@ -2,6 +2,7 @@ package ocr2
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -92,4 +93,34 @@ func TestNewServices_NilPeerWrapper(t *testing.T) {
 	_, err := d.NewServices(context.Background(), "dontime@1.0.0", 1, commontypes.DonTimePlugin, "", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "libp2p peer was missing or not started")
+}
+
+// TestRegistryKVSubPath asserts the KV path is stable for a capability on a DON, differs across capabilities and DONs,
+// and is a single path element.
+func TestRegistryKVSubPath(t *testing.T) {
+	t.Parallel()
+
+	base := registryKVSubPath("consensus-queue@1.0.0", 1)
+	assert.Equal(t, "consensus-queue_1_0_0_don1", base)
+	assert.Equal(t, base, registryKVSubPath("consensus-queue@1.0.0", 1), "path must be stable across launches")
+
+	tests := []struct {
+		name  string
+		capID string
+		donID uint32
+	}{
+		{name: "other DON", capID: "consensus-queue@1.0.0", donID: 2},
+		{name: "other version", capID: "consensus-queue@2.0.0", donID: 1},
+		{name: "other capability", capID: "dontime@1.0.0", donID: 1},
+		{name: "path traversal attempt", capID: "../../etc", donID: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := registryKVSubPath(tt.capID, tt.donID)
+			assert.NotEqual(t, base, got)
+			assert.Equal(t, filepath.Base(got), got, "path must be a single element")
+			assert.NotContains(t, got, "..")
+		})
+	}
 }

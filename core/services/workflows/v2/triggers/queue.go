@@ -1,14 +1,27 @@
 package triggers
 
 import (
+	"bytes"
+	"cmp"
+	"container/heap"
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
+	"iter"
 	"maps"
+	"slices"
 	"sync"
+	"sync/atomic"
+	"time"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
@@ -29,6 +42,15 @@ type Queue interface {
 
 	// Stats reports current length, capacity, and cumulative drops.
 	Stats(context.Context) (Stats, error)
+
+	// Sorted returns a sorted iterator over events, up to limit. Events remain but can be removed via Remove.
+	// Events are filtered as they are pulled: those whose encoded size (without timestamps, i.e. as an element of a
+	// blob) exceeds maxEventBytes can never be observed, so they are skipped (not counting toward limit), and dropped
+	// from the queue (counted and logged) when iteration ends. maxEventBytes <= 0 disables this.
+	Sorted(ctx context.Context, limit, maxEventBytes int) iter.Seq2[[]byte, *pb.CoordinatedEvent]
+
+	// Remove removes events from the queue by execution ID.
+	Remove(ctx context.Context, executionIDs iter.Seq[string])
 }
 
 // Stats is a point-in-time view of a Queue.
@@ -55,10 +77,24 @@ type CentralQueue struct {
 	lggr    logger.Logger
 
 	mu                 sync.Mutex
-	events             []CoordinatedEvent
+	events             []centralQueueEvent
 	depthByWorkflow    map[string]uint64
 	depthByTriggerType map[string]uint64
 	droppedByReason    map[string]uint64
+
+	lastConsumed atomic.Int64 // unix nanoseconds of the last Sorted call, zero if never
+}
+
+type centralQueueEvent struct {
+	CoordinatedEvent
+	pb           *pb.CoordinatedEvent
+	timelessHash []byte
+	executionID  string
+	blobSize     int // encoded size of pb without timestamps: its size as an element of a blob
+}
+
+func (q *centralQueueEvent) Compare(other centralQueueEvent) int {
+	return cmp.Or(q.Deadline.Compare(other.Deadline), bytes.Compare(q.timelessHash, other.timelessHash))
 }
 
 // NewQueue returns the node's central trigger queue. limit is read on every Put. If it cannot be read, the
@@ -87,7 +123,23 @@ func (q *CentralQueue) Put(ctx context.Context, e CoordinatedEvent) error {
 		q.drop(ctx, monitoring.CentralTriggerQueueDropReasonQueueFull)
 		return ErrQueueFull
 	}
-	q.events = append(q.events, e)
+	pbe := e.ToProto()
+	timelessBytes, err := pbe.MarshalTimeless() // as it appears in a blob: hashed, and sized for the oversize filter
+	if err != nil {
+		return fmt.Errorf("failed to marshal event without timestamps: %w", err)
+	}
+	timelessHash := sha256.Sum256(timelessBytes)
+	execID, err := workflows.GenerateExecutionIDWithTriggerIndex(e.WorkflowID, e.Event.Event.ID, e.TriggerIndex)
+	if err != nil {
+		return fmt.Errorf("failed to generate execution ID: %w", err)
+	}
+	q.events = append(q.events, centralQueueEvent{
+		CoordinatedEvent: e,
+		pb:               pbe,
+		timelessHash:     timelessHash[:],
+		executionID:      execID,
+		blobSize:         len(timelessBytes),
+	})
 	q.depthByWorkflow[e.WorkflowID]++
 	q.depthByTriggerType[e.TriggerCapID]++
 	q.metrics.IncrementPutsCounter(ctx)
@@ -103,7 +155,10 @@ func (q *CentralQueue) Drain(ctx context.Context) ([]CoordinatedEvent, error) {
 
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	events := q.events
+	events := make([]CoordinatedEvent, len(q.events))
+	for i, pbe := range q.events {
+		events[i] = pbe.CoordinatedEvent
+	}
 	q.events = nil
 	q.depthByWorkflow = map[string]uint64{}
 	q.depthByTriggerType = map[string]uint64{}
@@ -111,6 +166,127 @@ func (q *CentralQueue) Drain(ctx context.Context) ([]CoordinatedEvent, error) {
 	q.metrics.RecordDepth(ctx, 0)
 	q.metrics.RecordCapacity(ctx, q.effectiveCapacity(capacity))
 	return events, nil
+}
+
+func (q *CentralQueue) Remove(ctx context.Context, executionIDs iter.Seq[string]) {
+	execIDSet := map[string]struct{}{}
+	for triggerEventID := range executionIDs {
+		execIDSet[triggerEventID] = struct{}{}
+	}
+
+	capacity := q.capacity(ctx)
+
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	var deleted int
+	q.events = slices.DeleteFunc(q.events, func(cqe centralQueueEvent) bool {
+		_, ok := execIDSet[cqe.executionID]
+		if ok {
+			deleted++
+			q.depthByWorkflow[cqe.WorkflowID]--
+			q.depthByTriggerType[cqe.TriggerCapID]--
+			q.metrics.RecordEventAge(ctx, time.Since(cqe.ObservedAt).Seconds())
+		}
+		return ok
+	})
+	q.metrics.IncrementDrainedEventsCounter(ctx, deleted)
+	q.metrics.RecordDepth(ctx, len(q.events))
+	q.metrics.RecordCapacity(ctx, q.effectiveCapacity(capacity))
+}
+
+func (q *CentralQueue) Sorted(ctx context.Context, limit, maxEventBytes int) iter.Seq2[[]byte, *pb.CoordinatedEvent] {
+	q.lastConsumed.Store(time.Now().UnixNano())
+	q.mu.Lock()
+	events := priorityQueue(slices.Clone(q.events))
+	q.mu.Unlock()
+
+	heap.Init(&events)
+
+	return func(yield func([]byte, *pb.CoordinatedEvent) bool) {
+		// Events are only examined as they are pulled. Those too large to ever be observed are skipped (they do not
+		// count toward limit), and then dropped from the queue once the caller is done pulling.
+		var oversize []centralQueueEvent
+		defer func() { q.dropOversize(ctx, oversize, maxEventBytes) }()
+
+		for count := 0; events.Len() > 0 && count < limit; {
+			cqe := heap.Pop(&events).(centralQueueEvent)
+			if maxEventBytes > 0 && cqe.blobSize > maxEventBytes {
+				oversize = append(oversize, cqe)
+				continue
+			}
+			count++
+			if !yield(cqe.timelessHash, proto.CloneOf(cqe.pb)) {
+				return
+			}
+		}
+	}
+}
+
+// dropOversize removes the events from the queue, if they are still there. They are dropped, not run locally instead:
+// executions must be coordinated by consensus, and an event that cannot be put in a blob cannot reach it.
+func (q *CentralQueue) dropOversize(ctx context.Context, oversize []centralQueueEvent, maxEventBytes int) {
+	if len(oversize) == 0 {
+		return
+	}
+	executionIDs := make(map[string]struct{}, len(oversize))
+	for _, cqe := range oversize {
+		executionIDs[cqe.executionID] = struct{}{}
+	}
+
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	var dropped int
+	q.events = slices.DeleteFunc(q.events, func(cqe centralQueueEvent) bool {
+		if _, ok := executionIDs[cqe.executionID]; !ok {
+			return false
+		}
+		dropped++
+		q.depthByWorkflow[cqe.WorkflowID]--
+		q.depthByTriggerType[cqe.TriggerCapID]--
+		q.lggr.Errorw("Dropping event too large to be observed", "workflowID", cqe.WorkflowID, "executionID", cqe.executionID,
+			"size", cqe.blobSize, "maxSize", maxEventBytes)
+		q.drop(ctx, monitoring.CentralTriggerQueueDropReasonOversize)
+		return true
+	})
+	if dropped > 0 {
+		q.metrics.RecordDepth(ctx, len(q.events))
+	}
+}
+
+// LastConsumed is when Sorted was last called, which is how the consensus queue plugin reads the queue, or the zero
+// time if it never was. The drainer uses it to leave the events to the plugin while it is reading them.
+func (q *CentralQueue) LastConsumed() time.Time {
+	n := q.lastConsumed.Load()
+	if n == 0 {
+		return time.Time{}
+	}
+	return time.Unix(0, n)
+}
+
+// DropExpired removes the events whose deadline is before cutoff, and returns how many. Nothing else expires events,
+// and an event that never reaches consensus would otherwise stay for good.
+func (q *CentralQueue) DropExpired(ctx context.Context, cutoff time.Time) int {
+	capacity := q.capacity(ctx)
+
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	var dropped int
+	q.events = slices.DeleteFunc(q.events, func(cqe centralQueueEvent) bool {
+		if !cqe.Deadline.Before(cutoff) {
+			return false
+		}
+		dropped++
+		q.depthByWorkflow[cqe.WorkflowID]--
+		q.depthByTriggerType[cqe.TriggerCapID]--
+		q.drop(ctx, monitoring.CentralTriggerQueueDropReasonExpired)
+		return true
+	})
+	if dropped > 0 {
+		q.metrics.RecordDepth(ctx, len(q.events))
+		q.metrics.RecordCapacity(ctx, q.effectiveCapacity(capacity))
+	}
+	return dropped
 }
 
 // Stats returns copies of the queue's maps, so callers may keep or change them.
@@ -159,4 +335,38 @@ func (q *CentralQueue) drop(ctx context.Context, reason string) {
 type queueCapacity struct {
 	limit int
 	ok    bool
+}
+
+var _ heap.Interface = (*priorityQueue)(nil)
+
+// priorityQueue is a heap of coordinated events, ordered by deadline and then trigger event ID.
+type priorityQueue []centralQueueEvent
+
+func (p *priorityQueue) Len() int {
+	if p == nil {
+		return 0
+	}
+	return len(*p)
+}
+
+func (p *priorityQueue) Less(i, j int) bool {
+	a, b := (*p)[i], (*p)[j]
+	return a.Compare(b) < 0
+}
+
+func (p *priorityQueue) Swap(i, j int) {
+	(*p)[i], (*p)[j] = (*p)[j], (*p)[i]
+}
+
+func (p *priorityQueue) Push(x any) {
+	*p = append(*p, x.(centralQueueEvent))
+}
+
+func (p *priorityQueue) Pop() any {
+	if p.Len() == 0 {
+		return nil
+	}
+	e := (*p)[len(*p)-1]
+	*p = (*p)[:len(*p)-1]
+	return e
 }

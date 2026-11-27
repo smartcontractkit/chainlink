@@ -141,6 +141,16 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 		NodeIDs: req.WFNodeIDs,
 	}
 
+	// The forwarder sequence no longer treats an empty chain list as "all chains". This legacy request still
+	// documents that behaviour, so keep it working by listing every EVM chain in the environment explicitly.
+	chains := req.Chains
+	if len(chains) == 0 {
+		chains = make(map[uint64]struct{})
+		for sel := range env.BlockChains.EVMChains() {
+			chains[sel] = struct{}{}
+		}
+	}
+
 	seqReport, err := operations.ExecuteSequence(
 		env.OperationsBundle,
 		creforwarder.ConfigureSeq,
@@ -149,7 +159,7 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 			DON:        cfg,
 			Qualifier:  req.Qualifier,
 			MCMSConfig: req.MCMSConfig,
-			Chains:     req.Chains,
+			Chains:     chains,
 		},
 	)
 	if err != nil {

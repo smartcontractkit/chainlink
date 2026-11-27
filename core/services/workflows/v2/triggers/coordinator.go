@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
@@ -83,6 +84,18 @@ type Coordinator interface {
 	// Returns ErrCapacityNotSupported if the shared ExecutionConcurrency
 	// limiter does not break down by scope.
 	AvailableCapacity(ctx context.Context) (Capacity, error)
+
+	// StartExecution starts execution of the triggered event, and returns without waiting for anything beyond finding the
+	// workflow's engine: not for an execution slot, and not for the execution to finish. In the background it takes an
+	// execution slot like any admitted event, and holds it until the execution finishes, so that AvailableCapacity
+	// reflects it. It returns an error if the workflow is not registered, or its engine is gone or not coordinated.
+	// How the execution itself ends, or that no slot could be taken, is logged and counted.
+	// Starting an event that is already executing is not an error, the engine ignores it, so it is safe to call repeatedly.
+	StartExecution(context.Context, CoordinatedEvent) error
+
+	// WorkflowOrg returns the org of a workflow that is registered with the coordinator, to label metrics with.
+	// ok is false if the workflow is not registered.
+	WorkflowOrg(workflowID string) (orgID string, ok bool)
 }
 
 // RegisteredEngine is what EngineRegistry.Get returns: a sink the coordinator
@@ -154,6 +167,12 @@ type coordinator struct {
 
 	drainTimeout time.Duration
 
+	// expirationGrace is how long past its deadline an event may still run. nil means none.
+	expirationGrace func(context.Context) (time.Duration, error)
+
+	// lifetime, if set, learns the timeout of every event.
+	lifetime *EventLifetime
+
 	// shadow is nil unless WithShadowMode is set.
 	shadow *shadowMode
 	// drainer is nil unless WithDrainer is set.
@@ -163,9 +182,11 @@ type coordinator struct {
 
 	// Gauge backings for the coordinator's node-level load metrics. Readers and
 	// workflows are tracked separately: a workflow has one registry entry but N
-	// reader goroutines (one per subscribed trigger).
+	// reader goroutines (one per subscribed trigger). The gauges observe them at
+	// collection time through gaugesReg, registered on start.
 	readersGauge   atomic.Int64
 	workflowsGauge atomic.Int64
+	gaugesReg      metric.Registration
 }
 
 // coordinatedWorkflow represents the state of a workflow's triggers within the coordinator.
@@ -224,6 +245,7 @@ func NewCoordinator(
 
 	c.Service, c.eng = services.Config{
 		Name:  "TriggerCoordinator",
+		Start: c.start,
 		Close: c.close,
 		NewSubServices: func(logger.Logger) []services.Service {
 			if c.drainer == nil {
@@ -238,6 +260,69 @@ func NewCoordinator(
 
 // CoordinatorOption configures optional coordinator behaviour.
 type CoordinatorOption func(*coordinator)
+
+// ConsensusQueueExpirationGrace returns how long past its deadline an event is still kept, as configured by
+// ConsensusQueueExpirationGraceInterval. The consensus queue and the coordinator both honor it, so they agree on what has expired.
+// It is node-wide rather than per workflow: each event's deadline already reflects its workflow's timeout, and the grace
+// is slack for clock skew and consensus latency, which the consensus queue applies to every workflow at once.
+func ConsensusQueueExpirationGrace(lf limits.Factory) func(context.Context) (time.Duration, error) {
+	return func(ctx context.Context) (time.Duration, error) {
+		return cresettings.Default.ConsensusQueueExpirationGraceInterval.GetOrDefault(ctx, lf.Settings)
+	}
+}
+
+// EventLifetime tracks how long an event can be held for: the longest timeout that events have been given, plus the
+// grace period. The timeout is a per workflow setting, so there is no fixed maximum, only the longest seen so far.
+// It is for anything that has to remember an event for as long as it can be run, to tell a repeat from a new event.
+type EventLifetime struct {
+	grace func(context.Context) (time.Duration, error)
+
+	mu      sync.Mutex
+	longest time.Duration
+}
+
+// NewEventLifetime returns a tracker that starts with the default timeout, and adds the grace period.
+func NewEventLifetime(grace func(context.Context) (time.Duration, error)) *EventLifetime {
+	return &EventLifetime{grace: grace, longest: cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.DefaultValue}
+}
+
+func (l *EventLifetime) observeTimeout(timeout time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.longest = max(l.longest, timeout)
+}
+
+// Longest returns the longest time an event can be held for, so far. If the grace period cannot be read, the value
+// that was returned with the error is used.
+func (l *EventLifetime) Longest(ctx context.Context) time.Duration {
+	grace, _ := l.grace(ctx)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.longest + max(0, grace)
+}
+
+// WithEventLifetime records the timeout of every event that is given a deadline in lifetime.
+func WithEventLifetime(lifetime *EventLifetime) CoordinatorOption {
+	return func(c *coordinator) { c.lifetime = lifetime }
+}
+
+// WithExpirationGrace lets events run for up to grace past their deadline, instead of dropping them at the deadline.
+// If grace returns an error, its (default) value is still used.
+func WithExpirationGrace(grace func(context.Context) (time.Duration, error)) CoordinatorOption {
+	return func(c *coordinator) { c.expirationGrace = grace }
+}
+
+// expirationGraceDur returns the current grace period, which is zero if unset.
+func (c *coordinator) expirationGraceDur(ctx context.Context, lggr logger.Logger) time.Duration {
+	if c.expirationGrace == nil {
+		return 0
+	}
+	grace, err := c.expirationGrace(ctx)
+	if err != nil {
+		lggr.Warnw("Failed to get expiration grace duration - using default", "grace", grace, "err", err)
+	}
+	return max(0, grace)
+}
 
 // WithShadowMode copies each event observed inside activePeriod to queue before the event enters its
 // workflow's own queue. The copy is best-effort. A full queue never delays or drops the event.
@@ -352,8 +437,8 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 	cw.executions.Add(1) // the admitter
 
 	c.workflows.set(workflowID, cw)
-	c.deps.Metrics.UpdateTriggerCoordinatorWorkflowsGauge(ctx, c.workflowsGauge.Add(1))
-	c.deps.Metrics.UpdateTriggerCoordinatorReadersGauge(ctx, c.readersGauge.Add(int64(len(eventChans))))
+	c.workflowsGauge.Add(1)
+	c.readersGauge.Add(int64(len(eventChans)))
 
 	c.eng.GoCtx(readerCtx, func(ctx context.Context) {
 		defer cw.executions.Done()
@@ -365,7 +450,7 @@ func (c *coordinator) RegisterTriggers(ctx context.Context, subscriber Subscribe
 		triggerCapID := triggerCapIDs[idx]
 		c.eng.GoCtx(readerCtx, func(ctx context.Context) {
 			defer cw.readers.Done()
-			defer c.deps.Metrics.UpdateTriggerCoordinatorReadersGauge(ctx, c.readersGauge.Add(-1))
+			defer c.readersGauge.Add(-1)
 			ReadLoop(ctx, lggr, wfMetrics, c.clock, workflowID, triggerCapID, idx, eventCh, enqueueFn)
 		})
 	}
@@ -476,6 +561,73 @@ func (c *coordinator) Ack(ctx context.Context, triggerCapID, triggerRegistration
 	return Ack(ctx, lggr, wfMetrics, triggerCapID, triggerRegistrationID, eventID, handle)
 }
 
+// start registers the callback that reports the workflows and readers gauges.
+func (c *coordinator) start(context.Context) error {
+	reg, err := c.deps.Metrics.RegisterTriggerCoordinatorGauges(c.workflowsGauge.Load, c.readersGauge.Load)
+	if err != nil {
+		return fmt.Errorf("register trigger coordinator gauges: %w", err)
+	}
+	c.gaugesReg = reg
+	return nil
+}
+
+func (c *coordinator) WorkflowOrg(workflowID string) (string, bool) {
+	cw, ok := c.workflows.get(workflowID)
+	if !ok {
+		return "", false
+	}
+	return cw.cre.Org, true
+}
+
+func (c *coordinator) StartExecution(ctx context.Context, event CoordinatedEvent) error {
+	cw, ok := c.workflows.get(event.WorkflowID)
+	if !ok {
+		return fmt.Errorf("workflow %s: not registered", event.WorkflowID)
+	}
+	engine, err := c.lookupEngine(cw.wid)
+	if err != nil {
+		return fmt.Errorf("workflow %s: %w", cw.wid, err)
+	}
+
+	tm := cw.metrics.With(platform.KeyTriggerID, event.TriggerCapID)
+	tm.RecordTriggerEventQueueWaitSeconds(ctx, c.clock.Since(event.ObservedAt).Seconds())
+
+	// In shadow mode the event is only logged. The plugin that calls this still treats it as started, so it is not
+	// started again, while the workflow runs the event from its own queue as usual.
+	if active, err := c.shadowActive(contexts.WithCRE(ctx, cw.cre), event); err != nil {
+		cw.lggr.Warnw("Failed to check shadow trigger mode, starting the event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+	} else if active {
+		tm.IncrementTriggerEventShadowSkippedCounter(ctx)
+		cw.lggr.Infow("Shadow mode: not starting the coordinated event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID,
+			"triggerIndex", event.TriggerIndex, "observedAt", event.ObservedAt)
+		return nil
+	}
+
+	// Everything else happens in the background, so that the caller never waits: not for the execution, and not for a
+	// slot either. Events are started more than once on purpose, and the engine ignores the repeats, but only after a
+	// slot has been taken. If the caller waited for it, a repeat would wait behind the slot held by the first run.
+	c.eng.Go(func(ctx context.Context) {
+		// Like the admitter, act for the workflow's tenant, so that the slot is taken from its scopes' pools.
+		ctx = contexts.WithCRE(ctx, cw.cre)
+
+		semWaitStart := c.clock.Now()
+		free, err := c.admission.ExecutionConcurrency.Wait(ctx, 1)
+		tm.RecordExecutionSemaphoreWaitSeconds(ctx, c.clock.Now().Sub(semWaitStart).Seconds())
+		if err != nil {
+			cw.lggr.Errorw("Failed to acquire executions semaphore", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExecutionSemaphoreWaitFailed)
+			return
+		}
+		defer free()
+
+		// WithoutCancel: as for the admitter, stopping must not kill an execution that is already running.
+		err = engine.ExecuteTrigger(context.WithoutCancel(ctx), event)
+		// Starting the same event again is routine here, so a duplicate is not worth more than a debug message.
+		logExecuteResult(cw.lggr, event, err, true)
+	})
+	return nil
+}
+
 // close runs after the reader and release goroutines exit.
 // It unregisters any triggers still in a pending state before returning.
 func (c *coordinator) close() error {
@@ -490,6 +642,11 @@ func (c *coordinator) close() error {
 		if failCount := Unregister(contexts.WithCRE(ctx, cw.cre), cw.lggr, workflowID, cw.donID, cw.cre.Org, cw.handles); failCount > 0 {
 			cw.metrics.IncrementTriggerCoordinatorUnregisterFailuresCounter(ctx, int64(failCount))
 			errs = errors.Join(errs, fmt.Errorf("workflow %s: failed to unregister %d of %d triggers", workflowID, failCount, len(cw.handles)))
+		}
+	}
+	if c.gaugesReg != nil {
+		if err := c.gaugesReg.Unregister(); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("unregister trigger coordinator gauges: %w", err))
 		}
 	}
 	return errs
@@ -526,6 +683,9 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 			cw.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.Key)
 		}
 		event.Deadline = event.ObservedAt.Add(queueTimeout)
+		if c.lifetime != nil {
+			c.lifetime.observeTimeout(queueTimeout)
+		}
 
 		// Events are copied to the central queue before being put to the workflow queue, so the central queue also
 		// sees events the engine path later drops.
@@ -549,22 +709,34 @@ func (c *coordinator) buildEnqueueFn(cw *coordinatedWorkflow) func(context.Conte
 	}
 }
 
+// shadowActive reports whether shadow mode is on for the event: whether the second it was observed in is inside the
+// window. The window is read every time, never cached. Outside the window, or with shadow mode not configured, is
+// not an error. An error is a failed read of the window, which callers treat as off.
+func (c *coordinator) shadowActive(ctx context.Context, event CoordinatedEvent) (bool, error) {
+	if c.shadow == nil {
+		return false, nil
+	}
+	if err := c.shadow.activePeriod.Check(ctx, commonconfig.NewTimestamp(event.ObservedAt)); err != nil {
+		if _, outside := errors.AsType[limits.ErrorRangeLimited[commonconfig.Timestamp]](err); outside {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // putShadow copies event to the central queue when shadow mode is on for it. The window is checked for every
 // event and never cached, so a settings change applies to the next event. A read error counts as off. A
 // failed copy is never returned, because the event still runs on the engine path. Accepted and failed copies
 // are counted on tm, which carries the workflow labels. An event outside the window is not a failure.
 func (c *coordinator) putShadow(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) {
-	if c.shadow == nil {
+	if active, err := c.shadowActive(ctx, event); err != nil {
+		cw.lggr.Warnw("Failed to check shadow trigger mode, not copying the event to the central queue", "err", err)
+		tm.IncrementTriggerEventShadowFailedCounter(ctx, monitoring.ShadowFailReasonWindowCheckFailed)
+		return
+	} else if !active {
 		return
 	}
-	if err := c.shadow.activePeriod.Check(ctx, commonconfig.NewTimestamp(event.ObservedAt)); err != nil {
-		if _, outside := errors.AsType[limits.ErrorRangeLimited[commonconfig.Timestamp]](err); !outside {
-			cw.lggr.Warnw("Failed to check shadow trigger mode, not copying the event to the central queue", "err", err)
-			tm.IncrementTriggerEventShadowFailedCounter(ctx, monitoring.ShadowFailReasonWindowCheckFailed)
-		}
-		return
-	}
-	// TODO(CRE-6181): stamp SequenceNumber before the put.
 	if err := c.shadow.queue.Put(ctx, event); err != nil {
 		cw.lggr.Debugw("Failed to copy trigger event to the central queue", "triggerID", event.TriggerCapID,
 			"eventID", event.Event.Event.ID, "err", err)
@@ -632,7 +804,7 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 		eventAge := now.Sub(event.ObservedAt)
 		cw.lggr.Debugw("Popped a trigger event from the queue", "eventID", event.Event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
 		tm.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
-		if now.After(event.Deadline) {
+		if now.After(event.Deadline.Add(c.expirationGraceDur(ctx, cw.lggr))) {
 			cw.lggr.Warnw("Trigger event is too old, skipping execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "eventAgeMs", eventAge.Milliseconds())
 			tm.IncrementTriggerEventExpiredCounter(ctx)
 			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExpired)
@@ -664,15 +836,7 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 			defer free()
 			// WithoutCancel: unregistering stops ingress, it must not kill an execution already running.
 			err := engine.ExecuteTrigger(context.WithoutCancel(ctx), event)
-			switch {
-			case err == nil:
-			case errors.Is(err, ErrEngineDraining):
-				cw.lggr.Infow("Engine is draining, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
-			case errors.Is(err, ErrDuplicateExecution), errors.Is(err, ErrEngineClosed):
-				cw.lggr.Infow("Skipping trigger event execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
-			default:
-				cw.lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
-			}
+			logExecuteResult(cw.lggr, event, err, false)
 		})
 	}
 }
@@ -681,19 +845,52 @@ func (c *coordinator) admit(ctx context.Context, cw *coordinatedWorkflow) {
 // instead of caching it, since the engine for a workflow can change while the
 // registration is running. It reports false, after logging why and counting
 // the drop, if there is no engine to deliver to.
-func (c *coordinator) coordinatedEngine(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) (RegisteredEngine, bool) {
-	engine, found := c.engines.Get(cw.wid)
+var (
+	errEngineGone           = errors.New("engine not found")
+	errEngineNotCoordinated = errors.New("engine not coordinated")
+)
+
+// lookupEngine returns the workflow's engine, if it exists and is coordinated.
+func (c *coordinator) lookupEngine(wid types.WorkflowID) (RegisteredEngine, error) {
+	engine, found := c.engines.Get(wid)
 	if !found {
-		cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
-		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineGone)
-		return nil, false
+		return nil, errEngineGone
 	}
 	if !engine.IsCoordinated() {
+		return nil, errEngineNotCoordinated
+	}
+	return engine, nil
+}
+
+func (c *coordinator) coordinatedEngine(ctx context.Context, cw *coordinatedWorkflow, tm *monitoring.WorkflowsMetricLabeler, event CoordinatedEvent) (RegisteredEngine, bool) {
+	engine, err := c.lookupEngine(cw.wid)
+	switch {
+	case err == nil:
+		return engine, true
+	case errors.Is(err, errEngineGone):
+		cw.lggr.Infow("Engine gone, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineGone)
+	default:
 		cw.lggr.Errorw("Engine is not coordinated, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
 		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEngineNotCoordinated)
-		return nil, false
 	}
-	return engine, true
+	return nil, false
+}
+
+// logExecuteResult logs how an execution ended, at a level that suits it. routineDuplicates is for callers that start an
+// event more than once on purpose, for which a duplicate is not worth more than a debug message.
+func logExecuteResult(lggr logger.Logger, event CoordinatedEvent, err error, routineDuplicates bool) {
+	switch {
+	case err == nil:
+	case errors.Is(err, ErrEngineDraining):
+		lggr.Infow("Engine is draining, dropping trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
+	case errors.Is(err, ErrDuplicateExecution) && routineDuplicates:
+		lggr.Debugw("Trigger event is already executing", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID)
+	case errors.Is(err, ErrDuplicateExecution), errors.Is(err, ErrEngineClosed):
+		lggr.Infow("Skipping trigger event execution", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+	default:
+		lggr.Errorw("Failed to execute trigger event", "triggerID", event.TriggerCapID, "eventID", event.Event.Event.ID, "err", err)
+	}
 }
 
 // dropDeniedEvent handles an event the engine's admission check rejected with err. The event will never execute, so
@@ -734,7 +931,7 @@ func (c *coordinator) releaseWhenDrained(ctx context.Context, cw *coordinatedWor
 	}
 
 	c.workflows.deleteIf(cw.wid.Hex(), cw)
-	c.deps.Metrics.UpdateTriggerCoordinatorWorkflowsGauge(ctx, c.workflowsGauge.Add(-1))
+	c.workflowsGauge.Add(-1)
 
 	cw.lggr.Infow("Released trigger handles")
 }

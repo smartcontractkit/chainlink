@@ -591,6 +591,26 @@ UpdateInterval="1m"
 				require.NoError(t, pc.ValidatePluginConfig())
 			},
 		},
+		{
+			// consensus-queue runs only from the Capabilities Registry, so a job spec must be rejected.
+			name: "consensus-queue job spec",
+			toml: `
+type               = "offchainreporting2"
+pluginType         = "consensus-queue"
+schemaVersion      = 1
+relay              = "evm"
+contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
+[onchainSigningStrategy]
+strategyName = "single-chain"
+[onchainSigningStrategy.config]
+evm = ""
+[relayConfig]
+chainID = 1337
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.ErrorContains(t, err, "launched from the Capabilities Registry")
+			},
+		},
 	}
 
 	for _, tc := range tt {

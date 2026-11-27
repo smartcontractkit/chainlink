@@ -866,6 +866,34 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	return workflowID
 }
 
+// WorkflowIDPredictor compiles the workflow once and returns a function that computes the ID
+// CompileAndDeployWorkflow would register it under for a given name.
+func WorkflowIDPredictor[T WorkflowConfig](t *testing.T,
+	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger,
+	workflowConfig *T, workflowFileLocation string,
+) func(workflowName string) string {
+	t.Helper()
+
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
+	owner := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient.MustGetRootKeyAddress().Hex()
+
+	artifactDir := t.TempDir()
+	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflowToDir(t.Context(), workflowFileLocation, "workflow-id-predictor", artifactDir)
+	require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
+	binaryURL := "file://" + compressedWorkflowWasmPath
+
+	return func(workflowName string) string {
+		var configURL *string
+		if workflowConfigPath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig, artifactDir); workflowConfigPath != "" {
+			u := "file://" + workflowConfigPath
+			configURL = &u
+		}
+		workflowID, idErr := creworkflow.ComputeWorkflowID(t.Context(), owner, workflowName, binaryURL, configURL, "")
+		require.NoError(t, idErr, "failed to compute workflow ID for '%s'", workflowName)
+		return workflowID
+	}
+}
+
 func envVarOrDefault(envVar string, defaultValue int) int {
 	v := strings.TrimSpace(os.Getenv(envVar))
 	if v == "" {

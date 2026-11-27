@@ -220,6 +220,7 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 
 	t.Run("upsert workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
+		linkTimelockAsOwner(t, fixture)
 		upsertInput := UserWorkflowUpsertInput{
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
@@ -252,6 +253,7 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 
 	t.Run("pause workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
+		linkTimelockAsOwner(t, fixture)
 		pauseInput := UserWorkflowPauseInput{
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
@@ -274,6 +276,7 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 
 	t.Run("batch pause workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
+		linkTimelockAsOwner(t, fixture)
 		testWorkflowID2 := "1234567891234567891234567891234567891234567891234567891234567892"
 		pauseInput := UserWorkflowBatchPauseInput{
 			ChainSelector:             fixture.selector,
@@ -337,6 +340,7 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 
 	t.Run("activate workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
+		linkTimelockAsOwner(t, fixture)
 		activateInput := UserWorkflowActivateInput{
 			WorkflowID:                testWorkflowID,
 			DonFamily:                 testDONFamily,
@@ -360,6 +364,7 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 
 	t.Run("delete workflow with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
+		linkTimelockAsOwner(t, fixture)
 		deleteInput := UserWorkflowDeleteInput{
 			WorkflowID:                testWorkflowID,
 			ChainSelector:             fixture.selector,
@@ -418,6 +423,7 @@ func TestUserWorkflowOperationsMCMS(t *testing.T) {
 
 	t.Run("allowlist request with MCMS", func(t *testing.T) {
 		fixture := setupTestWithMCMS(t)
+		linkTimelockAsOwner(t, fixture)
 		allowlistInput := UserAllowlistRequestInput{
 			ChainSelector:             fixture.selector,
 			WorkflowRegistryQualifier: "test-workflow-registry-v2",
@@ -494,4 +500,52 @@ func mustConvertInt64ToUint32(value int64) uint32 {
 		panic(fmt.Sprintf("value %d out of range for uint32", value))
 	}
 	return uint32(value)
+}
+
+// A user workflow call from an account that is not a linked workflow owner is rejected by the registry.
+// The changeset fails before it sends a transaction or builds a proposal.
+func TestUserWorkflowOperations_SenderMustBeLinkedOwner(t *testing.T) {
+	t.Parallel()
+
+	input := func(fixture *testFixture) UserWorkflowUpsertInput {
+		return UserWorkflowUpsertInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			WorkflowID:                "1234567891234567891234567891234567891234567891234567891234567891",
+			WorkflowName:              "Test Workflow",
+			WorkflowTag:               "Test Workflow",
+			DonFamily:                 "zone-a",
+			BinaryURL:                 "http://example.com",
+			ConfigURL:                 "http://example.com",
+		}
+	}
+
+	t.Run("deployer key not linked", func(t *testing.T) {
+		t.Parallel()
+		fixture := setupTest(t)
+		deployer := fixture.rt.Environment().BlockChains.EVMChains()[fixture.selector].DeployerKey.From
+
+		_, err := UserWorkflowUpsert{}.Apply(fixture.rt.Environment(), input(fixture))
+		require.ErrorContains(t, err, "deployer key "+deployer.Hex()+" is not a linked workflow owner")
+	})
+
+	t.Run("timelock not linked", func(t *testing.T) {
+		t.Parallel()
+		fixture := setupTestWithMCMS(t)
+		in := input(fixture)
+		in.MCMSConfig = &contracts.MCMSConfig{
+			MinDelay:                  1 * time.Second,
+			TimelockQualifierPerChain: map[uint64]string{fixture.selector: ""},
+		}
+
+		out, err := UserWorkflowUpsert{}.Apply(fixture.rt.Environment(), in)
+		require.ErrorContains(t, err, "is not a linked workflow owner")
+		require.ErrorContains(t, err, "timelock ")
+		require.Empty(t, out.MCMSTimelockProposals)
+
+		linkTimelockAsOwner(t, fixture)
+		out, err = UserWorkflowUpsert{}.Apply(fixture.rt.Environment(), in)
+		require.NoError(t, err)
+		require.Len(t, out.MCMSTimelockProposals, 1)
+	})
 }

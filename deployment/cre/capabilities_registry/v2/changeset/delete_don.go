@@ -31,12 +31,46 @@ type DeleteDONsInput struct {
 
 type DeleteDONs struct{}
 
-func (d DeleteDONs) VerifyPreconditions(_ cldf.Environment, cfg DeleteDONsInput) error {
+func (d DeleteDONs) VerifyPreconditions(e cldf.Environment, cfg DeleteDONsInput) error {
 	if len(cfg.DonNames) == 0 {
 		return errors.New("must provide at least one DON name")
 	}
 	if slices.Contains(cfg.DonNames, "") {
 		return errors.New("donNames cannot contain an empty string")
+	}
+
+	// A repeated name would make the second delete revert after the first was already queued, failing a
+	// whole batch late; reject it up front.
+	seen := make(map[string]struct{}, len(cfg.DonNames))
+	var duplicates []string
+	for _, name := range cfg.DonNames {
+		if _, ok := seen[name]; ok && !slices.Contains(duplicates, name) {
+			duplicates = append(duplicates, name)
+		}
+		seen[name] = struct{}{}
+	}
+	if len(duplicates) > 0 {
+		return fmt.Errorf("donNames contains duplicate names: %v", duplicates)
+	}
+
+	// Read the live registry so a typo is caught before a proposal is built, and the error lists every
+	// missing name at once instead of only the first one Apply would hit.
+	existingDONs, err := getExistingDONsForPreconditionCheck(e, cfg.RegistryChainSel, cfg.RegistryQualifier)
+	if err != nil {
+		return err
+	}
+	existing := make(map[string]struct{}, len(existingDONs))
+	for _, don := range existingDONs {
+		existing[don.Name] = struct{}{}
+	}
+	var missing []string
+	for _, name := range cfg.DonNames {
+		if _, ok := existing[name]; !ok {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("DONs not found in the capabilities registry: %v", missing)
 	}
 	return nil
 }

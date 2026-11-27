@@ -7,11 +7,14 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/go-cmp/cmp"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/stretchr/testify/require"
@@ -21,6 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue/queuepb"
 )
 
 var wantOCR3_1Config = `{
@@ -412,4 +417,136 @@ func loadTestData(t *testing.T, path string) []deployment.Node {
 	}
 	require.Len(t, nodes, 10)
 	return nodes
+}
+
+// reportingPluginConfig decodes the libocr offchain config in got and returns the plugin config bytes inside it.
+func reportingPluginConfig(t *testing.T, got ocr3.OCR2OracleConfig) []byte {
+	t.Helper()
+	signers := make([]types.OnchainPublicKey, len(got.Signers))
+	for i, s := range got.Signers {
+		signers[i] = s
+	}
+	transmitters := make([]types.Account, len(got.Transmitters))
+	for i, addr := range got.Transmitters {
+		transmitters[i] = types.Account(addr.Hex())
+	}
+	pc, err := ocr3_1confighelper.PublicConfigFromContractConfig(
+		ocr3_1confighelper.CheckPublicConfigLevelDefault,
+		types.ContractConfig{
+			Signers:               signers,
+			Transmitters:          transmitters,
+			F:                     got.F,
+			OnchainConfig:         got.OnchainConfig,
+			OffchainConfigVersion: got.OffchainConfigVersion,
+			OffchainConfig:        got.OffchainConfig,
+		},
+	)
+	require.NoError(t, err)
+	return pc.ReportingPluginConfig
+}
+
+// Test_GenerateOCR3_1Config_ConsensusQueueOffchainConfig asserts the generator encodes the consensus-queue limits as
+// the plugin config, and rejects invalid limits or a second typed config.
+func Test_GenerateOCR3_1Config_ConsensusQueueOffchainConfig(t *testing.T) {
+	nodes := loadTestData(t, "../testdata/testnet_wf_view.json")
+	cfg := baseV3_1Config(len(nodes))
+	cfg.ConsensusQueueOffchainConfig = &ConsensusQueueOffchainConfig{
+		Limits: ConsensusQueueLimits{
+			MaxQueryBytes:                                   1,
+			MaxObservationBytes:                             512 * 1024,
+			MaxReportsPlusPrecursorBytes:                    3,
+			MaxReportBytes:                                  4,
+			MaxReportCount:                                  5,
+			MaxKeyValueModifiedKeys:                         4,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          10 * 1024 * 1024,
+			MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCount:                  1000,
+		},
+	}
+
+	got, err := GenerateOCR3_1ConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, uint64(310), got.OffchainConfigVersion)
+
+	decoded, err := queuepb.Decode(reportingPluginConfig(t, got))
+	require.NoError(t, err)
+	gotLimits, err := decoded.OCRLimits()
+	require.NoError(t, err)
+	wantLimits := ocr3_1types.ReportingPluginLimits{
+		MaxQueryBytes:                                   1,
+		MaxObservationBytes:                             512 * 1024,
+		MaxReportsPlusPrecursorBytes:                    3,
+		MaxReportBytes:                                  4,
+		MaxReportCount:                                  5,
+		MaxKeyValueModifiedKeys:                         4,
+		MaxKeyValueModifiedKeysPlusValuesBytes:          10 * 1024 * 1024,
+		MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+		MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 100 * 1024 * 1024,
+		MaxPerOracleUnexpiredBlobCount:                  1000,
+	}
+	if diff := cmp.Diff(wantLimits, gotLimits); diff != "" {
+		t.Errorf("encoded limits mismatch (-want +got):\n%s", diff)
+	}
+
+	// Asserts the defaults decode on the node and keep the blob quotas the plugin needs.
+	t.Run("defaults are valid", func(t *testing.T) {
+		b, err := DefaultConsensusQueueOffchainConfig().Marshal()
+		require.NoError(t, err)
+		decoded, err := queuepb.Decode(b)
+		require.NoError(t, err)
+		got, err := decoded.OCRLimits()
+		require.NoError(t, err)
+
+		// Sized for a one second round: event lifetime (10m timeout + 1m grace + 30s minimum) is 690 rounds,
+		// plus 60 rounds of reaping slack. Ten blobs per round, and 1 MiB of payload per round.
+		want := ocr3_1types.ReportingPluginLimits{
+			MaxObservationBytes:                             512 * 1024,
+			MaxKeyValueModifiedKeys:                         4,
+			MaxKeyValueModifiedKeysPlusValuesBytes:          10 * 1024 * 1024,
+			MaxBlobPayloadBytes:                             5 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 786_432_000,
+			MaxPerOracleUnexpiredBlobCount:                  7_500,
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("default limits mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("blob quotas scale with the round interval", func(t *testing.T) {
+		// Faster rounds keep proportionally more blobs unexpired for the same event lifetime.
+		fast := DefaultConsensusQueueOffchainConfigForRoundInterval(200 * time.Millisecond)
+		slow := DefaultConsensusQueueOffchainConfigForRoundInterval(time.Second)
+		require.Greater(t, fast.Limits.MaxPerOracleUnexpiredBlobCount, slow.Limits.MaxPerOracleUnexpiredBlobCount)
+		require.Greater(t, fast.Limits.MaxPerOracleUnexpiredBlobCumulativePayloadBytes,
+			slow.Limits.MaxPerOracleUnexpiredBlobCumulativePayloadBytes)
+
+		// 690s lifetime is 3450 rounds at 200ms, plus 300 rounds of reaping slack.
+		require.Equal(t, uint32(37_500), fast.Limits.MaxPerOracleUnexpiredBlobCount)
+		require.Equal(t, uint32(3_932_160_000), fast.Limits.MaxPerOracleUnexpiredBlobCumulativePayloadBytes)
+	})
+
+	t.Run("invalid limits fail to marshal", func(t *testing.T) {
+		cfg2 := cfg
+		cfg2.ConsensusQueueOffchainConfig = DefaultConsensusQueueOffchainConfig()
+		cfg2.ConsensusQueueOffchainConfig.Limits.MaxKeyValueModifiedKeys = 0
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
+		require.ErrorContains(t, err, "MaxKeyValueModifiedKeys")
+	})
+
+	t.Run("observation too small for the DON is rejected", func(t *testing.T) {
+		cfg2 := cfg
+		cfg2.ConsensusQueueOffchainConfig = DefaultConsensusQueueOffchainConfig()
+		// This passes the config-only floors but cannot hold the blob handles the DON's N and F require.
+		cfg2.ConsensusQueueOffchainConfig.Limits.MaxObservationBytes = 1024
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
+		require.ErrorContains(t, err, "MaxObservationBytes")
+	})
+
+	t.Run("both ConsensusQueueOffchainConfig and VaultOffchainConfig returns error", func(t *testing.T) {
+		cfg2 := cfg
+		cfg2.VaultOffchainConfig = &VaultOffchainConfig{}
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
+		require.ErrorContains(t, err, "multiple offchain configs")
+	})
 }

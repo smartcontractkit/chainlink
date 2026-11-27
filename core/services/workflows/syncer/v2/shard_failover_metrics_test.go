@@ -49,13 +49,14 @@ type failoverTotals struct {
 	cacheExit     map[string]int64
 	replay        map[string]int64
 	replayCount   map[string]uint64
+	autoDeferred  map[string]int64
 }
 
 func collectFailoverTotals(t *testing.T) failoverTotals {
 	t.Helper()
 	var rm metricdata.ResourceMetrics
 	require.NoError(t, shardFailoverReader.Collect(t.Context(), &rm))
-	totals := failoverTotals{cacheExit: map[string]int64{}, replay: map[string]int64{}, replayCount: map[string]uint64{}}
+	totals := failoverTotals{cacheExit: map[string]int64{}, replay: map[string]int64{}, replayCount: map[string]uint64{}, autoDeferred: map[string]int64{}}
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
 			switch m.Name {
@@ -75,6 +76,12 @@ func collectFailoverTotals(t *testing.T) failoverTotals {
 				if sum, ok := m.Data.(metricdata.Sum[int64]); ok {
 					for _, dp := range sum.DataPoints {
 						totals.replay[failoverOutcome(dp.Attributes)] += dp.Value
+					}
+				}
+			case "platform_shard_failover_deferred_events":
+				if sum, ok := m.Data.(metricdata.Sum[int64]); ok {
+					for _, dp := range sum.DataPoints {
+						totals.autoDeferred[failoverOutcome(dp.Attributes)] += dp.Value
 					}
 				}
 			case "platform_shard_failover_replay_duration_seconds":
@@ -388,4 +395,40 @@ func TestWorkflowRegistry_ShardFailoverEnabledGauge(t *testing.T) {
 	enabled, ok = failoverGauge(t, "platform_shard_failover_enabled")
 	require.True(t, ok, "enabled gauge recorded")
 	assert.Equal(t, int64(0), enabled, "failover disabled")
+}
+
+//nolint:paralleltest // asserts deltas on process-global failover metrics
+func TestShardFailoverMetrics_DeferredEventsTracksEventsWaitingForSlot(t *testing.T) {
+	cl, le := monitoring.ShardFailoverAutoDeferredConcurrencyLimit, monitoring.ShardFailoverAutoDeferredLimiterError
+	start := collectFailoverTotals(t)
+	delta := func(outcome string) int64 {
+		return collectFailoverTotals(t).autoDeferred[outcome] - start.autoDeferred[outcome]
+	}
+
+	eng := &releasableEngine{release: make(chan struct{})}
+	t.Cleanup(func() { close(eng.release) })
+	m := newConcurrencyTestManager(t, &eng.recordingEngine, limits.GlobalResourcePoolLimiter(2), "evt-1", "evt-2", "evt-3", "evt-4", "evt-5")
+	m.SetEngine(eng)
+
+	m.executeDueTimeoutBasedFailovers(t.Context())
+	assert.Equal(t, int64(3), delta(cl), "deferred_events must equal the due events left cached")
+
+	m.executeDueTimeoutBasedFailovers(t.Context())
+	assert.Equal(t, int64(3), delta(cl), "a later pass must not count the same waiting events again")
+
+	eng.release <- struct{}{}
+	require.Eventually(t, func() bool {
+		m.executeDueTimeoutBasedFailovers(t.Context())
+		return len(eng.executedIDs()) == 3
+	}, 10*time.Second, 10*time.Millisecond)
+	assert.Equal(t, int64(2), delta(cl), "deferred_events must drop when a waiting event runs")
+
+	require.NoError(t, m.close())
+	assert.Equal(t, int64(0), delta(cl), "close must remove this manager's deferred events")
+
+	m2 := newConcurrencyTestManager(t, &recordingEngine{}, &countingLimiter{useErr: errors.New("limiter stopped")}, "evt-1", "evt-2")
+	m2.executeDueTimeoutBasedFailovers(t.Context())
+	assert.Equal(t, int64(2), delta(le))
+	require.NoError(t, m2.close())
+	assert.Equal(t, int64(0), delta(le))
 }

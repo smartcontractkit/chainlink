@@ -276,8 +276,10 @@ func configureForwarderOp(
 		}
 	}
 
-	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
+	// The forwarder was deployed by this sequence and is still owned by the deployer key at this point,
+	// while input.MCMSConfig may be set. The owner check in CreateStrategy would reject that, so this
+	// legacy sequence keeps its previous behaviour by not running it.
+	strategy, err := strategies.CreateStrategyForNonOwnerCall(
 		chain,
 		*deps.Env,
 		input.MCMSConfig,

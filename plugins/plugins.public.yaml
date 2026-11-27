@@ -43,7 +43,7 @@ plugins:
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v1.1.3"
+      gitRef: "v1.1.7"
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:
@@ -63,51 +63,51 @@ plugins:
 
   capability-cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/scheduler/cron"
-      gitRef: "9777ffcac0b966d2488cb1e63e155da8b98bd8d6"
+      gitRef: "abc3fb574b5164d2ddc195688122963786d17bb0"
       installPath: "./legacy"
       binaryName: "cron"
       flags: "-tags timetzdata"
 
   capability-cronv2:
     - moduleURI: "github.com/smartcontractkit/capabilities/scheduler/cron"
-      gitRef: "9777ffcac0b966d2488cb1e63e155da8b98bd8d6"
+      gitRef: "abc3fb574b5164d2ddc195688122963786d17bb0"
       installPath: "."
       binaryName: "cronv2"
       flags: "-tags timetzdata"
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
+      gitRef: "abc3fb574b5164d2ddc195688122963786d17bb0"
       installPath: "."
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
+      gitRef: "abc3fb574b5164d2ddc195688122963786d17bb0"
       installPath: "."
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "7eae8ad587274c02c5f6593c262a47892d2b7df5"
+      gitRef: "abc3fb574b5164d2ddc195688122963786d17bb0"
       installPath: "."
 
   capability-evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "806f48ad36202a63b81c202d63f1fed19e3b0b13"
+      gitRef: "abc3fb574b5164d2ddc195688122963786d17bb0"
       installPath: "."
 
   capability-solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "806f48ad36202a63b81c202d63f1fed19e3b0b13"
+      gitRef: "abc3fb574b5164d2ddc195688122963786d17bb0"
       installPath: "."
 
   capability-aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "806f48ad36202a63b81c202d63f1fed19e3b0b13"
+      gitRef: "abc3fb574b5164d2ddc195688122963786d17bb0"
       installPath: "."
 
   capability-stellar:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/stellar"
-      gitRef: "806f48ad36202a63b81c202d63f1fed19e3b0b13"
+      gitRef: "abc3fb574b5164d2ddc195688122963786d17bb0"
       installPath: "."
 
   confidential-http:

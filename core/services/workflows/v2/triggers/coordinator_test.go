@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -175,6 +178,70 @@ func TestCoordinator_MetricsIncludeSdkLabel(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return counterTotal(t, reader, "platform_engine_workflow_unregistered_count", sdk) == 1
 	}, 5*time.Second, 5*time.Millisecond)
+}
+
+// TestCoordinator_Gauges asserts the workflows and readers gauges read zero on an idle coordinator, count one
+// workflow and one reader per trigger while registered, and return to zero once the readers exit (CRE-7344).
+func TestCoordinator_Gauges(t *testing.T) {
+	t.Parallel()
+	const (
+		workflowsGauge = "platform_trigger_coordinator_workflows"
+		readersGauge   = "platform_trigger_coordinator_readers"
+	)
+	triggerCapIDs := []string{"trigger-a@1.0.0", "trigger-b@1.0.0", "trigger-c@1.0.0"}
+
+	wfMetrics, reader := newTestMeterMetrics(t)
+	f := newCoordinatorFixture(t, withMetrics(wfMetrics))
+	assert.Equal(t, int64(0), int64Gauge(t, reader, workflowsGauge), "workflows gauge before registration")
+	assert.Equal(t, int64(0), int64Gauge(t, reader, readersGauge), "readers gauge before registration")
+
+	sub := newTestSubscriber()
+	sub.subs = nil
+	eventChs := make([]chan capabilities.TriggerResponse, 0, len(triggerCapIDs))
+	for _, id := range triggerCapIDs {
+		eventCh := make(chan capabilities.TriggerResponse)
+		eventChs = append(eventChs, eventCh)
+		trigger := capmocks.NewTriggerCapability(t)
+		trigger.EXPECT().RegisterTrigger(mock.Anything, mock.Anything).
+			Return((<-chan capabilities.TriggerResponse)(eventCh), nil).Once()
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Once()
+		f.capReg.EXPECT().GetTrigger(mock.Anything, id).Return(trigger, nil)
+		sub.subs = append(sub.subs, &sdkpb.TriggerSubscription{Id: id, Method: testMethod})
+	}
+
+	_, err := f.c.RegisterTriggers(t.Context(), sub, testParams(t))
+	require.NoError(t, err)
+	// Each send is unbuffered, so it completes only once that trigger's reader is running its read loop.
+	for i, eventCh := range eventChs {
+		select {
+		case eventCh <- triggerEvent(fmt.Sprintf("event-%d", i)):
+		case <-time.After(5 * time.Second):
+			t.Fatalf("reader %d never received its event", i)
+		}
+	}
+	assert.Equal(t, int64(1), int64Gauge(t, reader, workflowsGauge), "workflows gauge while running")
+	assert.Equal(t, int64(len(triggerCapIDs)), int64Gauge(t, reader, readersGauge), "readers gauge while running")
+
+	require.NoError(t, f.c.UnregisterTriggers(t.Context(), validWorkflowID))
+	require.Eventually(t, func() bool {
+		return int64Gauge(t, reader, workflowsGauge) == 0 && int64Gauge(t, reader, readersGauge) == 0
+	}, 5*time.Second, 5*time.Millisecond)
+}
+
+// TestCoordinator_GaugesStopOnClose asserts a closed coordinator stops reporting its gauges, so a replaced
+// coordinator never leaves a second series behind.
+func TestCoordinator_GaugesStopOnClose(t *testing.T) {
+	t.Parallel()
+	wfMetrics, reader := newTestMeterMetrics(t)
+	deps := newRegisterDeps(t, regmocks.NewCapabilitiesRegistry(t), limits.NewGateLimiter(true))
+	deps.Metrics = wfMetrics
+	c := NewCoordinator(deps, newTestAdmission(), newFakeEngineRegistry(), &fakeWorkflowLimits{}, clockwork.NewFakeClock())
+
+	require.NoError(t, c.Start(t.Context()))
+	require.NotNil(t, findMetric(t, reader, "platform_trigger_coordinator_readers"), "reported while running")
+
+	require.NoError(t, c.Close())
+	assert.Nil(t, findMetric(t, reader, "platform_trigger_coordinator_readers"), "reported after close")
 }
 
 // TestCoordinator_NoDeliver covers dropped delivery: events must not reach an
@@ -857,6 +924,56 @@ func TestCoordinator_Admission(t *testing.T) {
 		assert.Equal(t, []string{"evt-1", "evt-2"}, f.engine.executedIDs(), "evt-3 must never reach ExecuteTrigger")
 	})
 
+	t.Run("an event past its deadline but within the grace period still executes; past the grace it is dropped", func(t *testing.T) {
+		t.Parallel()
+		for _, tt := range []struct {
+			name         string
+			grace        func(context.Context) (time.Duration, error)
+			advance      time.Duration
+			wantExecuted []string
+			wantExpired  int64
+		}{
+			{"within grace", func(context.Context) (time.Duration, error) { return 5 * time.Minute, nil }, 2 * time.Minute, []string{"evt-1", "evt-2", "evt-3"}, 0},
+			{"past grace", func(context.Context) (time.Duration, error) { return time.Minute, nil }, 3 * time.Minute, []string{"evt-1", "evt-2"}, 1},
+			{"grace read error still uses the returned default", func(context.Context) (time.Duration, error) { return 5 * time.Minute, errors.New("boom") }, 2 * time.Minute, []string{"evt-1", "evt-2", "evt-3"}, 0},
+			{"negative grace is treated as none", func(context.Context) (time.Duration, error) { return -time.Hour, nil }, 2 * time.Minute, []string{"evt-1", "evt-2"}, 1},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				admission, pool := singleSlot(func(a *AdmissionLimiters) {
+					a.TriggerEventQueueTimeout = limits.NewUpperBoundLimiter(time.Minute)
+				})
+				wfMetrics, reader := newTestMeterMetrics(t)
+				f := newCoordinatorFixture(t, withAdmission(admission), withMetrics(wfMetrics), withCoordinatorOptions(WithExpirationGrace(tt.grace)))
+				trigger, eventCh := f.expectTrigger(t)
+				trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+				release := f.holdExecutions(t)
+				_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+				require.NoError(t, err)
+
+				eventCh <- triggerEvent("evt-1")
+				require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+				eventCh <- triggerEvent("evt-2")
+				require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond)
+				eventCh <- triggerEvent("evt-3")
+				require.Eventually(t, func() bool { return queueLen(t, f) == 1 }, 5*time.Second, 5*time.Millisecond)
+
+				f.clock.Advance(tt.advance) // evt-3's 1-minute deadline passes while it is queued
+				release()
+
+				if tt.wantExpired == 0 {
+					require.Eventually(t, func() bool { return len(f.engine.executed()) == len(tt.wantExecuted) }, 5*time.Second, 5*time.Millisecond)
+				} else {
+					expired := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonExpired}
+					require.Eventually(t, func() bool {
+						return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", expired) == tt.wantExpired
+					}, 5*time.Second, 5*time.Millisecond)
+				}
+				assert.Equal(t, tt.wantExecuted, f.engine.executedIDs())
+			})
+		}
+	})
+
 	t.Run("the deadline is stamped at dispatch, so a later timeout change does not move it", func(t *testing.T) {
 		t.Parallel()
 		timeout := &mutableTimeoutLimiter{value: time.Minute}
@@ -1117,4 +1234,270 @@ func TestCoordinator_DeliveryLogs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCoordinator_StartExecution(t *testing.T) {
+	t.Parallel()
+
+	// register returns a fixture with the workflow's triggers registered, as StartExecution requires.
+	register := func(t *testing.T, opts ...fixtureOption) *coordinatorFixture {
+		t.Helper()
+		f := newCoordinatorFixture(t, opts...)
+		trigger, _ := f.expectTrigger(t)
+		trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+		_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+		require.NoError(t, err)
+		return f
+	}
+	oneSlot := func() (AdmissionLimiters, *countingPool) {
+		pool := &countingPool{ResourcePoolLimiter: limits.GlobalResourcePoolLimiter(1)}
+		admission := newTestAdmission()
+		admission.ExecutionConcurrency = pool
+		return admission, pool
+	}
+	newEvent := func(f *coordinatorFixture, id string, age time.Duration) CoordinatedEvent {
+		return CoordinatedEvent{
+			WorkflowID: validWorkflowID, TriggerCapID: testTriggerCapID,
+			ObservedAt: f.clock.Now().Add(-age), Deadline: f.clock.Now().Add(time.Minute),
+			Event: capabilities.TriggerResponse{Event: capabilities.TriggerEvent{ID: id}},
+		}
+	}
+	executed := func(f *coordinatorFixture, n int) func() bool {
+		return func() bool { return len(f.engine.executed()) == n }
+	}
+
+	t.Run("starts the event for the workflow's tenant, and records how long it was queued", func(t *testing.T) {
+		t.Parallel()
+		wfMetrics, reader := newTestMeterMetrics(t)
+		f := register(t, withMetrics(wfMetrics))
+
+		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 5*time.Second)))
+		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond)
+
+		assert.Equal(t, []string{"evt-1"}, f.engine.executedIDs())
+		f.engine.mu.Lock()
+		assert.Equal(t, validWorkflowID, f.engine.tenants[0].Workflow, "the execution runs as the workflow's tenant, as an admitted one does")
+		f.engine.mu.Unlock()
+		count, sum := histogramSum(t, reader, "platform_engine_trigger_event_queue_wait_seconds")
+		assert.Equal(t, uint64(1), count)
+		assert.InDelta(t, 5.0, sum, 0.001, "measured against the coordinator's clock")
+	})
+
+	t.Run("returns once the execution has started, not when it finishes", func(t *testing.T) {
+		t.Parallel()
+		f := register(t)
+		release := f.holdExecutions(t)
+
+		done := make(chan error, 1)
+		go func() { done <- f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)) }()
+		select {
+		case err := <-done:
+			require.NoError(t, err)
+		case <-time.After(5 * time.Second):
+			t.Fatal("StartExecution waited for the execution to finish")
+		}
+		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond, "and the execution is running")
+		release()
+	})
+
+	t.Run("holds an execution slot until the execution finishes, without making the caller wait for one", func(t *testing.T) {
+		t.Parallel()
+		admission, pool := oneSlot()
+		f := register(t, withAdmission(admission))
+		release := f.holdExecutions(t)
+
+		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)))
+		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond)
+
+		// the second has to wait for the slot, which capacity reflects, but the caller does not
+		second := make(chan error, 1)
+		go func() { second <- f.c.StartExecution(t.Context(), newEvent(f, "evt-2", 0)) }()
+		select {
+		case err := <-second:
+			require.NoError(t, err)
+		case <-time.After(5 * time.Second):
+			t.Fatal("StartExecution waited for a slot")
+		}
+		require.Eventually(t, func() bool { return pool.waits.Load() == 2 }, 5*time.Second, 5*time.Millisecond, "waiting for the slot")
+		assert.Len(t, f.engine.executed(), 1, "not started without a slot")
+
+		release()
+		require.Eventually(t, executed(f, 2), 5*time.Second, 5*time.Millisecond, "starts once the slot is free")
+	})
+
+	t.Run("a repeat of a running event does not make the caller wait behind its slot", func(t *testing.T) {
+		t.Parallel()
+		admission, _ := oneSlot()
+		f := register(t, withAdmission(admission))
+		release := f.holdExecutions(t)
+
+		for range 3 { // as when a set is started by Committed, and again by the next Observation
+			done := make(chan error, 1)
+			go func() { done <- f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)) }()
+			select {
+			case err := <-done:
+				require.NoError(t, err)
+			case <-time.After(5 * time.Second):
+				t.Fatal("a repeat start waited behind the running execution's slot")
+			}
+		}
+		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond)
+		release()
+	})
+
+	t.Run("a slot that cannot be taken drops the event and counts it", func(t *testing.T) {
+		t.Parallel()
+		admission, _ := oneSlot()
+		admission.ExecutionConcurrency = failingWaitPool{admission.ExecutionConcurrency}
+		wfMetrics, reader := newTestMeterMetrics(t)
+		f := register(t, withAdmission(admission), withMetrics(wfMetrics))
+
+		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)))
+		reason := map[string]string{platform.KeyTriggerDropReason: monitoring.TriggerDropReasonExecutionSemaphoreWaitFailed}
+		require.Eventually(t, func() bool {
+			return counterTotal(t, reader, "platform_engine_trigger_event_dropped_total", reason) == 1
+		}, 5*time.Second, 5*time.Millisecond)
+		assert.Empty(t, f.engine.executed())
+	})
+
+	t.Run("starting an event that is already executing is not an error", func(t *testing.T) {
+		t.Parallel()
+		f := register(t)
+		f.engine.err = ErrDuplicateExecution
+
+		require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, "evt-1", 0)))
+		require.Eventually(t, executed(f, 1), 5*time.Second, 5*time.Millisecond)
+	})
+
+	t.Run("the slot is released when the execution fails", func(t *testing.T) {
+		t.Parallel()
+		admission, pool := oneSlot()
+		f := register(t, withAdmission(admission))
+		f.engine.err = errors.New("boom")
+
+		for i := range 3 { // would block forever on the second if the slot leaked
+			require.NoError(t, f.c.StartExecution(t.Context(), newEvent(f, fmt.Sprint("evt-", i), 0)))
+		}
+		require.Eventually(t, executed(f, 3), 5*time.Second, 5*time.Millisecond)
+		assert.Equal(t, int32(3), pool.waits.Load())
+	})
+
+	t.Run("workflows that cannot run the event are errors", func(t *testing.T) {
+		t.Parallel()
+		unregistered := newCoordinatorFixture(t)
+		require.ErrorContains(t, unregistered.c.StartExecution(t.Context(), newEvent(unregistered, "evt-1", 0)), "not registered")
+		assert.Empty(t, unregistered.engine.executed())
+
+		notCoordinated := register(t)
+		notCoordinated.engine.coordinated = false
+		require.ErrorIs(t, notCoordinated.c.StartExecution(t.Context(), newEvent(notCoordinated, "evt-1", 0)), errEngineNotCoordinated)
+
+		invalid := register(t)
+		event := newEvent(invalid, "evt-1", 0)
+		event.WorkflowID = "not-hex"
+		require.Error(t, invalid.c.StartExecution(t.Context(), event))
+		assert.Empty(t, invalid.engine.executed())
+	})
+}
+
+// failingWaitPool cannot give out slots.
+type failingWaitPool struct {
+	limits.ResourcePoolLimiter[int]
+}
+
+func (failingWaitPool) Wait(context.Context, int) (func(), error) { return nil, errors.New("no slots") }
+
+func TestEventLifetime(t *testing.T) {
+	t.Parallel()
+
+	defaultTimeout := cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.DefaultValue
+	graceOf := func(d time.Duration, err error) func(context.Context) (time.Duration, error) {
+		return func(context.Context) (time.Duration, error) { return d, err }
+	}
+
+	t.Run("starts at the default timeout plus the grace", func(t *testing.T) {
+		t.Parallel()
+		l := NewEventLifetime(graceOf(time.Minute, nil))
+		assert.Equal(t, defaultTimeout+time.Minute, l.Longest(t.Context()))
+	})
+
+	t.Run("follows the longest timeout seen, and never shrinks", func(t *testing.T) {
+		t.Parallel()
+		l := NewEventLifetime(graceOf(time.Minute, nil))
+		l.observeTimeout(time.Second)
+		assert.Equal(t, defaultTimeout+time.Minute, l.Longest(t.Context()), "a shorter timeout changes nothing")
+		l.observeTimeout(2 * time.Hour)
+		assert.Equal(t, 2*time.Hour+time.Minute, l.Longest(t.Context()))
+		l.observeTimeout(time.Hour)
+		assert.Equal(t, 2*time.Hour+time.Minute, l.Longest(t.Context()), "the longest is kept")
+	})
+
+	t.Run("reads the grace each time, so a change applies", func(t *testing.T) {
+		t.Parallel()
+		var grace atomic.Int64
+		grace.Store(int64(time.Minute))
+		l := NewEventLifetime(func(context.Context) (time.Duration, error) { return time.Duration(grace.Load()), nil })
+		grace.Store(int64(5 * time.Minute))
+		assert.Equal(t, defaultTimeout+5*time.Minute, l.Longest(t.Context()))
+	})
+
+	t.Run("a grace read error still uses the value returned with it, and a negative grace is none", func(t *testing.T) {
+		t.Parallel()
+		assert.Equal(t, defaultTimeout+30*time.Second, NewEventLifetime(graceOf(30*time.Second, errors.New("boom"))).Longest(t.Context()))
+		assert.Equal(t, defaultTimeout, NewEventLifetime(graceOf(-time.Hour, nil)).Longest(t.Context()))
+	})
+
+	t.Run("is safe for concurrent use", func(t *testing.T) {
+		t.Parallel()
+		l := NewEventLifetime(graceOf(0, nil))
+		var wg sync.WaitGroup
+		for i := range 50 {
+			wg.Go(func() {
+				l.observeTimeout(time.Duration(i) * time.Hour)
+				l.Longest(t.Context())
+			})
+		}
+		wg.Wait()
+		assert.Equal(t, 49*time.Hour, l.Longest(t.Context()))
+	})
+}
+
+// The coordinator stamps each event's deadline from its workflow's timeout, which is where the longest one is learned.
+func TestCoordinator_LearnsEventLifetime(t *testing.T) {
+	t.Parallel()
+
+	lifetime := NewEventLifetime(func(context.Context) (time.Duration, error) { return time.Minute, nil })
+	admission := newTestAdmission()
+	admission.TriggerEventQueueTimeout = limits.NewUpperBoundLimiter(3 * time.Hour)
+	f := newCoordinatorFixture(t, withAdmission(admission), withCoordinatorOptions(WithEventLifetime(lifetime)))
+	trigger, eventCh := f.expectTrigger(t)
+	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+	_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+	require.NoError(t, err)
+
+	require.Equal(t, cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.DefaultValue+time.Minute, lifetime.Longest(t.Context()))
+	eventCh <- triggerEvent("evt-1")
+	require.Eventually(t, func() bool { return len(f.engine.executed()) == 1 }, 5*time.Second, 5*time.Millisecond)
+
+	assert.Equal(t, 3*time.Hour+time.Minute, lifetime.Longest(t.Context()), "the workflow's 3h timeout, plus the grace")
+}
+
+func TestCoordinator_WorkflowOrg(t *testing.T) {
+	t.Parallel()
+
+	f := newCoordinatorFixture(t)
+	_, ok := f.c.WorkflowOrg(validWorkflowID)
+	assert.False(t, ok, "not registered yet")
+
+	trigger, _ := f.expectTrigger(t)
+	trigger.EXPECT().UnregisterTrigger(mock.Anything, mock.Anything).Return(nil).Maybe()
+	_, err := f.c.RegisterTriggers(t.Context(), newTestSubscriber(), testParams(t))
+	require.NoError(t, err)
+
+	org, ok := f.c.WorkflowOrg(validWorkflowID)
+	require.True(t, ok)
+	assert.Equal(t, testOrg, org)
+
+	_, ok = f.c.WorkflowOrg("some-other-workflow")
+	assert.False(t, ok)
 }

@@ -36,9 +36,9 @@ import (
 
 // meteringwfID is the workflow ID that GenerateWorkflowID produces from the
 // stub store's FetchWorkflowArtifacts return values (binary="binary",
-// config="config") with owner 0xaabbccdd and name "wf-name". Tests that use
-// persistUpserts and register as Active must use this ID so tryEngineCreate's
-// validation passes.
+// config="config") with owner 0xaabbccdd and name "wf-name". Any registration
+// that fetches artifacts must use this ID, since they are validated against it
+// before being persisted.
 var meteringwfID = func() types.WorkflowID {
 	owner := []byte{0xaa, 0xbb, 0xcc, 0xdd}
 	wfIDBytes, _ := pkgworkflows.GenerateWorkflowID(owner, "wf-name", []byte("binary"), []byte("config"), "")
@@ -218,7 +218,7 @@ func Test_meterRecords(t *testing.T) {
 		emitter := &recordingEmitter{}
 		h := newMeteringTestHandler(t, &stubWorkflowArtifactsStore{}, newMeteringResourceManager(t, true, emitter))
 
-		wfID := types.WorkflowID{1}
+		wfID := meteringwfID
 		err := h.workflowRegisteredEvent(t.Context(), WorkflowRegisteredEvent{
 			Status:        WorkflowStatusPaused,
 			WorkflowID:    wfID,
@@ -244,7 +244,7 @@ func Test_meterRecords(t *testing.T) {
 
 		event := WorkflowRegisteredEvent{
 			Status:        WorkflowStatusPaused,
-			WorkflowID:    types.WorkflowID{2},
+			WorkflowID:    meteringwfID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "wf-name",
 			CreatedAt:     123,
@@ -263,7 +263,7 @@ func Test_meterRecords(t *testing.T) {
 		// billing unit, so the billing consumer dedups reprocessing and
 		// cross-node duplicates. Both are derived deterministically from the
 		// on-chain workflowID + CreatedAt.
-		want := resourcemanager.EventID("workflow-spec-register", types.WorkflowID{2}.Hex(), "123")
+		want := resourcemanager.EventID("workflow-spec-register", meteringwfID.Hex(), "123")
 		assert.Equal(t, want, records[0].Utilizations[0].GetEventId())
 		assert.Equal(t, records[0].Utilizations[0].GetEventId(), records[2].Utilizations[0].GetEventId())
 		wantBytes := meteringBytesEventID(want)
@@ -348,7 +348,7 @@ func Test_meterRecords(t *testing.T) {
 
 		err := h.workflowRegisteredEvent(t.Context(), WorkflowRegisteredEvent{
 			Status:        WorkflowStatusPaused,
-			WorkflowID:    types.WorkflowID{6},
+			WorkflowID:    meteringwfID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "wf-name",
 		})
@@ -407,7 +407,7 @@ func Test_meterRecords(t *testing.T) {
 
 	t.Run("emit failure never fails event handling", func(t *testing.T) {
 		t.Parallel()
-		wfID := types.WorkflowID{9}
+		wfID := meteringwfID
 		emitter := &recordingEmitter{err: errors.New("beholder unavailable")}
 		h := newMeteringTestHandler(t, &stubWorkflowArtifactsStore{
 			spec: &job.WorkflowSpec{
@@ -434,7 +434,7 @@ func Test_meterRecords(t *testing.T) {
 
 		require.NoError(t, h.workflowRegisteredEvent(t.Context(), WorkflowRegisteredEvent{
 			Status:        WorkflowStatusPaused,
-			WorkflowID:    types.WorkflowID{10},
+			WorkflowID:    meteringwfID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "wf-name",
 		}))
@@ -633,7 +633,7 @@ func Test_meterRecords_OrgIdResolvedOnRecords(t *testing.T) {
 	orgR := &fakeOrgResolver{orgs: map[string]string{"aabbccdd": "org-42"}}
 	h := newMeteringTestHandlerWithOrg(t, &stubWorkflowArtifactsStore{}, newMeteringResourceManager(t, true, emitter), orgR)
 
-	wfID := types.WorkflowID{50}
+	wfID := meteringwfID
 	require.NoError(t, h.workflowRegisteredEvent(t.Context(), WorkflowRegisteredEvent{
 		Status:        WorkflowStatusPaused,
 		WorkflowID:    wfID,
@@ -655,7 +655,7 @@ func Test_meterRecords_OrgIdResolvedOnRecords(t *testing.T) {
 func Test_meterRecords_DonIDOnRecordAndSnapshot(t *testing.T) {
 	t.Parallel()
 	emitter := &recordingEmitter{}
-	wfID := types.WorkflowID{60}
+	wfID := meteringwfID
 	store := &stubWorkflowArtifactsStore{
 		specs: []*job.WorkflowSpec{{WorkflowID: wfID.Hex(), WorkflowOwner: "aabbccdd"}},
 	}
@@ -751,7 +751,7 @@ func Test_meterRecords_TransientDeleteErrorThenRetryEmitsOnce(t *testing.T) {
 	}
 	h := newMeteringTestHandler(t, store, newMeteringResourceManager(t, true, emitter))
 
-	wfID := types.WorkflowID{77}
+	wfID := meteringwfID
 	wantRegisterID := resourcemanager.EventID("workflow-spec-register", wfID.Hex(), "1")
 	require.NoError(t, h.workflowRegisteredEvent(t.Context(), WorkflowRegisteredEvent{
 		Status:        WorkflowStatusPaused,

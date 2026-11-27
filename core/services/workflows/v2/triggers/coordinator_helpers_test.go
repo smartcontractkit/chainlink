@@ -494,3 +494,24 @@ func (m *mutableTimeoutLimiter) set(v time.Duration) {
 	defer m.mu.Unlock()
 	m.value = v
 }
+
+// histogramSum returns the number of recorded values, and their sum, of a float64 histogram.
+func histogramSum(t *testing.T, reader *sdkmetric.ManualReader, name string) (count uint64, sum float64) {
+	t.Helper()
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(t.Context(), &rm))
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != name {
+				continue
+			}
+			hist, ok := m.Data.(metricdata.Histogram[float64])
+			require.True(t, ok, "expected Histogram[float64] for %s, got %T", name, m.Data)
+			for _, dp := range hist.DataPoints {
+				count += dp.Count
+				sum += dp.Sum
+			}
+		}
+	}
+	return count, sum
+}

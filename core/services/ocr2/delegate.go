@@ -17,6 +17,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/grpc"
 	"gopkg.in/guregu/null.v4"
 
@@ -83,6 +84,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -98,7 +100,6 @@ const (
 	gaugeVaultDiskUsageBytes     = "platform_vault_disk_usage_bytes"
 	vaultDiskMonitorTickInterval = time.Minute
 
-	consensusQueueCapabilityID            = internal.ConsensusQueueCapabilityID
 	gaugeConsensusQueueBytes              = "platform_consensus_queue_usage_bytes"
 	consensusQueueDiskMonitorTickInterval = time.Minute
 )
@@ -142,6 +143,7 @@ type Delegate struct {
 	lggr                  logger.SugaredLogger
 	ks                    keystore.OCR2
 	ethKs                 keystore.Eth
+	csaPublicKey          string
 	workflowKs            keystore.Workflow
 	dkgRecipientKs        keystore.DKGRecipient
 	RelayGetter
@@ -157,6 +159,9 @@ type Delegate struct {
 	OrgResolver                    orgresolver.OrgResolver
 	limitsFactory                  limits.Factory
 	ocrConfigService               capregconfig.OCRConfigService
+	triggerCoordinator             triggers.Coordinator
+	triggerQueue                   triggers.Queue
+	meter                          metric.Meter
 
 	// Registry-driven launch support: when the delegate is used via
 	// LocalCapabilityManager (no job spec), these fields provide the
@@ -298,6 +303,9 @@ type DelegateOpts struct {
 	Lggr                           logger.SugaredLogger
 	Ks                             keystore.OCR2
 	EthKs                          keystore.Eth
+	// CSAPublicKey is this node's CSA public key in hex (from keystore.BuildBeholderAuth). LLO uses it to label the
+	// observed value gauge.
+	CSAPublicKey                   string
 	Relayers                       RelayGetter
 	MailMon                        *mailbox.Monitor
 	CapabilitiesRegistry           registry.CapabilitiesRegistry
@@ -310,6 +318,10 @@ type DelegateOpts struct {
 	OrgResolver                    orgresolver.OrgResolver
 	LimitsFactory                  limits.Factory
 	OCRConfigService               capregconfig.OCRConfigService
+	TriggerCoordinator             triggers.Coordinator
+	TriggerQueue                   triggers.Queue
+	// Meter creates the plugins' metrics.
+	Meter metric.Meter
 
 	// Registry-driven launch support: defaults for capabilities launched
 	// via LocalCapabilityManager (no job spec).
@@ -346,6 +358,7 @@ func NewDelegate(
 		lggr:                           logger.Sugared(opts.Lggr.Named("OCR2")),
 		ks:                             opts.Ks,
 		ethKs:                          opts.EthKs,
+		csaPublicKey:                   opts.CSAPublicKey,
 		workflowKs:                     opts.WorkflowKs,
 		dkgRecipientKs:                 opts.DKGRecipientKs,
 		RelayGetter:                    opts.Relayers,
@@ -359,6 +372,9 @@ func NewDelegate(
 		OrgResolver:                    opts.OrgResolver,
 		limitsFactory:                  opts.LimitsFactory,
 		ocrConfigService:               opts.OCRConfigService,
+		triggerCoordinator:             opts.TriggerCoordinator,
+		triggerQueue:                   opts.TriggerQueue,
+		meter:                          opts.Meter,
 		defaultBootstrappers:           opts.DefaultBootstrappers,
 		capRegistryAddress:             opts.CapRegistryAddress,
 		capRegistryChainID:             opts.CapRegistryChainID,
@@ -581,9 +597,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.RingPlugin:
 		return d.newServicesRing(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
-	case types.ConsensusQueue:
-		return d.newServicesConsensusQueue(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
-
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
@@ -594,7 +607,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 //
 // capabilityID is the registry capability ID (e.g. "dontime@1.0.0").
 // donID is the on-chain DON ID this plugin process is being spawned for.
-// pluginType identifies which OCR2 plugin to create (currently only DonTimePlugin).
+// pluginType identifies which OCR2 plugin to create (DonTimePlugin or ConsensusQueue).
 // configJSON is the per-capability config from the registry.
 // registryOCRConfig is the on-chain OCR3 config from the registry. It is required:
 // the node's OCR key bundles and transmitter are taken from its signer in this config.
@@ -710,6 +723,9 @@ func (d *Delegate) NewServices(
 	switch pluginType {
 	case types.DonTimePlugin:
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, capabilityID, d.limitsFactory)
+	case types.ConsensusQueue:
+		// The plugin ignores configJSON. Its limits come from the OCR offchain config, which the digest covers.
+		return d.newServicesConsensusQueue(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, capabilityID, registryKVSubPath(capabilityID, donID))
 	default:
 		return nil, errors.Errorf("plugin type %s not supported for registry-driven launch", pluginType)
 	}
@@ -722,6 +738,19 @@ func registryOCR2RelayConfig(chainID string, pluginType types.OCR2PluginType, tr
 		"effectiveTransmitterID": transmitterID,
 		"sendingKeys":            []string{transmitterID},
 	}
+}
+
+// registryKVSubPath returns the KV store sub-path for a capability launched from the registry. A registry launch gets
+// a fresh ExternalJobID each time, so the path is keyed by the capability ID and DON ID instead, and the plugin's
+// on-disk state survives restarts.
+func registryKVSubPath(capabilityID string, donID uint32) string {
+	safeID := strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' {
+			return r
+		}
+		return '_'
+	}, capabilityID)
+	return fmt.Sprintf("%s_don%d", safeID, donID)
 }
 
 // registryOCRKeyBundles returns the node's OCR key bundles, keyed by chain family, that
@@ -818,15 +847,12 @@ func (d *Delegate) newServicesConsensusQueue(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
+	capabilityID string,
+	kvSubPath string,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec
 
-	cfg := &queue.PluginConfig{}
-	err = json.Unmarshal(spec.PluginConfig.Bytes(), cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal plugin config: %w", err)
-	}
-
+	// The plugin reads its limits from the registry's OCR offchain config, not from spec.PluginConfig.
 	rid, relayer, err := d.getRelayer(spec)
 	if err != nil {
 		return nil, err
@@ -872,7 +898,7 @@ func (d *Delegate) newServicesConsensusQueue(
 	}
 	srvs = append(srvs, dm)
 
-	fullPath, err := d.ensureKeyValueStorePath(jb.ExternalJobID.String())
+	fullPath, err := d.ensureKeyValueStorePath(kvSubPath)
 	if err != nil {
 		return nil, err
 	}
@@ -886,7 +912,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		return nil, err
 	}
 
-	configTracker, configDigester, lc, err := d.maybeWrapConfigService(consensusQueueCapabilityID, capabilitiespb.OCR3ConfigDefaultKey, lggr, provider.ContractConfigTracker(), provider.OffchainConfigDigester(), lc)
+	configTracker, configDigester, lc, err := d.maybeWrapConfigService(capabilityID, capabilitiespb.OCR3ConfigDefaultKey, lggr, provider.ContractConfigTracker(), provider.OffchainConfigDigester(), lc)
 	if err != nil {
 		return nil, err
 	}
@@ -895,7 +921,7 @@ func (d *Delegate) newServicesConsensusQueue(
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
-		ContractTransmitter:          queue.NewTransmitter(lggr, ocrtypes.Account(spec.TransmitterID.String)),
+		ContractTransmitter:          queue.NewTransmitter(ocrtypes.Account(spec.TransmitterID.String)),
 		Database:                     ocrDB,
 		KeyValueDatabaseFactory:      kvFactory,
 		LocalConfig:                  lc,
@@ -907,12 +933,12 @@ func (d *Delegate) newServicesConsensusQueue(
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
-	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, cfg, d.limitsFactory)
+	rpf, err := queue.NewConsensusQueuePluginFactory(lggr, d.limitsFactory, d.triggerCoordinator, d.triggerQueue, d.meter)
 	if err != nil {
 		return nil, err
 	}
 
-	wrappedRpf := beholderwrapper.NewReportingPluginFactory(rpf, lggr, string(types.ConsensusQueue))
+	wrappedRpf := beholderwrapper.NewReportingPluginFactory(rpf, lggr, string(types.ConsensusQueue), d.meter)
 	oracleArgs.ReportingPluginFactory = wrappedRpf
 
 	oracle, err := libocr2.NewOracle(oracleArgs)
@@ -1115,6 +1141,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		rpf,
 		lggr,
 		"vault",
+		d.meter,
 	)
 	oracleArgs.ReportingPluginFactory = wrappedRpf
 
@@ -1842,6 +1869,7 @@ func (d *Delegate) newServicesLLO(
 		PluginMonitoringEndpoint: d.monitoringEndpointGen.GenMultitypeMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID),
 		DonID:                    pluginCfg.DonID,
 		ChainID:                  rid.ChainID,
+		CSAPublicKey:             d.csaPublicKey,
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
 		SampleTelemetry:              d.cfg.OCR2().SampleTelemetry(),

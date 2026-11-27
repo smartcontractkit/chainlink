@@ -62,6 +62,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	ocr3beholderwrapper "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/beholderwrapper"
 	ocr3_1beholderwrapper "github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/beholderwrapper"
+	consensusqueue "github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/plugins/queue"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
@@ -85,6 +86,7 @@ func metricViews() []sdkmetric.View {
 		ccvcommon.MetricViews(),
 		ocr3beholderwrapper.MetricViews(),
 		ocr3_1beholderwrapper.MetricViews(),
+		consensusqueue.MetricViews(),
 		gatewaynetwork.HTTPClientMetricViews(),
 		gatewaynetwork.WSConnectionMetricViews(),
 		gatewaymonitoring.MetricViews(),

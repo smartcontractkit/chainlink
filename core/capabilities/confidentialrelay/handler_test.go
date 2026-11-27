@@ -151,16 +151,18 @@ func (m *mockExecutionHelper) GetRawSecretsResponse(_ context.Context, req *sdkp
 
 type mockCapRegistry struct {
 	core.UnimplementedCapabilitiesRegistry
-	configs   map[string]capabilities.CapabilityConfiguration
+	// configs is keyed by DON ID then capability ID, mirroring the registry, so a
+	// test can give different DONs different configs (or none at all).
+	configs   map[uint32]map[string]capabilities.CapabilityConfiguration
 	dons      map[string][]capabilities.DONWithNodes
 	localNode capabilities.Node
 }
 
-func (m *mockCapRegistry) ConfigForCapability(_ context.Context, capID string, _ uint32) (capabilities.CapabilityConfiguration, error) {
-	if cfg, ok := m.configs[capID]; ok {
+func (m *mockCapRegistry) ConfigForCapability(_ context.Context, capID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+	if cfg, ok := m.configs[donID][capID]; ok {
 		return cfg, nil
 	}
-	return capabilities.CapabilityConfiguration{}, fmt.Errorf("config not found: %s", capID)
+	return capabilities.CapabilityConfiguration{}, fmt.Errorf("config not found: %s for DON %d", capID, donID)
 }
 
 func (m *mockCapRegistry) DONsForCapability(_ context.Context, capID string) ([]capabilities.DONWithNodes, error) {
@@ -200,23 +202,28 @@ func capExecHelper() *mockExecutionHelper {
 }
 
 // withEnclaveConfig adds the default confidential-workflows enclave config
-// to a mock registry so getEnclaveAttestationConfig succeeds during tests.
+// for the local node's workflow DON to a mock registry so
+// getEnclaveAttestationConfig succeeds during tests.
 func withEnclaveConfig(reg *mockCapRegistry) *mockCapRegistry {
 	enclaveConfig := enclavesList{
 		Enclaves: []enclaveEntry{{TrustedValues: []json.RawMessage{json.RawMessage(`{}`)}}},
 	}
 	wrapped, _ := values.WrapMap(enclaveConfig)
-	if reg.configs == nil {
-		reg.configs = map[string]capabilities.CapabilityConfiguration{}
+	// Most fixtures do not care which DON they model; give them a valid one.
+	if reg.localNode.WorkflowDON.ID == 0 {
+		reg.localNode.WorkflowDON.ID = 1
 	}
-	reg.configs[confidentialWorkflowsCapID] = capabilities.CapabilityConfiguration{
-		DefaultConfig: wrapped,
+	if reg.configs == nil {
+		reg.configs = map[uint32]map[string]capabilities.CapabilityConfiguration{}
+	}
+	reg.configs[reg.localNode.WorkflowDON.ID] = map[string]capabilities.CapabilityConfiguration{
+		confidentialWorkflowsCapID: {DefaultConfig: wrapped},
 	}
 	if reg.dons == nil {
 		reg.dons = map[string][]capabilities.DONWithNodes{}
 	}
 	reg.dons[confidentialWorkflowsCapID] = []capabilities.DONWithNodes{
-		{DON: capabilities.DON{ID: 1}},
+		{DON: capabilities.DON{ID: reg.localNode.WorkflowDON.ID}},
 	}
 	// Wire WorkflowDON membership to match testEnclaveConfig so the relay-side
 	// verifyEnclaveConfigMatchesDON check passes for fixtures that build
@@ -953,6 +960,74 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		params.EnclaveConfig.F = testEnclaveF - 1 // below the DON's minimum F
 		req := makeRequest(t, confidentialrelaytypes.MethodSecretsGet, params)
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		require.NoError(t, err)
+		require.NotNil(t, gwConn.waitResp(t).Error)
+	})
+}
+
+// TestHandler_AttestationConfigUsesLocalDON guards the sharded-DON regression
+// seen in staging: getEnclaveAttestationConfig used to read the default config
+// from DONsForCapability(...)[0], and that list is built by ranging over a map.
+// Once a second DON hosted confidential-workflows (a shard brought up before its
+// config was set), nodes intermittently read that DON's missing config and
+// rejected genuine enclave requests, leaving relay calls short of quorum. The
+// trusted measurements must always come from the local node's own workflow DON.
+func TestHandler_AttestationConfigUsesLocalDON(t *testing.T) {
+	t.Parallel()
+
+	const localDONID = 42
+	// otherDONID hosts the capability too, but carries no config, like a shard
+	// that has been registered before its config update lands.
+	const otherDONID = 7
+
+	capExecReq := func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
+		t.Helper()
+		return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   capExecExecutionID,
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: testEnclaveConfigPtr(),
+			Attestation:   testAttestationB64,
+		})
+	}
+
+	newHandler := func(t *testing.T, reg *mockCapRegistry) (*Handler, *mockGatewayConnector) {
+		t.Helper()
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, reg, gwConn)
+		h.executionHandlers.AddExecution("wf-1", capExecExecutionID, capExecHelper())
+		return h, gwConn
+	}
+
+	t.Run("reads config from the local DON when another DON has none", func(t *testing.T) {
+		t.Parallel()
+		reg := withEnclaveConfig(&mockCapRegistry{localNode: capabilities.Node{
+			WorkflowDON: capabilities.DON{ID: localDONID},
+		}})
+		// The unconfigured DON is listed first, which is the map-order case that
+		// used to pick it.
+		reg.dons[confidentialWorkflowsCapID] = []capabilities.DONWithNodes{
+			{DON: capabilities.DON{ID: otherDONID}},
+			{DON: capabilities.DON{ID: localDONID}},
+		}
+		h, gwConn := newHandler(t, reg)
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t))
+		require.NoError(t, err)
+		require.Nil(t, gwConn.waitResp(t).Error)
+	})
+
+	t.Run("rejects when the local DON has no config even if another DON has one", func(t *testing.T) {
+		t.Parallel()
+		reg := withEnclaveConfig(&mockCapRegistry{localNode: capabilities.Node{
+			WorkflowDON: capabilities.DON{ID: localDONID},
+		}})
+		reg.configs[otherDONID] = reg.configs[localDONID]
+		delete(reg.configs, localDONID)
+		h, gwConn := newHandler(t, reg)
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t))
 		require.NoError(t, err)
 		require.NotNil(t, gwConn.waitResp(t).Error)
 	})
