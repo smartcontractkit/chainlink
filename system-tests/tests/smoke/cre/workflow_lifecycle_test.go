@@ -202,10 +202,8 @@ func ExecuteWorkflowLifecycleTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	activateWorkflow(t, testEnv, wfA)
 	expect(wfA, workflowActivated, shard0, 2*w0)
 
-	// Today a node reports a user delete of a running workflow twice: the diff reports it and
-	// the orphan sweep reports it again in the same tick.
 	deleteWorkflow(t, testEnv, wfA)
-	expect(wfA, workflowDeleted, shard0, 2*w0)
+	expect(wfA, workflowDeleted, shard0, w0)
 
 	// Moving the owner is not a user action on a workflow: shard 0 releases wfB and wfC and
 	// shard 1 starts wfB, and neither shard may report a lifecycle event for it.
@@ -219,7 +217,7 @@ func ExecuteWorkflowLifecycleTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 	events.requireCounts(t, wfC, want[wfC])
 
 	deleteWorkflow(t, testEnv, wfB)
-	expect(wfB, workflowDeleted, shard1, 2*w1)
+	expect(wfB, workflowDeleted, shard1, w1)
 }
 
 // ExecuteWorkflowLifecycleFailoverTest registers, swaps and deletes a cron workflow with
@@ -246,11 +244,10 @@ func ExecuteWorkflowLifecycleFailoverTest(t *testing.T, testEnv *ttypes.TestEnvi
 	time.Sleep(lifecycleSettle)
 	events.requireCounts(t, workflowID, want)
 
-	// Two per node, as in ExecuteWorkflowLifecycleTest.
 	deleteWorkflow(t, testEnv, workflowID)
 	for _, don := range shards {
-		want[lifecycleKey{event: workflowDeleted, shard: don.ShardIndex}] = 2 * don.WorkersCount()
-		events.waitFor(t, workflowID, workflowDeleted, don, 2*don.WorkersCount())
+		want[lifecycleKey{event: workflowDeleted, shard: don.ShardIndex}] = don.WorkersCount()
+		events.waitFor(t, workflowID, workflowDeleted, don, don.WorkersCount())
 	}
 	events.requireCounts(t, workflowID, want)
 }
