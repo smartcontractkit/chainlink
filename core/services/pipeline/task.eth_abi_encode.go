@@ -14,6 +14,10 @@ import (
 // Return types:
 //
 //	[]byte
+//
+// Deprecated: the ethabiencode task is unused. No supported job type or product
+// pipeline relies on it. It remains only so existing job specs still parse,
+// and it will be removed in a future release. Do not use it in new jobs.
 type ETHABIEncodeTask struct {
 	BaseTask `mapstructure:",squash"`
 	ABI      string `json:"abi"`

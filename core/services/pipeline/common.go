@@ -318,8 +318,8 @@ const (
 	TaskTypeDivide           TaskType = "divide"
 	TaskTypeETHABIDecode     TaskType = "ethabidecode"
 	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
-	TaskTypeETHABIEncode     TaskType = "ethabiencode"
-	TaskTypeETHABIEncode2    TaskType = "ethabiencode2"
+	TaskTypeETHABIEncode     TaskType = "ethabiencode"  // Deprecated: unused, see ETHABIEncodeTask.
+	TaskTypeETHABIEncode2    TaskType = "ethabiencode2" // Deprecated: unused, see ETHABIEncodeTask2.
 	TaskTypeETHCall          TaskType = "ethcall"
 	TaskTypeETHTx            TaskType = "ethtx"
 	TaskTypeEstimateGasLimit TaskType = "estimategaslimit"
