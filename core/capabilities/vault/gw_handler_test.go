@@ -1,11 +1,13 @@
 package vault_test
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -679,7 +681,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			err = handler.HandleGatewayMessage(ctx, "gateway-1", request)
+			err = handler.ServeGatewayMessage(ctx, "gateway-1", request)
 
 			if tt.expectedError {
 				assert.Error(t, err)
@@ -776,7 +778,7 @@ func TestGatewayHandler_DeleteListWithoutPublicKeyFetch(t *testing.T) {
 				ID:     "1",
 				Params: &raw,
 			}
-			require.NoError(t, handler.HandleGatewayMessage(ctx, "gateway-1", req))
+			require.NoError(t, handler.ServeGatewayMessage(ctx, "gateway-1", req))
 		})
 	}
 }
@@ -833,7 +835,7 @@ func TestGatewayHandler_CreateUpdateReusesCachedPublicKey(t *testing.T) {
 			return resp.Error == nil
 		})).Return(nil).Once()
 
-		require.NoError(t, handler.HandleGatewayMessage(ctx, "gateway-1", makeCreateRequest(id)), "request %d", i+1)
+		require.NoError(t, handler.ServeGatewayMessage(ctx, "gateway-1", makeCreateRequest(id)), "request %d", i+1)
 	}
 }
 
@@ -895,6 +897,109 @@ func TestGatewayHandler_Lifecycle_DefaultAuthorizer_NoJWTConfig(t *testing.T) {
 
 	gwConnector.On("AddHandler", mock.Anything, vaulttypes.Methods, handler).Return(nil).Once()
 	require.NoError(t, handler.Start(ctx))
+
+	gwConnector.On("RemoveHandler", mock.Anything, vaulttypes.Methods).Return(nil).Once()
+	require.NoError(t, handler.Close())
+}
+
+// blockingAuthorizer holds the request with ID blockedID in authorization until release is closed,
+// the way allowlist auth holds a request while it retries a digest that has not reached this node.
+type blockingAuthorizer struct {
+	owner     string
+	blockedID string
+	blocked   chan struct{}
+	release   chan struct{}
+}
+
+func (a *blockingAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (*vaultcap.AuthResult, error) {
+	if req.ID == a.blockedID {
+		close(a.blocked)
+		select {
+		case <-a.release:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return vaultcap.NewAuthResult("", a.owner, "digest-"+req.ID, 0), nil
+}
+
+func TestGatewayHandler_HandleGatewayMessageDoesNotBlockOtherRequests(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	ctx := t.Context()
+	owner := "0xabc"
+
+	secretsService := vaulttypesmocks.NewSecretsService(t)
+	secretsService.EXPECT().ListSecretIdentifiers(mock.Anything, mock.Anything).
+		Return(&vaulttypes.Response{ID: "test_secret"}, nil)
+
+	sent := make(chan string, 2)
+	gwConnector := connector_mocks.NewGatewayConnector(t)
+	gwConnector.On("SendToGateway", mock.Anything, "gateway-1", mock.Anything).Run(func(args mock.Arguments) {
+		sent <- args.Get(2).(*jsonrpc.Response[json.RawMessage]).ID
+	}).Return(nil)
+
+	authorizer := &blockingAuthorizer{owner: owner, blockedID: "slow", blocked: make(chan struct{}), release: make(chan struct{})}
+	releaseSlow := sync.OnceFunc(func() { close(authorizer.release) })
+	t.Cleanup(releaseSlow)
+
+	handler, err := vaultcap.NewGatewayHandler(
+		secretsService,
+		gwConnector,
+		nil,
+		lggr,
+		limits.Factory{Settings: cresettings.DefaultGetter},
+		authorizer,
+		nil,
+	)
+	require.NoError(t, err)
+
+	listRequest := func(id string) *jsonrpc.Request[json.RawMessage] {
+		params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{RequestId: id, Owner: owner, Namespace: vaulttypes.DefaultNamespace})
+		require.NoError(t, err)
+		raw := json.RawMessage(params)
+		return &jsonrpc.Request[json.RawMessage]{ID: id, Method: vaulttypes.MethodSecretsList, Params: &raw}
+	}
+	waitFor := func(ch <-chan struct{}, failure string) {
+		t.Helper()
+		select {
+		case <-ch:
+		case <-time.After(5 * time.Second):
+			t.Fatal(failure)
+		}
+	}
+
+	require.ErrorContains(t, handler.HandleGatewayMessage(ctx, "gateway-1", listRequest("early")), "not started")
+
+	gwConnector.On("AddHandler", mock.Anything, vaulttypes.Methods, handler).Return(nil).Once()
+	require.NoError(t, handler.Start(ctx))
+
+	// The connector calls HandleGatewayMessage from its single read loop for the gateway, so the call
+	// must return while the request is still being served.
+	returned := make(chan struct{})
+	go func() {
+		assert.NoError(t, handler.HandleGatewayMessage(ctx, "gateway-1", listRequest("slow")))
+		close(returned)
+	}()
+	waitFor(authorizer.blocked, "slow request never reached authorization")
+	waitFor(returned, "HandleGatewayMessage blocked the read loop until the request was served")
+
+	require.NoError(t, handler.HandleGatewayMessage(ctx, "gateway-1", listRequest("fast")))
+	select {
+	case id := <-sent:
+		require.Equal(t, owner+vaulttypes.RequestIDSeparator+"fast", id)
+	case <-time.After(5 * time.Second):
+		t.Fatal("fast request was not served while the slow one was held in authorization")
+	}
+
+	releaseSlow()
+	select {
+	case id := <-sent:
+		require.Equal(t, owner+vaulttypes.RequestIDSeparator+"slow", id)
+	case <-time.After(5 * time.Second):
+		t.Fatal("slow request was not served after authorization was released")
+	}
 
 	gwConnector.On("RemoveHandler", mock.Anything, vaulttypes.Methods).Return(nil).Once()
 	require.NoError(t, handler.Close())

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -30,6 +31,11 @@ var (
 
 	HandlerName = "VaultHandler"
 )
+
+// gatewayRequestServeTimeout bounds how long one gateway request may be served for. It stays
+// above the allowlist retry window (allowListBasedAuthRetryCount * allowListBasedAuthRetryInterval)
+// so a request whose allowlist entry is still reaching this node is not cut short.
+const gatewayRequestServeTimeout = 60 * time.Second
 
 type metrics struct {
 	// Given that all requests are coming from the gateway, we can assume that all errors are internal errors
@@ -177,7 +183,22 @@ func (h *GatewayHandler) requestLogger(req *jsonrpc.Request[json.RawMessage], ga
 	return logger.With(h.lggr, "requestID", req.ID, "method", req.Method, "gatewayID", gatewayID)
 }
 
-func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) (err error) {
+// HandleGatewayMessage serves the request in its own goroutine and returns immediately. The
+// connector calls it from the single read loop for the gateway, so serving the request inline
+// would hold every later message from that gateway behind it, for example while authorization
+// waits out the allowlist retry window.
+func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
+	return h.eng.IfStarted(func() error {
+		h.eng.GoCtx(ctx, func(ctx context.Context) {
+			ctx, cancel := context.WithTimeout(ctx, gatewayRequestServeTimeout)
+			defer cancel()
+			_ = h.serveGatewayMessage(ctx, gatewayID, req)
+		})
+		return nil
+	})
+}
+
+func (h *GatewayHandler) serveGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) (err error) {
 	reqLggr := h.requestLogger(req, gatewayID)
 	reqLggr.Debugw("received message from gateway", "req", req)
 
