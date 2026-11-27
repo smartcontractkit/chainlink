@@ -6,22 +6,16 @@ import (
 	"fmt"
 	"log"
 	"maps"
-	"reflect"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/shopspring/decimal"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	protoEvents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -37,21 +31,10 @@ const (
 
 	EngineVersionV1 = "v1"
 	EngineVersionV2 = "v2"
-
-	// defaultBillingCallTimeout bounds the blocking billing-service RPCs
-	// (GetWorkflowExecutionRates, ReserveCredits, SubmitWorkflowReceipt). The
-	// billing client itself sets no deadline, so without this a slow or hung
-	// billing call (e.g. an upstream proxy returning a 524) can stall workflow
-	// executions long enough to fall behind peer nodes and fail consensus. We
-	// fail open on timeout, so a short budget is preferable. See CRE-5160.
-	defaultBillingCallTimeout = 5 * time.Second
 )
 
 var (
 	ErrMissingLabels         = errors.New("missing required labels: owner, workflowID, workflowExecutionID")
-	ErrNoBillingClient       = errors.New("no billing client has been configured")
-	ErrInsufficientFunding   = errors.New("insufficient funding")
-	ErrReceiptFailed         = errors.New("failed to submit workflow receipt")
 	ErrNoReserve             = errors.New("must call Reserve first")
 	ErrStepDeductExists      = errors.New("step deduct already exists")
 	ErrNoOpenCalls           = errors.New("openConcurrentCallSlots must be greater than 0")
@@ -64,13 +47,6 @@ var (
 	ErrDeductOptionRequired  = errors.New("deduct option required")
 	ErrEmptyRateCard         = errors.New("empty rate card")
 )
-
-type BillingClient interface {
-	GetOrganizationCreditsByWorkflow(context.Context, *billing.GetOrganizationCreditsByWorkflowRequest) (*billing.GetOrganizationCreditsByWorkflowResponse, error)
-	GetWorkflowExecutionRates(context.Context, *billing.GetWorkflowExecutionRatesRequest) (*billing.GetWorkflowExecutionRatesResponse, error)
-	ReserveCredits(context.Context, *billing.ReserveCreditsRequest) (*billing.ReserveCreditsResponse, error)
-	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*emptypb.Empty, error)
-}
 
 type SpendTuple struct {
 	Unit  string
@@ -115,7 +91,6 @@ type Report struct {
 
 	// dependencies
 	balance      *balanceStore
-	client       BillingClient
 	lggr         logger.SugaredLogger
 	metrics      *monitoring.WorkflowsMetricLabeler
 	eventEmitter *wfEvents.Emitter
@@ -141,11 +116,6 @@ type Report struct {
 	// This value is used for ALL workflows regardless of source (contract, GRPC, or file).
 	// TODO: CRE-1716, CRE-1717 - This is a temporary approach until we finalize multi-env billing plans.
 	workflowRegistryChainSelector uint64
-
-	// maxRetries is number of attempts to retry SubmitWorkflowReceipt
-	maxRetries int
-	// retryDelay is the delay between retries on SubmitWorkflowReceipt
-	retryDelay time.Duration
 }
 
 // Option configures metering report construction.
@@ -174,7 +144,6 @@ func NewReport(
 	ctx context.Context,
 	labels map[string]string,
 	lggr logger.Logger,
-	client BillingClient,
 	metrics *monitoring.WorkflowsMetricLabeler,
 	workflowRegistryAddress, workflowRegistryChainSelector, engineVersion string,
 	opts ...Option,
@@ -203,20 +172,6 @@ func NewReport(
 
 		reserved: false,
 		steps:    make(map[string]ReportStep),
-
-		maxRetries: 1,
-		retryDelay: 150 * time.Millisecond,
-	}
-
-	// for safety in evaluating the client interface.
-	// the client could be a nil interface or a nil value that satisfies the interface.
-	valOf := reflect.ValueOf(client)
-	if valOf.IsValid() && valOf.IsNil() {
-		client = nil
-	}
-
-	if client == nil {
-		report.switchToMeteringMode(ErrNoBillingClient)
 	}
 
 	chainSelector, err := strconv.ParseUint(workflowRegistryChainSelector, 10, 64)
@@ -225,29 +180,6 @@ func NewReport(
 	}
 
 	report.workflowRegistryChainSelector = chainSelector
-
-	if client != nil {
-		report.client = client
-
-		var resp *billing.GetWorkflowExecutionRatesResponse
-
-		rateCtx, cancel := context.WithTimeout(ctx, defaultBillingCallTimeout)
-		resp, err = report.client.GetWorkflowExecutionRates(rateCtx, &billing.GetWorkflowExecutionRatesRequest{
-			WorkflowOwner:           labels[platform.KeyWorkflowOwner],
-			WorkflowRegistryAddress: report.workflowRegistryAddress,
-			ChainSelector:           report.workflowRegistryChainSelector,
-			WorkflowExecutionId:     labels[platform.KeyWorkflowExecutionID],
-		})
-		cancel()
-		if err != nil {
-			report.switchToMeteringMode(err)
-		}
-
-		report.rateCard, err = toRateCard(resp)
-		if err != nil {
-			report.switchToMeteringMode(err)
-		}
-	}
 
 	if len(report.rateCard) == 0 {
 		report.switchToMeteringMode(ErrEmptyRateCard)
@@ -268,63 +200,14 @@ func NewReport(
 	return report, nil
 }
 
-// Reserve calls the billing service for the initial credit balance that can be used in an execution.
-// This method must be called before Deduct or Settle.
-func (r *Report) Reserve(ctx context.Context) error {
+// Reserve marks the execution as started for metering. Billing is settled
+// asynchronously from the emitted metering reports; there is no execution-time
+// billing call.
+func (r *Report) Reserve() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// always indicate that reserve was called.
 	r.reserved = true
-
-	if r.client == nil {
-		r.switchToMeteringMode(ErrNoBillingClient)
-
-		return nil
-	}
-
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
-
-	// If there is no credit limit defined in the workflow, then open an empty reservation
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-284 consume user defined workflow execution limit
-
-	req := billing.ReserveCreditsRequest{
-		WorkflowOwner:                 r.labels[platform.KeyWorkflowOwner],
-		WorkflowId:                    r.labels[platform.KeyWorkflowID],
-		WorkflowExecutionId:           r.labels[platform.KeyWorkflowExecutionID],
-		WorkflowRegistryAddress:       r.workflowRegistryAddress,
-		WorkflowRegistryChainSelector: r.workflowRegistryChainSelector,
-		Credits:                       nil,
-	}
-
-	reserveCtx, cancel := context.WithTimeout(ctx, defaultBillingCallTimeout)
-	defer cancel()
-	resp, err := r.client.ReserveCredits(reserveCtx, &req)
-	// If there is an error communicating with the billing service, fail open
-	if err != nil {
-		r.switchToMeteringMode(err)
-
-		return nil
-	}
-
-	if success := resp.GetSuccess(); !success {
-		return ErrInsufficientFunding
-	}
-
-	creditsStr := resp.GetCredits()
-	if creditsStr == "" {
-		r.lggr.Debug("empty credits; setting default of 0")
-		creditsStr = "0"
-	}
-
-	credits, err := decimal.NewFromString(creditsStr)
-	if err != nil {
-		r.switchToMeteringMode(fmt.Errorf("%w: failed to parse credits %s", err, resp.GetCredits()))
-
-		return nil
-	}
-
-	r.balance.Set(credits)
 
 	return nil
 }
@@ -641,90 +524,18 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 	return protoReport
 }
 
-// isRetryableError determines if an error is retryable based on gRPC status codes
-func isRetryableError(err error) bool {
-	switch status.Code(err) {
-	case codes.Unavailable, codes.DeadlineExceeded, codes.ResourceExhausted:
-		return true
-	default:
-		// includes code.Unknown + err == nil
-		return false
-	}
-}
-
 func (r *Report) isMeteringMode() bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.meteringMode
 }
 
-func (r *Report) SendReceipt(ctx context.Context) error {
-	if !r.reserved {
-		return ErrNoReserve
-	}
-
-	if r.client == nil {
-		return ErrNoBillingClient
-	}
-
-	r.metrics.UpdateWorkflowMeteringModeGauge(ctx, r.isMeteringMode())
-
-	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
-
-	req := billing.SubmitWorkflowReceiptRequest{
-		WorkflowOwner:                 r.labels[platform.KeyWorkflowOwner],
-		WorkflowId:                    r.labels[platform.KeyWorkflowID],
-		WorkflowExecutionId:           r.labels[platform.KeyWorkflowExecutionID],
-		WorkflowRegistryAddress:       r.workflowRegistryAddress,
-		WorkflowRegistryChainSelector: r.workflowRegistryChainSelector,
-		Metering:                      r.FormatReport(),
-		CreditsConsumed:               r.balance.GetSpent().String(),
-	}
-
-	var resp *emptypb.Empty
-	var err error
-
-	for attempt := 0; ; attempt++ {
-		receiptCtx, cancel := context.WithTimeout(ctx, defaultBillingCallTimeout)
-		resp, err = r.client.SubmitWorkflowReceipt(receiptCtx, &req)
-		cancel()
-		if err == nil {
-			break
-		}
-
-		if attempt >= r.maxRetries || !isRetryableError(err) {
-			break
-		}
-
-		r.lggr.Warnw("SubmitWorkflowReceipt failed, retrying",
-			"attempt", attempt+1,
-			"maxRetries", r.maxRetries+1,
-			"error", err,
-			"retryDelay", r.retryDelay)
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(r.retryDelay):
-			// Continue to next attempt
-		}
-	}
-
-	if err != nil {
-		return err
-	}
-
-	if resp == nil {
-		return ErrReceiptFailed
-	}
-
-	return nil
-}
-
 func (r *Report) EmitReceipt(ctx context.Context) error {
 	if !r.reserved {
 		return ErrNoReserve
 	}
+
+	r.metrics.UpdateWorkflowMeteringModeGauge(ctx, r.isMeteringMode())
 
 	rpt := r.FormatReport()
 
@@ -902,35 +713,6 @@ func (r *Report) switchToMeteringMode(err error) {
 	r.meteringMode = true
 }
 
-func toRateCard(resp *billing.GetWorkflowExecutionRatesResponse) (map[string]decimal.Decimal, error) {
-	rates := resp.GetRateCards()
-
-	rateCard := map[string]decimal.Decimal{}
-	for _, rate := range rates {
-		conversionDeci, err := decimal.NewFromString(rate.UnitsPerCredit)
-		if err != nil {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert unit %s's value %s to decimal", rate.ResourceType, rate.UnitsPerCredit)
-		}
-
-		rateCard[rate.ResourceType.String()] = conversionDeci
-	}
-
-	// credits per gas are provided in the form of map[chainselector] -> <gasRate>string
-	// each entry should be converted to a usable rate card with form of GAS.[chainselector] -> <unitsPerCredit>decimal
-	gasCredits := resp.GetGasTokensPerCredit()
-
-	for chainSelector, gasRate := range gasCredits {
-		conversionDeci, err := decimal.NewFromString(gasRate)
-		if err != nil {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert gas rate %d's value %s to decimal", chainSelector, gasRate)
-		}
-
-		rateCard[fmt.Sprintf("GAS.%d", chainSelector)] = conversionDeci
-	}
-
-	return rateCard, nil
-}
-
 func medianSpend(spends []decimal.Decimal) decimal.Decimal {
 	if len(spends) == 0 {
 		return decimal.Zero
@@ -948,7 +730,6 @@ func medianSpend(spends []decimal.Decimal) decimal.Decimal {
 type Reports struct {
 	mu           sync.RWMutex
 	reports      map[string]*Report
-	client       BillingClient
 	lggr         logger.Logger
 	metrics      *monitoring.WorkflowsMetricLabeler
 	eventEmitter *wfEvents.Emitter
@@ -967,7 +748,6 @@ type Reports struct {
 
 // NewReports initializes and returns a new Reports.
 func NewReports(
-	client BillingClient,
 	owner, workflowID string,
 	lggr logger.Logger,
 	labels map[string]string,
@@ -976,11 +756,6 @@ func NewReports(
 	workflowRegistryChainSelector, engineVersion string,
 	opts ...Option,
 ) *Reports {
-	valOf := reflect.ValueOf(client)
-	if valOf.IsValid() && valOf.IsNil() {
-		client = nil
-	}
-
 	o := newOptions()
 	for _, opt := range opts {
 		opt(o)
@@ -988,7 +763,6 @@ func NewReports(
 
 	return &Reports{
 		reports:      make(map[string]*Report),
-		client:       client,
 		lggr:         lggr,
 		metrics:      metrics,
 		eventEmitter: o.eventEmitter,
@@ -1014,11 +788,11 @@ func (s *Reports) Get(workflowExecutionID string) (*Report, bool) {
 
 // Start creates a new report and inserts it under the specified workflowExecutionID.
 //
-// NewReport makes a blocking billing-service call (GetWorkflowExecutionRates),
-// so it is intentionally invoked WITHOUT holding s.mu. The lock is
+// NewReport parses labels and builds the balance store, so it is intentionally
+// invoked WITHOUT holding s.mu. The lock is
 // only held for the in-memory map check and insert.
 func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Report, error) {
-	// Fast pre-check to avoid an unnecessary billing call when a report already exists.
+	// Fast pre-check to avoid unnecessary work when a report already exists.
 	s.mu.RLock()
 	_, ok := s.reports[workflowExecutionID]
 	s.mu.RUnlock()
@@ -1030,7 +804,7 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 	maps.Copy(labels, s.labelMap)
 	labels[platform.KeyWorkflowExecutionID] = workflowExecutionID
 
-	report, err := NewReport(ctx, labels, s.lggr, s.client, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainSelector, s.engineVersion, WithEventEmitter(s.eventEmitter))
+	report, err := NewReport(ctx, labels, s.lggr, s.metrics, s.workflowRegistryAddress, s.workflowRegistryChainSelector, s.engineVersion, WithEventEmitter(s.eventEmitter))
 	if err != nil {
 		return nil, err
 	}
@@ -1063,12 +837,6 @@ func (s *Reports) End(ctx context.Context, workflowExecutionID string) error {
 	if emitErr != nil {
 		s.metrics.IncrementWorkflowMissingMeteringReport(ctx)
 		multiErr = errors.Join(multiErr, emitErr)
-	}
-
-	sendErr := report.SendReceipt(ctx)
-	if sendErr != nil {
-		s.metrics.IncrementWorkflowMissingMeteringReport(ctx)
-		multiErr = errors.Join(multiErr, sendErr)
 	}
 
 	delete(s.reports, workflowExecutionID)

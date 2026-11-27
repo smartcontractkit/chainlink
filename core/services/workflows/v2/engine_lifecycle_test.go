@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/metric"
-	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
@@ -30,13 +29,11 @@ import (
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
-	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
-	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -482,7 +479,6 @@ type harnessOptions struct {
 	workflowID    string
 	workflowOwner string
 	orgID         string
-	billing       *metmocks.BillingClient
 	sharedFlight  *flightTracker
 	meter         metric.Meter
 	clock         clockwork.Clock
@@ -524,11 +520,6 @@ func withWorkflow(id, owner string) harnessOption {
 // withOrg makes the engine resolve its workflow owner to orgID.
 func withOrg(orgID string) harnessOption {
 	return func(o *harnessOptions) { o.orgID = orgID }
-}
-
-// withBillingClient replaces the default billing client, which accepts every call.
-func withBillingClient(c *metmocks.BillingClient) harnessOption {
-	return func(o *harnessOptions) { o.billing = c }
 }
 
 // withSharedFlight also counts the harness's executions in f.
@@ -619,10 +610,6 @@ func newEngineLifecycleHarness(t *testing.T, mode lifecycleEngineMode, opts ...h
 	cfg.LocalLimiters.ExecutionConcurrency = h.slots.wrap(cfg.LocalLimiters.ExecutionConcurrency)
 	cfg.CapRegistry = capreg
 	cfg.Module = h.newModule()
-	cfg.BillingClient = newLifecycleBillingClient(t)
-	if o.billing != nil {
-		cfg.BillingClient = o.billing
-	}
 	cfg.Meter = o.meter
 	cfg.EventEmitter = workflowEvents.NewEmitter(h.rec, workflowEvents.WithNoDurableEmit())
 	cfg.BeholderEmitter = custmsg.NewLabelerWithEmitter(h.rec)
@@ -1142,37 +1129,4 @@ func nonBlockingSend[T any](ch chan<- T, v T) {
 	case ch <- v:
 	default:
 	}
-}
-
-// newLifecycleBillingClient returns a billing client that accepts, but does not require, the calls
-// an execution makes, since not every scenario runs one.
-func newLifecycleBillingClient(t *testing.T) *metmocks.BillingClient {
-	t.Helper()
-	return newTestBillingClient(t, true)
-}
-
-// newTestBillingClient is newLifecycleBillingClient whose credit reservations succeed only if
-// reserveOK. A failed reservation makes the engine abort the execution before the module runs.
-func newTestBillingClient(t *testing.T, reserveOK bool) *metmocks.BillingClient {
-	t.Helper()
-	client := metmocks.NewBillingClient(t)
-	client.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-		Return(&billing.GetWorkflowExecutionRatesResponse{
-			RateCards: []*billing.RateCard{
-				{
-					ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
-					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
-					UnitsPerCredit:  "0.0001",
-				},
-				{
-					ResourceType:    billing.ResourceType_RESOURCE_TYPE_NETWORK,
-					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST,
-					UnitsPerCredit:  "0.01",
-				},
-			},
-		}, nil).Maybe()
-	client.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
-		Return(&billing.ReserveCreditsResponse{Success: reserveOK, Credits: "10000"}, nil).Maybe()
-	client.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).Return(&emptypb.Empty{}, nil).Maybe()
-	return client
 }

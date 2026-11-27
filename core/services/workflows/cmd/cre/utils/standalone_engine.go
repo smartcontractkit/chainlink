@@ -3,17 +3,14 @@ package utils
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
-	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
-	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
@@ -57,7 +54,6 @@ func NewStandaloneEngine(
 	lggr logger.Logger,
 	registry *registry.Registry,
 	binary, config, secrets []byte,
-	billingClientAddr string,
 	lifecycleHooks v2.LifecycleHooks,
 	workflowName string,
 	workflowSettingsCfgFn func(*cresettings.Workflows),
@@ -118,16 +114,6 @@ func NewStandaloneEngine(
 		return nil, nil, err
 	}
 
-	var billingClient billing.WorkflowClient
-	if billingClientAddr != "" {
-		clientOpts := []billing.WorkflowClientOpt{}
-		if strings.HasPrefix(billingClientAddr, "https") {
-			clientOpts = append(clientOpts, billing.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
-		}
-
-		billingClient, _ = billing.NewWorkflowClient(lggr, billingClientAddr, clientOpts...)
-	}
-
 	secretsFetcher, err := NewFileBasedSecrets(secrets)
 	if err != nil {
 		return nil, nil, err
@@ -154,8 +140,7 @@ func NewStandaloneEngine(
 
 		BeholderEmitter: custmsg.NewLabeler(),
 
-		BillingClient: billingClient,
-		Hooks:         lifecycleHooks,
+		Hooks: lifecycleHooks,
 
 		SecretsFetcher: secretsFetcher,
 		DebugMode:      true,

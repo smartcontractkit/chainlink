@@ -43,7 +43,6 @@ func TestCoordinatedEngine_ExecuteTrigger(t *testing.T) {
 
 	baseCfg := defaultTestConfig(t, nil)
 	baseCfg.CapRegistry = capreg
-	baseCfg.BillingClient = setupMockBillingClient(t)
 	baseCfg.TriggerAcknowledger = noopAcknowledger{}
 
 	// The execution must reach WASM and return a value.

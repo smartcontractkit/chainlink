@@ -21,7 +21,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -63,7 +62,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	artifactsV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
@@ -97,7 +95,6 @@ type Opts struct {
 
 	FetcherFunc wftypes.FetcherFunc
 
-	BillingClient metering.BillingClient
 	LinkingClient linkingclient.LinkingServiceClient
 	Meter         metric.Meter
 
@@ -126,8 +123,6 @@ type Opts struct {
 // Services contains all CRE-related services
 type Services struct {
 	commonsrv.Service
-
-	BillingClient metering.BillingClient
 
 	WorkflowRateLimiter *ratelimiter.RateLimiter
 
@@ -300,15 +295,9 @@ func (s *Services) newSubservices(
 
 	wfSyncerLggr := logger.Named(lggr, "WorkflowRegistrySyncer")
 	wfSyncerLggr.Debugw("Creating WorkflowRegistrySyncer")
-	billingClient, err := newBillingClient(wfSyncerLggr, cfg, opts)
-	if err != nil {
-		wfSyncerLggr.Infof("failed to create billing client: %s", err)
-	}
-
 	wfSyncer, triggerCoordinator, triggerQueue, wfSyncerSrvcs, err := newWorkflowRegistrySyncerV2(
 		cfg,
 		relayerChainInterops,
-		billingClient,
 		opts,
 		wfSyncerLggr,
 		ds,
@@ -326,7 +315,6 @@ func (s *Services) newSubservices(
 	if err != nil {
 		return nil, err
 	}
-	s.BillingClient = billingClient
 	s.WorkflowRegistrySyncer = wfSyncer
 	s.TriggerCoordinator = triggerCoordinator
 	s.TriggerQueue = triggerQueue
@@ -633,24 +621,6 @@ func newOrgResolver(
 	return cachingResolver, nil
 }
 
-func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.BillingClient, error) {
-	if opts.BillingClient != nil {
-		return opts.BillingClient, nil
-	}
-
-	if cfg.Billing().URL() == "" {
-		return nil, nil
-	}
-
-	workflowOpts := []billing.WorkflowClientOpt{
-		billing.WithJWTGenerator(opts.JWTGenerator),
-	}
-	if cfg.Billing().TLSEnabled() {
-		workflowOpts = append(workflowOpts, billing.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
-	}
-	return billing.NewWorkflowClient(lggr, cfg.Billing().URL(), workflowOpts...)
-}
-
 // newSyncerMeterIdentity builds the syncer's base metering identity from node
 // metering config. Product/tenant/environment/zone and logical node_id are read
 // from [Metering]. The workflow DON id (don_id) is resolved later by the
@@ -796,7 +766,6 @@ func newFetcherServiceV2(
 func newWorkflowRegistrySyncerV2(
 	cfg Config,
 	relayerChainInterops RelayerChainInterops,
-	billingClient metering.BillingClient,
 	opts Opts,
 	lggr logger.Logger,
 	ds sqlutil.DataSource,
@@ -953,7 +922,6 @@ func newWorkflowRegistrySyncerV2(
 	)
 
 	handlerOpts := []syncerV2.EventHandlerOption{
-		syncerV2.WithBillingClient(billingClient),
 		syncerV2.WithWorkflowRegistry(wfReg.Address(), selector),
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),

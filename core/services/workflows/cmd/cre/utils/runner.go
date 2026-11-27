@@ -19,7 +19,6 @@ type Runner struct {
 
 type RunnerConfig struct {
 	EnableBeholder             bool
-	EnableBilling              bool
 	EnableStandardCapabilities bool
 	Lggr                       logger.Logger
 	LifecycleHooks             v2.LifecycleHooks
@@ -50,16 +49,6 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capreg.Reg
 	registry.SetRegistryMetadata(&capreg.TestRegistryMetadata{})
 
 	srvcs := []services.Service{}
-	if cfg.EnableBilling {
-		bs := NewBillingService(logger.Named(cfg.Lggr, "Fake_Billing_Client"))
-		err := bs.Start(ctx)
-		if err != nil {
-			fmt.Printf("Failed to start billing service: %v\n", err)
-			os.Exit(1)
-		}
-
-		srvcs = append(srvcs, bs)
-	}
 
 	var caps []services.Service
 	var err error
@@ -94,7 +83,7 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capreg.Reg
 	}
 
 	if cfg.EnableBeholder {
-		_ = SetupBeholder(logger.Named(cfg.Lggr, "Fake_Stdlog_Beholder"))
+		beholderCleanup, _ = SetupBeholder(logger.Named(cfg.Lggr, "Fake_Stdlog_Beholder"))
 	}
 
 	return registry, srvcs
@@ -110,8 +99,12 @@ var defaultCleanup = func(ctx context.Context, cfg RunnerConfig, registry *capre
 		_ = service.Close()
 	}
 
-	_ = cleanupBeholder()
+	if beholderCleanup != nil {
+		beholderCleanup()
+	}
 }
+
+var beholderCleanup func()
 
 func DefaultHooks() *RunnerHooks {
 	return &RunnerHooks{
@@ -145,12 +138,7 @@ func (r *Runner) Run(
 
 	registry, services := r.hooks.Initialize(ctx, cfg)
 
-	billingAddress := ""
-	if cfg.EnableBilling {
-		billingAddress = "localhost:4319"
-	}
-
-	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, billingAddress, cfg.LifecycleHooks, workflowName, cfg.WorkflowSettingsCfgFn)
+	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, cfg.LifecycleHooks, workflowName, cfg.WorkflowSettingsCfgFn)
 	if err != nil {
 		fmt.Printf("Failed to create engine: %v\n", err)
 		os.Exit(1)

@@ -90,7 +90,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -337,15 +336,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			break
 		}
 	}
-
-	var billingClient metering.BillingClient
-	for _, dep := range flagsAndDeps {
-		billingClient, _ = dep.(metering.BillingClient)
-		if billingClient != nil {
-			break
-		}
-	}
-
 	url := cfg.Database().URL()
 	db, err := pg.NewConnection(ctx, url.String(), cfg.Database().DriverName(), cfg.Database())
 	require.NoError(t, err)
@@ -407,7 +397,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			CapabilitiesDispatcher: dispatcher,
 			CapabilitiesSharedPeer: sharedPeer,
 			FetcherFunc:            syncerFetcherFunc,
-			BillingClient:          billingClient,
 			UseLocalTimeProvider:   cfg.CRE().UseLocalTimeProvider(),
 		},
 		Config:   cfg,

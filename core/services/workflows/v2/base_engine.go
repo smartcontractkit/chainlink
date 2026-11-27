@@ -193,7 +193,7 @@ func newBaseEngine(cfg *EngineConfig, engineMode string) (*baseEngine, logger.Su
 
 	// Store logger and other fields
 	engine.setLogger(beholderLogger)
-	engine.meterReports = metering.NewReports(cfg.BillingClient, cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2, metering.WithEventEmitter(cfg.EventEmitter))
+	engine.meterReports = metering.NewReports(cfg.WorkflowOwner, cfg.WorkflowID, beholderLogger, labelsMap, metricsLabeler, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV2, metering.WithEventEmitter(cfg.EventEmitter))
 	engine.metrics = metricsLabeler
 	// Disabled metering is a no-op inside the resource manager.
 	engine.usageMeter = resourcemanager.NewResourceManager(cfg.Lggr, resourcemanager.ResourceManagerConfig{MeterRecordsEnabled: cfg.MeterRecordsEnabled, Emitter: cfg.UsageEmitter, Settings: cfg.LocalLimiters.Settings})
@@ -629,8 +629,7 @@ func (e *baseEngine) startExecution(ctx context.Context, event triggers.Coordina
 
 	isMetering := meteringErr == nil
 	if isMetering {
-		mrErr := meteringReport.Reserve(ctx)
-		if mrErr != nil {
+		if mrErr := meteringReport.Reserve(); mrErr != nil {
 			lggr.Errorw("could not reserve metering", "err", mrErr)
 			triggerDrop(monitoring.TriggerDropReasonMeteringReserveFailed)
 			return ErrMeteringReserveFailed

@@ -59,7 +59,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
-	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -756,7 +755,6 @@ func TestEngine_ExecuteTrigger_AfterCachedSubscriptions(t *testing.T) {
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = setupMockBillingClient(t)
 	cfg.CachedTriggerSubscriptions = cachedSubs
 	cfg.CachedTriggerSubscriptionsEnabled = true
 
@@ -795,7 +793,6 @@ func TestEngine_OrganizationIdLogger(t *testing.T) {
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	billingClient := setupMockBillingClient(t)
 
 	// Create mock org resolver
 	mockOrgResolver := &mockOrgResolver{
@@ -810,7 +807,6 @@ func TestEngine_OrganizationIdLogger(t *testing.T) {
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 	cfg.OrgResolver = mockOrgResolver
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -881,7 +877,6 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	billingClient := setupMockBillingClient(t)
 
 	// Create mock org resolver that returns an error
 	mockOrgResolver := &mockOrgResolver{
@@ -896,7 +891,6 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 	cfg.OrgResolver = mockOrgResolver
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -977,7 +971,6 @@ func TestEngine_OrganizationIdPreservedAfterLocalNodeSync(t *testing.T) {
 	module.EXPECT().Start()
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
-	billingClient := setupMockBillingClient(t)
 
 	initialNode := newNode(t, func(n *capabilities.Node) {
 		n.WorkflowDON.ConfigVersion = 1
@@ -1006,7 +999,6 @@ func TestEngine_OrganizationIdPreservedAfterLocalNodeSync(t *testing.T) {
 	cfg.DonSubscriber = subscriberMock
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 	cfg.OrgResolver = mockOrgResolver
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -1132,7 +1124,6 @@ func TestEngine_Execution(t *testing.T) {
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	billingClient := setupMockBillingClient(t)
 
 	initDoneCh := make(chan error)
 	subscribedToTriggersCh := make(chan []string, 1)
@@ -1144,7 +1135,6 @@ func TestEngine_Execution(t *testing.T) {
 	})
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 	cfg.OrgResolver = &mockOrgResolver{
 		orgID: "test-org-123",
 		err:   nil,
@@ -1273,7 +1263,6 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	billingClient := setupMockBillingClient(t)
 
 	initDoneCh := make(chan error)
 	subscribedToTriggersCh := make(chan []string, 1)
@@ -1285,7 +1274,6 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 	})
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -1361,9 +1349,6 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
 
-	// all tests in this section assume that the billing client returns valid rate cards
-	billingClient := setupMockBillingClient(t)
-
 	initDoneCh := make(chan error)
 	subscribedToTriggersCh := make(chan []string, 1)
 	executionFinishedCh := make(chan string)
@@ -1386,7 +1371,6 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 	}
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -1525,7 +1509,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 			Execute(matches.AnyContext, mock.Anything).
 			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
 				assert.NotNil(t, req.Metadata.SpendLimits)
-				assert.Len(t, req.Metadata.SpendLimits, 2)
+				assert.Empty(t, req.Metadata.SpendLimits, "no rate card: no spend limits")
 			}).
 			Return(capabilities.CapabilityResponse{
 				Metadata: capabilities.ResponseMetadata{
@@ -1578,7 +1562,8 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		capability.AssertExpectations(t)
 
 		logged := relevantLogs()
-		require.Empty(t, logged)
+		require.Len(t, logged, 1)
+		assert.Contains(t, logged[0].Message, "switching to metering mode")
 	})
 
 	t.Run("single spend type and no ratios config produces spending limit with no error", func(t *testing.T) { //nolint:paralleltest // subtests share setup
@@ -1610,7 +1595,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 			Execute(matches.AnyContext, mock.Anything).
 			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
 				assert.NotNil(t, req.Metadata.SpendLimits)
-				assert.Len(t, req.Metadata.SpendLimits, 1)
+				assert.Empty(t, req.Metadata.SpendLimits, "no rate card: no spend limits")
 			}).
 			Return(capabilities.CapabilityResponse{
 				Metadata: capabilities.ResponseMetadata{
@@ -1658,7 +1643,8 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		capability.AssertExpectations(t)
 
 		logged := relevantLogs()
-		require.Empty(t, logged)
+		require.Len(t, logged, 1)
+		assert.Contains(t, logged[0].Message, "switching to metering mode")
 	})
 
 	t.Run("billing type and capability settle spend type mismatch", func(t *testing.T) { //nolint:paralleltest // subtests share setup
@@ -1698,7 +1684,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 			Execute(matches.AnyContext, mock.Anything).
 			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
 				assert.NotNil(t, req.Metadata.SpendLimits)
-				assert.Len(t, req.Metadata.SpendLimits, 2)
+				assert.Empty(t, req.Metadata.SpendLimits, "no rate card: no spend limits")
 			}).
 			Return(capabilities.CapabilityResponse{
 				Metadata: capabilities.ResponseMetadata{
@@ -1767,7 +1753,6 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	billingClient := setupMockBillingClient(t)
 
 	initDoneCh := make(chan error)
 	subscribedToTriggersCh := make(chan []string, 1)
@@ -1779,7 +1764,6 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 	})
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -1897,12 +1881,9 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
 
-	billingClient := setupMockBillingClient(t)
-
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
@@ -1991,13 +1972,10 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
 
-	billingClient := setupMockBillingClient(t)
-
 	cfg := defaultTestConfig(t, nil)
 	cfg.WorkflowConfig = config
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 
 	initDoneCh := make(chan error, 1)
 	subscribedToTriggersCh := make(chan []string, 1)
@@ -2102,12 +2080,10 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		capreg.EXPECT().NodeByPeerID(matches.AnyContext, peerID).Return(node, nil)
 	}
 
-	billingClient := setupMockBillingClient(t)
 	cfg := defaultTestConfig(t, nil)
 	cfg.WorkflowConfig = config
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 
 	rawSecret := "Original Secret Text"
 	f, n := 2, 3
@@ -2286,7 +2262,6 @@ func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	billingClient := setupMockBillingClient(t)
 
 	initDoneCh := make(chan error)
 	subscribedToTriggersCh := make(chan []string, 1)
@@ -2295,7 +2270,6 @@ func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -2377,7 +2351,6 @@ func TestEngine_DeduplicatesSameEventID(t *testing.T) {
 	module.EXPECT().Close()
 	capreg := regmocks.NewCapabilitiesRegistry(t)
 	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
-	billingClient := setupMockBillingClient(t)
 
 	initDoneCh := make(chan error)
 	subscribedToTriggersCh := make(chan []string, 1)
@@ -2386,7 +2359,6 @@ func TestEngine_DeduplicatesSameEventID(t *testing.T) {
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -2812,11 +2784,9 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		Return(make(chan capabilities.TriggerResponse), nil).Maybe()
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Maybe()
 	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
-	billingClient := setupMockBillingClient(t)
 
 	baseCfg := defaultTestConfig(t, nil)
 	baseCfg.CapRegistry = capreg
-	baseCfg.BillingClient = billingClient
 
 	ctx := contexts.WithCRE(t.Context(), contexts.CRE{
 		Owner:    baseCfg.WorkflowOwner,
@@ -2924,27 +2894,6 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 	})
 
-	t.Run("metering reserve failure returns ErrMeteringReserveFailed", func(t *testing.T) {
-		t.Parallel()
-		ack := &recordingAcknowledger{}
-		ew := newStartedTestEngine(t, baseCfg, v2.NewEngine, func(module *modulemocks.ModuleV2) {
-			// No Module.Execute expectation: the execution must never reach WASM.
-		}, func(cfg *v2.EngineConfig) {
-			cfg.BillingClient = setupFailingReserveBillingClient(t)
-			cfg.TriggerAcknowledger = ack
-		})
-
-		err := ew.engine.ExecuteTrigger(ctx, makeEvent("metering_reserve_failed_event"))
-		require.ErrorIs(t, err, v2.ErrMeteringReserveFailed)
-
-		// No ACK is sent on metering reserve failure; the caller may retry.
-		require.Empty(t, ack.ackCalls())
-
-		// The execution never started, so neither execution hook fired.
-		require.Equal(t, int32(0), ew.finishedCalls.Load(), "OnExecutionFinished should not fire when reserve fails")
-		require.Equal(t, int32(0), ew.errorCalls.Load(), "OnExecutionError should not fire when reserve fails")
-		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
-	})
 }
 
 // TestEngine_ShardDenial verifies that when the OnTriggerAdmission lifecycle hook
@@ -3031,67 +2980,6 @@ func TestEngine_ShardDenial(t *testing.T) {
 			require.Equal(t, int32(0), ew.engine.ActiveExecutions())
 		})
 	}
-}
-
-// setupMockBillingClient creates a mock billing client with default expectations.
-func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
-	billingClient := metmocks.NewBillingClient(t)
-
-	billingClient.EXPECT().
-		GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-		Return(&billing.GetWorkflowExecutionRatesResponse{
-			RateCards: []*billing.RateCard{
-				{
-					ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
-					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
-					UnitsPerCredit:  "0.0001",
-				},
-				{
-					ResourceType:    billing.ResourceType_RESOURCE_TYPE_NETWORK,
-					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_COST,
-					UnitsPerCredit:  "0.01",
-				},
-			},
-		}, nil)
-	billingClient.EXPECT().
-		ReserveCredits(mock.Anything, mock.MatchedBy(func(req *billing.ReserveCreditsRequest) bool {
-			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
-		})).
-		Return(&billing.ReserveCreditsResponse{
-			Success: true,
-			Credits: "10000",
-		}, nil)
-	billingClient.EXPECT().
-		SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
-			return req != nil && req.WorkflowId != "" && req.WorkflowExecutionId != ""
-		})).
-		Return(&emptypb.Empty{}, nil).Maybe()
-	return billingClient
-}
-
-// setupFailingReserveBillingClient creates a mock billing client whose
-// ReserveCredits call fails (Success: false), which drives the engine to
-// return ErrMeteringReserveFailed.
-func setupFailingReserveBillingClient(t *testing.T) *metmocks.BillingClient {
-	billingClient := metmocks.NewBillingClient(t)
-
-	billingClient.EXPECT().
-		GetWorkflowExecutionRates(mock.Anything, mock.Anything).
-		Return(&billing.GetWorkflowExecutionRatesResponse{
-			RateCards: []*billing.RateCard{
-				{
-					ResourceType:    billing.ResourceType_RESOURCE_TYPE_COMPUTE,
-					MeasurementUnit: billing.MeasurementUnit_MEASUREMENT_UNIT_MILLISECONDS,
-					UnitsPerCredit:  "0.0001",
-				},
-			},
-		}, nil)
-	billingClient.EXPECT().
-		ReserveCredits(mock.Anything, mock.Anything).
-		Return(&billing.ReserveCreditsResponse{
-			Success: false,
-		}, nil)
-	return billingClient
 }
 
 // stubShardResolver is a fixed-response shardownership.ShardResolver for engine tests.

@@ -23,7 +23,6 @@ func main() {
 		secretsPath                string
 		debugMode                  bool
 		enableBeholder             bool
-		enableBilling              bool
 		enableStandardCapabilities bool
 		enableAllChains            bool
 	)
@@ -33,7 +32,6 @@ func main() {
 	flag.StringVar(&secretsPath, "secrets", "", "Path to the secrets file")
 	flag.BoolVar(&debugMode, "debug", false, "Enable debug-level logging")
 	flag.BoolVar(&enableBeholder, "beholder", false, "Enable printing beholder messages to standard log")
-	flag.BoolVar(&enableBilling, "billing", false, "Enable to run a faked billing service that prints to the standard log.")
 	flag.BoolVar(&enableStandardCapabilities, "standardCapabilities", true, "Enable to use the latest production standard capability binaries for capabilities. The binaries must be available in local GOBIN.")
 	flag.BoolVar(&enableAllChains, "allChains", false, "Enable all chains in the workflow execution (for testing purposes).")
 	flag.Parse()
@@ -81,7 +79,6 @@ func main() {
 
 	runner := utils.NewRunner(nil)
 	runner.Run(ctx, "", binary, config, secrets, utils.RunnerConfig{
-		EnableBilling:              enableBilling,
 		EnableBeholder:             enableBeholder,
 		EnableStandardCapabilities: enableStandardCapabilities,
 		Lggr:                       lggr,

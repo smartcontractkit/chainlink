@@ -28,7 +28,6 @@ import (
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
-	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2/triggers"
@@ -172,7 +171,7 @@ type dropPathHarness struct {
 	ackCalls            atomic.Int32 // legacy only: dropPathCoordinated uses noopAcknowledger
 }
 
-func newDropPathHarness(t *testing.T, mode dropPathMode, billingClient *metmocks.BillingClient, configure func(cfg *v2.EngineConfig)) *dropPathHarness {
+func newDropPathHarness(t *testing.T, mode dropPathMode, configure func(cfg *v2.EngineConfig)) *dropPathHarness {
 	t.Helper()
 
 	module := modulemocks.NewModuleV2(t)
@@ -187,7 +186,6 @@ func newDropPathHarness(t *testing.T, mode dropPathMode, billingClient *metmocks
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = billingClient
 	cfg.OrgResolver = &mockOrgResolver{orgID: "test-org-123"}
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
@@ -289,8 +287,7 @@ func TestEngine_LimitReadFallback_ExecutesAnyway(t *testing.T) {
 			t.Run(string(mode)+"/"+name, func(t *testing.T) {
 				t.Parallel()
 
-				billingClient := setupMockBillingClient(t)
-				harness := newDropPathHarness(t, mode, billingClient, breakLimiter)
+				harness := newDropPathHarness(t, mode, breakLimiter)
 
 				harness.module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(nil, nil).Once()
 				harness.deliver(capabilities.TriggerResponse{
@@ -358,7 +355,7 @@ func TestEngine_LimitReadNonRecoverable_Drops(t *testing.T) {
 
 				// No module.Execute expectation: the execution must never reach WASM.
 				meter := newDropMeter(t)
-				harness := newDropPathHarness(t, mode, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
+				harness := newDropPathHarness(t, mode, func(cfg *v2.EngineConfig) {
 					cfg.Meter = meter.meter
 					breakLimiter(cfg)
 				})
@@ -405,7 +402,7 @@ func TestEngine_LimitReadFallback_UsesLimiterValue(t *testing.T) {
 		t.Run(string(mode), func(t *testing.T) {
 			t.Parallel()
 
-			harness := newDropPathHarness(t, mode, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
+			harness := newDropPathHarness(t, mode, func(cfg *v2.EngineConfig) {
 				cfg.LocalLimiters.ExecutionResponse = boundLimiterWithFailingReads(t, spec)
 			})
 
@@ -435,11 +432,9 @@ func TestEngine_LimitReadFallback_UsesLimiterValue(t *testing.T) {
 func TestEngine_AdmissionDenial_StaysSilent(t *testing.T) {
 	t.Parallel()
 
-	billingClient := metmocks.NewBillingClient(t) // no billing calls expected: admission runs before metering
-
 	// OnTriggerAdmission is a legacy-only hook (coordinatedEngine.ExecuteTrigger never calls
 	// it; admission is the coordinator's job). So this scenario only applies to dropPathLegacy.
-	harness := newDropPathHarness(t, dropPathLegacy, billingClient, func(cfg *v2.EngineConfig) {
+	harness := newDropPathHarness(t, dropPathLegacy, func(cfg *v2.EngineConfig) {
 		cfg.Hooks.OnTriggerAdmission = func(context.Context, triggers.CoordinatedEvent) error {
 			return errors.New("not owned by this node")
 		}
@@ -476,7 +471,7 @@ func TestEngine_UserLog_LogLineCheck(t *testing.T) {
 			t.Run("over-long message truncated to the bound", func(t *testing.T) {
 				t.Parallel()
 
-				harness := newDropPathHarness(t, mode, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
+				harness := newDropPathHarness(t, mode, func(cfg *v2.EngineConfig) {
 					cfg.LocalLimiters.LogLine = limits.NewUpperBoundLimiter[commonconfig.Size](10)
 				})
 
@@ -497,7 +492,7 @@ func TestEngine_UserLog_LogLineCheck(t *testing.T) {
 			t.Run("settings read failure emits untruncated", func(t *testing.T) {
 				t.Parallel()
 
-				harness := newDropPathHarness(t, mode, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
+				harness := newDropPathHarness(t, mode, func(cfg *v2.EngineConfig) {
 					cfg.LocalLimiters.LogLine = &alwaysErrCheckLimiter[commonconfig.Size]{err: errors.New("settings unavailable")}
 				})
 
@@ -530,7 +525,7 @@ func TestEngine_UserLog_LogEventCheckFailure_KeepsDraining(t *testing.T) {
 		t.Run(string(mode), func(t *testing.T) {
 			t.Parallel()
 
-			harness := newDropPathHarness(t, mode, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
+			harness := newDropPathHarness(t, mode, func(cfg *v2.EngineConfig) {
 				cfg.LocalLimiters.LogEvent = &alwaysErrCheckLimiter[int]{ok: 1000, err: errors.New("settings unavailable")}
 			})
 
