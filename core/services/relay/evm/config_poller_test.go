@@ -71,8 +71,10 @@ func TestConfigPoller(t *testing.T) {
 		ec = b.Client()
 		linkTokenAddress, _, _, err = link_token_interface.DeployLinkToken(user, ec)
 		require.NoError(t, err)
+		b.Commit()
 		accessAddress, _, _, err = testoffchainaggregator2.DeploySimpleWriteAccessController(user, ec)
 		require.NoError(t, err, "failed to deploy test access controller contract")
+		b.Commit()
 		ocrAddress, _, ocrContract, err = ocr2aggregator.DeployOCR2Aggregator(
 			user,
 			ec,
@@ -85,6 +87,7 @@ func TestConfigPoller(t *testing.T) {
 			"TEST",
 		)
 		require.NoError(t, err)
+		b.Commit()
 		configStoreContractAddr, _, configStoreContract, err = ocrconfigurationstoreevmsimple.DeployOCRConfigurationStoreEVMSimple(user, ec)
 		require.NoError(t, err)
 		b.Commit()
