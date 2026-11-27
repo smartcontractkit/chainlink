@@ -3,6 +3,8 @@ name: CI ProtoBuf
 on:
   pull_request:
 
+permissions: {}
+
 jobs:
   buf-breaking:
     runs-on: ubuntu-latest

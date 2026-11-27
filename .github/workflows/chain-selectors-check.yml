@@ -11,6 +11,8 @@ on:
     branches:
       - release/*
 
+permissions: {}
+
 jobs:
   verify-version:
     runs-on: ubuntu-latest
