@@ -250,3 +250,34 @@ func TestEmit_CreInfoShardAndWorkflowDon(t *testing.T) {
 		})
 	}
 }
+
+func TestEmit_CreInfoAssignmentDonIDs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		labels        map[string]string
+		wantPrimary   uint32
+		wantSecondary uint32
+	}{
+		{"both set", map[string]string{platform.KeyPrimaryDonID: "11", platform.KeySecondaryDonID: "12"}, uint32(11), uint32(12)},
+		{"missing labels default to zero", map[string]string{platform.KeyDonID: "7"}, uint32(0), uint32(0)},
+		{"invalid values ignored", map[string]string{platform.KeyPrimaryDonID: "x", platform.KeySecondaryDonID: "-1"}, uint32(0), uint32(0)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rec := beholdertest.NewRecorder()
+			e := events.NewEmitter(rec, events.WithNoDurableEmit())
+			require.NoError(t, e.EmitCapabilityStartedEvent(t.Context(), tt.labels, "exec", "cap", "step", "method"))
+
+			msgs := rec.Messages(t, "beholder_entity", "workflows.v2.CapabilityExecutionStarted")
+			require.Len(t, msgs, 1)
+			var got eventsv2.CapabilityExecutionStarted
+			require.NoError(t, proto.Unmarshal(msgs[0].Body, &got))
+			assert.Equal(t, tt.wantPrimary, got.CreInfo.PrimaryDonID)
+			assert.Equal(t, tt.wantSecondary, got.CreInfo.SecondaryDonID)
+		})
+	}
+}
