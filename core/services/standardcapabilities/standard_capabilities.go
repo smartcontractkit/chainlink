@@ -40,27 +40,27 @@ var (
 	ErrServiceNotReady = errors.New("service not ready")
 )
 
-// pluginLoop is the supervised plugin process of a standard capability: the service
-// that chainlink-common defines for a standard capability, and the wait for its process
-// to be up, which no chainlink-common interface has.
-type pluginLoop interface {
-	loop.StandardCapabilities
-	WaitCtx(context.Context) error
-}
-
-var _ pluginLoop = standardCapabilitiesLoop{}
-
-// standardCapabilitiesLoop is the plugin supervisor of chainlink-common with the two
-// calls of the plugin added to it. The process must be up before they are called.
+// standardCapabilitiesLoop makes the plugin supervisor of chainlink-common a
+// loop.StandardCapabilities. A call waits for the plugin process to be up and is then
+// sent to it, as the other LOOP services of chainlink-common do (for example
+// loop.RelayerService).
 type standardCapabilitiesLoop struct {
 	*loop.StandardCapabilitiesService
 }
 
+var _ loop.StandardCapabilities = standardCapabilitiesLoop{}
+
 func (l standardCapabilitiesLoop) Initialise(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
+	if err := l.WaitCtx(ctx); err != nil {
+		return fmt.Errorf("plugin process is not up: %w", err)
+	}
 	return l.Service.Initialise(ctx, dependencies)
 }
 
 func (l standardCapabilitiesLoop) Infos(ctx context.Context) ([]capabilities.CapabilityInfo, error) {
+	if err := l.WaitCtx(ctx); err != nil {
+		return nil, fmt.Errorf("plugin process is not up: %w", err)
+	}
 	return l.Service.Infos(ctx)
 }
 
@@ -86,8 +86,8 @@ type StandardCapabilities struct {
 
 	// capabilitiesLoop is nil between a failed start attempt and the next one.
 	// It is written by the startup goroutine, and by Close only after that goroutine has exited.
-	capabilitiesLoop pluginLoop
-	newPluginLoop    func() pluginLoop
+	capabilitiesLoop loop.StandardCapabilities
+	newPluginLoop    func() loop.StandardCapabilities
 	// loopID is the ID this service holds in the plugin registrar. It is set
 	// once RegisterLOOP succeeds and cleared by unregisterLOOP, so the same ID can be
 	// registered again when the capability is restarted (e.g. on a config change).
@@ -210,7 +210,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 		s.loopID = loopID
 
 		if s.newPluginLoop == nil {
-			s.newPluginLoop = func() pluginLoop {
+			s.newPluginLoop = func() loop.StandardCapabilities {
 				return standardCapabilitiesLoop{loop.NewStandardCapabilitiesService(s.log, opts, cmdFn)}
 			}
 		}
@@ -278,7 +278,8 @@ func (s *StandardCapabilities) startUntilReady() {
 }
 
 // attemptStart runs the asynchronous part of the start once. The returned bool
-// reports whether Initialise ran on the current plugin process.
+// reports whether Initialise was called on the current plugin process. Initialise
+// waits for the process first, so a process that is not up in time counts too.
 func (s *StandardCapabilities) attemptStart(ctx context.Context) (bool, error) {
 	if s.capabilitiesLoop == nil {
 		if err := s.launchPluginLoop(ctx); err != nil {
@@ -295,11 +296,6 @@ func (s *StandardCapabilities) attemptStart(ctx context.Context) (bool, error) {
 
 	cctx, cancel := context.WithTimeout(ctx, s.startTimeout)
 	defer cancel()
-
-	if err = s.capabilitiesLoop.WaitCtx(cctx); err != nil {
-		s.log.Errorf("error waiting for standard capabilities service to start: %v", err)
-		return false, fmt.Errorf("waiting for standard capabilities service to start: %w", err)
-	}
 
 	dependencies := s.initialiseDependencies(capDonID)
 	if err = s.capabilitiesLoop.Initialise(cctx, dependencies); err != nil {
@@ -348,8 +344,7 @@ func (s *StandardCapabilities) Ready() error {
 	select {
 	case <-s.readyChan:
 		// The first start attempt has finished; surface the outcome of the
-		// latest attempt (nil on success, the WaitCtx/Initialise/Infos error
-		// otherwise).
+		// latest attempt (nil on success, the Initialise/Infos error otherwise).
 		return s.getReadyErr()
 	case <-s.stopChan:
 		return ErrServiceStopped

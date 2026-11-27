@@ -404,7 +404,7 @@ func TestStandardCapabilityStart(t *testing.T) {
 		err := standardCapability.Start(ctx)
 		require.NoError(t, err)
 
-		require.Error(t, standardCapability.Await(ctx), "the first start attempt must fail without the binary")
+		require.ErrorContains(t, standardCapability.Await(ctx), "plugin process is not up", "the first start attempt must fail without the binary")
 		// Stop the plugin supervisor. It logs each time it tries to launch the plugin again,
 		// and a log after the test has ended fails the whole package.
 		require.NoError(t, standardCapability.Close())
@@ -426,18 +426,18 @@ func TestStandardCapabilities_RetriesFailedStartOnNewPluginProcess(t *testing.T)
 			name:    "Initialise fails",
 			failing: fakePluginLoop{initialiseErr: errNotReady},
 			wantEvents: []string{
-				"loop1 start", "loop1 wait", "loop1 initialise donID=1", "loop1 close",
-				"loop2 start", "loop2 wait", "loop2 initialise donID=2", "loop2 close",
-				"loop3 start", "loop3 wait", "loop3 initialise donID=3", "loop3 infos",
+				"loop1 start", "loop1 initialise donID=1", "loop1 close",
+				"loop2 start", "loop2 initialise donID=2", "loop2 close",
+				"loop3 start", "loop3 initialise donID=3", "loop3 infos",
 			},
 		},
 		{
 			name:    "Infos fails",
 			failing: fakePluginLoop{infosErr: errNotReady},
 			wantEvents: []string{
-				"loop1 start", "loop1 wait", "loop1 initialise donID=1", "loop1 infos", "loop1 close",
-				"loop2 start", "loop2 wait", "loop2 initialise donID=2", "loop2 infos", "loop2 close",
-				"loop3 start", "loop3 wait", "loop3 initialise donID=3", "loop3 infos",
+				"loop1 start", "loop1 initialise donID=1", "loop1 infos", "loop1 close",
+				"loop2 start", "loop2 initialise donID=2", "loop2 infos", "loop2 close",
+				"loop3 start", "loop3 initialise donID=3", "loop3 infos",
 			},
 		},
 	} {
@@ -486,29 +486,14 @@ func TestStandardCapabilities_RemovesCapabilitiesBeforeItReplacesThePluginProces
 	require.NoError(t, std.Ready())
 
 	wantEvents := []string{
-		"loop1 start", "loop1 wait", "loop1 initialise donID=0", "registry add err=false", "loop1 infos",
+		"loop1 start", "loop1 initialise donID=0", "registry add err=false", "loop1 infos",
 		"registry remove err=false", "loop1 close",
-		"loop2 start", "loop2 wait", "loop2 initialise donID=0", "registry add err=false", "loop2 infos",
+		"loop2 start", "loop2 initialise donID=0", "registry add err=false", "loop2 infos",
 	}
 	require.Equal(t, wantEvents, loops.recorded())
 
 	require.NoError(t, std.Close())
 	require.Equal(t, slices.Concat(wantEvents, []string{"registry remove err=false", "loop2 close"}), loops.recorded())
-}
-
-// A plugin process that is not up within the start timeout has not run Initialise,
-// so the start is retried on the same process.
-func TestStandardCapabilities_RetriesStartOnSamePluginProcessWhenItIsLate(t *testing.T) {
-	t.Parallel()
-	loops := &fakePluginLoops{behaviours: []fakePluginLoop{{waitErrs: []error{context.DeadlineExceeded}}}}
-	std := newStandardCapabilitiesWithFakeLoops(t, loops, &staticCapDonIDResolver{donID: 7})
-
-	require.NoError(t, std.Start(t.Context()))
-	waitForStartToFinish(t, std)
-
-	require.NoError(t, std.Ready())
-	require.Equal(t, []string{"loop1 start", "loop1 wait", "loop1 wait", "loop1 initialise donID=7", "loop1 infos"}, loops.recorded())
-	require.NoError(t, std.Close())
 }
 
 func TestStandardCapabilities_CloseStopsRetryingTheStart(t *testing.T) {
@@ -530,7 +515,7 @@ func TestStandardCapabilities_CloseStopsRetryingTheStart(t *testing.T) {
 		require.FailNow(t, "Close did not interrupt the wait before the next start attempt")
 	}
 
-	require.Equal(t, []string{"loop1 start", "loop1 wait", "loop1 initialise donID=0", "loop1 close"}, loops.recorded())
+	require.Equal(t, []string{"loop1 start", "loop1 initialise donID=0", "loop1 close"}, loops.recorded())
 }
 
 func newStandardCapabilitiesWithFakeLoops(t *testing.T, loops *fakePluginLoops, resolver CapDonIDResolver) *StandardCapabilities {
@@ -597,7 +582,7 @@ type fakePluginLoops struct {
 	events   []string
 }
 
-func (f *fakePluginLoops) launch() pluginLoop {
+func (f *fakePluginLoops) launch() loop.StandardCapabilities {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	launched := f.behaviours[min(f.launched, len(f.behaviours)-1)]
@@ -629,8 +614,6 @@ type fakePluginLoop struct {
 	loops *fakePluginLoops
 	id    int
 
-	// waitErrs are returned by successive WaitCtx calls. After them WaitCtx succeeds.
-	waitErrs      []error
 	initialiseErr error
 	infosErr      error
 	// adds is added to the registry in Initialise, as a plugin does.
@@ -653,16 +636,6 @@ func (l *fakePluginLoop) Name() string { return fmt.Sprintf("loop%d", l.id) }
 
 func (l *fakePluginLoop) HealthReport() map[string]error {
 	return map[string]error{l.Name(): nil}
-}
-
-func (l *fakePluginLoop) WaitCtx(context.Context) error {
-	l.loops.record(l.id, "wait")
-	if len(l.waitErrs) == 0 {
-		return nil
-	}
-	err := l.waitErrs[0]
-	l.waitErrs = l.waitErrs[1:]
-	return err
 }
 
 func (l *fakePluginLoop) Initialise(_ context.Context, dependencies core.StandardCapabilitiesDependencies) error {
