@@ -687,12 +687,17 @@ func signersFor(don registry.DON, localRegistry *registry.RegistryMetadata) ([][
 // consensusSignersFor returns the signers of the OCR3 config of the consensus capability running
 // on the given workflow DON, ordered by oracle index. A workflow DON is expected to run a single
 // consensus capability.
+// The name must match exactly. Other OCR capabilities such as consensus-queue share the prefix
+// but don't sign reports.
 func consensusSignersFor(don registry.DON, localRegistry *registry.RegistryMetadata) ([]ocrtypes.OnchainPublicKey, error) {
 	var signers []ocrtypes.OnchainPublicKey
 	var found []string
 	for capID, capConfig := range don.CapabilityConfigurations {
 		c, ok := localRegistry.IDsToCapabilities[capID]
-		if !ok || !strings.HasPrefix(c.ID, "consensus") {
+		if !ok {
+			continue
+		}
+		if name, _, _ := strings.Cut(c.ID, "@"); name != "consensus" {
 			continue
 		}
 

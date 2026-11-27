@@ -1731,10 +1731,11 @@ func TestConsensusSignersFor(t *testing.T) {
 	}
 	localRegistry := &regpkg.RegistryMetadata{
 		IDsToCapabilities: map[string]regpkg.Capability{
-			"consensus@1.0.0":    {ID: "consensus@1.0.0", CapabilityType: capabilities.CapabilityTypeConsensus},
-			"consensus@2.0.0":    {ID: "consensus@2.0.0", CapabilityType: capabilities.CapabilityTypeConsensus},
-			"dontime@1.0.0":      {ID: "dontime@1.0.0", CapabilityType: capabilities.CapabilityTypeAction},
-			"cron-trigger@1.0.0": {ID: "cron-trigger@1.0.0", CapabilityType: capabilities.CapabilityTypeTrigger},
+			"consensus@1.0.0":       {ID: "consensus@1.0.0", CapabilityType: capabilities.CapabilityTypeConsensus},
+			"consensus@2.0.0":       {ID: "consensus@2.0.0", CapabilityType: capabilities.CapabilityTypeConsensus},
+			"consensus-queue@1.0.0": {ID: "consensus-queue@1.0.0", CapabilityType: capabilities.CapabilityTypeConsensus},
+			"dontime@1.0.0":         {ID: "dontime@1.0.0", CapabilityType: capabilities.CapabilityTypeAction},
+			"cron-trigger@1.0.0":    {ID: "cron-trigger@1.0.0", CapabilityType: capabilities.CapabilityTypeTrigger},
 		},
 	}
 
@@ -1744,6 +1745,17 @@ func TestConsensusSignersFor(t *testing.T) {
 			"consensus@1.0.0":    ocrCapConfig(t, []byte("signer0"), []byte("signer1")),
 			"dontime@1.0.0":      ocrCapConfig(t, []byte("other")),
 			"cron-trigger@1.0.0": {Config: []byte{}},
+		}}
+		signers, err := consensusSignersFor(don, localRegistry)
+		require.NoError(t, err)
+		require.Equal(t, []ocrtypes.OnchainPublicKey{[]byte("signer0"), []byte("signer1")}, signers)
+	})
+
+	t.Run("ignores consensus-queue OCR3 config", func(t *testing.T) {
+		t.Parallel()
+		don := regpkg.DON{CapabilityConfigurations: map[string]regpkg.CapabilityConfiguration{
+			"consensus@1.0.0":       ocrCapConfig(t, []byte("signer0"), []byte("signer1")),
+			"consensus-queue@1.0.0": ocrCapConfig(t, []byte("queue0"), []byte("queue1")),
 		}}
 		signers, err := consensusSignersFor(don, localRegistry)
 		require.NoError(t, err)
