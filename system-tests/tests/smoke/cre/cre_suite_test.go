@@ -598,3 +598,21 @@ func Test_CRE_V2_ShardFailoverConfidentialWorkflows(t *testing.T) {
 	)
 	ExecuteShardFailoverConfidentialWorkflowsTest(t, testEnv)
 }
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_WorkflowLifecycle(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
+	)
+	ExecuteWorkflowLifecycleTest(t, testEnv)
+}
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_WorkflowLifecycleFailover(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-failover-don.toml"),
+	)
+	ExecuteWorkflowLifecycleFailoverTest(t, testEnv)
+}
