@@ -2185,13 +2185,8 @@ func (h *orphanSweepFakeHandler) Handled() []Event {
 // dispatched to the handler. In these tests the engine registry is empty, so
 // every delete is sweep-generated.
 func (h *orphanSweepFakeHandler) OrphanDeletes() []string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
 	var ids []string
-	for _, evt := range h.handled {
-		if evt.Name != WorkflowDeleted {
-			continue
-		}
+	for _, evt := range h.DeleteEvents() {
 		if payload, ok := evt.Data.(WorkflowDeletedEvent); ok {
 			ids = append(ids, payload.WorkflowID.Hex())
 		}
@@ -2199,6 +2194,7 @@ func (h *orphanSweepFakeHandler) OrphanDeletes() []string {
 	return ids
 }
 
+// DeleteEvents returns every WorkflowDeleted event dispatched to the handler.
 func (h *orphanSweepFakeHandler) DeleteEvents() []Event {
 	var deleted []Event
 	for _, evt := range h.Handled() {
@@ -2510,7 +2506,7 @@ func Test_syncLoop_OrphanedSpecs(t *testing.T) {
 		deleted := h.DeleteEvents()
 		require.NotEmpty(t, deleted, "the paused shard-moved workflow must be swept")
 		for _, evt := range deleted {
-			assert.True(t, evt.ShardTransition)
+			assert.True(t, evt.ShardTransition, "the workflow is still paused on-chain, so the user must not see a delete")
 		}
 	})
 
@@ -2546,10 +2542,42 @@ func Test_syncLoop_OrphanedSpecs(t *testing.T) {
 			deleted := h.DeleteEvents()
 			require.NotEmpty(t, deleted, "the workflow owned by another shard must be swept")
 			for _, evt := range deleted {
-				assert.True(t, evt.ShardTransition)
+				assert.True(t, evt.ShardTransition, "the workflow is still in the registry, so the user must not see a delete")
 			}
 		})
 	}
+
+	t.Run("workflow listed only by an earlier source is marked as a shard transition", func(t *testing.T) {
+		t.Parallel()
+		movedID := wfTypes.WorkflowID{4}
+		otherID := wfTypes.WorkflowID{5}
+		movedMeta := liveMeta
+		movedMeta.WorkflowID = movedID
+		otherMeta := liveMeta
+		otherMeta.WorkflowID = otherID
+		otherMeta.Source = "source-b"
+		h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
+			{WorkflowID: movedID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+		}}
+		wr, tick := newSweepLoopRegistry(t, h, NewEngineRegistry(), []WorkflowMetadataSource{
+			&fakeMetadataSource{name: "source-a", metadata: []WorkflowMetadataView{movedMeta}},
+			&fakeMetadataSource{name: "source-b", metadata: []WorkflowMetadataView{otherMeta}},
+		},
+			WithShardEnabled(true),
+			WithShardOrchestratorClient(&mockShardMappingClient{mappings: map[string]uint32{
+				movedID.Hex(): 1, // owned by another shard
+				otherID.Hex(): 0, // stays on this shard
+			}}),
+		)
+
+		runOneSweepTick(t, wr, tick)
+
+		deleted := h.DeleteEvents()
+		require.NotEmpty(t, deleted, "the shard-moved workflow must be swept")
+		for _, evt := range deleted {
+			assert.True(t, evt.ShardTransition, "a later source does not list it, but the earlier one does")
+		}
+	})
 
 	t.Run("sweep of a workflow absent from every source is a real delete", func(t *testing.T) {
 		t.Parallel()
