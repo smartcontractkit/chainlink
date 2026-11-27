@@ -511,7 +511,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			CapabilitiesDispatcher:       opts.CapabilitiesDispatcher,
 			CapabilitiesSharedPeer:       opts.CapabilitiesSharedPeer,
 			FetcherFunc:                  opts.FetcherFunc,
-			BillingClient:                opts.BillingClient,
 			LinkingClient:                opts.LinkingClient,
 			Meter:                        meter,
 			DurableEmit:                  durableEmit,

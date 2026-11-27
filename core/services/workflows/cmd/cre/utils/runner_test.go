@@ -43,7 +43,6 @@ func TestRunner(t *testing.T) {
 		runner := NewRunner(hooks)
 		runner.Run(ctx, "", binary, []byte{}, []byte{}, RunnerConfig{
 			EnableBeholder:             false,
-			EnableBilling:              true,
 			EnableStandardCapabilities: false,
 			Lggr:                       logger.TestLogger(t),
 			LifecycleHooks:             v2.LifecycleHooks{},

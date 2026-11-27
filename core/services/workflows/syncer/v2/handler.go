@@ -46,7 +46,6 @@ import (
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -102,7 +101,6 @@ type eventHandler struct {
 	workflowArtifactsStore WorkflowArtifactsStore
 	workflowEncryptionKey  workflowkey.Key
 	workflowDonSubscriber  capabilities.DonSubscriber
-	billingClient          metering.BillingClient
 
 	// specMeter owns all metering for durable workflow-spec storage (the
 	// ResourceManager lifecycle, identity, snapshots). Nil when metering is
@@ -198,12 +196,6 @@ func WithStaticEngine(engine v2.WorkflowEngine) func(*eventHandler) {
 func WithTriggerCoordinator(tc triggers.Coordinator) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.triggerCoordinator = tc
-	}
-}
-
-func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
-	return func(e *eventHandler) {
-		e.billingClient = client
 	}
 }
 
@@ -1590,8 +1582,7 @@ func (h *eventHandler) newV2EngineConfig(
 			defer h.emitterMu.RUnlock()
 			return h.emitter
 		}(),
-		EventEmitter:  h.eventEmitter,
-		BillingClient: h.billingClient,
+		EventEmitter: h.eventEmitter,
 
 		WorkflowRegistryAddress:           h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector:     h.workflowRegistryChainSelector,

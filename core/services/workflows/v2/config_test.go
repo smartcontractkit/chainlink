@@ -24,7 +24,6 @@ import (
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -178,7 +177,6 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 		FeatureFlags:                  featureFlags,
 		GlobalWorkflowLimit:           sLimiter,
 		BeholderEmitter:               &noopBeholderEmitter{},
-		BillingClient:                 metmocks.NewBillingClient(t),
 		WorkflowRegistryAddress:       "0x123",
 		WorkflowRegistryChainSelector: "11155111", // Sepolia chain ID
 	}

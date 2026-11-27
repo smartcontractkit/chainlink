@@ -71,7 +71,6 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 	})
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = setupMockBillingClient(t)
 
 	wantExecID1 := wantExecutionID(t, cfg.WorkflowID, "event_concurrency_1", 0)
 	wantExecID2 := wantExecutionID(t, cfg.WorkflowID, "event_concurrency_2", 0)
@@ -213,7 +212,6 @@ func TestEngine_StaleTriggerEventIsSkipped(t *testing.T) {
 	cfg.Clock = fakeClock
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = setupMockBillingClient(t)
 
 	wantExecIDs := make(map[string]struct{}, 5)
 	for _, eid := range []string{"event_0", "event_1", "fresh_0", "fresh_1", "fresh_2"} {
@@ -404,7 +402,6 @@ func TestEngine_TriggerEventDeadlineUsesDispatchTimeSetting(t *testing.T) {
 	cfg.Clock = fakeClock
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = setupMockBillingClient(t)
 
 	// Rebuild the engine limiters on a factory wired to a mutable settings
 	// getter so TriggerEventQueueTimeout can be edited mid-test. Every other
@@ -747,16 +744,6 @@ func TestEngine_ConcurrencySlotsReturnToBaseline(t *testing.T) {
 		// run drives the failure and returns how many slots it should have taken and given back.
 		run func(t *testing.T, h *engineLifecycleHarness) int32
 	}{
-		{
-			name: "metering reserve failure",
-			opts: func(t *testing.T) []harnessOption {
-				return []harnessOption{withBillingClient(newTestBillingClient(t, false))}
-			},
-			run: func(t *testing.T, h *engineLifecycleHarness) int32 {
-				h.deliver(testutils.WaitTimeout(t)) // aborted before the module runs
-				return 1
-			},
-		},
 		{
 			name: "duplicate execution",
 			run: func(t *testing.T, h *engineLifecycleHarness) int32 {

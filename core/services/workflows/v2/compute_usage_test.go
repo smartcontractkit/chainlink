@@ -75,7 +75,6 @@ func runOneExecution(t *testing.T, cfg *v2.EngineConfig, run moduleRun) string {
 	finishedCh := make(chan string)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = setupMockBillingClient(t)
 	cfg.OrgResolver = &mockOrgResolver{orgID: "org-123"}
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized:          func(err error) { initDoneCh <- err },
@@ -260,7 +259,6 @@ func TestEngine_ComputeUsageMeterRecord_ConfidentialRun(t *testing.T) {
 		RequirementsHandler: host.RequirementsHandler{Tee: conf.Tee},
 	}})
 	cfg.CapRegistry = capreg
-	cfg.BillingClient = setupMockBillingClient(t)
 	cfg.OrgResolver = &mockOrgResolver{orgID: "org-123"}
 
 	initDoneCh := make(chan error)

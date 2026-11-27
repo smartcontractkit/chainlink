@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -70,8 +69,7 @@ type EngineConfig struct {
 	// resolved in Validate.
 	Meter metric.Meter
 
-	Hooks         LifecycleHooks
-	BillingClient metering.BillingClient
+	Hooks LifecycleHooks
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	WorkflowRegistryAddress string
