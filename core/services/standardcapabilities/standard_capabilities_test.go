@@ -647,6 +647,14 @@ func (l *fakePluginLoop) Close() error {
 	return nil
 }
 
+func (l *fakePluginLoop) Ready() error { return nil }
+
+func (l *fakePluginLoop) Name() string { return fmt.Sprintf("loop%d", l.id) }
+
+func (l *fakePluginLoop) HealthReport() map[string]error {
+	return map[string]error{l.Name(): nil}
+}
+
 func (l *fakePluginLoop) WaitCtx(context.Context) error {
 	l.loops.record(l.id, "wait")
 	if len(l.waitErrs) == 0 {

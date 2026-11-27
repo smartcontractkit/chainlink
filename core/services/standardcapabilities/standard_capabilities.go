@@ -40,15 +40,18 @@ var (
 	ErrServiceNotReady = errors.New("service not ready")
 )
 
-// pluginLoop is the supervised plugin process of a standard capability.
+// pluginLoop is the supervised plugin process of a standard capability: the service
+// that chainlink-common defines for a standard capability, and the wait for its process
+// to be up, which no chainlink-common interface has.
 type pluginLoop interface {
-	Start(context.Context) error
-	Close() error
+	loop.StandardCapabilities
 	WaitCtx(context.Context) error
-	Initialise(context.Context, core.StandardCapabilitiesDependencies) error
-	Infos(context.Context) ([]capabilities.CapabilityInfo, error)
 }
 
+var _ pluginLoop = standardCapabilitiesLoop{}
+
+// standardCapabilitiesLoop is the plugin supervisor of chainlink-common with the two
+// calls of the plugin added to it. The process must be up before they are called.
 type standardCapabilitiesLoop struct {
 	*loop.StandardCapabilitiesService
 }
