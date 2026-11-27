@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/shopspring/decimal"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"

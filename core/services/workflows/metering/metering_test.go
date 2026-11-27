@@ -20,7 +20,6 @@ import (
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	eventspb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"

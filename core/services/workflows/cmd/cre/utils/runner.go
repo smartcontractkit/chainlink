@@ -83,7 +83,7 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capreg.Reg
 	}
 
 	if cfg.EnableBeholder {
-		_ = SetupBeholder(logger.Named(cfg.Lggr, "Fake_Stdlog_Beholder"))
+		beholderCleanup, _ = SetupBeholder(logger.Named(cfg.Lggr, "Fake_Stdlog_Beholder"))
 	}
 
 	return registry, srvcs
@@ -99,8 +99,12 @@ var defaultCleanup = func(ctx context.Context, cfg RunnerConfig, registry *capre
 		_ = service.Close()
 	}
 
-	_ = cleanupBeholder()
+	if beholderCleanup != nil {
+		beholderCleanup()
+	}
 }
+
+var beholderCleanup func()
 
 func DefaultHooks() *RunnerHooks {
 	return &RunnerHooks{

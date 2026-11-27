@@ -5,26 +5,19 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-func SetupBeholder(lggr logger.Logger) error {
+// SetupBeholder wires beholder's OTLP output into lggr and returns a func that
+// closes the client.
+func SetupBeholder(lggr logger.Logger) (func(), error) {
 	writer := &lggrWriter{lggr: lggr}
 
 	client, err := beholder.NewWriterClient(writer)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	beholder.SetClient(client)
 
-	return nil
-}
-
-func cleanupBeholder() error {
-	client := beholder.GetClient()
-	if client != nil {
-		return client.Close()
-	}
-
-	return nil
+	return func() { _ = client.Close() }, nil
 }
 
 type lggrWriter struct {
