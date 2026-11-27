@@ -1,7 +1,6 @@
 package aptos
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -33,23 +32,38 @@ func BuildCapabilityConfig(values map[string]any, p2pToTransmitterMap map[string
 	return capConfig, nil
 }
 
-func buildWorkerConfigJSON(chainID uint64, forwarderAddress string, settings methodConfigSettings, p2pToTransmitterMap map[string]string, isLocal bool) (string, error) {
-	cfg := map[string]any{
+// setChainSpecConfig adds the per-chain keys the Aptos capability needs to start from its
+// registry spec_config alone (they used to be supplied by the worker job spec). The
+// remaining keys (deltaStage, transmissionSchedule, p2pToTransmitterMap) are set by
+// setRuntimeSpecConfig.
+func setChainSpecConfig(capConfig *capabilitiespb.CapabilityConfig, chainID uint64, forwarderAddress string, isLocal bool) error {
+	if capConfig == nil {
+		return pkgerrors.New("capability config is nil")
+	}
+
+	specConfig, err := values.FromMapValueProto(capConfig.SpecConfig)
+	if err != nil {
+		return fmt.Errorf("failed to decode existing spec config: %w", err)
+	}
+	if specConfig == nil {
+		specConfig = values.EmptyMap()
+	}
+
+	for key, raw := range map[string]any{
 		"chainId":             strconv.FormatUint(chainID, 10),
 		"network":             "aptos",
 		"creForwarderAddress": forwarderAddress,
 		"isLocal":             isLocal,
-		"deltaStage":          settings.DeltaStage,
-	}
-	if len(p2pToTransmitterMap) > 0 {
-		cfg[specConfigP2PMapKey] = p2pToTransmitterMap
+	} {
+		wrapped, wrapErr := values.Wrap(raw)
+		if wrapErr != nil {
+			return fmt.Errorf("failed to wrap spec config key %q: %w", key, wrapErr)
+		}
+		specConfig.Underlying[key] = wrapped
 	}
 
-	raw, err := json.Marshal(cfg)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal Aptos worker config: %w", err)
-	}
-	return string(raw), nil
+	capConfig.SpecConfig = values.ProtoMap(specConfig)
+	return nil
 }
 
 func methodConfigs(settings methodConfigSettings) map[string]*capabilitiespb.CapabilityMethodConfig {

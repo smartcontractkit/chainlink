@@ -3,9 +3,11 @@ package standardcapabilities
 import (
 	"context"
 	"crypto"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -311,6 +313,13 @@ func (d *Delegate) NewServices(
 		}
 	}
 
+	// Registry-launched EVM capabilities share one spec_config across the DON, so the per-node
+	// nodeAddress monitoring label is filled in here from this node's OCR3 transmitter.
+	configJSON, err = withEVMNodeAddress(configJSON, capabilityID, transmitter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set EVM nodeAddress: %w", err)
+	}
+
 	// Always resolve the oracle factory config to fill in any missing fields
 	// (contract address, chain ID, key bundle, transmitter, signing strategy).
 	// Job spec values take precedence; empty fields are resolved from the
@@ -411,6 +420,38 @@ func (d *Delegate) NewServices(
 	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, idResolver, dependencies)
 
 	return []job.ServiceCtx{standardCapability}, nil
+}
+
+// withEVMNodeAddress sets "nodeAddress" in an EVM capability's config JSON to transmitter when the
+// config does not already provide one. It is a no-op for other capabilities, an empty transmitter,
+// empty config, or an explicitly configured nodeAddress. Other keys are preserved untouched.
+func withEVMNodeAddress(configJSON, capabilityID, transmitter string) (string, error) {
+	const key = "nodeAddress"
+	if !strings.HasPrefix(capabilityID, "evm:") || transmitter == "" {
+		return configJSON, nil
+	}
+
+	cfg := map[string]json.RawMessage{}
+	if strings.TrimSpace(configJSON) != "" {
+		if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
+			return "", fmt.Errorf("config is not a JSON object: %w", err)
+		}
+	}
+	var existing string
+	if raw, ok := cfg[key]; ok && json.Unmarshal(raw, &existing) == nil && existing != "" {
+		return configJSON, nil
+	}
+
+	addr, err := json.Marshal(transmitter)
+	if err != nil {
+		return "", err
+	}
+	cfg[key] = addr
+	out, err := json.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
 
 func (d *Delegate) newServicesV2(ctx context.Context, log logger.Logger, command, app, configJSON string, capabilityDonID uint32) ([]job.ServiceCtx, error) {

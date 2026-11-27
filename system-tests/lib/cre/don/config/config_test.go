@@ -1,6 +1,7 @@
 package config
 
 import (
+	"regexp"
 	"strconv"
 	"testing"
 
@@ -181,6 +182,72 @@ func TestAddWorkerNodeConfig_HTTPRegistryLaunch(t *testing.T) {
 	config, err = addWorkerNodeConfig(config, nil, testPeeringData(), capabilitiesCommonInputs("chip-router:50051"), don, &cre.NodeMetadata{Index: 0, Roles: []string{cre.WorkerNode}})
 	require.NoError(t, err)
 	assert.Len(t, config.Capabilities.Local.RegistryBasedLaunchAllowlist, 3)
+}
+
+func TestAddWorkerNodeConfig_ChainCapabilitiesRegistryLaunch(t *testing.T) {
+	t.Parallel()
+	don := capabilitiesDonMetadata()
+	don.Flags = append(don.Flags, cre.EVMCapability+"-1337", cre.AptosCapability+"-4", cre.StellarCapability)
+	don.RegistryBasedLaunchAllowlist = []string{"cron-trigger@1.0.0"}
+	inputs := capabilitiesCommonInputs("chip-router:50051")
+	inputs.evmChains = []*evmChain{{Name: "evm", ChainID: 1337}, {Name: "evm-other", ChainID: 2337}}
+	inputs.aptosChains = []*aptosChain{
+		{ChainID: "4", ChainSelector: 4457093679053095497},
+		{ChainID: "8", ChainSelector: 999}, // chain without the capability enabled
+	}
+	inputs.stellarChain = &stellarChain{Name: "stellar", ChainID: "net", ChainSelector: 7777}
+	node := &cre.NodeMetadata{Index: 0, Roles: []string{cre.WorkerNode}}
+
+	config, err := addWorkerNodeConfig(corechainlink.Config{}, nil, testPeeringData(), inputs, don, node)
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		"cron-trigger@1.0.0",
+		"^evm:ChainSelector:",
+		`^aptos:ChainSelector:4457093679053095497@1\.0\.0$`,
+		`^stellar:ChainSelector:7777@1\.0\.0$`,
+	}, config.Capabilities.Local.RegistryBasedLaunchAllowlist)
+
+	// Reapplying configuration must not duplicate registry launch entries.
+	config, err = addWorkerNodeConfig(config, nil, testPeeringData(), inputs, don, node)
+	require.NoError(t, err)
+	assert.Len(t, config.Capabilities.Local.RegistryBasedLaunchAllowlist, 4)
+}
+
+func TestAddWorkerNodeConfig_ChainCapabilitiesNotAllowlistedWithoutFlags(t *testing.T) {
+	t.Parallel()
+	inputs := capabilitiesCommonInputs("chip-router:50051")
+	inputs.evmChains = []*evmChain{{Name: "evm", ChainID: 1337}}
+	inputs.aptosChains = []*aptosChain{{ChainID: "4", ChainSelector: 1}}
+	inputs.stellarChain = &stellarChain{Name: "stellar", ChainID: "net", ChainSelector: 2}
+
+	config, err := addWorkerNodeConfig(corechainlink.Config{}, nil, testPeeringData(), inputs, capabilitiesDonMetadata(), &cre.NodeMetadata{Index: 0, Roles: []string{cre.WorkerNode}})
+	require.NoError(t, err)
+	assert.Empty(t, config.Capabilities.Local.RegistryBasedLaunchAllowlist)
+}
+
+func TestChainCapabilityAllowlistMatchesCapabilityIDs(t *testing.T) {
+	t.Parallel()
+	don := capabilitiesDonMetadata()
+	don.Flags = append(don.Flags, cre.EVMCapability+"-1337", cre.AptosCapability+"-4", cre.StellarCapability)
+	inputs := capabilitiesCommonInputs("chip-router:50051")
+	inputs.evmChains = []*evmChain{{ChainID: 1337}}
+	inputs.aptosChains = []*aptosChain{{ChainID: "4", ChainSelector: 11}}
+	inputs.stellarChain = &stellarChain{ChainSelector: 22}
+
+	matches := func(id string) bool {
+		for _, p := range chainCapabilityAllowlistEntries(don, inputs) {
+			if regexp.MustCompile(p).MatchString(id) {
+				return true
+			}
+		}
+		return false
+	}
+	assert.True(t, matches("evm:ChainSelector:12345@1.0.0"))
+	assert.True(t, matches("aptos:ChainSelector:11@1.0.0"))
+	assert.True(t, matches("stellar:ChainSelector:22@1.0.0"))
+	assert.False(t, matches("aptos:ChainSelector:111@1.0.0"), "must not match another selector sharing a prefix")
+	assert.False(t, matches("aptos:ChainSelector:11@1.0.1"))
+	assert.False(t, matches("solana:ChainSelector:11@1.0.0"), "solana stays on job specs")
 }
 
 // TestAddWorkerNodeConfig_ConsensusQueueRegistryLaunch asserts a DON with the consensus-queue flag gets it on the

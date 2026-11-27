@@ -345,3 +345,48 @@ func (s *stubLocalCapabilities) RegistryBasedLaunchAllowlist() []string { return
 func (s *stubLocalCapabilities) IsAllowlisted(capabilityID string) bool {
 	return s.allowlisted[capabilityID]
 }
+
+func TestWithEVMNodeAddress(t *testing.T) {
+	t.Parallel()
+	const evmID = "evm:ChainSelector:1@1.0.0"
+
+	t.Run("fills nodeAddress when absent and keeps other keys", func(t *testing.T) {
+		t.Parallel()
+		out, err := withEVMNodeAddress(`{"chainId":1337,"network":"evm"}`, evmID, "0xabc")
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"chainId":1337,"network":"evm","nodeAddress":"0xabc"}`, out)
+	})
+	t.Run("fills nodeAddress when empty", func(t *testing.T) {
+		t.Parallel()
+		out, err := withEVMNodeAddress(`{"nodeAddress":""}`, evmID, "0xabc")
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"nodeAddress":"0xabc"}`, out)
+	})
+	t.Run("keeps configured nodeAddress", func(t *testing.T) {
+		t.Parallel()
+		in := `{"nodeAddress":"0xconfigured"}`
+		out, err := withEVMNodeAddress(in, evmID, "0xabc")
+		require.NoError(t, err)
+		assert.Equal(t, in, out)
+	})
+	t.Run("empty config becomes an object", func(t *testing.T) {
+		t.Parallel()
+		out, err := withEVMNodeAddress("", evmID, "0xabc")
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"nodeAddress":"0xabc"}`, out)
+	})
+	t.Run("no-op for non-EVM capabilities and empty transmitter", func(t *testing.T) {
+		t.Parallel()
+		out, err := withEVMNodeAddress(`{"a":1}`, "aptos:ChainSelector:1@1.0.0", "0xabc")
+		require.NoError(t, err)
+		assert.Equal(t, `{"a":1}`, out)
+		out, err = withEVMNodeAddress(`{"a":1}`, evmID, "")
+		require.NoError(t, err)
+		assert.Equal(t, `{"a":1}`, out)
+	})
+	t.Run("rejects non-object config", func(t *testing.T) {
+		t.Parallel()
+		_, err := withEVMNodeAddress(`[1]`, evmID, "0xabc")
+		require.Error(t, err)
+	})
+}

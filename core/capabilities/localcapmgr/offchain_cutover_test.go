@@ -226,6 +226,25 @@ func TestReconcile_EffectiveSpecConfigPrecedence(t *testing.T) {
 		}))
 		assert.Empty(t, rec.all())
 	})
+
+	t.Run("gate on: capability only in the offchain payload is not launched", func(t *testing.T) {
+		t.Parallel()
+		// The payload configures consensus on DON 7, but the on-chain registry only has cron there.
+		// The on-chain registry (plus the allowlist) decides what runs; the payload supplies config.
+		gc := globalconfig.New()
+		storeOffchain(t, gc, 1, map[uint32]map[string]*capabilitiespb.CapabilityConfig{
+			7: {
+				"cron@1.0.0":      specConfigCap(t, map[string]any{"interval": "30"}),
+				"consensus@1.0.0": specConfigCap(t, map[string]any{"k": "v"}),
+			},
+		})
+		m, rec := newCutoverManager(t, localCfg(), gc, true)
+		require.NoError(t, m.reconcile(t.Context(), []registry.DON{
+			onchainDONWith(7, map[string]registry.CapabilityConfiguration{"cron@1.0.0": onchain}),
+		}))
+		assert.Equal(t, map[string]any{"interval": "30"}, rec.configFor(t, "cron@1.0.0", 7))
+		assert.Len(t, rec.all(), 1)
+	})
 }
 
 // TestReconcile_OCR3StaysOnchain asserts that with the gate on, the OCR3 config handed to the
