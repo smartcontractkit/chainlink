@@ -890,21 +890,13 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 			totalWorkflowsFetched := 0
 			reconcileReport := newReconcileReport()
 
-			// Persisted specs are listed once per tick and reconciled against
-			// the union of every source's metadata after the loop (see
-			// reconcileOrphanedSpecs); a listing failure skips only orphan
-			// reconciliation this tick — engines still reconcile.
-			persistedSpecs, specsErr := w.handler.ListWorkflowSpecs(ctx)
-			if specsErr != nil {
-				persistedSpecs = nil
-				w.lggr.Warnw("failed to list persisted workflow specs; skipping orphaned-spec reconciliation this tick", "err", specsErr)
-			}
-
-			// metadataUnion collects every source's (post-shard) workflow IDs;
+			// metadataUnion collects every source's (post-shard) workflow IDs and
+			// unfilteredIDs the same IDs before the shard filter, in any status;
 			// allSourcesHealthy stays true only when every source fetched and
 			// filtered successfully, so orphan reconciliation never judges
 			// rows against incomplete metadata.
 			metadataUnion := make(map[string]struct{})
+			unfilteredIDs := make(map[string]struct{})
 			allSourcesHealthy := true
 
 			for _, source := range w.workflowSources {
@@ -957,6 +949,9 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					)
 				}
 
+				for _, wfMeta := range workflows {
+					unfilteredIDs[wfMeta.WorkflowID.Hex()] = struct{}{}
+				}
 				for _, wfMeta := range filteredWorkflowsMetadata {
 					metadataUnion[wfMeta.WorkflowID.Hex()] = struct{}{}
 				}
@@ -1094,7 +1089,17 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 			}
 
 			if allSourcesHealthy && len(w.workflowSources) > 0 {
-				w.reconcileOrphanedSpecs(ctx, persistedSpecs, metadataUnion)
+				// Persisted specs are reconciled against the union of every source's
+				// metadata (see reconcileOrphanedSpecs). They are listed here, after
+				// the engines reconciled, so a spec deleted in this tick is not swept
+				// again. A listing failure skips only orphan reconciliation this
+				// tick — engines still reconcile.
+				persistedSpecs, specsErr := w.handler.ListWorkflowSpecs(ctx)
+				if specsErr != nil {
+					persistedSpecs = nil
+					w.lggr.Warnw("failed to list persisted workflow specs; skipping orphaned-spec reconciliation this tick", "err", specsErr)
+				}
+				w.reconcileOrphanedSpecs(ctx, persistedSpecs, metadataUnion, unfilteredIDs)
 			}
 
 			w.metrics.recordFetchedWorkflows(ctx, totalWorkflowsFetched)
@@ -1144,8 +1149,11 @@ func countEngines(engines []ServiceWithMetadata) engineCounts {
 // generate the delete event. Liveness is checked against the union of all
 // sources (not per-source) because workflow IDs are content-addressed and a row
 // is live if any source lists it. The caller guarantees all sources succeeded;
-// if any source errored, the sweep is skipped entirely.
-func (w *workflowRegistry) reconcileOrphanedSpecs(ctx context.Context, specs []*job.WorkflowSpec, metadataUnion map[string]struct{}) {
+// if any source errored, the sweep is skipped entirely. A spec whose workflow a
+// source still lists before the shard filter (unfilteredIDs) was moved to
+// another shard, not deleted, so its event is marked as a shard transition. That
+// also holds when the filter dropped the workflow for any other reason.
+func (w *workflowRegistry) reconcileOrphanedSpecs(ctx context.Context, specs []*job.WorkflowSpec, metadataUnion, unfilteredIDs map[string]struct{}) {
 	if len(specs) == 0 {
 		return
 	}
@@ -1170,9 +1178,11 @@ func (w *workflowRegistry) reconcileOrphanedSpecs(ctx context.Context, specs []*
 		}
 		w.lggr.Debugw("orphaned workflow spec absent from all sources' metadata; releasing",
 			"workflowID", spec.WorkflowID, "owner", spec.WorkflowOwner)
+		_, inRegistry := unfilteredIDs[spec.WorkflowID]
 		if herr := w.handleWithMetrics(ctx, Event{
-			Name: WorkflowDeleted,
-			Data: WorkflowDeletedEvent{WorkflowID: wfID},
+			Name:            WorkflowDeleted,
+			Data:            WorkflowDeletedEvent{WorkflowID: wfID},
+			ShardTransition: inRegistry,
 		}); herr != nil {
 			w.lggr.Warnw("failed to release orphaned workflow spec", "workflowID", spec.WorkflowID, "err", herr)
 		}
