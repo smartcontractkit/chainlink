@@ -1,6 +1,8 @@
 package connector
 
 import (
+	"time"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
@@ -14,6 +16,11 @@ type Config struct {
 	WsClientConfig            network.WebSocketClientConfig
 	AuthMinChallengeLen       int
 	AuthTimestampToleranceSec uint32
+
+	// Zero values use the defaults in connector.go.
+	PingInterval time.Duration `toml:"-"`
+	PongTimeout  time.Duration `toml:"-"`
+	WriteTimeout time.Duration `toml:"-"`
 }
 
 type GatewayConfig struct {

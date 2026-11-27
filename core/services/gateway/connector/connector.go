@@ -26,6 +26,21 @@ import (
 
 var _ GatewayConnector = (*gatewayConnector)(nil)
 
+// A gateway that stops answering pings is dropped and redialed after
+// gatewayPongTimeout, instead of after the kernel's TCP retransmission timeout.
+const (
+	gatewayPingInterval = 10 * time.Second
+	gatewayPongTimeout  = 30 * time.Second
+	gatewayWriteTimeout = 10 * time.Second
+)
+
+func orDefault(d, def time.Duration) time.Duration {
+	if d == 0 {
+		return def
+	}
+	return d
+}
+
 // GatewayConnector is a component run by Nodes to connect to a set of Gateways.
 type GatewayConnector interface {
 	services.Service
@@ -149,7 +164,10 @@ func NewGatewayConnector(config *Config, signer Signer, clock clockwork.Clock, l
 		}
 		l := logger.With(lggr, "URL", parsedURL)
 		gateway := &gatewayState{
-			conn:     network.NewWSConnectionWrapperWithObserver(l, wsMetrics.Observer(attribute.String("gateway_id", gw.ID))),
+			conn: network.NewWSConnectionWrapperWithObserver(l, wsMetrics.Observer(attribute.String("gateway_id", gw.ID)),
+				network.WithKeepalive(orDefault(config.PingInterval, gatewayPingInterval), orDefault(config.PongTimeout, gatewayPongTimeout)),
+				network.WithWriteTimeout(orDefault(config.WriteTimeout, gatewayWriteTimeout)),
+			),
 			config:   gw,
 			url:      parsedURL,
 			wsClient: network.NewWebSocketClient(config.WsClientConfig, connector, lggr),

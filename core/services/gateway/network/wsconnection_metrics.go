@@ -32,7 +32,29 @@ type WSConnectionObserver interface {
 	// first select. Every increment must be paired with a decrement on exit,
 	// including cancellation and shutdown paths.
 	AddPendingWriters(ctx context.Context, delta int64)
+	// RecordConnectionClosed records why the wrapper closed a live connection.
+	// It is called once per connection.
+	RecordConnectionClosed(ctx context.Context, reason CloseReason)
+	// RecordPingRTT records the round trip of a keepalive ping, from sending
+	// it to receiving its pong.
+	RecordPingRTT(ctx context.Context, d time.Duration)
 }
+
+// CloseReason says which mechanism closed a connection.
+type CloseReason string
+
+const (
+	// CloseReasonReadTimeout means a read deadline expired, as when keepalive pongs stop arriving.
+	CloseReasonReadTimeout CloseReason = "read_timeout"
+	CloseReasonReadError   CloseReason = "read_error"
+	// CloseReasonWriteTimeout means a write deadline expired.
+	CloseReasonWriteTimeout CloseReason = "write_timeout"
+	CloseReasonWriteError   CloseReason = "write_error"
+	// CloseReasonShutdown means the wrapper was closed or told to disconnect.
+	CloseReasonShutdown CloseReason = "shutdown"
+	// CloseReasonReplaced means Reset swapped in a new connection while the old one was live.
+	CloseReasonReplaced CloseReason = "replaced"
+)
 
 type noopWSConnectionObserver struct{}
 
@@ -40,12 +62,16 @@ func (noopWSConnectionObserver) RecordWriteQueueWait(context.Context, time.Durat
 func (noopWSConnectionObserver) RecordSocketWrite(context.Context, time.Duration)      {}
 func (noopWSConnectionObserver) RecordReadDispatchWait(context.Context, time.Duration) {}
 func (noopWSConnectionObserver) AddPendingWriters(context.Context, int64)              {}
+func (noopWSConnectionObserver) RecordConnectionClosed(context.Context, CloseReason)   {}
+func (noopWSConnectionObserver) RecordPingRTT(context.Context, time.Duration)          {}
 
 type WSConnectionMetrics struct {
 	writeQueueWait   metric.Int64Histogram
 	socketWrite      metric.Int64Histogram
 	readDispatchWait metric.Int64Histogram
 	pendingWriters   metric.Int64UpDownCounter
+	connectionClosed metric.Int64Counter
+	pingRTT          metric.Float64Histogram
 }
 
 func NewWSConnectionMetrics(meter metric.Meter) (*WSConnectionMetrics, error) {
@@ -84,11 +110,30 @@ func NewWSConnectionMetrics(meter metric.Meter) (*WSConnectionMetrics, error) {
 		return nil, fmt.Errorf("failed to create platform_gateway_ws_pending_writers up-down counter: %w", err)
 	}
 
+	connectionClosed, err := meter.Int64Counter(
+		"platform_gateway_ws_connection_closed_total",
+		metric.WithDescription("Number of live websocket connections closed by the wrapper, by reason: read_timeout, read_error, write_timeout, write_error, shutdown or replaced"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create platform_gateway_ws_connection_closed_total counter: %w", err)
+	}
+
+	pingRTT, err := meter.Float64Histogram(
+		"platform_gateway_ws_ping_rtt_ms",
+		metric.WithUnit("ms"),
+		metric.WithDescription("Round trip of a websocket keepalive ping, from sending it to receiving its pong, in milliseconds. Only pings that were answered produce samples"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create platform_gateway_ws_ping_rtt_ms histogram: %w", err)
+	}
+
 	return &WSConnectionMetrics{
 		writeQueueWait:   writeQueueWait,
 		socketWrite:      socketWrite,
 		readDispatchWait: readDispatchWait,
 		pendingWriters:   pendingWriters,
+		connectionClosed: connectionClosed,
+		pingRTT:          pingRTT,
 	}, nil
 }
 
@@ -134,9 +179,26 @@ func WSConnectionMetricViews() []sdkmetric.View {
 			}},
 		)
 	}
+	pingRTTView := sdkmetric.NewView(
+		sdkmetric.Instrument{Name: "platform_gateway_ws_ping_rtt_ms"},
+		sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+			// Normal round trips are a few ms. The top buckets show a peer
+			// degrading towards the 30s pong timeout.
+			Boundaries: []float64{1, 2, 5, 10, 25, 50, 100, 250, 1000, 5000, 15000, 30000},
+		}},
+	)
 	return []sdkmetric.View{
+		pingRTTView,
 		histogramView("platform_gateway_ws_write_queue_wait_ms"),
 		histogramView("platform_gateway_ws_socket_write_ms"),
 		histogramView("platform_gateway_ws_read_dispatch_wait_ms"),
 	}
+}
+
+func (o *wsConnectionObserver) RecordConnectionClosed(ctx context.Context, reason CloseReason) {
+	o.metrics.connectionClosed.Add(ctx, 1, o.attrs, metric.WithAttributes(attribute.String("reason", string(reason))))
+}
+
+func (o *wsConnectionObserver) RecordPingRTT(ctx context.Context, d time.Duration) {
+	o.metrics.pingRTT.Record(ctx, float64(d)/float64(time.Millisecond), o.attrs)
 }
