@@ -17,8 +17,10 @@ const (
 	defaultPruneInterval = 30 * time.Second
 
 	// defaultCompletedExecutionRetention is the default minimum time a completed execution is
-	// kept in the store after finishing before a sweep is allowed to prune it.
-	defaultCompletedExecutionRetention = 20 * time.Minute
+	// kept in the store after finishing before a sweep is allowed to prune it. It is twice the
+	// base trigger resend window (BaseTriggerMaxRetries x BaseTriggerRetryInterval) so a
+	// re-delivered event stays deduplicated well beyond the window.
+	defaultCompletedExecutionRetention = time.Hour
 
 	// maximumExecutionAge is the default maximum age of a non-completed execution before it is
 	// considered stuck/expired and eligible for pruning regardless of its status
