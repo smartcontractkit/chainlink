@@ -178,7 +178,11 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	if bridge.UseConnectionManager {
 		bridgeConnManager := t.bridgeConnManager
 		start := time.Now()
-		responseBytes, obsErr := bridgeConnManager.GetObservation(bridge, map[string]any(lookupPayload))
+		// cacheTTL (from the job spec, falling back to the BridgeCacheTTL config)
+		// doubles as the observation staleness TTL for the connection manager's
+		// cache; the manager applies its own default when this is zero.
+		//nolint:gosec // disable G115
+		responseBytes, obsErr := bridgeConnManager.GetObservation(bridge, map[string]any(lookupPayload), time.Duration(cacheTTL)*time.Second)
 		finish := time.Now()
 
 		statusCode := http.StatusOK

@@ -21,7 +21,11 @@ import (
 
 //nolint:revive // Interface name matches existing project convention.
 type BridgeConnManager interface {
-	GetObservation(bridge bridges.BridgeType, requestData map[string]any) ([]byte, error)
+	// GetObservation serves the cached observation for the given bridge and
+	// request data. ttl bounds how long a cached observation may be served
+	// before it is treated as stale; ttl <= 0 falls back to
+	// defaultObservationTTL.
+	GetObservation(bridge bridges.BridgeType, requestData map[string]any, ttl time.Duration) ([]byte, error)
 }
 
 var (
@@ -29,12 +33,13 @@ var (
 	ErrBridgeObservationExpired  = stdErrors.New("bridge observation expired")
 )
 
-// observationTTL bounds how long a cached observation may be served before it is
-// treated as stale. Hardcoded for now; may become configurable later.
-const observationTTL = 90 * time.Second
+// defaultObservationTTL bounds how long a cached observation may be served
+// before it is treated as stale when the caller passes no TTL (e.g. the job
+// spec's bridge task does not set cacheTTL).
+const defaultObservationTTL = 90 * time.Second
 
 // cacheEntry pairs a cached observation with the time it was stored, so
-// GetObservation can reject entries older than observationTTL.
+// GetObservation can reject entries older than the caller-supplied TTL.
 type cacheEntry struct {
 	payload  []byte
 	storedAt time.Time
@@ -79,7 +84,10 @@ func NewBridgeConnManager(lggr logger.Logger) BridgeConnManager {
 	return defaultBridgeConnManager
 }
 
-func (m *bridgeConnManager) GetObservation(bridge bridges.BridgeType, requestData map[string]any) ([]byte, error) {
+func (m *bridgeConnManager) GetObservation(bridge bridges.BridgeType, requestData map[string]any, ttl time.Duration) ([]byte, error) {
+	if ttl <= 0 {
+		ttl = defaultObservationTTL
+	}
 	bridgeName := strings.TrimPrefix(bridge.Name.String(), "bridge-")
 	data, err := subscriptionData(requestData)
 	if err != nil {
@@ -102,7 +110,7 @@ func (m *bridgeConnManager) GetObservation(bridge bridges.BridgeType, requestDat
 	if !ok {
 		return nil, fmt.Errorf("%w for bridge %q", ErrBridgeObservationNotFound, bridgeName)
 	}
-	if m.clock.Now().Sub(entry.storedAt) > observationTTL {
+	if m.clock.Now().Sub(entry.storedAt) > ttl {
 		return nil, fmt.Errorf("%w for bridge %q", ErrBridgeObservationExpired, bridgeName)
 	}
 	payload := make([]byte, len(entry.payload))
