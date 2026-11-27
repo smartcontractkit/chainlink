@@ -465,6 +465,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		emitterCfg.RetransmitInterval = 1 * time.Second
 		emitterCfg.EventTTL = cfg.Telemetry().DurableEmitterEventTTL() // default 1h, configurable via [Telemetry]
 		emitterCfg.PublishTimeout = 20 * time.Second
+		emitterCfg.BackpressureEnabled = cfg.Telemetry().DurableEmitterBackpressureEnabled()
+		emitterCfg.MaxQueueDepth = cfg.Telemetry().DurableEmitterMaxQueueDepth()
+		emitterCfg.BacklogPollInterval = cfg.Telemetry().DurableEmitterBacklogPollInterval()
+		emitterCfg.DeleteFailureRetransmitBackoff = cfg.Telemetry().DurableEmitterDeleteFailureRetransmitBackoff()
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
 			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),

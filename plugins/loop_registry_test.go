@@ -62,6 +62,16 @@ func (m mockCfgTelemetry) DurableEmitterInsertBatchFlushInterval() time.Duration
 	return 50 * time.Millisecond
 }
 
+func (m mockCfgTelemetry) DurableEmitterBackpressureEnabled() bool { return true }
+
+func (m mockCfgTelemetry) DurableEmitterMaxQueueDepth() int64 { return 250_000 }
+
+func (m mockCfgTelemetry) DurableEmitterBacklogPollInterval() time.Duration { return 2 * time.Second }
+
+func (m mockCfgTelemetry) DurableEmitterDeleteFailureRetransmitBackoff() time.Duration {
+	return 30 * time.Second
+}
+
 func (m mockCfgTelemetry) AuthHeadersTTL() time.Duration { return 10 * time.Minute }
 
 func (m mockCfgTelemetry) Enabled() bool { return true }
