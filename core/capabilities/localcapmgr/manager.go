@@ -157,7 +157,21 @@ func (m *localCapabilityManager) Name() string {
 // It starts new capabilities, stops removed ones, and restarts those with changed config.
 // With the cutover on and no offchain payload applied, it leaves running capabilities untouched
 // rather than launching them without config.
+// After Close it does nothing: a registry sync that arrives during shutdown must not start
+// capabilities that nothing will stop.
 func (m *localCapabilityManager) Reconcile(
+	ctx context.Context,
+	allMyDONs []registry.DON,
+	offchainReg *capabilitiespb.OffchainCapabilitiesRegistry,
+) error {
+	var err error
+	if !m.IfNotStopped(func() { err = m.reconcile(ctx, allMyDONs, offchainReg) }) {
+		m.lggr.Debug("Skipping reconcile: LocalCapabilityManager is stopped")
+	}
+	return err
+}
+
+func (m *localCapabilityManager) reconcile(
 	ctx context.Context,
 	allMyDONs []registry.DON,
 	offchainReg *capabilitiespb.OffchainCapabilitiesRegistry,

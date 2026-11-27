@@ -4,8 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/jpillora/backoff"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
@@ -16,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities/conversions"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -24,6 +30,9 @@ const (
 
 	defaultDonIDResolveTimeout = 3 * time.Minute
 	defaultDonIDRetryInterval  = time.Second
+
+	defaultStartRetryMinDelay = 5 * time.Second
+	defaultStartRetryMaxDelay = time.Minute
 )
 
 var (
@@ -31,10 +40,35 @@ var (
 	ErrServiceNotReady = errors.New("service not ready")
 )
 
+// standardCapabilitiesLoop makes the plugin supervisor of chainlink-common a
+// loop.StandardCapabilities. A call waits for the plugin process to be up and is then
+// sent to it, as the other LOOP services of chainlink-common do (for example
+// loop.RelayerService).
+type standardCapabilitiesLoop struct {
+	*loop.StandardCapabilitiesService
+}
+
+var _ loop.StandardCapabilities = standardCapabilitiesLoop{}
+
+func (l standardCapabilitiesLoop) Initialise(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
+	if err := l.WaitCtx(ctx); err != nil {
+		return fmt.Errorf("plugin process is not up: %w", err)
+	}
+	return l.Service.Initialise(ctx, dependencies)
+}
+
+func (l standardCapabilitiesLoop) Infos(ctx context.Context) ([]capabilities.CapabilityInfo, error) {
+	if err := l.WaitCtx(ctx); err != nil {
+		return nil, fmt.Errorf("plugin process is not up: %w", err)
+	}
+	return l.Service.Infos(ctx)
+}
+
 type StandardCapabilities struct {
 	services.StateMachine
 	log                  logger.Logger
 	command              string
+	capabilityID         string
 	config               string
 	pluginRegistrar      plugins.RegistrarConfig
 	store                core.KeyValueStore
@@ -50,7 +84,10 @@ type StandardCapabilities struct {
 	// shardIndex is this node's shard from the [Sharding] config, plumbed to the LOOP at Initialise.
 	shardIndex uint32
 
-	capabilitiesLoop *loop.StandardCapabilitiesService
+	// capabilitiesLoop is nil between a failed start attempt and the next one.
+	// It is written by the startup goroutine, and by Close only after that goroutine has exited.
+	capabilitiesLoop loop.StandardCapabilities
+	newPluginLoop    func() loop.StandardCapabilities
 	// loopID is the ID this service holds in the plugin registrar. It is set
 	// once RegisterLOOP succeeds and cleared by unregisterLOOP, so the same ID can be
 	// registered again when the capability is restarted (e.g. on a config change).
@@ -61,16 +98,20 @@ type StandardCapabilities struct {
 	registered            *registeredCapabilities
 	registryRemoveTimeout time.Duration
 
-	wg           sync.WaitGroup
-	readyChan    chan struct{}
-	stopChan     services.StopChan
-	startTimeout time.Duration
+	wg sync.WaitGroup
+	// readyChan is closed when the first start attempt has finished.
+	readyChan          chan struct{}
+	stopChan           services.StopChan
+	startTimeout       time.Duration
+	startRetryMinDelay time.Duration
+	startRetryMaxDelay time.Duration
+	startFailures      metric.Int64Counter
 
-	// readyErr records the outcome of the asynchronous startup goroutine
-	// (WaitCtx/Initialise/Infos). It is nil once startup has succeeded, and
-	// holds the last error otherwise. Guarded by readyMu because it is written
-	// by the startup goroutine and read by the health checker via Ready/
-	// HealthReport on a different goroutine.
+	// readyErr records the outcome of the latest start attempt of the
+	// asynchronous startup goroutine (WaitCtx/Initialise/Infos). It is nil once
+	// startup has succeeded, and holds the last error otherwise. Guarded by
+	// readyMu because it is written by the startup goroutine and read by the
+	// health checker via Ready/HealthReport on a different goroutine.
 	readyMu  sync.RWMutex
 	readyErr error
 }
@@ -106,6 +147,7 @@ func NewStandardCapabilities(
 	return &StandardCapabilities{
 		log:                  log,
 		command:              command,
+		capabilityID:         conversions.GetCapabilityIDFromCommand(command, configJSON),
 		config:               configJSON,
 		pluginRegistrar:      pluginRegistrar,
 		store:                dependencies.Store,
@@ -146,6 +188,12 @@ func (s *StandardCapabilities) initialiseDependencies(capDonID uint32) core.Stan
 
 func (s *StandardCapabilities) Start(ctx context.Context) error {
 	return s.StartOnce("StandardCapabilities", func() error {
+		startFailures, err := newStartFailuresCounter()
+		if err != nil {
+			return fmt.Errorf("failed to create start failures counter: %w", err)
+		}
+		s.startFailures = startFailures
+
 		envVars, err := plugins.ParseEnvFile(env.CapabilitiesPlugin.Env.Get())
 		if err != nil {
 			return fmt.Errorf("failed to parse capabilities env file: %w", err)
@@ -161,57 +209,130 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 		}
 		s.loopID = loopID
 
-		s.capabilitiesLoop = loop.NewStandardCapabilitiesService(s.log, opts, cmdFn)
-		if err = s.capabilitiesLoop.Start(ctx); err != nil {
+		if s.newPluginLoop == nil {
+			s.newPluginLoop = func() loop.StandardCapabilities {
+				return standardCapabilitiesLoop{loop.NewStandardCapabilitiesService(s.log, opts, cmdFn)}
+			}
+		}
+		if err = s.launchPluginLoop(ctx); err != nil {
 			s.unregisterLOOP()
 			return fmt.Errorf("error starting standard capabilities service: %w", err)
 		}
 
-		s.wg.Go(func() {
-			defer close(s.readyChan)
-
-			if s.startTimeout == 0 {
-				s.startTimeout = defaultStartTimeout
-			}
-
-			rctx, cancel := s.stopChan.NewCtx()
-			defer cancel()
-			capDonID, err := s.capDonIDResolver.awaitCapDonID(rctx)
-			if err != nil {
-				s.log.Errorf("error waiting to resolve the capability Don ID: %v", err)
-				s.setReadyErr(fmt.Errorf("error waiting to resolve the capability Don ID: %w", err))
-				return
-			}
-
-			cctx, cancel := s.stopChan.CtxWithTimeout(s.startTimeout)
-			defer cancel()
-
-			if err = s.capabilitiesLoop.WaitCtx(cctx); err != nil {
-				s.log.Errorf("error waiting for standard capabilities service to start: %v", err)
-				s.setReadyErr(fmt.Errorf("waiting for standard capabilities service to start: %w", err))
-				return
-			}
-
-			dependencies := s.initialiseDependencies(capDonID)
-			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
-				s.log.Errorf("error initialising standard capabilities service: %v", err)
-				s.setReadyErr(fmt.Errorf("initialising standard capabilities service: %w", err))
-				return
-			}
-
-			capabilityInfos, err := s.capabilitiesLoop.Service.Infos(cctx)
-			if err != nil {
-				s.log.Errorf("error getting standard capabilities service info: %v", err)
-				s.setReadyErr(fmt.Errorf("getting standard capabilities service info: %w", err))
-				return
-			}
-
-			s.setReadyErr(nil)
-			s.log.Info("Started standard capabilities", "command", s.command, "capabilities", capabilityInfos)
-		})
+		s.wg.Go(s.startUntilReady)
 
 		return nil
 	})
+}
+
+// startUntilReady retries the asynchronous part of the start until it succeeds
+// or the service is closed. A registry entry, the database or an RPC can be
+// unavailable for longer than any fixed wait, so there is no deadline.
+func (s *StandardCapabilities) startUntilReady() {
+	var firstAttempt sync.Once
+	finishFirstAttempt := func() { firstAttempt.Do(func() { close(s.readyChan) }) }
+	defer finishFirstAttempt()
+
+	if s.startTimeout == 0 {
+		s.startTimeout = defaultStartTimeout
+	}
+	if s.startRetryMinDelay == 0 {
+		s.startRetryMinDelay = defaultStartRetryMinDelay
+	}
+	if s.startRetryMaxDelay == 0 {
+		s.startRetryMaxDelay = defaultStartRetryMaxDelay
+	}
+	retryDelay := backoff.Backoff{Min: s.startRetryMinDelay, Max: s.startRetryMaxDelay, Factor: 2, Jitter: true}
+
+	ctx, cancel := s.stopChan.NewCtx()
+	defer cancel()
+
+	for attempt := 1; ; attempt++ {
+		initialiseCalled, err := s.attemptStart(ctx)
+		s.setReadyErr(err)
+		finishFirstAttempt()
+		if err == nil || ctx.Err() != nil {
+			return
+		}
+
+		s.startFailures.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("capability_id", s.capabilityID),
+			attribute.String("command", filepath.Base(s.command)),
+		))
+		delay := retryDelay.Duration()
+		s.log.Warnw("Standard capabilities start failed, will retry", "command", s.command, "attempt", attempt, "retryIn", delay, "newPluginProcess", initialiseCalled)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(delay):
+		}
+
+		// A failed Initialise can leave services running in the plugin process,
+		// so Initialise must not run twice on one process. The process is kept
+		// until now so that its logs and metrics for the failure are exported.
+		if initialiseCalled {
+			s.closePluginLoop()
+		}
+	}
+}
+
+// attemptStart runs the asynchronous part of the start once. The returned bool
+// reports whether Initialise was called on the current plugin process. Initialise
+// waits for the process first, so a process that is not up in time counts too.
+func (s *StandardCapabilities) attemptStart(ctx context.Context) (bool, error) {
+	if s.capabilitiesLoop == nil {
+		if err := s.launchPluginLoop(ctx); err != nil {
+			s.log.Errorf("error starting standard capabilities service: %v", err)
+			return false, fmt.Errorf("error starting standard capabilities service: %w", err)
+		}
+	}
+
+	capDonID, err := s.capDonIDResolver.awaitCapDonID(ctx)
+	if err != nil {
+		s.log.Errorf("error waiting to resolve the capability Don ID: %v", err)
+		return false, fmt.Errorf("error waiting to resolve the capability Don ID: %w", err)
+	}
+
+	cctx, cancel := context.WithTimeout(ctx, s.startTimeout)
+	defer cancel()
+
+	dependencies := s.initialiseDependencies(capDonID)
+	if err = s.capabilitiesLoop.Initialise(cctx, dependencies); err != nil {
+		s.log.Errorf("error initialising standard capabilities service: %v", err)
+		return true, fmt.Errorf("initialising standard capabilities service: %w", err)
+	}
+
+	capabilityInfos, err := s.capabilitiesLoop.Infos(cctx)
+	if err != nil {
+		s.log.Errorf("error getting standard capabilities service info: %v", err)
+		return true, fmt.Errorf("getting standard capabilities service info: %w", err)
+	}
+
+	s.log.Info("Started standard capabilities", "command", s.command, "capabilities", capabilityInfos)
+	return true, nil
+}
+
+func (s *StandardCapabilities) launchPluginLoop(ctx context.Context) error {
+	launched := s.newPluginLoop()
+	if err := launched.Start(ctx); err != nil {
+		return err
+	}
+	s.capabilitiesLoop = launched
+	return nil
+}
+
+func (s *StandardCapabilities) closePluginLoop() {
+	if s.capabilitiesLoop == nil {
+		return
+	}
+	// A plugin whose start failed may have added its capabilities already. Remove
+	// them before the process is stopped: see registeredCapabilities.
+	s.registered.removeAll(s.log, s.registryRemoveTimeout)
+	if err := s.capabilitiesLoop.Close(); err != nil {
+		s.log.Warnw("error closing standard capabilities service before retrying the start", "err", err)
+	}
+	s.capabilitiesLoop = nil
 }
 
 // Ready is a non-blocking check for the service's ready state.  Errors if not
@@ -222,8 +343,8 @@ func (s *StandardCapabilities) Ready() error {
 	}
 	select {
 	case <-s.readyChan:
-		// Startup goroutine has finished; surface its outcome (nil on success,
-		// the WaitCtx/Initialise/Infos error otherwise).
+		// The first start attempt has finished; surface the outcome of the
+		// latest attempt (nil on success, the Initialise/Infos error otherwise).
 		return s.getReadyErr()
 	case <-s.stopChan:
 		return ErrServiceStopped
@@ -241,17 +362,17 @@ func (s *StandardCapabilities) Name() string {
 // HealthReport implements services.HealthReporter. Unlike the embedded
 // StateMachine's default (which reports healthy as soon as Start returns), this
 // reflects the asynchronous startup outcome so a capability that failed to
-// initialise is reported unhealthy instead of falsely ready.
+// initialise is reported unhealthy instead of falsely ready. It turns healthy
+// when a retried start succeeds.
 func (s *StandardCapabilities) HealthReport() map[string]error {
 	return map[string]error{s.Name(): s.Ready()}
 }
 
-// Await waits for the service to be ready or for the context to be cancelled.
+// Await waits for the first start attempt to finish or for the context to be
+// cancelled. A failed start is retried in the background, see Ready.
 func (s *StandardCapabilities) Await(ctx context.Context) error {
 	select {
 	case <-s.readyChan:
-		// Startup goroutine has finished; surface its outcome (nil on success,
-		// the WaitCtx/Initialise/Infos error otherwise).
 		return s.getReadyErr()
 	case <-s.stopChan:
 		return ErrServiceStopped
