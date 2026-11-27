@@ -120,7 +120,7 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_UnauthorizedWriteNeverTouch
 				// One-byte hex value under a fresh owner passes structure validation
 				// (publicKey is nil so label validation is skipped), reaching authorization.
 				secrets := []*vaultcommon.EncryptedSecret{
-					{Id: &vaultcommon.SecretIdentifier{Owner: "0xnewowner", Key: "k"}, EncryptedValue: "00"},
+					{Id: &vaultcommon.SecretIdentifier{Owner: "0xnewowner", Key: "k", Namespace: vaulttypes.DefaultNamespace}, EncryptedValue: "00"},
 				}
 				req := mustWriteRequest(t, method, secrets)
 
@@ -149,8 +149,8 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_AuthorizedWriteChecksCipher
 				owner := "0xauthorized"
 
 				secrets := []*vaultcommon.EncryptedSecret{
-					{Id: &vaultcommon.SecretIdentifier{Owner: owner, Key: "k1"}, EncryptedValue: "00"},
-					{Id: &vaultcommon.SecretIdentifier{Owner: owner, Key: "k2"}, EncryptedValue: "abab"},
+					{Id: &vaultcommon.SecretIdentifier{Owner: owner, Key: "k1", Namespace: vaulttypes.DefaultNamespace}, EncryptedValue: "00"},
+					{Id: &vaultcommon.SecretIdentifier{Owner: owner, Key: "k2", Namespace: vaulttypes.DefaultNamespace}, EncryptedValue: "abab"},
 				}
 				req := mustWriteRequest(t, method, secrets)
 
@@ -189,7 +189,7 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_AuthorizedWriteRejectsOvers
 			owner := "0xauthorized"
 
 			secrets := []*vaultcommon.EncryptedSecret{
-				{Id: &vaultcommon.SecretIdentifier{Owner: owner, Key: "k"}, EncryptedValue: "abab"},
+				{Id: &vaultcommon.SecretIdentifier{Owner: owner, Key: "k", Namespace: vaulttypes.DefaultNamespace}, EncryptedValue: "abab"},
 			}
 			req := mustWriteRequest(t, method, secrets)
 

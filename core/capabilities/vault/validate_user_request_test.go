@@ -43,11 +43,13 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_LeavesParamsUnchangedBefore
 	require.NoError(t, err)
 
 	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+		RequestId: "req-1",
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id: &vaultcommon.SecretIdentifier{
-					Key:   "secret",
-					Owner: "0xabc",
+					Key:       "secret",
+					Owner:     "0xabc",
+					Namespace: vaulttypes.DefaultNamespace,
 				},
 				EncryptedValue: "ab",
 			},
@@ -84,7 +86,7 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_NormalizesAllSecretsMethods
 			t.Parallel()
 
 			validator := mustNewTestRequestValidator(t)
-			params := gatewaySecretsMethodParamsForValidation(t, method, owner)
+			params := gatewaySecretsMethodParamsForStripPrefixDigest(t, method, owner, "req-1")
 			req := jsonrpc.Request[json.RawMessage]{
 				ID:     "req-1",
 				Method: method,
@@ -395,6 +397,7 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_PreservesJWTDigestBeforeAut
 	require.NoError(t, err)
 
 	params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
+		RequestId: "req-1",
 		Namespace: "main",
 		Owner:     owner,
 	})
@@ -430,7 +433,7 @@ func TestGatewayVaultRequestProcessor_ProcessRequest_CoversAllGatewaySecretsMeth
 			t.Parallel()
 
 			validator := mustNewTestRequestValidator(t)
-			params := gatewaySecretsMethodParamsForValidation(t, method, owner)
+			params := gatewaySecretsMethodParamsForStripPrefixDigest(t, method, owner, "req-1")
 			req := jsonrpc.Request[json.RawMessage]{
 				ID:     "req-1",
 				Method: method,
@@ -500,38 +503,6 @@ func gatewaySecretsMethodParamsForStripPrefixDigest(t *testing.T, method, owner,
 		}
 	default:
 		t.Fatalf("add strip-prefix digest test params for %s", method)
-	}
-
-	raw, err := json.Marshal(payload)
-	require.NoError(t, err)
-	return (*json.RawMessage)(&raw)
-}
-
-func gatewaySecretsMethodParamsForValidation(t *testing.T, method, owner string) *json.RawMessage {
-	t.Helper()
-
-	var payload any
-	switch method {
-	case vaulttypes.MethodSecretsCreate:
-		payload = vaultcommon.CreateSecretsRequest{
-			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
-				{Id: &vaultcommon.SecretIdentifier{Owner: owner, Key: "k"}, EncryptedValue: "ab"},
-			},
-		}
-	case vaulttypes.MethodSecretsUpdate:
-		payload = vaultcommon.UpdateSecretsRequest{
-			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
-				{Id: &vaultcommon.SecretIdentifier{Owner: owner, Key: "k"}, EncryptedValue: "ab"},
-			},
-		}
-	case vaulttypes.MethodSecretsDelete:
-		payload = vaultcommon.DeleteSecretsRequest{
-			Ids: []*vaultcommon.SecretIdentifier{{Owner: owner, Key: "k"}},
-		}
-	case vaulttypes.MethodSecretsList:
-		payload = vaultcommon.ListSecretIdentifiersRequest{Owner: owner}
-	default:
-		t.Fatalf("add validation test params for %s", method)
 	}
 
 	raw, err := json.Marshal(payload)

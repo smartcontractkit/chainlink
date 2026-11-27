@@ -22,12 +22,20 @@ import (
 //
 // Pipeline invariant:
 //
-//	ValidateStructureBeforeAuth → AuthorizeRequest → Prefix ID → StampAuthorizedParams → ValidateOwnerScopedLimits
-//	    (no param mutation)        (on raw bytes)               (namespace + request_id)      (ciphertext size)
+//	ValidateStructureBeforeAuth → NormalizeParamsForAuth → AuthorizeRequest → Prefix ID → StampAuthorizedParams → ValidateOwnerScopedLimits
+//	    (no param mutation)        (gateway: check form;     (on raw bytes)               (namespace + request_id)      (ciphertext size)
+//	                                node: re-derive params)
 //
 // AuthorizeRequest runs while params are still digest-safe. It also applies the replay guard
 // (digest deduplication) and validates that payload owners match the authorized workflow owner
 // before this processor rewrites the request ID or stamps params.
+//
+// Every Vault node authorizes the request again. The params it receives are the gateway's stamped
+// params, so the node re-derives the caller's params from their typed struct and authorizes the
+// digest of that. The gateway therefore rejects, before authorizing, params that the nodes would
+// re-derive differently (unknown fields, a missing namespace, a request_id other than the request
+// ID). Otherwise the gateway would authorize a digest that no node can reproduce, and each node
+// would hold the request for the whole allowlist retry window.
 //
 // Owner-scoped limit checks are deferred until after authorization: each new owner tenant
 // registered by a scoped limiter spawns a persistent background updater, so checking them
@@ -64,7 +72,7 @@ func (p *GatewayVaultRequestProcessor) Close() error {
 	return p.validator.Close()
 }
 
-// ProcessRequest runs validate structure → authorize → prefix ID → stamp params → validate owner-scoped limits.
+// ProcessRequest runs validate structure → normalize params → authorize → prefix ID → stamp params → validate owner-scoped limits.
 // In node mode (stripOwnerPrefixForAuth), the envelope ID received from the gateway (owner::id)
 // is restored on error so error responses remain matchable by the gateway, which tracks active
 // requests by the exact envelope ID it forwarded to the nodes.
@@ -120,18 +128,17 @@ func (p *GatewayVaultRequestProcessor) processCreateSecretsRequest(
 	if err := json.Unmarshal(*req.Params, &createReq); err != nil {
 		return nil, InvalidVaultParamsError{Method: req.Method, Err: err}
 	}
-	if p.stripOwnerPrefixForAuth {
-		createReq.RequestId = req.ID
-		if err := marshalVaultParams(req, &createReq); err != nil {
-			return nil, InvalidVaultParamsError{Method: req.Method, Err: err}
-		}
-	} else {
-		createReq.RequestId = coalesceRequestID(createReq.RequestId, req.ID)
-	}
+	createReq.RequestId = req.ID
 
 	skipLabelValidation := publicKey == nil
 	if err := p.validator.ValidateEncryptedSecretsStructure(ctx, publicKey, createReq.RequestId, createReq.EncryptedSecrets, skipLabelValidation); err != nil {
 		return nil, p.validationError(req, err)
+	}
+
+	if err := p.normalizeParamsForAuth(req, &createReq, func() {
+		vaultutils.ApplyEncryptedSecretNamespaceDefaults(createReq.EncryptedSecrets)
+	}); err != nil {
+		return nil, InvalidVaultParamsError{Method: req.Method, Err: err}
 	}
 
 	authorized, err := p.authorizeAndStamp(ctx, req, func(prefixedRequestID string) error {
@@ -162,18 +169,17 @@ func (p *GatewayVaultRequestProcessor) processUpdateSecretsRequest(
 	if err := json.Unmarshal(*req.Params, &updateReq); err != nil {
 		return nil, InvalidVaultParamsError{Method: req.Method, Err: err}
 	}
-	if p.stripOwnerPrefixForAuth {
-		updateReq.RequestId = req.ID
-		if err := marshalVaultParams(req, &updateReq); err != nil {
-			return nil, InvalidVaultParamsError{Method: req.Method, Err: err}
-		}
-	} else {
-		updateReq.RequestId = coalesceRequestID(updateReq.RequestId, req.ID)
-	}
+	updateReq.RequestId = req.ID
 
 	skipLabelValidation := publicKey == nil
 	if err := p.validator.ValidateEncryptedSecretsStructure(ctx, publicKey, updateReq.RequestId, updateReq.EncryptedSecrets, skipLabelValidation); err != nil {
 		return nil, p.validationError(req, err)
+	}
+
+	if err := p.normalizeParamsForAuth(req, &updateReq, func() {
+		vaultutils.ApplyEncryptedSecretNamespaceDefaults(updateReq.EncryptedSecrets)
+	}); err != nil {
+		return nil, InvalidVaultParamsError{Method: req.Method, Err: err}
 	}
 
 	authorized, err := p.authorizeAndStamp(ctx, req, func(prefixedRequestID string) error {
@@ -203,17 +209,16 @@ func (p *GatewayVaultRequestProcessor) processDeleteSecretsRequest(
 	if err := json.Unmarshal(*req.Params, &deleteReq); err != nil {
 		return nil, InvalidVaultParamsError{Method: req.Method, Err: err}
 	}
-	if p.stripOwnerPrefixForAuth {
-		deleteReq.RequestId = req.ID
-		if err := marshalVaultParams(req, &deleteReq); err != nil {
-			return nil, InvalidVaultParamsError{Method: req.Method, Err: err}
-		}
-	} else {
-		deleteReq.RequestId = coalesceRequestID(deleteReq.RequestId, req.ID)
-	}
+	deleteReq.RequestId = req.ID
 
 	if err := p.validator.ValidateDeleteSecretsRequest(ctx, &deleteReq); err != nil {
 		return nil, p.validationError(req, err)
+	}
+
+	if err := p.normalizeParamsForAuth(req, &deleteReq, func() {
+		vaultutils.ApplySecretIdentifierNamespaceDefaults(deleteReq.Ids)
+	}); err != nil {
+		return nil, InvalidVaultParamsError{Method: req.Method, Err: err}
 	}
 
 	return p.authorizeAndStamp(ctx, req, func(prefixedRequestID string) error {
@@ -235,26 +240,62 @@ func (p *GatewayVaultRequestProcessor) processListSecretIdentifiersRequest(
 	if err := json.Unmarshal(*req.Params, &listReq); err != nil {
 		return nil, InvalidVaultParamsError{Method: req.Method, Err: err}
 	}
-	if p.stripOwnerPrefixForAuth {
-		listReq.RequestId = req.ID
-		if err := marshalVaultParams(req, &listReq); err != nil {
-			return nil, InvalidVaultParamsError{Method: req.Method, Err: err}
-		}
-	} else {
-		listReq.RequestId = coalesceRequestID(listReq.RequestId, req.ID)
-	}
+	listReq.RequestId = req.ID
 
 	if err := p.validator.ValidateListSecretIdentifiersRequest(ctx, &listReq); err != nil {
 		return nil, p.validationError(req, err)
 	}
 
+	if err := p.normalizeParamsForAuth(req, &listReq, func() {
+		applyListNamespaceDefault(&listReq)
+	}); err != nil {
+		return nil, InvalidVaultParamsError{Method: req.Method, Err: err}
+	}
+
 	return p.authorizeAndStamp(ctx, req, func(prefixedRequestID string) error {
 		listReq.RequestId = prefixedRequestID
-		if listReq.Namespace == "" {
-			listReq.Namespace = vaulttypes.DefaultNamespace
-		}
+		applyListNamespaceDefault(&listReq)
 		return marshalVaultParams(req, &listReq)
 	})
+}
+
+func applyListNamespaceDefault(listReq *vaultcommon.ListSecretIdentifiersRequest) {
+	if listReq.Namespace == "" {
+		listReq.Namespace = vaulttypes.DefaultNamespace
+	}
+}
+
+// errParamsNotNodeDerivable is returned when the gateway receives params that the Vault nodes
+// would re-derive differently, so the digest the gateway authorizes would never match theirs.
+var errParamsNotNodeDerivable = errors.New("params must be in canonical form: request_id equal to the request ID, every namespace set, and no fields the request type does not define")
+
+// normalizeParamsForAuth brings params to the form every Vault node authorizes: the typed struct,
+// with RequestId already set to the envelope ID by the caller. In node mode req.Params is rewritten
+// to that form. In gateway mode applyDefaults first fills in what the gateway stamps before
+// forwarding (default namespaces), and the request is rejected unless the caller sent exactly that
+// form. req.Params is left as sent, so the gateway still authorizes the caller's raw bytes.
+func (p *GatewayVaultRequestProcessor) normalizeParamsForAuth(req *jsonrpc.Request[json.RawMessage], params any, applyDefaults func()) error {
+	if p.stripOwnerPrefixForAuth {
+		return marshalVaultParams(req, params)
+	}
+	applyDefaults()
+
+	derived := *req
+	if err := marshalVaultParams(&derived, params); err != nil {
+		return err
+	}
+	sentDigest, err := req.Digest()
+	if err != nil {
+		return err
+	}
+	derivedDigest, err := derived.Digest()
+	if err != nil {
+		return err
+	}
+	if sentDigest != derivedDigest {
+		return errParamsNotNodeDerivable
+	}
+	return nil
 }
 
 func (p *GatewayVaultRequestProcessor) authorizeAndStamp(
@@ -318,13 +359,6 @@ func marshalVaultParams(req *jsonrpc.Request[json.RawMessage], params any) error
 	raw := json.RawMessage(marshaled)
 	req.Params = &raw
 	return nil
-}
-
-func coalesceRequestID(paramsRequestID, envelopeRequestID string) string {
-	if paramsRequestID != "" {
-		return paramsRequestID
-	}
-	return envelopeRequestID
 }
 
 // MasterPublicKeyFromSecretsService loads the vault master public key from a secrets service.
