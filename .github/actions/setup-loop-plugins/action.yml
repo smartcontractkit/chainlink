@@ -61,13 +61,19 @@ runs:
         restore-keys: |
           ${{ runner.os }}-${{ runner.arch }}-loopgocache-${{ inputs.cache-version }}-${{ steps.keys.outputs.goversion }}-
 
+    # Retry: proxy.golang.org sometimes resets HTTP/2 streams during go mod download.
     - name: Build public plugins
       if: ${{ steps.bin-cache.outputs.cache-hit != 'true' && inputs.install-public == 'true' }}
       shell: bash
       env:
         GOBIN: ${{ steps.keys.outputs.bin }}
         GOCACHE: ${{ steps.keys.outputs.gocache }}
-      run: make install-plugins-public
+      run: |
+        for i in 1 2 3; do
+          make install-plugins-public && exit 0
+          [ "$i" -lt 3 ] && sleep 15
+        done
+        exit 1
 
     - name: Build private plugins
       if: ${{ steps.bin-cache.outputs.cache-hit != 'true' && inputs.install-private == 'true' }}
@@ -75,7 +81,12 @@ runs:
       env:
         GOBIN: ${{ steps.keys.outputs.bin }}
         GOCACHE: ${{ steps.keys.outputs.gocache }}
-      run: make install-plugins-private
+      run: |
+        for i in 1 2 3; do
+          make install-plugins-private && exit 0
+          [ "$i" -lt 3 ] && sleep 15
+        done
+        exit 1
 
     - name: Build testing plugins
       if: ${{ steps.bin-cache.outputs.cache-hit != 'true' && inputs.install-testing == 'true' }}
@@ -83,7 +94,12 @@ runs:
       env:
         GOBIN: ${{ steps.keys.outputs.bin }}
         GOCACHE: ${{ steps.keys.outputs.gocache }}
-      run: make install-plugins-testing
+      run: |
+        for i in 1 2 3; do
+          make install-plugins-testing && exit 0
+          [ "$i" -lt 3 ] && sleep 15
+        done
+        exit 1
 
     - name: Save Binaries Cache (Tier 1)
       if: ${{ steps.bin-cache.outputs.cache-hit != 'true' }}
