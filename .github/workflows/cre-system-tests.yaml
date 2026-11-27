@@ -341,8 +341,21 @@ jobs:
           cleanup-on-error: "false"
           working-directory: core/scripts/cre/environment
 
+      # GATI occasionally returns an empty 200; one retry covers it.
       - name: Setup GitHub token using GATI
         id: github-token
+        continue-on-error: true
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
+      - name: Setup GitHub token using GATI (retry)
+        id: github-token-retry
+        if: ${{ steps.github-token.outcome == 'failure' }}
         uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
         with:
           aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
@@ -363,7 +376,7 @@ jobs:
           TOPOLOGY_NAME: ${{ matrix.tests.topology }}
           CRE_SETTINGS_SKIP_REVERT: "true" # CI jobs run on throwaway environments; local shared environments keep the revert
           CONFIDENTIAL_COMPUTE_ROOT: ${{ github.workspace }}/chainlink-confidential-compute
-          GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
+          GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || steps.github-token-retry.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
           PARALLEL_COUNT: "10"
           CRE_TEST_PARALLEL_ENABLED: "true"
         run: |

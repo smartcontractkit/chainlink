@@ -362,9 +362,22 @@ jobs:
           cleanup-on-error: "false"
           working-directory: core/scripts/cre/environment
 
+      # GATI occasionally returns an empty 200; one retry covers it.
       - name: Setup GitHub token using GATI
         id: github-token
         if: ${{ steps.baseline.outputs.skip != 'true' }}
+        continue-on-error: true
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
+      - name: Setup GitHub token using GATI (retry)
+        id: github-token-retry
+        if: ${{ steps.baseline.outputs.skip != 'true' && steps.github-token.outcome == 'failure' }}
         uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
         with:
           aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
@@ -385,7 +398,7 @@ jobs:
           RUN_QUARANTINED_TESTS: "true"
           TOPOLOGY_NAME: mixed-env
           CONFIDENTIAL_COMPUTE_ROOT: ${{ github.workspace }}/chainlink-confidential-compute
-          GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }}
+          GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || steps.github-token-retry.outputs.access-token || '' }}
           PARALLEL_COUNT: "10"
           CRE_TEST_PARALLEL_ENABLED: "true"
         run: |
