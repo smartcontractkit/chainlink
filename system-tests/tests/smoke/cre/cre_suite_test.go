@@ -616,3 +616,12 @@ func Test_CRE_V2_WorkflowLifecycleFailover(t *testing.T) {
 	)
 	ExecuteWorkflowLifecycleFailoverTest(t, testEnv)
 }
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_WorkflowLifecycleRingOCROverrides(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-ringocr-overrides.toml"),
+	)
+	ExecuteWorkflowLifecycleTest(t, testEnv)
+}
