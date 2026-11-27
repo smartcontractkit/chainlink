@@ -36,6 +36,9 @@ const (
 	defaultRetryMaxDelay  time.Duration = 5 * time.Second
 )
 
+// Bounds a complete metadata listing (including retries and pagination) or a signed artifact URL lookup, not artifact downloads.
+const defaultWorkflowSourceTimeout = 20 * time.Second
+
 // grpcClient is an interface for the GRPC client to enable testing.
 type grpcClient interface {
 	ListWorkflowMetadata(ctx context.Context, families []string, start, limit int64) ([]*pb.WorkflowMetadata, bool, error)
@@ -162,6 +165,9 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 // Transient errors (Unavailable, ResourceExhausted) are retried with exponential backoff.
 // Returns a synthetic head since GRPC sources don't have blockchain state.
 func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capabilities.DON) ([]WorkflowMetadataView, *commontypes.Head, error) {
+	ctx, cancel := context.WithTimeout(ctx, defaultWorkflowSourceTimeout)
+	defer cancel()
+
 	g.tryInitialize(ctx)
 
 	g.mu.RLock()
@@ -201,6 +207,11 @@ func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 
 		// Move to next page
 		start += g.pageSize
+	}
+
+	// Conversion may have timed out or been canceled.
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
 	}
 
 	g.lggr.Debugw("Loaded workflows from GRPC source",
