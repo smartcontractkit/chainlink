@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -2185,13 +2186,8 @@ func (h *orphanSweepFakeHandler) Handled() []Event {
 // dispatched to the handler. In these tests the engine registry is empty, so
 // every delete is sweep-generated.
 func (h *orphanSweepFakeHandler) OrphanDeletes() []string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
 	var ids []string
-	for _, evt := range h.handled {
-		if evt.Name != WorkflowDeleted {
-			continue
-		}
+	for _, evt := range h.DeleteEvents() {
 		if payload, ok := evt.Data.(WorkflowDeletedEvent); ok {
 			ids = append(ids, payload.WorkflowID.Hex())
 		}
@@ -2199,6 +2195,7 @@ func (h *orphanSweepFakeHandler) OrphanDeletes() []string {
 	return ids
 }
 
+// DeleteEvents returns every WorkflowDeleted event dispatched to the handler.
 func (h *orphanSweepFakeHandler) DeleteEvents() []Event {
 	var deleted []Event
 	for _, evt := range h.Handled() {
@@ -2510,7 +2507,7 @@ func Test_syncLoop_OrphanedSpecs(t *testing.T) {
 		deleted := h.DeleteEvents()
 		require.NotEmpty(t, deleted, "the paused shard-moved workflow must be swept")
 		for _, evt := range deleted {
-			assert.True(t, evt.ShardTransition)
+			assert.True(t, evt.ShardTransition, "the workflow is still paused on-chain, so the user must not see a delete")
 		}
 	})
 
@@ -2546,10 +2543,42 @@ func Test_syncLoop_OrphanedSpecs(t *testing.T) {
 			deleted := h.DeleteEvents()
 			require.NotEmpty(t, deleted, "the workflow owned by another shard must be swept")
 			for _, evt := range deleted {
-				assert.True(t, evt.ShardTransition)
+				assert.True(t, evt.ShardTransition, "the workflow is still in the registry, so the user must not see a delete")
 			}
 		})
 	}
+
+	t.Run("workflow listed only by an earlier source is marked as a shard transition", func(t *testing.T) {
+		t.Parallel()
+		movedID := wfTypes.WorkflowID{4}
+		otherID := wfTypes.WorkflowID{5}
+		movedMeta := liveMeta
+		movedMeta.WorkflowID = movedID
+		otherMeta := liveMeta
+		otherMeta.WorkflowID = otherID
+		otherMeta.Source = "source-b"
+		h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
+			{WorkflowID: movedID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+		}}
+		wr, tick := newSweepLoopRegistry(t, h, NewEngineRegistry(), []WorkflowMetadataSource{
+			&fakeMetadataSource{name: "source-a", metadata: []WorkflowMetadataView{movedMeta}},
+			&fakeMetadataSource{name: "source-b", metadata: []WorkflowMetadataView{otherMeta}},
+		},
+			WithShardEnabled(true),
+			WithShardOrchestratorClient(&mockShardMappingClient{mappings: map[string]uint32{
+				movedID.Hex(): 1, // owned by another shard
+				otherID.Hex(): 0, // stays on this shard
+			}}),
+		)
+
+		runOneSweepTick(t, wr, tick)
+
+		deleted := h.DeleteEvents()
+		require.NotEmpty(t, deleted, "the shard-moved workflow must be swept")
+		for _, evt := range deleted {
+			assert.True(t, evt.ShardTransition, "a later source does not list it, but the earlier one does")
+		}
+	})
 
 	t.Run("sweep of a workflow absent from every source is a real delete", func(t *testing.T) {
 		t.Parallel()
@@ -2568,6 +2597,83 @@ func Test_syncLoop_OrphanedSpecs(t *testing.T) {
 		for _, evt := range deleted {
 			assert.False(t, evt.ShardTransition, "a real delete must reach the user")
 		}
+	})
+}
+
+// specStoreFakeHandler drops the spec of a deleted workflow, as the real store does.
+type specStoreFakeHandler struct {
+	engineTrackingFakeHandler
+}
+
+func (h *specStoreFakeHandler) Handle(ctx context.Context, event Event) error {
+	err := h.engineTrackingFakeHandler.Handle(ctx, event)
+	if payload, ok := event.Data.(WorkflowDeletedEvent); ok && err == nil {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		h.specs = slices.DeleteFunc(h.specs, func(spec *job.WorkflowSpec) bool {
+			return spec.WorkflowID == payload.WorkflowID.Hex()
+		})
+	}
+	return err
+}
+
+func (h *specStoreFakeHandler) ListWorkflowSpecs(context.Context) ([]*job.WorkflowSpec, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return slices.Clone(h.specs), nil
+}
+
+// Test_syncLoop_DeleteIsReportedOnce checks that the orphan sweep does not report
+// the delete of a workflow again after the diff deleted its engine and spec in the same tick.
+func Test_syncLoop_DeleteIsReportedOnce(t *testing.T) {
+	t.Parallel()
+
+	newHandler := func(t *testing.T, id wfTypes.WorkflowID) (*specStoreFakeHandler, *EngineRegistry) {
+		t.Helper()
+		er := NewEngineRegistry()
+		require.NoError(t, er.Add(id, "source-a", &mockService{}))
+		h := &specStoreFakeHandler{engineTrackingFakeHandler: engineTrackingFakeHandler{er: er}}
+		h.specs = []*job.WorkflowSpec{{WorkflowID: id.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"}}
+		return h, er
+	}
+
+	t.Run("workflow deleted from the registry", func(t *testing.T) {
+		t.Parallel()
+		id := wfTypes.WorkflowID{7}
+		h, er := newHandler(t, id)
+		wr, tick := newSweepLoopRegistry(t, h, er, []WorkflowMetadataSource{
+			&fakeMetadataSource{name: "source-a"},
+		})
+
+		runOneSweepTick(t, wr, tick)
+
+		deleted := h.DeleteEvents()
+		require.Len(t, deleted, 1, "the delete is reported once")
+		assert.False(t, deleted[0].ShardTransition, "a real delete must reach the user")
+	})
+
+	t.Run("workflow moved to another shard", func(t *testing.T) {
+		t.Parallel()
+		id := wfTypes.WorkflowID{8}
+		h, er := newHandler(t, id)
+		wr, tick := newSweepLoopRegistry(t, h, er, []WorkflowMetadataSource{
+			&fakeMetadataSource{name: "source-a", metadata: []WorkflowMetadataView{{
+				WorkflowID:   id,
+				Owner:        []byte{0xaa, 0xbb, 0xcc, 0xdd},
+				Status:       WorkflowStatusActive,
+				WorkflowName: "moved-wf",
+				Source:       "source-a",
+			}}},
+		},
+			WithShardEnabled(true),
+			WithShardOrchestratorClient(&mockShardMappingClient{mappings: map[string]uint32{id.Hex(): 1}}),
+		)
+
+		runOneSweepTick(t, wr, tick)
+
+		deleted := h.DeleteEvents()
+		require.Len(t, deleted, 1, "the delete is reported once")
+		assert.True(t, deleted[0].ShardTransition, "the workflow is still active on-chain, so the user must not see a delete")
 	})
 }
 
