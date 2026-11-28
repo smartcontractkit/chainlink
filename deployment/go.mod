@@ -65,7 +65,7 @@ require (
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20261013132128-58831cfe6302
 	// Using a separate inline `require` here to avoid surrounding line changes
 	// creating potential merge conflicts.
-	github.com/smartcontractkit/chainlink/v2 v2.29.0
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20261126160323-bb0bf269731c
 	github.com/smartcontractkit/cld-changesets v0.9.1-0.20261006140245-39c6e0739a44
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad
 	github.com/smartcontractkit/libocr v0.0.0-20261124122528-7112dc75ac47
