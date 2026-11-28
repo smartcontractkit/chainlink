@@ -26,6 +26,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newCCIPCmd())
 	rootCmd.AddCommand(newRunnerCmd())
 	rootCmd.AddCommand(newMatrixCmd())
+	rootCmd.AddCommand(newCoverageCmd())
 
 	return rootCmd
 }

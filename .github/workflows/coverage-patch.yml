@@ -1,0 +1,60 @@
+name: Coverage Patch
+
+# Lightweight affected-package coverage for every PR, including drafts, forks,
+# and PRs without Go changes. Heavy full coverage is collected from nightly
+# develop runs and linked by the trusted publisher workflow.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: coverage-patch-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  patch:
+    name: PR diff coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          go-version-file: go.mod
+          go-module-file: go.sum
+          build-cache-version: coverage-patch
+          build-cache-write: always
+
+      - name: Setup CI CLI
+        uses: ./.github/actions/setup-ci-cli
+
+      - name: Test coverage tooling
+        run: go -C tools/ci test ./internal/coverage ./cmd
+
+      - name: Run affected-package coverage
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SHORT: "true"
+        run: ci coverage pr --out coverage-patch --test-timeout 10m --json
+
+      - name: Upload patch report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-patch-${{ github.event.pull_request.head.sha }}
+          path: coverage-patch
+          retention-days: 1
+          if-no-files-found: warn

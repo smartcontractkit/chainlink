@@ -1,0 +1,49 @@
+name: Coverage PR Publisher
+
+# Runs with a write token only after the unprivileged PR job finishes. It never
+# checks out or executes the PR head: a bounded JSON result is downloaded and
+# rendered by trusted code from the default branch.
+
+on:
+  workflow_run:
+    workflows: [Coverage Patch]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: coverage-patch-publish-${{ github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.id }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish PR coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted workflow source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup CI CLI
+        uses: ./.github/actions/setup-ci-cli
+
+      - name: Download structured PR result
+        uses: actions/download-artifact@v7
+        with:
+          name: coverage-patch-${{ github.event.workflow_run.head_sha }}
+          path: coverage-patch
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Publish sticky comment and artifact links
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || '' }}
+          PR_RUN_ID: ${{ github.event.workflow_run.id }}
+          PR_RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: ci coverage publish-pr --result coverage-patch/result.json --json

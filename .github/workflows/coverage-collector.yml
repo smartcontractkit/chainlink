@@ -1,0 +1,119 @@
+name: Coverage Collector
+
+# Heavy coverage belongs to scheduled develop testing. PRs receive the quick
+# diff report plus links to the latest nightly artifacts instead of waiting for
+# this collector. Manual dispatch remains available for recalculation.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Commit SHA whose coverage artifacts should be collected
+        required: true
+        type: string
+      base_sha:
+        description: Optional base SHA for patch coverage
+        required: false
+        type: string
+      wait_for_runs:
+        description: Wait for the other watched workflows for this SHA
+        required: false
+        default: true
+        type: boolean
+      update_badge:
+        description: Update the coverage badge branch from this manual run (develop only)
+        required: false
+        default: false
+        type: boolean
+  workflow_run:
+    workflows: [Integration Tests]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: coverage-nightly-${{ inputs.target_sha || github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    name: Collect nightly coverage
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'schedule' && github.event.workflow_run.head_branch == 'develop' && github.event.workflow_run.conclusion != 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout trusted collector source
+        uses: actions/checkout@v7
+        with:
+          # Never execute a workflow_dispatch target SHA on the default branch.
+          # The Go collector fetches target revisions as data only when needed
+          # for git diff; this also prevents default-branch cache poisoning.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup CI CLI
+        uses: ./.github/actions/setup-ci-cli
+
+      - name: Collect heavy coverage artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ inputs.target_sha || github.event.workflow_run.head_sha }}
+          BASE_SHA: ${{ inputs.base_sha || '' }}
+          WAIT_FOR_RUNS: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.wait_for_runs == true && 'true' || 'false') }}
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: ci coverage collect --out coverage-report --artifacts "$RUNNER_TEMP/coverage-artifacts" --wait "$WAIT_FOR_RUNS" --json
+
+      - name: Upload merged report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report-${{ inputs.target_sha || github.event.workflow_run.head_sha }}-${{ github.run_id }}
+          path: coverage-report
+          retention-days: 30
+          if-no-files-found: warn
+
+  badge:
+    name: Update coverage badge
+    needs: [collect]
+    if: |
+      (github.event_name == 'workflow_run' &&
+        github.event.workflow_run.event == 'schedule' &&
+        github.event.workflow_run.head_branch == 'develop' &&
+        github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' &&
+        inputs.update_badge &&
+        github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup CI CLI
+        uses: ./.github/actions/setup-ci-cli
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v7
+        with:
+          name: coverage-report-${{ github.event.workflow_run.head_sha || inputs.target_sha }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/coverage-report
+
+      - name: Generate badge and state
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT: coverage-report-${{ github.event.workflow_run.head_sha || inputs.target_sha }}-${{ github.run_id }}
+        run: ci coverage badge --report "$RUNNER_TEMP/coverage-report/any.json" --svg "$RUNNER_TEMP/coverage-badge.svg" --state "$RUNNER_TEMP/coverage-state.json" --sha "$SHA" --artifact "$ARTIFACT" --repository "$REPO" --run-url "$RUN_URL" --json
+
+      - name: Publish coverage branch
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
+        run: ci coverage publish-badge --worktree "$RUNNER_TEMP/coverage-branch" --svg "$RUNNER_TEMP/coverage-badge.svg" --state "$RUNNER_TEMP/coverage-state.json" --sha "$SHA" --json

@@ -19,11 +19,6 @@ echo "Running go_core_tests_integration for event: $GITHUB_EVENT_NAME"
 GO_TEST_FLAGS="-timeout=${GO_TEST_TIMEOUT}"
 if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
   GO_TEST_FLAGS="$GO_TEST_FLAGS -count=1"
-elif [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
-  # Experimental code to minimize size of this coverage report
-  # ALL_IMPORTS=$(go list -f '{{ join .Imports "\n" }}' $INTEGRATION_TEST_DIRS | sort -u)
-  # COVERPKG_DIRS=$(echo "$INTEGRATION_TEST_DIRS $ALL_IMPORTS" | grep "smartcontractkit/chainlink" | tr '\n' ',')
-  GO_TEST_FLAGS="$GO_TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"
 elif [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == 'merge_group' ]]; then
   RERUN_FLAGS=""
   if [[ "$TRUNK_AUTO_QUARANTINE" != "true" ]]; then
@@ -32,6 +27,16 @@ elif [[ "$GITHUB_EVENT_NAME" == 'pull_request' || "$GITHUB_EVENT_NAME" == 'merge
   else
     echo "TRUNK_AUTO_QUARANTINE enabled, gotestsum will not rerun failed tests"
   fi
+fi
+
+COVERAGE=${COVERAGE:-false}
+COVERAGE_ARGS=""
+if [[ "$COVERAGE" == "true" ]]; then
+  COVERAGE_DIR=${GOCOVERDIR:-$PWD/.covdata}
+  mkdir -p "$COVERAGE_DIR"
+  GO_TEST_FLAGS="$GO_TEST_FLAGS -covermode=atomic -cover -coverpkg=${COVERPKG:-./...}"
+  COVERAGE_ARGS="-args -test.gocoverdir=$COVERAGE_DIR"
+  echo "Coverage enabled: $COVERAGE_DIR"
 fi
 
 if [[ "$PRODUCE_JUNIT_XML" == "true" ]]; then
@@ -66,7 +71,7 @@ gotestsum \
   --jsonfile "$OUTPUT_FILE" \
   --post-run-command "sh -c \"echo; echo 'Slowest tests'; echo '----------------------------------------------'; echo; gotestsum tool slowest --num 20 --jsonfile ${OUTPUT_FILE}\"" \
   "$JUNIT_FLAG" \
-  -- --tags integration $GO_TEST_FLAGS $INTEGRATION_TEST_DIRS_SPACE_DELIMITED
+  -- --tags integration $GO_TEST_FLAGS $INTEGRATION_TEST_DIRS_SPACE_DELIMITED $COVERAGE_ARGS
 
 EXITCODE=${PIPESTATUS[0]}
 
